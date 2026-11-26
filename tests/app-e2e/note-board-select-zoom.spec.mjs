@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S69-33 (명진 11/24): "눌러서 노트에 붙기 x가아니라 드래그해서 붙이기만 남겨 / 보드에서 드래그 해서 노트 선택 가능하게"
+// S69-33 (사용자 11/24): "눌러서 노트에 붙기 x가아니라 드래그해서 붙이기만 남겨 / 보드에서 드래그 해서 노트 선택 가능하게"
 // · "+ - 누르면 현재 몇 %로 보는지 표시" · "그 숫자를 누르면 80% 90% 100% 110% 120% 이렇게 드롭다운이 떠" · "보드 전체 화면 보기 기능 추가"
 // · [전체] → 뜻이 드러나는 [맞추기]. 이름 붙은 보드 하나, 붙은 노트 2장(n1·n2)과 안 붙은 노트 1장(n3). 이름은 지어낸 것.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

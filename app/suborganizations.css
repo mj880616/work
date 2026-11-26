@@ -67,7 +67,7 @@
 .stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
 .stg-link.danger{color:var(--kptu-danger)}
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
-/* ORG-머리줄한줄(S70-53, 2026-11-25 명진 "담당조직+ 랑 ... 맨 첫째줄 우측에 넣어도 되자나?"): [+ 담당조직]·⋯(#soTeamTools)는 모든 폭에서
+/* ORG-머리줄한줄(S70-53, 2026-11-25 사용자 "담당조직+ 랑 ... 맨 첫째줄 우측에 넣어도 되자나?"): [+ 담당조직]·⋯(#soTeamTools)는 모든 폭에서
    화면 이름 줄 오른쪽 끝(폰·폴드 앱 머리 줄, PC 맨 위 줄 — 검색 칸 오른쪽)에 있다. 자리 옮기기는 공용 screen-tools.js 하나, 모양은 아래.
    화면 안 머리줄(#soTeamHead)은 읽기 프로그램용 제목만 남아 자리를 차지하지 않는다(전에는 목록 위 한 줄 또는 폰 머리 줄에 겹쳐 올리기).
    예전 자리: ORG-쟁의단계 다듬기 ③(폰 머리 줄 겹치기), MULTI-다른담당자맞춤 ②(PC 목록 위 한 줄), ORG-담당조직버튼자리폴드 ①(폴드 목록 위 한 줄). */
@@ -109,8 +109,8 @@
 /* 기준 칸(다섯 칸, 공용 .ds-seg 모양 그대로)이 있는 화면 메뉴만 넓힌다. 메뉴 자리는 그려진 폭으로 다시 잡는다(anchored-menu.js). */
 .so-team-menu:has(.so-quiet-seg){min-width:252px}
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
-/* MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼).
-   ORG-목록줄메뉴없음(S71-08, 2026-11-26 명진): 조직 줄 끝 ⋯는 지웠다(그 조직 메뉴는 상세 맨 위 ⋯). */
+/* MULTI-다른담당자맞춤 ①(2026-11-13 사용자 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼).
+   ORG-목록줄메뉴없음(S71-08, 2026-11-26 사용자): 조직 줄 끝 ⋯는 지웠다(그 조직 메뉴는 상세 맨 위 ⋯). */
 .so-team-tools .so-team-add{flex:none;white-space:nowrap}
 /* ORG-목록단계칩위치: 줄 끝은 [칩 ·8· › ·(⋯ 자리)· 끝]. 묶음 머리줄 [N곳 ·8· ⋯ ·8· 끝]과 같은 세로줄 — 줄 ⋯는 지웠어도(S71-08) 머리줄 ⋯ 자리만큼
    줄 오른쪽을 비워 › 와 'N곳' 끝을 맞춘다(--so-more-w, space-2 한 값). */
@@ -162,7 +162,7 @@ html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 #soOrganizationList .so-org-group.so-drop-before::before{top:-6px}
 #soOrganizationList .so-org-group.so-drop-after::before{bottom:-6px}
 #soOrganizationList .so-drop-into>.so-group-card{outline:2px solid var(--kptu-primary);outline-offset:-1px}
-/* PC(마우스)는 줄 ⋯처럼 묶음 ⋯·손잡이도 그 줄에 올렸을 때만 진하게(명진 화면은 거의 그대로). 키보드 초점·열린 메뉴는 늘 보임. */
+/* PC(마우스)는 줄 ⋯처럼 묶음 ⋯·손잡이도 그 줄에 올렸을 때만 진하게(사용자 화면은 거의 그대로). 키보드 초점·열린 메뉴는 늘 보임. */
 @media(hover:hover) and (min-width:761px){
   #soOrganizationList .so-group-more,#soOrganizationList .so-grip{opacity:.35}
   #soOrganizationList :is(.so-group-heading,.so-row):is(:hover,:focus-within) :is(.so-group-more,.so-grip),#soOrganizationList .so-group-more[aria-expanded="true"],#soOrganizationList.is-dragging .so-grip{opacity:1}
@@ -176,7 +176,7 @@ html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 #soOrganizationList.so-picking .so-pick{flex:none;width:16px;height:16px;margin:0 0 0 var(--kptu-space-3)}
 #soOrganizationList.so-picking .so-row.is-picked>.kptu-list-row{background:var(--kptu-surface-subtle)}
 #soOrganizationList.so-picking [data-so-grip]{visibility:hidden}
-/* 연락 없는 조직(org-quiet.js, 2026-11-24 명진 요청으로 홈에서 옮김): 조직 관리 목록 맨 아래 톤다운 경고색 한 줄. 펼치면 바로 아래 얇은 목록. */
+/* 연락 없는 조직(org-quiet.js, 2026-11-24 사용자 요청으로 홈에서 옮김): 조직 관리 목록 맨 아래 톤다운 경고색 한 줄. 펼치면 바로 아래 얇은 목록. */
 #soOrganizationList .so-quiet { min-width:0; }
 #soOrganizationList .so-quiet[hidden] { display:none; }
 #soOrganizationList .so-quiet .oq-line { display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 4px 2px 10px; border-radius:var(--kptu-radius-md); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); line-height:1.4; }

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { start, openFiles, phoneFolder, treeGo } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { pinch } from './helpers/pinch.mjs';
-// S51-20 FILES-폰보기끌기 ①(요청함 11/06 01:12 · 명진 01:14 'ㅇ', 시안 docs/design/mockups/files-phone-grid-two-drag.html ①):
+// S51-20 FILES-폰보기끌기 ①(요청함 11/06 01:12 · 사용자 01:14 'ㅇ', 시안 docs/design/mockups/files-phone-grid-two-drag.html ①):
 // [파일] 목록 위 두 손가락 벌리기 = 목록 → 격자 → 큰 격자, 오므리기 = 반대. 폰은 3칸·2칸, 폴드 펼침·PC 한 칸은 4칸·3칸.
 // 사진은 작은 그림(목록에서도), 폴더는 큰 폴더. 마지막 보기는 서버(view_prefs.files_look 기기 칸 · 폭 칸)에 기억해 다시 열어도 같다. 이름은 모두 지어낸 것이다.
 const root = page => page.locator('#filesRoot');
@@ -91,7 +91,7 @@ test('파일 폰 412: 나무에서 연 폴더 — 격자에서 오므리면 목�
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
   await pinch(page, list(page), 'in');
   await page.waitForTimeout(300);
-  // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락은 나무로 돌아가지 않는다 — 돌아가기는 [‹]·뒤로.
+  // UI-폴더줄크기(S69-99, 사용자 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 두 손가락은 나무로 돌아가지 않는다 — 돌아가기는 [‹]·뒤로.
   await expect(root(page)).toHaveAttribute('data-fx-pane', 'list');
   await expect(list(page)).toHaveAttribute('data-fx-look', 'list');
   await root(page).locator('[data-fx-list] [data-fx-up]').click();

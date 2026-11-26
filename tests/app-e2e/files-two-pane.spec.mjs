@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { screenFind } from './helpers/screen-find.mjs';
-// S49-30 FILES-통합 2-③ 두 칸(명진 결정 H-2, S50-33부터 폴드 기본은 한 칸 — 켜 둔 값만 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
+// S49-30 FILES-통합 2-③ 두 칸(사용자 결정 H-2, S50-33부터 폴드 기본은 한 칸 — 켜 둔 값만 두 칸, 시안 docs/design/files-unified-mockup.html ⑥ 폴드 884 · ⑧ PC 1440).
 // 칸마다 따로 위치·목록·정렬·고르기, 고르기 막대 '→ 오른쪽에 복사 / → 옮기기'(받을 곳 = 반대 칸), 칸 사이 끌어 놓기 → '복사 · 옮기기' 고르기, PC F5·F6·Tab.
 // 서버는 흉내(파일 이름은 모두 가짜). 두 칸 켬은 서버 view_prefs.files_two(기기 종류별 · 폭 종류별).
 const root = page => page.locator('#filesRoot');
@@ -86,7 +86,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   await root(page).locator('[data-fx-two]').click();
   await expect(root(page)).toHaveAttribute('data-fx-two', 'wide');
   await expect.poll(() => prefs.value?.files_two).toEqual({ pc: { wide: true } });
-  // S52-41 ③ FILES-두칸나무접기(명진 결정 (가)): 두 칸이면 나무는 접혀 있고 맨 위 ◫로 연다(서버 files_tree에 기억).
+  // S52-41 ③ FILES-두칸나무접기(사용자 결정 (가)): 두 칸이면 나무는 접혀 있고 맨 위 ◫로 연다(서버 files_tree에 기억).
   await expect(root(page).locator('[data-fx-tree]')).toBeHidden();
   const tog = root(page).locator('[data-fx-tree-tog]');
   await expect(tog).toHaveAttribute('aria-pressed', 'false');

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S49-27 FILES-통합 2-① 복사(명진 결정 H-3 같은 이름 한 번 묻기·번호 붙여 둘 다, H-4 200MB 넘으면 묻기, H-5 폴더째는 같은 저장소 안만).
+// S49-27 FILES-통합 2-① 복사(사용자 결정 H-3 같은 이름 한 번 묻기·번호 붙여 둘 다, H-4 200MB 넘으면 묻기, H-5 폴더째는 같은 저장소 안만).
 // 시안 docs/design/files-unified-mockup.html ③ 고르기 막대 · ④ 받을 곳 창(하단바 위, 최근 보낸 곳 칩) · ⑤ 아래 전송 줄. 서버는 흉내(파일 이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);

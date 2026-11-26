@@ -1,6 +1,6 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 // UI-PC자료실: PC 줄(B안 펼치기), 분류 여러 개 고르기(기본 회의 꺼짐), 폰 줄(M2 이름 다듬기), 거르기 줄.
-// LIB-위쪽한줄(11/09 명진 B·가안): 분류 칩 줄은 없고 위 줄 [분류: … ▾] 하나(공용 고르기 창), 묶기는 [폴더 ▾] 고르기 상자.
+// LIB-위쪽한줄(11/09 사용자 B·가안): 분류 칩 줄은 없고 위 줄 [분류: … ▾] 하나(공용 고르기 창), 묶기는 [폴더 ▾] 고르기 상자.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';

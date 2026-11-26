@@ -1,4 +1,4 @@
-// HOME-업무일지홈(2026-10-30 명진 시안 v2): 홈 = 업무일지. 요약 줄 숫자 규칙과 화면 순서·메뉴 정의를 본다(DOM 없음).
+// HOME-업무일지홈(2026-10-30 사용자 시안 v2): 홈 = 업무일지. 요약 줄 숫자 규칙과 화면 순서·메뉴 정의를 본다(DOM 없음).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -10,7 +10,7 @@ const read = rel => readFileSync(new URL('../app/' + rel, import.meta.url), 'utf
 test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 후보(요청 포함) + 가족 제안; 모르면 숨김', () => {
   assert.equal(forgetCount({update: 4, todo: 2}), 6);
   assert.equal(forgetCount({update: 0, todo: 5, family: 2}), 7);
-  // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다. 모르면 0.
+  // FORGET-소식합치기(사용자 '넣어'): 처리 전 소식도 센다. 모르면 0.
   assert.equal(forgetCount({update: 1, todo: 1, family: 1, news: 2}), 5);
   assert.equal(forgetCount({update: 1, todo: 1, news: null}), 2);
   assert.equal(forgetCount({update: null, todo: 1}), null);

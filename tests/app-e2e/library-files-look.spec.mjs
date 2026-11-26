@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { bootLibrary, libFolder, libDoc, SB } from './helpers/library-folder-server.mjs';
 import { libraryTopMenu } from './helpers/library-tree.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// UI-자료실파일모양(S69-85 ②, 명진 11/25 "파일 인터페이스로 자료실도 바꿔", 'ㅇ' 확정): 자료실 목록을 파일 목록 모양으로.
+// UI-자료실파일모양(S69-85 ②, 사용자 11/25 "파일 인터페이스로 자료실도 바꿔", 'ㅇ' 확정): 자료실 목록을 파일 목록 모양으로.
 // - 큰 체크칸 없음: 고른 줄은 파일과 같은 옅은 강조 바탕 + 왼쪽 진한 세로줄, 줄을 누르면 고르기·풀기(네모 칸은 보이지 않게 남아 키보드·화면 읽기 그대로).
 // - 주소 줄 하나: 폴더 안이면 위치 줄 끝에 작은 [드라이브 ↗]만, 저장 위치 줄은 따로 두지 않는다(살릴 것 7).
 // 이름은 모두 지어낸 것이다(가짜 서버).

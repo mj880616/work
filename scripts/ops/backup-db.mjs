@@ -1,5 +1,5 @@
 // OPS-DB백업: 매일 백업(.github/workflows/db-backup-daily.yml)과 월 1회 되살리기 시험(.github/workflows/db-restore-test.yml)이 부르는 도우미.
-// 설계: docs/design/db-backup.md, 명진 설정 순서: docs/ops-db-backup-setup.md.
+// 설계: docs/design/db-backup.md, 사용자 설정 순서: docs/ops-db-backup-setup.md.
 //
 // 공개 저장소의 Actions 로그는 공개로 본다. 그래서 이 스크립트는
 // - 비밀값·접속 주소·표 이름·행 값을 출력하지 않는다(설정 이름·개수·날짜·크기·해시 앞 16자·고정 문구만).

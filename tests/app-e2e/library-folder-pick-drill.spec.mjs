@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,press,openMove,movePicker,moveFolder} from './helpers/library-folder-server.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// LIB-폴더개수·LIB-폴더창들어가기(명진 11/24 18:04): ① 폴더 줄 개수는 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안, 0이면 '폴더 N'),
+// LIB-폴더개수·LIB-폴더창들어가기(사용자 11/24 18:04): ① 폴더 줄 개수는 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안, 0이면 '폴더 N'),
 // ② [폴더로 옮기기] 창(S69-62부터 [파일] '옮길 곳' 창)은 상위 폴더를 누르면 선택·펼치기만(옮기지 않음), [여기에 옮기기]를 눌러야 옮긴다. 닫으면 그대로.
 // 이름은 모두 지어낸 것이다.
 const KIDS=Array.from({length:13},(_,i)=>libFolder('o'+(i+1),null,{name:'가상 조직 '+(i+1),parent_id:'org',sort_order:1024*(i+1)}));

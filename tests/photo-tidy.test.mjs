@@ -158,7 +158,7 @@ test('같은 사진 묶음: 여러 번 저장(같은 크기·가로세로)·연�
   assert.equal(copy.keep, 'ph:21', '같은 사진은 카메라 폴더 것');
   assert.equal(g.length, 2);
   assert.deepEqual(dupTrashList(g).map(x => x.id).sort(), ['ph:20', 'ph:30']);
-  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31'], '명진이 선택한 것이 남는다');
+  assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:30']])).map(x => x.id), ['ph:31'], '사용자가 선택한 것이 남는다');
   assert.deepEqual(dupTrashList([burst], new Map([[burst.id, 'ph:99']])).map(x => x.id), ['ph:30'], '묶음 밖 id는 무시');
   assert.equal(defaultKeep([list[0]], 'copy'), 'ph:20');
 });

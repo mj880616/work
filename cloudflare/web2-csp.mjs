@@ -28,7 +28,7 @@ export const PC_DOOR = Object.freeze(['http://127.0.0.1:47620', 'http://127.0.0.
 // 내용이 바뀌면 tests/web2-csp.test.mjs가 실패하므로 값을 함께 고친다.
 export const THEME_BOOTSTRAP_HASH = "'sha256-b7PNGgw4xbtYSKK7nSnLN9sA0vY8I0CPIiMV/REfMUs='";
 
-// SEC-Web2CSP 보고 받는 곳(I-5, 2026-11-25 명진 결정 "추천대로"): 위반을 2주 모아 숫자로 본 뒤 막는 단계를 따로 정한다.
+// SEC-Web2CSP 보고 받는 곳(I-5, 2026-11-25 사용자 결정 "추천대로"): 위반을 2주 모아 숫자로 본 뒤 막는 단계를 따로 정한다.
 // 브라우저가 위반을 Edge 함수 csp-report로 보낸다. 그 함수는 지시어·막힌 주소의 출처(origin)·날짜·개수만 남긴다(쿼리·경로·토큰·사용자 id 없음).
 // report-to(새 방식, Reporting-Endpoints 머리와 짝)를 아는 브라우저는 report-uri를 무시하고, 모르는 브라우저(옛 Firefox 등)는 report-uri로 보낸다.
 export const CSP_REPORT_URL = `${SUPABASE_ORIGIN}/functions/v1/csp-report`;

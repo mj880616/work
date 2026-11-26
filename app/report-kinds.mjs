@@ -19,7 +19,7 @@ export const ONELINE_KIND='oneline';
 export const isOnelineReport=row=>row?.activity_kind===ONELINE_KIND;
 // DEFAULT_KIND = [회의] 칸 값: 칸이 비어 있는 옛 행·쓰기 창의 기본 칸·회의 전용 규칙(회의 이름 거르기·PC 3단)의 판정에 쓴다.
 export const DEFAULT_KIND='meeting';
-// MTG-기본종류전체(11/15 명진): 사업 보고 화면 거르기의 처음 값은 [종류 전체]. 회의 칸 판정(DEFAULT_KIND)과 나눠 둔다 —
+// MTG-기본종류전체(11/15 사용자): 사업 보고 화면 거르기의 처음 값은 [종류 전체]. 회의 칸 판정(DEFAULT_KIND)과 나눠 둔다 —
 // 이 값만 바꾸고 회의 전용 규칙은 '회의'를 고를 때 그대로 돈다.
 export const DEFAULT_CHIP=ALL_KINDS;
 const KNOWN=new Set(REPORT_KINDS.map(k=>k.value));

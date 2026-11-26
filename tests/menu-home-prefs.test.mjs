@@ -104,7 +104,7 @@ test('org_order·report_calendar 모양(S50-13 MULTI ②-3, DB 검사와 같음)
     {groups:[g('a', 'b')], hidden:[]}, {groups:[g('a', [1])], hidden:[]}, {groups:[g('a', [''])], hidden:[]}, {groups:[g('a', ['가'.repeat(61)])], hidden:[]}, {groups:[g('a', [['b']])], hidden:[]},
     {groups:[g('a\nb', ['b'])], hidden:[]}, {groups:[], hidden:['a\tb']}, {groups:[], hidden:[1]}, {groups:[], hidden:['']}])
     assert.equal(validValue('org_order', v), false, JSON.stringify(v).slice(0, 60));
-  for (const v of ['공공운수노조', '가'.repeat(60), 'a b']) assert.equal(validValue('report_calendar', v), true, v);
+  for (const v of ['A노조', '가'.repeat(60), 'a b']) assert.equal(validValue('report_calendar', v), true, v);
   for (const v of ['', 1, null, ['a'], '가'.repeat(61), 'a\nb']) assert.equal(validValue('report_calendar', v), false, JSON.stringify(v));
   // 옛 판 화면이 모르는 칸을 버리지 않게: 새 두 칸은 다른 칸을 저장할 때 그대로 남는다.
   const kept = applyChanges({org_order:{groups:[g('가', ['나'])], hidden:[]}, report_calendar:'달력', theme:'navy'}, {theme:'red'});

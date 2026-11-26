@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
 import CASES from './helpers/menu-find/index.mjs';
-// S70-57 UI-검색창하나로 마무리(명진 11/26 06:12 폴드 펼침 사진 10장 "전체 검색은 홈에만 있으면 됨 / 메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만"):
+// S70-57 UI-검색창하나로 마무리(사용자 11/26 06:12 폴드 펼침 사진 10장 "전체 검색은 홈에만 있으면 됨 / 메뉴별 검색창은 그 메뉴에서 찾기로 통일 / 검색창은 하나로만"):
 // 화면 표 하나(helpers/menu-find/index.mjs — 메뉴 화면마다 한 줄)로 모든 메뉴 화면을 같은 규칙으로 본다.
 //  ① 홈만 '전체 검색' ② 다른 메뉴 화면은 맨 위 칸 하나 = '<메뉴>에서 찾기'(보이는 검색 칸이 정확히 1개, '전체 검색' 없음)
 //  ③ 그 칸에 치면 그 화면 목록이 걸러진다. 폭: PC 1280 · 폴드 펼침 884(PC 틀) · 폴드 펼침 폰 틀 690 · 폰 390. 서버는 흉내, 이름은 지어낸 것.

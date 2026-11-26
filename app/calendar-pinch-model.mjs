@@ -1,4 +1,4 @@
-// S52-11 CAL-폰달력핀치(명진 11/07 10:59·11:05, 시안 docs/design/mockups/calendar-phone-pinch.html): 폰 월 보기 달력 칸 위
+// S52-11 CAL-폰달력핀치(사용자 11/07 10:59·11:05, 시안 docs/design/mockups/calendar-phone-pinch.html): 폰 월 보기 달력 칸 위
 // 두 손가락 벌리기 = 칸이 가로·세로 같은 비율로 함께 커짐(지도 확대처럼). 이 파일은 계산만 한다(화면·서버 없음, node --test로 시험).
 // 화면(calendar-month-view.js)이 손가락 거리·화면 자리를 넘기고, 여기서 정한 배율로 CSS 변수 --cmv-zoom 하나만 바꾼다.
 // 공용 두 손가락 부품(folder-pinch.js bindFolderPinch·photo-grid-size.js attachPinch)은 '한 번 넘으면 한 단계'만 알려 주므로

@@ -1,4 +1,4 @@
-// S51-28 LIB-화면정리 ②(요청 11/06 01:26, 명진 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): '목록 고치기' 창 공용 부품 — 줄 모양(HTML만, 순수 함수).
+// S51-28 LIB-화면정리 ②(요청 11/06 01:26, 사용자 'ㅇㅋ', 시안 docs/design/mockups/library-category-edit.html): '목록 고치기' 창 공용 부품 — 줄 모양(HTML만, 순수 함수).
 // 모양 하나: 맨 위 '새 ○○ 이름 [추가]' 칸 → 줄마다 ⠿ 손잡이 · 이름(누르면 그 자리 고침, [완료]·엔터) · 수 · ⋯(작은 메뉴). 고정 줄은 자물쇠 그림 + '고정' 표시만.
 // 큰 버튼·빨강·긴 안내문은 없다(지우기는 ⋯ 메뉴의 보통 글자, 누르면 한 번 묻기 — UI-지우기빨강빼기). 끌기·메뉴·창 자리는 list-edit.js, 모양은 list-edit.css.
 // 쓰는 곳: 자료실 분류 고치기(document-category-editor.js), 담당조직 쟁의 단계 고치기(org-dispute-stage-ui.js).

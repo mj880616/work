@@ -18,7 +18,7 @@ test('공용 규칙 한 곳: 아이콘 줄은 같은 너비 칸·최대 120px, �
   assert.match(css, /\.kptu-actbar\{display:flex;align-items:center;justify-content:space-evenly;/);
   assert.match(css, /#appView \.kptu-actbar>button\.kptu-act\{[^}]*flex:1 1 0;min-width:min-content;max-width:120px;[^}]*word-break:keep-all/);
   assert.doesNotMatch(css, /\.kptu-act-danger[^{]*\{[^}]*color:var\(--kptu-danger\)/, 'UI-지우기빨강빼기: 줄의 지우기도 다른 버튼과 같은 색');
-  // S69(명진 11/24 '양쪽 정렬이라 이상함. 왼쪽 정렬'): 글자 줄은 왼쪽부터 촘촘히 — 줄 폭에 퍼뜨리는 배치(grid 1fr·space-between·space-evenly·width:100%) 없음.
+  // S69(사용자 11/24 '양쪽 정렬이라 이상함. 왼쪽 정렬'): 글자 줄은 왼쪽부터 촘촘히 — 줄 폭에 퍼뜨리는 배치(grid 1fr·space-between·space-evenly·width:100%) 없음.
   assert.match(css, /\.kptu-actbar-text\{display:flex;flex-wrap:wrap;justify-content:flex-start;/);
   assert.match(css, /#appView \.kptu-actbar-text>button\.kptu-act\{[^}]*flex:0 1 auto;width:auto;/);
   const textRule = css.match(/\.kptu-actbar-text\{[^}]*\}/)[0];

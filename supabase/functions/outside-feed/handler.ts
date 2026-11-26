@@ -79,9 +79,9 @@ export const READ_NOW_MAX_NEW = 5;                 // 바로 읽기: 새 글 상
 export const MAX_BODY_BYTES = 4096;
 export { TRANSLATE_DAILY }; // [번역] 하루 횟수(뉴스와 합계, _shared/feed-translate.ts)
 export const MIN_BODY_CHARS = 60;                  // 이보다 짧은 본문은 본문이 없는 것으로 본다(글쓴이·등록일 줄만 뽑힌 경우 등) — AI에 보내지 않음
-// robots.txt 예외(명진 결정 11/01 16:49): 이 목록에 있고 카탈로그에도 robotsException이 적힌 단체만 robots.txt를 읽지 않는다.
-// 지금은 공공운수노조(kptu, 명진 결정 11/01 16:49)와 노동당(laborparty, 명진 결정 11/01 21:08) 두 곳뿐이다.
-// 늘리려면 명진 결정 + 이 줄·카탈로그·시험을 함께 고치는 PR이 필요하다(시험이 ['kptu','laborparty']로 고정).
+// robots.txt 예외(사용자 결정 11/01 16:49): 이 목록에 있고 카탈로그에도 robotsException이 적힌 단체만 robots.txt를 읽지 않는다.
+// 지금은 공공운수노조(kptu, 사용자 결정 11/01 16:49)와 노동당(laborparty, 사용자 결정 11/01 21:08) 두 곳뿐이다.
+// 늘리려면 사용자 결정 + 이 줄·카탈로그·시험을 함께 고치는 PR이 필요하다(시험이 ['kptu','laborparty']로 고정).
 // 예외 단체는 예약 실행 때만 읽고(바로 읽기 없음) 목록 한 쪽 + 새 글만 읽는다(다른 단체와 같은 LIST_LIMIT·MAX_NEW_PER_RUN·GAP_MS).
 export const ROBOTS_EXEMPT_KEYS: readonly string[] = Object.freeze(["kptu", "laborparty"]);
 export const robotsExempt = (source: OutsideSource) => ROBOTS_EXEMPT_KEYS.includes(source.key) && typeof source.robotsException === "string" && source.robotsException.length > 0;
@@ -169,7 +169,7 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
 
 export type Got = { ok: true; text: string; url: string } | { ok: false; code: string };
 // opts.skipRobots(S68-43): 이미 받아 둔 글 한 쪽을 다시 읽을 때만(예약 robots 다시 읽기·화면 [원문 다시 가져오기]) robots.txt를 보지 않는다.
-//   S68-25(명진 결정 2026-11-22 '기사 원문 한 쪽은 robots.txt를 보지 않는다')와 같은 선택. 목록·피드·새 글 읽기는 지금처럼 robots를 지킨다(예외 단체 목록 그대로).
+//   S68-25(사용자 결정 2026-11-22 '기사 원문 한 쪽은 robots.txt를 보지 않는다')와 같은 선택. 목록·피드·새 글 읽기는 지금처럼 robots를 지킨다(예외 단체 목록 그대로).
 export type ReadOpts = { skipRobots?: boolean };
 export type Reader = { get: (source: OutsideSource, url: string, wantFeed: boolean, opts?: ReadOpts) => Promise<Got> };
 
@@ -591,7 +591,7 @@ async function saveBody(db: Db, log: Log, source: OutsideSource, ex: Extracted, 
 // 문장 표(app_outside_sentences)·요약은 건드리지 않는다(화면 '원문 전체'는 블록 줄을 읽음). 제목은 줄임표로 잘린 것만 글 쪽 제목으로 고친다(S67-19, refillTitle). 못 읽은 줄에도 규칙 이름을 적어 같은 판의 영구 실패를 매번 고르지 않는다.
 // S61-44(NEWS-원문표기깨짐2 옛 글): state=ok여도 적힌 판(키@판)이 지금 판과 다르면 다시 뽑는다 — 추출·글자 규칙을 고치고 카탈로그 판을 올리면 옛 글도 고쳐진다.
 //   판이 비어 있는(null) ok 줄은 고르지 않는다(판 칸 이전 줄을 한꺼번에 다시 읽지 않게). 옛 ok 줄은 새로 뽑은 것도 ok일 때만 덮는다(못 읽으면 그대로 둠).
-// robots 예외 단체(공공운수노조·노동당): 하루 3번 새 글만 읽는다는 결정(11/01, 부하 최소)은 그대로 두고, 명진 결정 11/13 17:59(A안)에 따라
+// robots 예외 단체(공공운수노조·노동당): 하루 3번 새 글만 읽는다는 결정(11/01, 부하 최소)은 그대로 두고, 사용자 결정 11/13 17:59(A안)에 따라
 //   '판이 오른 글'만 한 번 다시 읽는다 — 블록 없음·timeout 줄은 고르지 않고, 한 번 부를 때 ROBOTS_EXEMPT_REFILL_MAX개까지, 요청 사이 ROBOTS_EXEMPT_REFILL_GAP_MS.
 //   다시 뽑힌 줄에는 지금 판이 적히므로 같은 글을 두 번 읽지 않는다(못 읽어 그대로 둔 줄만 다음 부르기에 다시 고름).
 export const REFILL_DAYS = 30;
@@ -684,7 +684,7 @@ async function refillSource(db: Db, reader: Reader, log: Log, source: OutsideSou
 }
 
 // ---- robots 때문에 원문이 빈 지난 글 다시 읽기(S68-43) ---------------------------------------------------------------------
-// 명진 요청 11/23 "옛 보관 글 원문 다시 불러오기". S68-25(2026-11-22)로 기사 원문 한 쪽은 robots.txt를 보지 않게 됐지만, 그 전에 robots로 막혀
+// 사용자 요청 11/23 "옛 보관 글 원문 다시 불러오기". S68-25(2026-11-22)로 기사 원문 한 쪽은 robots.txt를 보지 않게 됐지만, 그 전에 robots로 막혀
 // 본문 줄이 '실패 · robots'로 남은 사회운동 글은 다시 읽는 길이 없었다(다시 뽑기는 같은 판의 영구 실패를 고르지 않음).
 // - 예약 수집(run, 단체 하나) 끝에 그 단체의 robots 실패 글을 새 것부터 주소 ROBOTS_RETRY_PER_RUN개까지(받은 지 ROBOTS_RETRY_DAYS일 안, 2년 지난 글 빼고)
 //   글 쪽을 robots.txt 없이 한 번 읽는다. 같은 reader라 요청 사이 GAP_MS·시간 예산·크기 상한·허용 호스트 그대로.
@@ -1109,7 +1109,7 @@ export function createOutsideFeedHandler(deps: OutsideFeedDeps) {
         if (!source) throw new Fail(400, "UNKNOWN_SOURCE");
         const mine = await db.get(`app_outside_sources?workspace_id=eq.${who.workspaceId}&source_key=eq.${source.key}&select=enabled,last_ok_at&limit=1`);
         if (mine[0]?.enabled !== true) throw new Fail(409, "NOT_ENABLED");
-        // robots 예외 단체(공공운수노조·노동당)는 하루 3번 예약 때만 읽는다(명진 결정 11/01 16:49·21:08: 부하 최소).
+        // robots 예외 단체(공공운수노조·노동당)는 하루 3번 예약 때만 읽는다(사용자 결정 11/01 16:49·21:08: 부하 최소).
         if (robotsExempt(source)) return json({ ok: true, source: source.key, status: "scheduled_only", inserted: 0 });
         const lastOk = Date.parse(String(mine[0]?.last_ok_at ?? ""));
         if (Number.isFinite(lastOk) && nowMs - lastOk < READ_NOW_COOLDOWN_MS) return json({ ok: true, source: source.key, status: "recent", inserted: 0 });

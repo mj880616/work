@@ -46,7 +46,7 @@ export function dropIndexGrid(rects, x, y) {
 //         문서 단계 위임 클릭(loader-v2의 [data-view] 화면 열기)이 root보다 먼저 받으면 끌었다 놓은 줄의 화면이 열려 버리기 때문이다. 부품이 다시 붙는 곳은 destroy로 그 창 쪽 귀를 뗀다.
 // S69-27 끄는 모습 보이기 — 다른 사용처는 기본값 그대로(조각 없음):
 //  ghost(el, id) -> 글자 | null : 잡은 동안 마우스·손가락을 따라오는 반투명 조각(공용 drag-ghost.js)에 쓸 글자. 놓거나 취소하면 사라진다.
-// S70-04 UI-순서는끌기로(2026-11-25 명진 "위로 아래로 버튼 불편함, 드래그로 다 통일"): 눈에 보이는 [위로][아래로] 단추 대신 키보드 길.
+// S70-04 UI-순서는끌기로(2026-11-25 사용자 "위로 아래로 버튼 불편함, 드래그로 다 통일"): 눈에 보이는 [위로][아래로] 단추 대신 키보드 길.
 //  altStep: true → 줄 안(줄 자체나 줄 안 단추)에 초점이 있을 때 Alt+↑ / Alt+↓로 onStep(id, -1 | 1). 손잡이가 없는 whole 모드 목록용. 다른 사용처는 기본값 그대로.
 export function mountReorder(root, {ghost = null, altStep = false, listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y', whole = false, zones = null, onHover = null, onHold = null, canHold = null, wholeExcept = '.basket-row-more,.nx-more', resolve = null, links = false, early = false} = {}) {
   let drag = null, touch = null, marker = null;

@@ -13,12 +13,12 @@ import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
 import { baseState, mockApp, signIn } from './helpers/filter-chip-fixture.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
 import { openMeetingResult } from './helpers/meeting-open.mjs';
-// UI-스와이프메뉴만(S70-60, 명진 2026-11-26 07:29 "스와이프 작동할 때 왼쪽으로 스와이프를 끝까지 한다고 해서 숨겨지면 안 돼.
+// UI-스와이프메뉴만(S70-60, 사용자 2026-11-26 07:29 "스와이프 작동할 때 왼쪽으로 스와이프를 끝까지 한다고 해서 숨겨지면 안 돼.
 // 스와이프 메뉴가 여러 개 있기 때문에 일단 메뉴가 펼쳐지고 스와이프 작동은 그 메뉴를 눌렀을 때 돼야 돼"):
 // 공용 줄 밀기(app/row-swipe.js)를 쓰는 모든 폰 목록에서, 줄을 왼쪽·오른쪽으로 끝까지 밀었다 놓으면 칸(메뉴)만 펼쳐지고
 // 어떤 일도 하지 않는다(숨기기·삭제·저장·보관·선택 시작 없음, 서버 쓰기 요청 없음). 일은 펼쳐진 칸을 눌렀을 때만 한다.
 // 기준표: docs/design/standard-interactions.md 8절 P5·W1·W2. 새 화면에 줄 밀기를 붙이면 아래 SCREENS 표에 한 줄 더한다.
-// UI-밀기메뉴통일(S70-65, 명진 11/26 08:16 가안 [주 동작][수정][숨기기·삭제]): 화면마다 왼쪽 밀기 칸 이름·순서(labels)가 표와 같은지,
+// UI-밀기메뉴통일(S70-65, 사용자 11/26 08:16 가안 [주 동작][수정][숨기기·삭제]): 화면마다 왼쪽 밀기 칸 이름·순서(labels)가 표와 같은지,
 // [수정]·[이름 바꾸기]·[할 일로] 같은 가운데 칸(mid)을 누르면 ⋯ 메뉴와 같은 일이 되는지도 본다(읽을 거리 기사 줄·저장한 글은 S70-62).
 // 오른쪽 밀기는 그 줄이 바로 골라지는 고르기(S70-64) — 칸이 열려 남지 않고, 서버 쓰기도 없다.
 // (휴지통 줄은 project-system-v3.spec.mjs 'TRASH 줄 밀기'가 같은 규칙을 본다 — 그 화면 흉내 서버가 그 파일 안에만 있다.)

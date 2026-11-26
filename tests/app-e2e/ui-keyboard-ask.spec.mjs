@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-// S67-54 UI-자판이름칸가림(11/20 명진 요청): 노트 > 폴더 목록 아래쪽 폴더 ⋯ → [이름 바꾸기]로 뜨는 작은 글 입력창(.kptu-ask, app/small-notice.js)이
+// S67-54 UI-자판이름칸가림(11/20 사용자 요청): 노트 > 폴더 목록 아래쪽 폴더 ⋯ → [이름 바꾸기]로 뜨는 작은 글 입력창(.kptu-ask, app/small-notice.js)이
 // 자판에 가리지 않는다. 자판은 칸에 초점이 간 뒤에 올라오므로, 창은 보이는 화면(visualViewport)이 바뀔 때 자리를 다시 잡는다(app/anchored-popup.js onViewportChange).
 // 자판은 두 가지로 흉내 낸다: ① 화면 위만 덮는 자판(보이는 화면 높이만 줄어듦, 삼성 인터넷·크롬) ② 화면 높이가 줄어드는 자판(폰 앱 adjustResize).
 // 같은 공용 창을 쓰는 새 폴더 만들기도 함께 본다. PC 1280은 예전처럼 누른 자리 바로 아래. 폴더 이름은 지어낸 것.

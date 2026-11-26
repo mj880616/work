@@ -468,7 +468,7 @@ function editBasketSummary(b){const id=current?.id,epoch=detailEpoch,body=$('#ps
  basketEditor.edit(b.id)}
 async function disconnectBasket(b){const id=current?.id,epoch=detailEpoch;if(!id||basketActing.has(b.id))return;if($(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"] [data-link-summary-form]`)){toast('요약 수정을 먼저 저장하거나 취소해 주세요.');return}const button=()=>$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"] .ps3-rec-more`);basketActing.add(b.id);if(button())button().disabled=true;let result;try{result=await disconnectWithUndo(b,{name:current.name,rt,isCurrent:()=>basketCurrent(id,epoch)})}catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'}}finally{basketActing.delete(b.id)}if(!basketCurrent(id,epoch)||result.status==='stale')return;const row=$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"]`);if(['deleted','missing'].includes(result.status)){const at=row?[...row.parentElement.children].indexOf(row):0;detail.basketLinks=(detail.basketLinks||[]).filter(x=>x.id!==b.id);paintRecords();const rows=[...($('#ps3Body [data-ps3-records]')?.children||[])];rows[Math.min(at,rows.length-1)]?.querySelector?.('a,button')?.focus();return}if(button()){button().disabled=false;button().focus()}if(result.status!=='cancelled'&&result.message)toast(result.message)}
 
-// ORG-연결노트삭제(2026-11-12 명진 지시): 노트 연결 줄 ⋯ [원문 삭제] — 조직 기록 창과 같은 길(basket-record-delete.js deleteRecordNote: 노트 화면 [삭제]의
+// ORG-연결노트삭제(2026-11-12 사용자 지시): 노트 연결 줄 ⋯ [원문 삭제] — 조직 기록 창과 같은 길(basket-record-delete.js deleteRecordNote: 노트 화면 [삭제]의
 // 휴지통 길 그대로, 한 번 묻고 '노트를 지웠어요 · 되돌리기'). 휴지통에 간 노트의 줄은 모두 빠지고, 되돌리면 공용 알림(basket-links-changed)으로 다시 읽는다.
 async function deleteBasketNote(b){const id=current?.id,epoch=detailEpoch;if(!id||basketActing.has(b.id))return;const same=(detail?.basketLinks||[]).filter(x=>x.note_id===b.note_id);if(same.some(x=>$(`#ps3Body [data-basket-link="${CSS.escape(x.id)}"] [data-link-summary-form]`))){toast('요약 수정을 먼저 저장하거나 취소해 주세요.');return}const button=()=>$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"] .ps3-rec-more`);basketActing.add(b.id);if(button())button().disabled=true;let result;try{result=await deleteRecordNote(b.note_id,{rt,isCurrent:()=>basketCurrent(id,epoch),anchor:button()})}catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'}}finally{basketActing.delete(b.id)}if(!basketCurrent(id,epoch)||result.status==='stale')return;const row=$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"]`);if(['deleted','missing'].includes(result.status)){const at=row?[...row.parentElement.children].indexOf(row):0;detail.basketLinks=(detail.basketLinks||[]).filter(x=>x.note_id!==b.note_id);paintRecords();const badge=$('#ps3Body [data-ps3-record-count]');if(badge)badge.textContent=recordCount(detail);const rows=[...($('#ps3Body [data-ps3-records]')?.children||[])];rows[Math.min(at,rows.length-1)]?.querySelector?.('a,button')?.focus();return}if(button()){button().disabled=false;button().focus()}if(result.status!=='cancelled'&&result.message)toast(result.message)}
 
@@ -922,7 +922,7 @@ function paintTrashList(box){
  box.innerHTML=(trash.rows.length?`<div class="ps3-plist">${trash.rows.map(trashRowHtml).join('')}</div>`:empty())+note
 }
 // S70-65 UI-밀기메뉴통일: 휴지통은 [되살리기][영구 삭제] 두 칸 그대로, 이름은 용어 기준표대로 '되살리기'(줄 끝 단추·선택 막대도 같은 이름).
-// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 휴지통 줄 — 왼쪽으로 밀면 [되살리기](줄 끝 단추와 같은 restoreFromTrash, 끝까지 밀어도 칸만 — S70-60)·[영구 삭제]
+// UI-줄밀기 Raindrop식(S68-26 2/2, 사용자 11/22 21:31): 폰 휴지통 줄 — 왼쪽으로 밀면 [되살리기](줄 끝 단추와 같은 restoreFromTrash, 끝까지 밀어도 칸만 — S70-60)·[영구 삭제]
 // (⋯ [영구 삭제]와 같은 purgeFromTrash, 되돌릴 수 없어 끝까지 밀어도 칸만 열리고 누르면 한 번 묻는다). 상위가 휴지통에 있는 줄은 [영구 삭제]만.
 // 오른쪽으로 밀면 그 줄이 골라져 'n개 선택됨 · [되살리기]'(하나씩 차례로 같은 길). 영구 삭제는 줄마다 묻는 길이라 여러 개 선택에 두지 않는다.
 let trashSwipe=null;
@@ -1022,7 +1022,7 @@ function reportClick(e){
   const un=e.target.closest?.('#ps3Body [data-ps3-report-unlink]');if(un){e.preventDefault();un.closest('details')?.removeAttribute('open');void reportUnlink(un.dataset.ps3ReportUnlink)}
 }
 window.addEventListener('kptu:meetings-changed',()=>{void repaintReports()});
-// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 '사업 관리 진행 기록 = [수정][삭제] 두 칸'): 폰 진행 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 그 줄 ⋯ 메뉴와 같은 길.
+// S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 '사업 관리 진행 기록 = [수정][삭제] 두 칸'): 폰 진행 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 그 줄 ⋯ 메뉴와 같은 길.
 // 진행 기록 줄은 잊지 말기·노트에서 연결된 줄뿐이라(직접 쓰는 칸 없음, MTG-프로젝트합치기) [수정] = ⋯ [요약 수정](원문은 그대로),
 // [삭제] = 노트 줄은 ⋯ [원문 삭제](한 번 묻고 휴지통 + 되돌리기), 업데이트 줄은 원문을 지우는 길이 없어 ⋯ [연결 해제](5초 되돌리기, 원문 그대로)라 칸 이름도 '연결 해제'.
 // 끝까지 밀어도 칸만. 고칠 수 있는 사업일 때만. 진행 기록에는 여러 개 고르기가 없어 오른쪽 밀기는 없다.

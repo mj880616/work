@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S68-43(명진 요청 11/23 '옛 보관 글 원문 다시 불러오기'): 읽을 거리 사회운동 글 상세에서 원문 칸이 '사이트가 자동 읽기를 막아 둠'(예전 robots 실패)이면
+// S68-43(사용자 요청 11/23 '옛 보관 글 원문 다시 불러오기'): 읽을 거리 사회운동 글 상세에서 원문 칸이 '사이트가 자동 읽기를 막아 둠'(예전 robots 실패)이면
 // 까닭 줄 끝에 [원문 다시 가져오기]. 누르면 outside-feed reread(글 id만)를 한 번 부르고 원문 줄을 다시 읽어 본문을 그린다.
 // 본문이 없는 동안 요약 칸은 '원문을 가져오면 요약해요 · 까닭' 한 줄(서버 no_material — 제목만으로 만든 요약·'material' 같은 내부 말을 보이지 않음),
 // 본문이 생기면 요약·시사점을 다시 만든다. 서버는 흉내 낸다. 글은 모두 가상.
@@ -103,7 +103,7 @@ test('읽을 거리 상세: 다시 가져오기 하루 한도 → 까닭 한 줄
   expect(errors.filter(e => !/429/.test(e))).toEqual([]);
 });
 
-// S69-02(명진 11/24): 사회운동 글의 앞부분(lead)에도 까닭 줄 단추 — 누르면 서버 reread에 again(더 긴 전문일 때만 바꿈). 열기만으로는 읽지 않는다.
+// S69-02(사용자 11/24): 사회운동 글의 앞부분(lead)에도 까닭 줄 단추 — 누르면 서버 reread에 again(더 긴 전문일 때만 바꿈). 열기만으로는 읽지 않는다.
 for (const reason of ['no_body', 'paywall']) {
   test(`읽을 거리 상세: 사회운동 글의 앞부분(lead·${reason})에도 단추, 누르면 again으로 한 번`, async ({ page }) => {
     test.setTimeout(60000);

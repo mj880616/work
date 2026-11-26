@@ -16,7 +16,7 @@ const doc=(text,extra=[])=>[{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:[{t
 export function store(){
  const s={
   allow:[{workspace_id:WS_OP,feature:'blog'}],
-  blogs:[{id:IDS.blogOp,workspace_id:WS_OP,title:'명진 블로그',intro:'한 줄 소개',enabled:true,indexable:false},
+  blogs:[{id:IDS.blogOp,workspace_id:WS_OP,title:'사용자 블로그',intro:'한 줄 소개',enabled:true,indexable:false},
    {id:IDS.blogOther,workspace_id:WS_OTHER,title:'남의 블로그',intro:null,enabled:true,indexable:true}],
   boards:[{id:IDS.boardA,blog_id:IDS.blogOp,name:'생각',sort:0,public_key:KEYS.boardA},
    {id:IDS.boardB,blog_id:IDS.blogOp,name:'기록',sort:1,public_key:KEYS.boardB},

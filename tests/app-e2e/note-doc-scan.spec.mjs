@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { edCmd } from './helpers/ed-tools.mjs';
-// S69-98 NOTE-에버노트 ⑥(명진 11/25 "좋아 모두 다 넣어!"): 노트 [넣기 ▾] → [문서 스캔] → 카메라(시험은 사진 고르기) → 네 모서리 맞추기 →
+// S69-98 NOTE-에버노트 ⑥(사용자 11/25 "좋아 모두 다 넣어!"): 노트 [넣기 ▾] → [문서 스캔] → 카메라(시험은 사진 고르기) → 네 모서리 맞추기 →
 // [넣기] = 반듯하게 편 JPEG 한 장이 노트의 기존 [사진] 길(basket-files, 노트 첨부)로 올라가 글 안에 들어간다. 다시 그린 사진이라 EXIF가 없다.
 // [취소]·뒤로가기는 아무것도 올리지 않는다. 합성 데이터, 390·1280.
 test.use({hasTouch:true});

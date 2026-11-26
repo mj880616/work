@@ -115,7 +115,7 @@ async function assertDeleteAccess(userId: string, doc: any) {
   }
 }
 
-// S70 LIB-묶음삭제 ③: [드라이브에서 가져오기]·'드라이브 정리 대기'에서 등록한 자료는 앱이 만든 파일이 아니라 명진 드라이브 원본을 '연결만' 한 것이다.
+// S70 LIB-묶음삭제 ③: [드라이브에서 가져오기]·'드라이브 정리 대기'에서 등록한 자료는 앱이 만든 파일이 아니라 사용자 드라이브 원본을 '연결만' 한 것이다.
 // 그 자료를 지우면 자료실 목록에서만 빼고 드라이브 파일은 건드리지 않는다(drive_result 'preserved', reason 'linked_original').
 // 표식은 등록할 때 남기는 classification_note 앞머리(library-files drive-import.mjs·top-files.mjs). 화면 쪽 같은 목록: app/library-delete-many.mjs LINKED_NOTES.
 const LINKED_NOTES = ['드라이브에서 가져옴', '드라이브 정리 대기에서 등록'];
@@ -212,7 +212,7 @@ async function deleteDocument(userId: string, documentId: string, ctx: DeleteCtx
   return { ok: true, drive_result: driveResult, drive_preserved: origin.preserveDrive || eventOriginal, reason: eventOriginal ? 'event_attachment' : origin.reason };
 }
 
-// S70 LIB-묶음삭제 ②(명진 11/24 18:07 "2300개 다 삭제했는데 왜 삭제가 안 되지?"): 여러 자료를 한 요청으로 지운다.
+// S70 LIB-묶음삭제 ②(사용자 11/24 18:07 "2300개 다 삭제했는데 왜 삭제가 안 되지?"): 여러 자료를 한 요청으로 지운다.
 // 자료마다 하나씩 지우기(deleteDocument)와 같은 검사·같은 순서(owner 확인 → 원본 판정 → Drive → 토큰 → 자료 행)를 그대로 쓰고,
 // 한 요청에 DELETE_MANY_MAX개까지, 동시에 DELETE_MANY_PARALLEL개씩. 부른 사람의 owner 작업공간은 서버가 auth 사용자로 찾는다(화면이 보낸 작업공간 값은 받지 않음).
 // Drive 연결 문제(토큰 갱신 실패·연결 없음)면 남은 것은 손대지 않고 SKIPPED로 돌려준다(stopped). 결과는 자료마다 {id, ok, ...}.
@@ -351,7 +351,7 @@ async function registerDriveDocument(userId: string, workspaceId: string, fileId
   return { ok: true, result: 'created', document: { id: created[0].id, title: String(created[0].title ?? title) } };
 }
 
-// FILES-자료실로보내기(S52-26, 명진 11/07 11:41 '(가) 연결만'): [파일]의 구글 드라이브 파일을 사본 없이 자료실 자료로 연결한다.
+// FILES-자료실로보내기(S52-26, 사용자 11/07 11:41 '(가) 연결만'): [파일]의 구글 드라이브 파일을 사본 없이 자료실 자료로 연결한다.
 // 작업공간은 부른 사람의 owner 작업공간 하나(화면 값 믿지 않음). 그 파일은 그 작업공간의 [파일] 색인(app_cloud_items, 서버만 씀)에
 // 구글(gd)·파일(폴더 아님)·휴지통 아님으로 있어야 하고, 등록은 그 작업공간 Drive 연결로 원본을 다시 읽은 뒤(registerDriveDocument:
 // 내 소유·휴지통 아님) 한다. 다른 작업공간의 색인·Drive 연결은 읽지도 쓰지도 않는다. 이미 같은 원본 자료가 있으면 새로 만들지 않는다(exists).

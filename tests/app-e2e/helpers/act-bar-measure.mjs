@@ -39,7 +39,7 @@ export function checkActBar(m, check, label) {
   check(m.emoji, false, `${label}: 색 그림 이모지(📁·🗑) 없음`);
 }
 
-// S69(명진 11/24 "양쪽 정렬이라 이상함. 왼쪽 정렬"): 글자 줄(.kptu-actbar-text)은 왼쪽부터 촘촘히 — 첫 칸이 줄 왼쪽 끝에 붙고,
+// S69(사용자 11/24 "양쪽 정렬이라 이상함. 왼쪽 정렬"): 글자 줄(.kptu-actbar-text)은 왼쪽부터 촘촘히 — 첫 칸이 줄 왼쪽 끝에 붙고,
 // 칸 사이 간격이 같고 작다(12px 이하, 줄 폭에 퍼뜨리지 않음). 잘림·가로 넘침 없음. 줄바꿈된 다음 줄도 왼쪽 끝부터.
 export async function textBarRows(page, selector) {
   return page.evaluate(sel => {

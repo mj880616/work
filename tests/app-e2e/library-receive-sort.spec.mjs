@@ -6,7 +6,7 @@ import { treeEnter } from './helpers/tree-enter.mjs';
 // S69-62: 폴더 고르기 = [파일] '옮길 곳' 창 하나 — 줄 누르기는 고르기+펼치기, [이 폴더로 정하기]·[여기에 두기]로만 정한다.
 const sheetId=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
 async function pickIds(page,ids){for(const id of ids)await sheetId(page,id).click();await sheetGo(page).click();await expect(folderSheet(page)).toHaveCount(0)}
-// S60-18 LIB-받는폴더나누기(시안 docs/design/mockups/lib-receive-sort.html, 명진 11/12 09:52~09:53):
+// S60-18 LIB-받는폴더나누기(시안 docs/design/mockups/lib-receive-sort.html, 사용자 11/12 09:52~09:53):
 // 받는 폴더(잡동사니)를 연 화면 위 줄·두 칸 칸 머리·폴더 메뉴의 [폴더로 나누기] → 창이 바로 뜨고 제안이 채워짐
 // (① 규칙 ② 서버 AI가 기존 폴더 ③ 새 폴더 제안) → 체크·폴더 바꾸기·새 폴더 이름 고치기 → [옮기기]를 눌러야 새 폴더를 만들고 옮김
 // → 되돌리기 한 번으로 전부 받는 폴더로, 이번에 만든 빈 폴더도 지움. 가짜 서버·지어낸 이름만. SORT_SHOTS에 폴더를 주면 PR 사진을 남긴다.
@@ -157,7 +157,7 @@ test.describe('PC 1280 한 칸',()=>{
   });
 });
 
-// S68-16(명진 11/22 14:45 캡처: 34줄 모두 '→ ⋯'): 10개씩 차례로 묻고 묶음마다 줄을 바로 채운다. 늦거나 실패한 묶음은 그 줄만 '그대로 둬요'(까닭 한 줄),
+// S68-16(사용자 11/22 14:45 캡처: 34줄 모두 '→ ⋯'): 10개씩 차례로 묻고 묶음마다 줄을 바로 채운다. 늦거나 실패한 묶음은 그 줄만 '그대로 둬요'(까닭 한 줄),
 // 근거 없는 그림(붙여넣은 그림 …)은 AI에 보내지 않는다. 끝나면 '⋯' 줄이 하나도 남지 않는다.
 test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
   test.use({hasTouch:false});
@@ -210,7 +210,7 @@ test.describe('PC 1280 S68-16 AI 묶음 진행·실패',()=>{
   });
 });
 
-// S68-18(명진 11/22 15:32): 이름이 기본 이름뿐인 그림은 그림 속 글자(서버가 읽어 둔 글자)로 폴더를 찾고, 못 찾으면 AI에 글자째 맡기고,
+// S68-18(사용자 11/22 15:32): 이름이 기본 이름뿐인 그림은 그림 속 글자(서버가 읽어 둔 글자)로 폴더를 찾고, 못 찾으면 AI에 글자째 맡기고,
 // 그래도 모르면 그림만 모으는 폴더(이름에 '사진'이 든 기존 폴더)를 제안한다. 아직 안 읽은 그림은 글자 읽기를 서버에 맡긴다(기다리지 않음).
 test.describe('PC 1280 S68-18 그림 글자로 폴더 찾기',()=>{
   test.use({hasTouch:false});

@@ -10,7 +10,7 @@ const read = f => readFileSync(join(app, f), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // C2(옆으로 미는 칩 줄 끝 흐림)·C7(PC만 종류 칩 줄바꿈)은 UI-칩줄두줄(10/31)로 바뀌었다: tests/chip-rows.test.mjs.
-// BIZ-위쪽정돈PC(명진 11/09 10:52 A): PC 종류 칩 줄은 없앴다 — 모든 폭에서 [회의 ▾] 상자 하나이고, PC는 위쪽 세 줄을 한 줄(.report-top)로 놓는다.
+// BIZ-위쪽정돈PC(사용자 11/09 10:52 A): PC 종류 칩 줄은 없앴다 — 모든 폭에서 [회의 ▾] 상자 하나이고, PC는 위쪽 세 줄을 한 줄(.report-top)로 놓는다.
 test('C2 사업 보고 위쪽: 종류 칩 줄 없음, PC(761px~)는 위쪽 한 줄(BIZ-위쪽정돈PC)', () => {
   const html = read('index.html'), css = noComments(read('meeting-ui.css'));
   assert.doesNotMatch(html, /id="reportKindFilter"|id="reportNameSelect"/);

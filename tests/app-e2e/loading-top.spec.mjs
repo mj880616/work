@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
-// UI-로딩맨위(S49-24, 명진 결정 11/04): 폰·PC 모두 움직이는 로딩 막대는 화면 맨 위 한 곳(.top-wait) 하나뿐.
+// UI-로딩맨위(S49-24, 사용자 결정 11/04): 폰·PC 모두 움직이는 로딩 막대는 화면 맨 위 한 곳(.top-wait) 하나뿐.
 // 칸 안 막대(.wait-bar) 0개, 회색 빈 줄만 남음, 모두 끝나면 사라짐, 아래로 내려도 보임(fixed), 실패해도 남지 않음.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const SHOTS = 'test-results/loading-top';

@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {makeState, openReportCalendar, event, iso, DAY, WS} from './helpers/report-calendar-plan-server.mjs';
 
-// S67-40(명진 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고가 같은 날·가까운 시각·겹치는 제목이면
+// S67-40(사용자 11/20 20:22 "이미 보고를 했는데 중복된 일정 보고 제안"): 일정에서 시작하지 않고 따로 쓴 보고가 같은 날·가까운 시각·겹치는 제목이면
 // 그 일정은 '보고함'으로 보고 점선 □ '보고할까요?'를 놓지 않는다(판정 report-plan-model.mjs reportCover 한 곳).
 // 낱말 일부만 겹치면 그대로 묻되 둘째 줄에 '비슷한 보고 있음', ⋯ [이미 보고함: 보고 제목]으로 기존 일정 id 칸에 잇는다(서버 저장). 일정·이름은 모두 가짜.
 test.use({timezoneId: 'Asia/Seoul'});

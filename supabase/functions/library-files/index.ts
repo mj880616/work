@@ -265,7 +265,7 @@ Deno.serve(withWebCors(async(req:Request)=>{
         try{return json(await auto.run())}
         catch(e){if(e instanceof auto.AutoFail){const code=(e as any).code;return json({ok:false,error:code,code},(e as any).status)}throw e}
       }
-      // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [맨 위 파일 정리]·[같은 내용 자료 정리] 요청은 한 번 정리라 지웠다 — 아래 '지원하지 않는 작업'으로 거절.
+      // S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): 자료실 ⋯ [맨 위 파일 정리]·[같은 내용 자료 정리] 요청은 한 번 정리라 지웠다 — 아래 '지원하지 않는 작업'으로 거절.
       if(input?.action!=='previous-keep')throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
       const wmKeep=await workspaceFor(user.id);
       return await previousKeep(wmKeep.workspace_id,input);

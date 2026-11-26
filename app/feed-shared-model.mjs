@@ -1,7 +1,7 @@
 // NEWS-모두에게열기 ③ 화면(설계 docs/design/news-for-all.md 13·14절): 공용 기사·글 + 사람별 표시를 화면 줄 모양으로 바꾸는 규칙. 네트워크·저장 없음(node --test).
 // 공용 표(app_news_articles·app_outside_articles)는 모두 같은 줄을 읽고, 별표·보관·숨김·읽음·메모는 사람마다 따로(자기 작업공간 owner 표).
 // 화면 줄 모양은 바꾸지 않는다: 뉴스 줄은 옛 app_news_items 칸 그대로(folder_id·hidden_at·keywords는 내 표시에서), 사회운동 글은 옛 app_outside_posts 칸 그대로.
-// S68-27 READ-보관기록일원화(명진 11/22 21:37 "저장된 기록도 일원화"): '보관'의 원본은 읽을 거리 표(app_reading_items) 한 곳이다(DB 20261122230000).
+// S68-27 READ-보관기록일원화(사용자 11/22 21:37 "저장된 기록도 일원화"): '보관'의 원본은 읽을 거리 표(app_reading_items) 한 곳이다(DB 20261122230000).
 //   줄 모양의 starred_at 칸 = 그 글을 가리키는 내 읽을 거리 줄의 저장 시각(saved_at). 표시 표의 옛 별표 칸(app_news_marks.starred_at·app_outside_article_marks.starred_at·
 //   archived_at)은 읽지도 쓰지도 않는다(DB에 남긴 되돌리기용 기록).
 

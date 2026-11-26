@@ -1,4 +1,4 @@
-// S69-27 노트 휴지통(명진 11/24 "지운 노트 어디서봐? 휴지통 보여야함"): 노트 [삭제]는 이미 휴지통으로 간다(basket-record-delete.js
+// S69-27 노트 휴지통(사용자 11/24 "지운 노트 어디서봐? 휴지통 보여야함"): 노트 [삭제]는 이미 휴지통으로 간다(basket-record-delete.js
 // deleteNoteToTrash, DB 20261026100000_trash_notes_db.sql). 그 노트를 노트 [폴더] 보기 안에서 본다 — 왼쪽 나무(폰은 첫 화면 폴더 상자) 맨 아래
 // '휴지통 N' 줄, 누르면 오른쪽(폰은 '그 폴더만' 상자)에 지운 노트(제목·지운 날짜), 줄마다 [되돌리기]와 ⋯ [영구 삭제].
 // 서버 길은 사업 관리 휴지통 탭(project-system-v3.js)과 같은 app_trash_list / app_trash_restore / app_trash_purge('note')뿐이고 같은 문구를 쓴다.

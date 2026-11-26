@@ -251,7 +251,7 @@ test('화면 연결: [폴더]·[앨범] 칩, 폴더 나무는 공용 줄 모양(
   for (const f of ['app/photos.js', 'app/photo-tags.js']) assert.doesNotMatch(read(f), stores, f);
 });
 
-// PHOTO-연월이동(S49-5, 명진 결정 A+B 둘 다): 연도 눈금·말풍선 글·연/월 칸.
+// PHOTO-연월이동(S49-5, 사용자 결정 A+B 둘 다): 연도 눈금·말풍선 글·연/월 칸.
 import {yearLabels, monthLabelKo, yearTicks} from '../app/photos-model.mjs';
 test('연월 이동: 말풍선 글, 연도 눈금(해마다 한 번, 가장 최근 달 자리)', () => {
   assert.equal(monthLabelKo('2025-03'), '2025년 3월');

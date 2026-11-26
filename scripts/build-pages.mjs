@@ -167,7 +167,7 @@ export function fillStaticChains(input) {
  * face: 얼굴(APP-올인원다이어리 단계 2, scripts/brand-face.mjs). 기본 nojo(노동조합+)는 입력을 그대로 쓴다. */
 export function buildPages(input, { face } = {}) {
   const { files } = rewriteVersions(fillStaticChains(applyFace(input, face)));
-  // UPDATE-운영자전용기록업데이트소식 PR1(명진 11/15): 개발 기록(app/release-notes/*.json)과 묶음 app/release-notes.json은 공개 배포물에 싣지 않는다.
+  // UPDATE-운영자전용기록업데이트소식 PR1(사용자 11/15): 개발 기록(app/release-notes/*.json)과 묶음 app/release-notes.json은 공개 배포물에 싣지 않는다.
   // 운영자 화면은 서버 표(app_release_notes)에서 읽고, 묶음은 배포 뒤 workflow가 서버로 보낸다(scripts/ops/release-notes-sync.mjs).
   for (const file of Object.keys(files)) if (isNoteFile(file) || file === releaseNotesPath) delete files[file];
   const text = Object.fromEntries(Object.entries(files).map(([file, value]) => [file, typeof value === 'string' ? value : 'blob']));

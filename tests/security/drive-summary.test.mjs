@@ -253,7 +253,7 @@ function harness(options = {}) {
     const uiGroups = [...core.ORGANIZATION_GROUPS.slice(0, 3), core.ORGANIZATION_GROUPS.slice(3).flat()];
     assert.equal(JSON.stringify(uiGroups), JSON.stringify(app.GROUPS));
     assert.equal(JSON.stringify(core.ORGANIZATION_GROUPS.flat()), JSON.stringify(app.GROUPS.flat()));
-    const rows = [...app.GROUPS.flat(), '가상', '나상', '', '궤도협의회'].map(name => ({ name })).reverse();
+    const rows = [...app.GROUPS.flat(), '가상', '나상', '', '레일협의회'].map(name => ({ name })).reverse();
     assert.deepEqual(rows.slice().sort(core.compareOrganizations).map(r => r.name), Array.from(app.sort(rows), r => r.name));
   });
   test('document top lines carry exact KST refresh notice and HTML escapes input', async () => {

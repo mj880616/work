@@ -60,7 +60,7 @@ test('다섯 안내문은 고정 직책 없이 자리표를 쓰고, handler가 �
   for (const [file, name] of Object.entries(files)) {
     const mod = await import(`../../supabase/functions/ai-assist/${file}`);
     assert.ok(mod[name].includes(role.OWNER_ROLE), name);
-    assert.doesNotMatch(mod[name], /부팀장|공공기관사업팀|공공운수노조 공공기관/, name);
+    assert.doesNotMatch(mod[name], /부팀장|공공기관사업팀|A노조 공공기관/, name);
   }
   const handler = readFileSync(new URL('../../supabase/functions/ai-assist/handler.ts', import.meta.url), 'utf8');
   // WEEKLY-내양식자유변형 ⑤-3d: 주간보고 안내문은 '내 양식' 제목 자리표(form-names.ts withFormNames)를 먼저 채운 뒤 직책 자리표를 채운다.

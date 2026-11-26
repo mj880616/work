@@ -1,4 +1,4 @@
-// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 명진 13:37·13:38 결정): 잊지 말기 [노트] 창의
+// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 사용자 13:37·13:38 결정): 잊지 말기 [노트] 창의
 // '넣을 노트 고르기'의 순수 부분(화면·네트워크 없음, node --test로 시험). 줄은 노트 화면과 같은 폴더 나무(note-tree.mjs treeRows·recentRows)다.
 import {treeRows, recentRows, noteFolderId} from './note-tree.mjs';
 

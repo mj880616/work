@@ -1,4 +1,4 @@
-// WEEKLY-주요일정칸 B(요청함 10/30 13:17, 명진 결정 "ㅇㅋ"): [주간 정리] 1. 요청사항 › 2) 주요 일정(본부 주요 일정) 수기 표.
+// WEEKLY-주요일정칸 B(요청함 10/30 13:17, 사용자 결정 "ㅇㅋ"): [주간 정리] 1. 요청사항 › 2) 주요 일정(본부 주요 일정) 수기 표.
 // 1) 요청사항 표와 같은 모양·부품: '일 | 시간 / 내용 / 장소 | [고치기]' + [+ 줄 추가], 날짜는 공용 날짜 칸(date-field.js가 붙음), ⠿로 끌어 순서(폰은 길게
 // 눌러 끌기, 키보드는 ⠿에서 위·아래 — reorder-drag.js), 고치기 줄의 [빼기]. 작은 [달력에서 골라 넣기]: 한글 파일 상자 5. 주요 일정과 같은 달력·기억 읽기
 // (journal-weekly.js weeklySummary의 calendar)에서 체크한 일정만 넣는다. 넣은 줄은 그 일정의 칸별 고침(draft.titles)을 보고 고치므로, 상자 5번에서
@@ -37,7 +37,7 @@ const places = new Map(); // place → {ui, drag}
 // 동작 기록에 남길 줄 글(한글 파일 줄과 같은 모양, 앞 '- ' 뺌).
 const lineOf = f => hqLine({day:f.day ?? '', time:f.time ?? '', title:f.title ?? '', place:f.place ?? ''}).replace(/^-\s*/, '');
 function fresh(start) { return {start, editing:null, draft:{}, picking:false, picked:new Set(), saving:false, status:'', error:false, undo:null}; }
-// WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(명진이 [넣기]를 눌러야 들어감).
+// WEEKLY-주요일정기준 ①: 2주 달력 일정 가운데 기준(weekly-major-schedule.mjs)에 맞고 아직 표에 없는 것 → 제안(사용자가 [넣기]를 눌러야 들어감).
 // 제안 열쇠·학습은 [달력에서] 고르기와 같은 동작 기록(kind 'calendar', 칸 'requests:hq') — 뺀 제안은 다시 보이지 않고(목록 없음), 받은/뺀 셈이 다음 제안 순서·거르기에 쓰인다.
 // S52-24: 손으로 적은 줄·[이미 있음]으로 치운 일정과 부호·띄어쓰기만 다른 일정도 이미 있는 것으로 본다(weekly-cell-names.mjs lineIn).
 // skipWords: 내가 정한 '이 말이 들어간 회의는 빼기' 단어(내 프로필 목록의 '*단어*', journal-meeting-kinds.js wordsOf). 기본 없음.

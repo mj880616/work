@@ -159,7 +159,7 @@ test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON+ 기
   await noUnionWords(page, 'PC team (고친 이름 없음)');
 });
 
-// S67-62 바탕 낱말 묶음: 서버 허용 표 'nojo_words'인 사람(명진, docs/ops/nojo-words-operator.apply.sql)은 girok 운영 빌드에서도
+// S67-62 바탕 낱말 묶음: 서버 허용 표 'nojo_words'인 사람(사용자, docs/ops/nojo-words-operator.apply.sql)은 girok 운영 빌드에서도
 // 노동조합+ 낱말 전체가 바탕이고 그 위에 고친 이름 15칸이 얹힌다 → 화면 글자가 nojo 빌드(바뀌기 전 운영)와 한 글자도 다르지 않아야 한다.
 // 같은 흉내 서버·같은 시각으로 두 빌드를 띄워 화면마다 보이는 글자 전부와, JS word() 고정 글자 전부를 견준다.
 const nojoOrigin = process.env.PAGES_BUILD_ORIGIN || 'http://127.0.0.1:8125';
@@ -204,7 +204,7 @@ async function screenTexts(page) {
   return seen;
 }
 
-test('girok 빌드 + 바탕 nojo + 명진 15칸 = nojo 빌드 화면 글자(앱 바탕·화면 12개·word() 고정 글자 전부)', async ({ browser }) => {
+test('girok 빌드 + 바탕 nojo + 사용자 15칸 = nojo 빌드 화면 글자(앱 바탕·화면 12개·word() 고정 글자 전부)', async ({ browser }) => {
   test.setTimeout(240000);
   const literals = [...RISK_SAMPLES, ...wordLiterals()];
   expect(literals.length).toBeGreaterThan(200);
@@ -227,7 +227,7 @@ test('girok 빌드 + 바탕 nojo + 명진 15칸 = nojo 빌드 화면 글자(앱 
   expect(girok.shell.faced, 'girok 빌드는 얼굴 단어가 구워진 바탕').toBe(true);
   expect(nojo.shell.faced).toBe(false);
   expect(girok.words.customized, '바탕 nojo → 앱 바탕을 원래 글자로 다시 입힘').toBe(true);
-  expect(nojo.words.customized, 'nojo 빌드에서 명진 값은 아무것도 바꾸지 않음').toBe(false);
+  expect(nojo.words.customized, 'nojo 빌드에서 사용자 값은 아무것도 바꾸지 않음').toBe(false);
   for (let i = 0; i < literals.length; i += 1) expect(girok.words.out[i], literals[i].join('#')).toBe(nojo.words.out[i]);
   for (const [text] of RISK_SAMPLES.filter(([, slot]) => !slot)) expect(girok.words.out[literals.findIndex(l => l[0] === text)], text).toBe(text);
   for (const key of Object.keys(nojo.texts)) expect(girok.texts[key], `${key} 화면 글자`).toBe(nojo.texts[key]);
@@ -252,7 +252,7 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
   expect(bad).toEqual({});
 });
 
-// S67-57: 내 프로필의 기본 정보·담당 칸·주간 캘린더 칸·내 묶음(명진 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다.
+// S67-57: 내 프로필의 기본 정보·담당 칸·주간 캘린더 칸·내 묶음(사용자 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다.
 const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psReportPanel, #psCollabPanel';
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
@@ -285,8 +285,8 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 �
   expect(errors).toEqual([]);
 });
 
-// 명진(바탕 nojo + 15칸): 소속·주간 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
-test('girok 빌드 + 명진(바탕 nojo + 15칸): 내 프로필 글자가 지금 화면 그대로다', async ({ page }) => {
+// 사용자(바탕 nojo + 15칸): 소속·주간 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
+test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필 글자가 지금 화면 그대로다', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 900 });

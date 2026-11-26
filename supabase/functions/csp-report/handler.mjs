@@ -1,4 +1,4 @@
-// SEC-Web2CSP 보고 받는 곳(I-5, 2026-11-25 명진 결정 "추천대로"): Web2 첫 화면·로그인 화면의 보고 전용 CSP(cloudflare/web2-csp.mjs)가
+// SEC-Web2CSP 보고 받는 곳(I-5, 2026-11-25 사용자 결정 "추천대로"): Web2 첫 화면·로그인 화면의 보고 전용 CSP(cloudflare/web2-csp.mjs)가
 // 위반을 보내는 입구. 막는 단계(enforce)로 가기 전 2주 동안 '어떤 지시어가 어느 출처를 몇 번' 걸렸는지 숫자로만 모은다.
 // - 받는 모양: Reporting API(application/reports+json, type csp-violation)와 옛 report-uri(application/csp-report).
 // - 남기는 것: 지시어(정해진 목록만)·막힌 주소의 출처(origin, 소문자) 또는 낱말(inline·eval·data·blob 등)·개수. 날짜는 DB가 붙인다(서울 날짜).

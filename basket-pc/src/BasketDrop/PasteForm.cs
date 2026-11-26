@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace BasketDrop.App;
 
 /// <summary>
-/// S69-35 (명진 11/24 "더블클릭하면 입력창 나오고 거기엔 텍스트든 그림이든 복붙 가능"): the small input window a double
+/// S69-35 (사용자 11/24 "더블클릭하면 입력창 나오고 거기엔 텍스트든 그림이든 복붙 가능"): the small input window a double
 /// click on a drop box opens. Several lines of text, Ctrl+V of text, pictures (screenshots, copied pictures) and copied
 /// files, and drag and drop. Pictures and files show as small previews with an X to take them out. [보내기] (Ctrl+Enter)
 /// sends through <see cref="DropData.Send"/> → <see cref="TrayApp.Submit"/>, the same gate and queue as a drop: text as a

@@ -139,7 +139,7 @@
 @media(max-width:760px){
   /* S46-23 폰 월 보기: 날짜 숫자 바로 아래부터 일정 줄(날짜 줄 20px), '+n'도 일정 줄 한 칸 높이. 주 높이는 calendar-month-view.js가
      '한 화면'(남은 높이 ÷ 주 수) 또는 '펼침'(그 주 일정이 모두 들어가는 높이)으로 --cmv-week-h에 넣는다. */
-  /* S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 시안 질문 1): 칸 안 글자를 읽히게 — 날짜 11px, 일정 제목 11px·시각 10px,
+  /* S48-6 UI-폰달력월보기(2026-11-02 사용자 결정, #1708 시안 질문 1): 칸 안 글자를 읽히게 — 날짜 11px, 일정 제목 11px·시각 10px,
      일정 줄 15px 간격(막대 14px). 아주 낮은 화면의 최소 주 높이(일정 3줄)가 한 화면을 넘지 않게 줄 간격은 15px. 한 화면·밀어서 펼침(S46-23)과 '+n'·날짜 줄 44px 누르는 범위는 그대로. */
   #calendarView .calendar-grid{--cmv-date-header-height:20px;--cmv-lane-step:15px;--cmv-min-week-height:36px;--cmv-more-font-size:12px;--cmv-more-line-height:16px;--cmv-more-height:16px}
   #calendarView .cmv-weeks{display:flex;flex-direction:column}
@@ -174,7 +174,7 @@
   .cal-day{width:19px;height:19px;margin-left:0;font-size:11px}
   .cal-event.cmv-event{height:14px;line-height:14px;margin-left:1px;margin-right:1px;padding-left:2px;padding-right:2px;font-size:11px}
   .cmv-event-time{margin-right:1px;font-size:10px}
-  /* S52-11 CAL-폰달력핀치(명진 11/07, 시안 calendar-phone-pinch.html): 달력 칸 위 두 손가락은 화면 확대가 아니라 칸 키우기(calendar-month-view.js).
+  /* S52-11 CAL-폰달력핀치(사용자 11/07, 시안 calendar-phone-pinch.html): 달력 칸 위 두 손가락은 화면 확대가 아니라 칸 키우기(calendar-month-view.js).
      한 손가락 밀기(위아래·옆)는 브라우저 그대로. 커진 동안(.cmv-zoomed) 칸은 가로·세로가 같은 배율(--cmv-zoom, 1~2.5)로 함께 커지고,
      글자는 덜 커지며(--cmv-fs) 제목은 줄을 바꿔 전부 보인다. 화면보다 커진 달력은 달력 안에서 옆·위아래로 밀어 본다. 머리 줄·아래 줄·하단바는 그대로. */
   #calendarView .calendar-grid{touch-action:pan-x pan-y}
@@ -190,7 +190,7 @@
   #calendarView .calendar-grid.cmv-zoomed .cmv-event-title{white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;overflow-wrap:anywhere}
   #calendarView .calendar-grid.cmv-zoomed .cmv-event-time{flex:0 0 auto;margin-right:calc(3px * var(--cmv-fs));font-size:calc(9.5px * var(--cmv-fs));line-height:calc(11px * var(--cmv-fs) * 1.25);opacity:.75}
   #calendarView .calendar-grid.cmv-zoomed .cmv-cell-task-box{width:calc(8px * var(--cmv-fs));height:calc(8px * var(--cmv-fs));margin-top:calc((1.25em - 8px * var(--cmv-fs)) / 2)}
-  /* S52-19 CAL-확대높이따로(명진 11/07): 커진 동안 여러 날 띠만 위쪽 가로 줄(--cmv-band-lanes줄)로 잇고, 하루짜리 일정·할 일은 날마다 따로 쌓는다
+  /* S52-19 CAL-확대높이따로(사용자 11/07): 커진 동안 여러 날 띠만 위쪽 가로 줄(--cmv-band-lanes줄)로 잇고, 하루짜리 일정·할 일은 날마다 따로 쌓는다
      (.cmv-day-stack, calendar-month-view.js appendZoomStacks). 날 묶음은 맨 아래 늘어나는 줄(1fr)까지 걸쳐 띠 줄 높이를 늘리지 않는다. */
   #calendarView .calendar-grid.cmv-zoomed .cmv-week-events{grid-template-rows:repeat(var(--cmv-band-lanes,0),auto) 1fr}
   #calendarView .calendar-grid.cmv-zoomed .cmv-week-events>.cal-event{align-self:start}
@@ -206,7 +206,7 @@
   .ci-card{padding:var(--kptu-space-4)}
 }
 
-/* S67-65 CAL-꽉찬색(명진 11/21 시안 E1): 구글 일정은 월·주·하루 목록 모두 꽉 찬 색 바탕 + 대비 글자.
+/* S67-65 CAL-꽉찬색(사용자 11/21 시안 E1): 구글 일정은 월·주·하루 목록 모두 꽉 찬 색 바탕 + 대비 글자.
    색(--cmv-google-source)은 구글보다 한 톤 차분한 밝은 색(G2), 글자(--cmv-google-ink)는 흰색 기본·밝은 노랑만 진한 글자(event-color.mjs). 다크 모드도 같은 칠. */
 .cal-event.google.cp-event,
 #calendarWeek .cwv-items .cp-event{
@@ -393,7 +393,7 @@
 html.cal-drag-on,html.cal-drag-on *{user-select:none!important;-webkit-user-select:none!important;cursor:grabbing!important}
 
 /* S51-27 UI-PC우클릭 ③: 마우스가 있는 PC에서 날짜 칸에 올리면 작은 [+]. 폰·폴드 손가락 화면에는 없다.
-   명진 11/24: 자리는 날짜 숫자 옆이 아니라 그 칸의 오른쪽 위 모서리(날짜 숫자와 같은 줄). 일정 줄은 날짜 줄(--cmv-date-header-height) 아래라 겹치지 않는다. */
+   사용자 11/24: 자리는 날짜 숫자 옆이 아니라 그 칸의 오른쪽 위 모서리(날짜 숫자와 같은 줄). 일정 줄은 날짜 줄(--cmv-date-header-height) 아래라 겹치지 않는다. */
 .cmv-date-plus{display:none}
 @media (hover:hover) and (pointer:fine) and (min-width:761px){
   #calendarView .cmv-date-plus{display:flex;align-items:center;justify-content:center;position:absolute;top:4px;right:5px;z-index:1;width:18px;height:18px;min-width:0;min-height:0;padding:0;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);background:var(--kptu-surface);color:var(--kptu-muted);font-size:13px;line-height:1;cursor:pointer;opacity:0;pointer-events:none}

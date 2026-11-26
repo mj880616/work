@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
-// S70-08 LIB-여러폴더끌기(명진 11/25 09:39 "선택해서 드래그하면 다 드래그되어야하는데 하나만 드래그됨"):
+// S70-08 LIB-여러폴더끌기(사용자 11/25 09:39 "선택해서 드래그하면 다 드래그되어야하는데 하나만 드래그됨"):
 // 자료실 두 칸 보기 오른쪽 칸에서 폴더 여럿을 고른 뒤(상자 끌기 + Ctrl+클릭으로 하나 빼기) 그중 한 폴더를 잡아 다른 폴더로 끌면
 // 고른 것 모두가 그 안으로 옮겨진다(위로·아래로 어느 방향이든). [되돌리기]는 모두. 이름은 모두 지어낸 것, 가짜 서버만 쓴다.
 const KIDS=['k1','k2','k3','k4','k5','k6'];

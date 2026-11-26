@@ -290,7 +290,7 @@ test('화면 지켜보기: 옛 서버(모르는 action)·표 없음이면 화면
   assert.equal(unavailable({status:409,code:'busy'}),false);
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 폰 녹음은 서버 정리(job_start)를 맡기지 않는다 — rec_finish → rec_save로 자료실에 저장만.
+// S61-5 REC-전사삭제(사용자 11/13): 폰 녹음은 서버 정리(job_start)를 맡기지 않는다 — rec_finish → rec_save로 자료실에 저장만.
 test('지금은 없음: 폰 녹음은 job_start·transcribe를 부르지 않고 rec_finish → rec_save로 저장한다',async()=>{
   const calls=[],sent=[];
   const core=createPhoneRecorder({

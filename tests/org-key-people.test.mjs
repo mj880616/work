@@ -22,7 +22,7 @@ test('[+ 인물] 입력: 이름은 첫 찾을 이름, 2자 미만·중복·제�
 });
 
 test('이름 찾기: 공백·대소문자 무시, 지정 순서, 지정하지 않은 사람은 없음', () => {
-  assert.deepEqual(whoIn(['철도노조 김 하나 위원장'], people), ['p1']);
+  assert.deepEqual(whoIn(['가람노조 김 하나 위원장'], people), ['p1']);
   assert.deepEqual(whoIn(['PARK DUL 사무국장, 김위원장'], people), ['p1', 'p2']);
   assert.deepEqual(whoIn(['이셋 부장'], people), []);
   assert.deepEqual(whoIn([null, undefined, ''], people), []);
@@ -31,7 +31,7 @@ test('이름 찾기: 공백·대소문자 무시, 지정 순서, 지정하지 �
 test('지난 기록: 업무·개인 통화(상대·제목), 텔레그램(이름표 방·날 묶음 + 제목), 회의(내용), 최신순', () => {
   const rows = collectRecords({
     people,
-    calls:[{id:'c1', day:'2026-10-20', occurred_at:'2026-10-20T01:00:00Z', counterpart:'철도노조 김하나 위원장', title:'교섭 일정', summary:'교섭 날짜 조율'},
+    calls:[{id:'c1', day:'2026-10-20', occurred_at:'2026-10-20T01:00:00Z', counterpart:'가람노조 김하나 위원장', title:'교섭 일정', summary:'교섭 날짜 조율'},
       {id:'c2', day:'2026-10-21', counterpart:'다른 사람', title:'무관'}, {id:'c3', day:'2026-10-22', counterpart:'김하나', hidden_at:'x'}],
     personal:[{id:'pc1', day:'2026-10-25', occurred_at:'2026-10-25T03:00:00Z', counterpart:'박둘', title:'안부', summary:'개인 안부 통화', box:'personal'}],
     telegram:[{id:'t1', room_key:'r1', room_label:'철도 지부장방', day:'2026-10-23', occurred_at:'2026-10-23T02:00:00Z', title:'집회 공지'},

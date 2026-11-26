@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로' — 사진 정리 다음 순서 A): 사진 정리 칸에서 폰 원본을 지우는 길.
+// S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로' — 사진 정리 다음 순서 A): 사진 정리 칸에서 폰 원본을 지우는 길.
 // - 잡동사니 [지우기]: 서버가 원드라이브 사본을 확인한 것만 기본으로 지우고, 백업 없음은 체크해야만 함께. 지우기 전 개수·용량 요약 한 번.
 // - 공간 비우기 [폰 공간만 비우기]: 요약에 용량.
 // - 정리 칸 크게 보기 한 장 [지우기]: 되돌리기 시간 뒤가 아니라 바로 같은 요약 확인(백업 없음 한 장은 체크해야만).

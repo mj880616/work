@@ -35,7 +35,7 @@ public sealed class AppSettings
     public int? DesktopTileHeight96 { get; set; }
 
     /// <summary>
-    /// S69-31: true once this PC has turned the corner box and the desktop tile on after they came back (명진 11/24).
+    /// S69-31: true once this PC has turned the corner box and the desktop tile on after they came back (사용자 11/24).
     /// They were removed in 0.6 (S54-13); a value saved before that ("Off", false) must not keep them hidden. See <see cref="DropBoxDefaults"/>.
     /// </summary>
     public bool DropBoxesRestored { get; set; }
@@ -48,7 +48,7 @@ public sealed class AppSettings
 }
 
 /// <summary>
-/// S69-31 (명진 11/24 "화면 구석 칸 써"): the first start of a version that has the corner box and the desktop tile again
+/// S69-31 (사용자 11/24 "화면 구석 칸 써"): the first start of a version that has the corner box and the desktop tile again
 /// turns both on once, whatever an older version saved. After that the tray menu's choice is kept.
 /// </summary>
 public static class DropBoxDefaults

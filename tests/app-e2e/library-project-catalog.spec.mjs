@@ -323,7 +323,7 @@ test('metadata edit keeps archived links and moves documents between parent, chi
   expect(state.patches.at(-1)).toMatchObject({id:'doc-a',body:{project_id:null}});
 });
 
-// PRJ-3단(명진 결정 2, 추천안): 큰 프로젝트로 걸러 열면 그 아래 프로젝트 자료도 함께 보인다(하위로 열면 그 하위만).
+// PRJ-3단(사용자 결정 2, 추천안): 큰 프로젝트로 걸러 열면 그 아래 프로젝트 자료도 함께 보인다(하위로 열면 그 하위만).
 // LIB-토글트리: 걸러 여는 길은 다른 화면(프로젝트 상세의 자료 "전체 보기")이고, 자료실 안에서는 트리가 같은 범위를 묶어 보인다.
 test('project filter includes the projects under the chosen one and keeps unlinked and stale documents reachable',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});

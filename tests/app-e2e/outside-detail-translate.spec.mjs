@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// S52-36 NEWS-바깥소식번역(명진 실기기 확인 11/08 01:36: News Jacobin 영어 기사 [원문 전체]에 [번역]이 없음):
+// S52-36 NEWS-바깥소식번역(사용자 실기기 확인 11/08 01:36: News Jacobin 영어 기사 [원문 전체]에 [번역]이 없음):
 // 사회운동 영어 소식에도 원문 칸 머리 줄 [번역](글자 크기 단추 왼쪽). 누르면 서버 outside-feed translate(로그인·하루 한도·저장은 서버)
 // → 그 글 줄의 body_ko를 같은 순서의 글자 블록에 넣는다(사진·캡션 자리 그대로). 다시 누르면 원문. 한 번 번역한 글은 다시 부르지 않는다.
 // 한국어 사회운동 글에는 [번역]이 없다. 서버는 흉내, 글은 모두 가상.

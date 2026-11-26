@@ -1,6 +1,6 @@
 // WEEKLY-내양식자유변형 ⑤-3b: 화면 절 제목은 '내 양식' profile 제목에서 만든다(코드에 박힌 제목 없음).
 // 지어낸 고정 양식(tests/fixtures/weekly-own-form-legacy-shape.json — ⑤-3 전 기본 양식을 글자 그대로 옮김)으로
-// 명진 화면 글자가 지금과 같은지 본다. 다른 두 곳은 화면이 한글 파일 글과 달랐던 곳이고, 이제 파일 글 그대로다.
+// 사용자 화면 글자가 지금과 같은지 본다. 다른 두 곳은 화면이 한글 파일 글과 달랐던 곳이고, 이제 파일 글 그대로다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

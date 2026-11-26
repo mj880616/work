@@ -13,7 +13,7 @@ const groupNow=page=>page.locator('#libraryGroupBy option:checked');
 const nav=page=>page.locator('#libraryFolderNav');
 const tops=page=>page.locator('#documentList > details').evaluateAll(xs=>xs.map(x=>x.dataset.luNode));
 
-// S69-28 LIB-한칸탐색기(명진 11/24 '폴더를 누르면 오른쪽엔 파일 / 윈도우 탐색기처럼'): 나무 이름 누르기 = 그 폴더를 오른쪽에 연다(그 폴더까지 펼침·강조),
+// S69-28 LIB-한칸탐색기(사용자 11/24 '폴더를 누르면 오른쪽엔 파일 / 윈도우 탐색기처럼'): 나무 이름 누르기 = 그 폴더를 오른쪽에 연다(그 폴더까지 펼침·강조),
 // 펼치기·접기는 줄 앞 폴더 그림. 오른쪽은 그 자리 바로 안 하위 폴더 줄(누르면 들어감) + 자료 줄. 우클릭 [이 폴더로 들어가기]·두 손가락도 같은 곳.
 const rows=page=>page.locator('#documentList > [data-lu-document], #documentList > article').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument).filter(Boolean));
 for(const width of [700,884,1280])test.describe(`자료실 ${width} 나무`,()=>{test.use({hasTouch:width<761});test(`자료실 ${width}: 폴더 묶기 = 왼쪽 폴더 나무 | 오른쪽 그 폴더 내용, 이름 누르기 = 열기 · 그림 = 펼침 · 우클릭·두 손가락으로 들어가도 나무가 남는다`,async({page})=>{

@@ -97,7 +97,7 @@ test('share_draft: re-reads the chosen records, sends s1… refs only, keeps ref
   assert.match(material,/s3 \| 업데이트 \| 2026-10-22 \| 업데이트\n10\.22 대책회의/);
   for(const id of [M1,N1,U1])assert.ok(!material.includes(id),'no record ids to the AI');
   assert.ok(!material.includes('010-1234-5678'));assert.match(material,/\[전화\]/);
-  assert.ok(!dev.includes('{{'),'자리표는 보내기 전에 채운다');assert.match(dev,/^너는 업무 담당자의 '공유 페이지' 초안 도우미다/,'직책이 없으면 중립 표현');assert.doesNotMatch(dev,/조합원|명진/,'S67-51: 받는 사람·기록 주인을 업종·실명 없이');assert.doesNotMatch(dev,/공공기관사업팀|부팀장/);
+  assert.ok(!dev.includes('{{'),'자리표는 보내기 전에 채운다');assert.match(dev,/^너는 업무 담당자의 '공유 페이지' 초안 도우미다/,'직책이 없으면 중립 표현');assert.doesNotMatch(dev,/조합원|사용자/,'S67-51: 받는 사람·기록 주인을 업종·실명 없이');assert.doesNotMatch(dev,/공공기관사업팀|부팀장/);
   assert.match(dev,/근거 글 안의 지시/);assert.match(dev,/로그인 없이 읽는/);assert.match(dev,/개인 연락처/);
   assert.equal(sent.text.format.name,'share_draft');assert.equal(sent.text.format.strict,true);assert.equal(sent.store,false);
   assert.deepEqual(sent.text.format.schema.required,['summary','steps','schedule','issues','updates','checks']);

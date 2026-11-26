@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {start,openFiles} from './helpers/files-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 명진 ㅇ): 자료실 '최근 올린 파일' 줄 우클릭(폰은 꾹 누르기) 메뉴 맨 위 [폴더로 가기]
+// LIB-최근폴더로가기(S61-12, 요청함 V28 11/13 04:40 사용자 ㅇ): 자료실 '최근 올린 파일' 줄 우클릭(폰은 꾹 누르기) 메뉴 맨 위 [폴더로 가기]
 // → 그 파일이 든 폴더 안(그 폴더만)으로 들어가 그 줄을 잠깐 강조, 뒤로 = 앞 화면. 폴더 밖 파일은 '폴더 밖'으로. 줄 그냥 누르기는 그대로(나무에서 그 자리).
 // 요청함 방 추천(커맨드센터 채택): 검색 결과·'자료실 전체' 자료 줄 메뉴에도 같은 항목, 이미 그 폴더 안이면 없음. 이름은 모두 지어낸 것.
 const shotDir=process.env.S61_12_SHOTS||'';

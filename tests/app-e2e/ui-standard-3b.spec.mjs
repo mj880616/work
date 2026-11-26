@@ -61,7 +61,7 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 test('폰 하단 탭 6칸: 탭 아이콘 색, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- // MULTI-하단바기본노트(명진 11/13 15:24)·S68-37(명진 11/23): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·자료실·사진.
+ // MULTI-하단바기본노트(사용자 11/13 15:24)·S68-37(사용자 11/23): 메뉴를 바꾸지 않은 계정의 하단바는 홈·노트·일정·자료실·사진.
  await expect(tabs).toHaveText(['홈','노트','일정','자료실','사진','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
@@ -177,7 +177,7 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed'); // BIZ-위쪽정돈(11/09 01:22): 사업 보고 [+]는 맨 윗줄 작은 아이콘이라 떠 있지 않다
  // BIZ-위쪽정돈PC(11/09 10:52 A): 사업 보고 종류 칩 줄은 없앴다 — 종류는 모든 폭에서 [회의 ▾] 상자 하나이고, 고른 값이 있으면 상자 글자가 진하다(is-on).
  await expect(page.locator('#reportKindFilter')).toHaveCount(0);
- // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체]라 진하지 않고, 종류를 고르면 진하다.
+ // MTG-기본종류전체(11/15 사용자): 처음은 [종류 전체]라 진하지 않고, 종류를 고르면 진하다.
  await openReportBoxes(page);await expect(page.locator('#reportKindSelect')).toBeVisible();await expect(page.locator('#reportKindSelect')).not.toHaveClass(/is-on/); // S67-75: 폰 폭이면 칩 창 안
  await pickReportKind(page,'회의');await expect(page.locator('#reportKindSelect')).toHaveClass(/is-on/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

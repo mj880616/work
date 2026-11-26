@@ -3,7 +3,7 @@ import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {chooseBasketKind} from './helpers/basket-kind.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// S70-67 SEARCH-비슷한것찾기(명진 11/26 08:22~08:24 "아주 똑같은 글자를 입력 안 해도 비슷한 게 있으면 보여준다" · "추천대로"):
+// S70-67 SEARCH-비슷한것찾기(사용자 11/26 08:22~08:24 "아주 똑같은 글자를 입력 안 해도 비슷한 게 있으면 보여준다" · "추천대로"):
 // 모든 '<메뉴>에서 찾기'가 공용 부품(app/find-match-model.mjs + screen-find.js findFor)을 쓴다. 폰 390에서
 //  ① 일정: '국토 부'(띄어쓰기)·'ㄱㅌㅂ'(초성)으로 국토부 일정을 찾고, 지금 보기 밖(다른 달) 일정도 '다른 날 일정' 줄에 나오며 누르면 그 날로 간다.
 //  ② 노트: 같은 부품 — 초성·치는 중(국톱)·오타, 맞은 정도 순, 맞은 부분 칠하기(CSS Custom Highlight).

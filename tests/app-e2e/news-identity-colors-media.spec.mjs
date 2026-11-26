@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { start } from './helpers/news-server.mjs';
-// NEWS-고유색 새 매체(S58-5, 명진 11/11 '추천대로'): NEWS-못넣은곳대안으로 더해진 언론도 News 목록 막대·이름 글자와 매체 고르기 점이 키별 고유색이다.
+// NEWS-고유색 새 매체(S58-5, 사용자 11/11 '추천대로'): NEWS-못넣은곳대안으로 더해진 언론도 News 목록 막대·이름 글자와 매체 고르기 점이 키별 고유색이다.
 // S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳은 색 표에서도 빠졌다.
 // 기존 매체(경향신문·한겨레·매일노동뉴스·연합뉴스)의 색은 그대로. 값은 theme-tokens.css에서 읽어 와서(확인 뒤 토큰만 바꿔도 이 시험은 그대로) 화면에 그려진 색과 맞춘다. 서버·기사는 모두 가짜.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

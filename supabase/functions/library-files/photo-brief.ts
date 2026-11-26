@@ -1,4 +1,4 @@
-// WEEKLY-재료전체 ② (S67-07, 명진 11/19): 기록에 붙은 사진(자료실 그림 자료)을 AI가 보고 짧은 설명을 남긴다 — 주간보고 AI 초안 재료의
+// WEEKLY-재료전체 ② (S67-07, 사용자 11/19): 기록에 붙은 사진(자료실 그림 자료)을 AI가 보고 짧은 설명을 남긴다 — 주간보고 AI 초안 재료의
 // '사진: 이름 — 설명'(app/weekly-photo-material.mjs). JSON {action:'photo-brief', document_ids:[uuid 1~4]}.
 // - 새 저장소 없음: 이미 있는 "자료별 AI 요약 표"(app_document_ai_index)에 'b1:' 행으로 넣는다(ai-assist library_fill 의 한두 줄 요약과
 //   같은 칸·같은 DB 검사 — 200자·2줄·줄마다 120자). 이미 행이 있는 자료(글자 요약·옛 행)는 건드리지 않는다(넣기만, 겹치면 무시).

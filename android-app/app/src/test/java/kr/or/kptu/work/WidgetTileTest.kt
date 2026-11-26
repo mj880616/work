@@ -66,7 +66,7 @@ class WidgetTileTest {
         assertEquals("@+id/one_root", attr(root, "id"))
         assertEquals("match_parent", attr(root, "layout_width"))
         assertEquals("match_parent", attr(root, "layout_height"))
-        // S68-19(11/22 명진 "똑같음 더 크게"): 한 칸 위젯은 좌우를 비우지 않는다 — 삼성 홈이 위젯 칸을 앱 아이콘 칸보다 좁게 주어
+        // S68-19(11/22 사용자 "똑같음 더 크게"): 한 칸 위젯은 좌우를 비우지 않는다 — 삼성 홈이 위젯 칸을 앱 아이콘 칸보다 좁게 주어
         // 72%만 쓰면 옆 앱 아이콘보다 작았다. 폭 전부·이름 위 높이 전부에서 fitCenter로 가장 큰 정사각.
         assertEquals("vertical", attr(root, "orientation"))
         assertTrue(children(root, "LinearLayout").isEmpty())

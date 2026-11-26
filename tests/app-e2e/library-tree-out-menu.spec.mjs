@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
-// S55-08 PR-2 (2026-11-09 명진 요청): LIB-나무폴더밖 · LIB-우클릭메뉴 · LIB-위쪽줄여백. 이름은 지어낸 것.
+// S55-08 PR-2 (2026-11-09 사용자 요청): LIB-나무폴더밖 · LIB-우클릭메뉴 · LIB-위쪽줄여백. 이름은 지어낸 것.
 const FOLDERS=[
   libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),
   libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),

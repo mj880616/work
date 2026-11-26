@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 넣기 자동 점검(merge gate) — OPS-넣기점검 (2026-11-26 명진 결정, 효율화 2).
+// 넣기 자동 점검(merge gate) — OPS-넣기점검 (2026-11-26 사용자 결정, 효율화 2).
 // PR 번호를 받아 GitHub REST로 읽기만 하고, PR마다 한 줄 판정과 이유를 낸다. merge 등 쓰기 동작은 없다.
 //
 //   node scripts/cc/merge-check.mjs 3158 3149 3141        # 사람이 읽는 표

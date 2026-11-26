@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {makeState, openReportCalendar, event, iso, DAY, WS} from './helpers/report-calendar-plan-server.mjs';
 
-// S67-16 BIZ-보고할일정(명진 11/20 03:19 "주요일정 중에 보고 하라고 점선으로 뜨기로" → 03:23 "ㅇ 넓혀").
+// S67-16 BIZ-보고할일정(사용자 11/20 03:19 "주요일정 중에 보고 하라고 점선으로 뜨기로" → 03:23 "ㅇ 넓혀").
 // 사업 보고 [달력]의 점선 □ '보고할까요?'가 일정에 붙인 담당조직만이 아니라
 //   ② 제목에 내 담당조직 이름이 든 일정 ③ 사업영역 주요 일정 행에 오른 일정 ④ 주간보고 '주요 일정' 기준(기자회견·결의대회 등)에도 뜬다.
 // 판정은 report-plan-model.mjs askReason 한 곳. 같은 이름 저절로 켜짐·[빼기] 기억·이미 쓴 보고(●) 규칙은 그대로다. 일정·이름은 모두 가짜.

@@ -1,5 +1,5 @@
-// S51-26 FAMILY-노트로(요청함 11/06 08:08, 명진 결정 08:26 '2', 시안 docs/design/mockups/family-forget-to-note.html) →
-// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 명진 13:37·13:38 결정): 잊지 말기 가족 줄 [노트]도
+// S51-26 FAMILY-노트로(요청함 11/06 08:08, 사용자 결정 08:26 '2', 시안 docs/design/mockups/family-forget-to-note.html) →
+// FORGET-노트고르기(요청함 11/09 13:34, 시안 docs/design/mockups/forget-note-pick.html, 사용자 13:37·13:38 결정): 잊지 말기 가족 줄 [노트]도
 // 업무 줄과 같은 노트 창(note-window.js openNoteWindow + note-pick.js [새 노트 ▾])으로 연다. 옛 작은 '노트로 보내기' 창은 없앴다.
 // - 처음 고른 곳: '잊지 말기' 노트 끝에 더하기. 폴더는 마지막으로 줄을 더한 '잊지 말기' 노트의 폴더(없으면 '가족' — 없으면 보낼 때 만든다).
 //   [폴더 ▾]는 노트 화면과 같은 폴더 고르기 창. [저장] 한 번이면 지금과 같다(그 폴더의 '잊지 말기' 노트 — 없으면 그 폴더에 새로 만든다).

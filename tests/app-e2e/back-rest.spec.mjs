@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ANDROID, phonePhotosFixture, openPhotos } from './helpers/phone-photos-fixture.mjs';
-// S47-18 UI-뒤로가기겹규칙 2차(요청함 11/01 12:52 명진 재현): 사진 → [정리] → '원드라이브에만' → 목록 → 사진 크게 보기 → 폰 뒤로 = 목록.
+// S47-18 UI-뒤로가기겹규칙 2차(요청함 11/01 12:52 사용자 재현): 사진 → [정리] → '원드라이브에만' → 목록 → 사진 크게 보기 → 폰 뒤로 = 목록.
 // 크게 보기에서 뒤로가기 = 아래로 밀어 내리기와 같은 결과(크게 보기만 닫히고 그 아래 목록·스크롤 그대로).
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const nativeBack = page => page.evaluate(() => window.KPTUNativeBack.handle());

@@ -17,7 +17,7 @@
 //     엔진(S52-12 NEWS-원문먼저번역 ②): 비밀값 GOOGLE_TRANSLATE_API_KEY가 있으면 Google Cloud Translation(_shared/google-translate.ts, 줄 수를 맞춰 저장),
 //     없거나 Google이 실패하면 기존 AI 번역(news_translate). 흐름은 outside-feed translate와 공용(_shared/feed-translate.ts, S52-36).
 //     입구·로그인·owner·하루 한도·저장 칸은 그대로. 하루·월 한도(app_news_days, _shared/news-days.ts)는 사회운동 [번역]과 함께 센다.
-//     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 명진 결정: 제목만 미리, 본문은 그때).
+//     본문 번역은 누를 때만 한다. 백그라운드(titles 단계·fill_now)는 제목만 번역한다(S47-57 사용자 결정: 제목만 미리, 본문은 그때).
 //   · save_url(S62-22 APP-공유로뉴스보관, migration 20261115230000): 폰 공유로 받은 기사 주소 하나 → 그 사람 News에 넣고 바로 보관.
 //     몸통 {url}만. 주소는 열린 주소 규칙(https·IP·내부 이름·포트·사용자 정보 거절 — http는 https로 바꿔 읽음) + 문서·텔레그램·대화방·단축 주소 거절,
 //     같은 주소의 공용 기사가 있으면 원문을 읽지 않고 표시만(서버 함수 app_news_user_save, service_role만). 없으면 원문 한 번(robots.txt는 보지 않음 — S68-25, 유료벽·봇 확인 규칙 그대로,
@@ -25,7 +25,7 @@
 //     AI 요약 없음. 응답은 상태 코드와 기사 id뿐(제목·주소·본문 없음). 발송·공유·삭제와 잇지 않는다.
 //   두 입구의 열쇠가 함께 오거나, 다른 기능의 비밀 헤더가 붙으면 401.
 // 읽는 주소: 매체는 _shared/news-catalog.ts 허용 호스트만, 채널 기사 원문은 _shared/feed-fetch.ts openArticleUrl 규칙.
-//   매체 피드(RSS)는 robots.txt 먼저(막히면 읽지 않음). 기사 원문 한 쪽은 robots.txt를 보지 않는다(S68-25, 명진 결정 2026-11-22 — 아래 makeReaders).
+//   매체 피드(RSS)는 robots.txt 먼저(막히면 읽지 않음). 기사 원문 한 쪽은 robots.txt를 보지 않는다(S68-25, 사용자 결정 2026-11-22 — 아래 makeReaders).
 //   유료벽 표시면 본문을 읽지 않고 공개 리드만(state='paywall'), 봇 확인 쪽은 저장 안 함.
 // 저장: 서비스 역할로 app_news_items(넣기·고치기)·app_news_days(넣기·고치기)·app_news_keywords(읽기)·app_outside_sources(news- 키 읽기·상태)·
 //   app_workspace_members(owner 확인 읽기)·rpc app_news_prune·app_feed_bodies(본문 블록 넣기·고치기, P2b)만.
@@ -78,10 +78,10 @@ export const MEDIA_LIST_LIMIT = 150;
 export const KEEP_HOURS = 72;
 export const tooOldForNews = (published: string | null | undefined, nowMs: number) =>
   typeof published === "string" && Number.isFinite(Date.parse(published)) && Date.parse(published) < nowMs - KEEP_HOURS * 3600000;
-// 기본값(명진이 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
+// 기본값(사용자가 바꿀 때 이 줄들만 고친다 — 화면은 catalog 응답의 limits로 같은 값을 보인다):
 // 키워드는 작업공간마다 KEYWORDS_PER_WORKSPACE개까지(먼저 넣은 것부터) 글자 맞추기에 쓴다.
 export const KEYWORDS_PER_WORKSPACE = 30;
-// 키워드 표시(S59-1 NEWS-키워드살리기, 11/11 명진 결정): 밖에서 새로 찾지 않는다(구글 뉴스 검색은 robots 금지, S58-9).
+// 키워드 표시(S59-1 NEWS-키워드살리기, 11/11 사용자 결정): 밖에서 새로 찾지 않는다(구글 뉴스 검색은 robots 금지, S58-9).
 // 켠 매체로 이미 들어온 글(lane=media) 가운데 최근 KEYWORD_SCAN_DAYS일 것의 제목·한국어 제목·요약에 켠 키워드가 글자 그대로 들어 있으면 그 줄의 keywords 칸에 적는다.
 // 한 작업공간에서 한 번에 KEYWORD_SCAN_PAGE줄씩, KEYWORD_SCAN_ROWS줄까지 본다. 새로 들어오는 글은 매체 단계가 넣을 때 바로 적는다.
 // 한 줄에 적는 키워드는 KEYWORDS_PER_ITEM개까지(DB 검사 cardinality(keywords) <= 10).
@@ -99,21 +99,21 @@ export const PENDING_COUNT_CAP = 1000;
 export const PENDING_STALE_DAYS = 3;
 // 수집 때 본문 읽기(P2b): 매체마다 한 번에 새 기사 MEDIA_BODY_PER_RUN건(사이트마다 한 번 30건 상한 그대로).
 export const MEDIA_BODY_PER_RUN = 30;
-// robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25, 명진 결정 2026-11-22): 예약 '대기 기사' 단계에서 한 번에 ROBOTS_RETRY_PER_RUN건까지만,
+// robots 때문에 원문이 빈 지난 기사 다시 읽기(S68-25, 사용자 결정 2026-11-22): 예약 '대기 기사' 단계에서 한 번에 ROBOTS_RETRY_PER_RUN건까지만,
 // 새 것부터(받은 지 ROBOTS_RETRY_DAYS일 안). 찾는 범위는 ROBOTS_RETRY_SCAN줄.
-// S68-43(명진 요청 11/23 '옛 보관 글 원문 다시 불러오기'): 3일 → 30일. 정리에서 남은 보관·별표 기사도 S68-25 전에 robots로 막힌 채였다(다시 뽑기 REFILL_DAYS와 같은 창).
+// S68-43(사용자 요청 11/23 '옛 보관 글 원문 다시 불러오기'): 3일 → 30일. 정리에서 남은 보관·별표 기사도 S68-25 전에 robots로 막힌 채였다(다시 뽑기 REFILL_DAYS와 같은 창).
 // 재시도 상한 = 기사마다 1번: 다시 읽으면 공용 기사 상태가 robots에서 다른 값(ok·failed·bot_check·paywall…)으로 바뀌어 다시 고르지 않는다
 // (원문 읽기는 이제 robots를 보지 않으므로 robots로 돌아갈 수 없다). 읽을 수 없는 기사(카탈로그 밖·본문 읽기 끈 매체·허용 호스트 밖)는 요청 없이 건너뛴다.
 export const ROBOTS_RETRY_PER_RUN = 10;
 export const ROBOTS_RETRY_DAYS = 30;
 export const ROBOTS_RETRY_SCAN = 50;
-// 제목 다시 읽기(S69 NEWS-제목늘읽기, 명진 11/24 "제목은 읽어놔야 누르든 말든하지"): 원문 읽기에 실패해 제목도 없이 남은 기사(state failed, 매체 기사 밖)를
+// 제목 다시 읽기(S69 NEWS-제목늘읽기, 사용자 11/24 "제목은 읽어놔야 누르든 말든하지"): 원문 읽기에 실패해 제목도 없이 남은 기사(state failed, 매체 기사 밖)를
 // 예약 '대기 기사' 단계마다 TITLE_RETRY_PER_RUN건까지, 그 주소 한 장만 읽어 제목(og:title → <title>)만 적는다(본문·상태는 그대로 — 본문 규칙은 바꾸지 않음).
 // 기사마다 한 번만: 원문 읽기에 실패한 시각(fetched_at)이 TITLE_RETRY_AFTER_MIN분 ~ +60분 전인 줄만 고른다(대기 단계는 한 시간마다라 그 띠에 한 번 든다).
 // 다시 읽기는 fetched_at을 바꾸지 않으므로 다음 실행에는 띠 밖이다(무한 재시도 없음). 화면 '열기' 하루 한도는 세지 않는다.
 export const TITLE_RETRY_PER_RUN = 10;
 export const TITLE_RETRY_AFTER_MIN = 50;
-// S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함"): 사이트를 다시 부르기 전에 같은 기사의 매체 RSS 줄 제목을 먼저 본다
+// S70-17b NEWS-제목꼭얻기(사용자 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함"): 사이트를 다시 부르기 전에 같은 기사의 매체 RSS 줄 제목을 먼저 본다
 // (_shared/same-article.ts, 우리 DB만). 그리고 띠 밖의 지난 줄도 — 같은 기사 규칙이 있는 매체 주소(동아일보 등)이면서 제목 없는 채널 줄을
 // 최근 TITLE_SAME_DAYS일 안에서 새 것부터 TITLE_SAME_PER_RUN건까지 RSS 줄과만 맞춰 본다(사이트는 부르지 않음 — 이미 들어온 '못 읽은 기사'가 같은 흐름으로 채워진다).
 export const TITLE_SAME_PER_RUN = 20;
@@ -242,12 +242,12 @@ export function refsCounts(v: unknown): Record<string, number> | null {
 }
 export const ART_SELECT = "id,url,url_key,origin,lane,title,title_key,lang,publisher,published_at,state,fetched_at,summary,body,body_kind,title_ko,body_ko,translated_at,source_key,manual_at";
 // S68-40: 사람이 손으로 본문을 넣은 공용 기사(manual_at + 본문 있음)인가. 그 본문(글·내가 올린 사진)은 사람 것이 먼저 — 원문 다시 읽기·수집·다시 뽑기가 덮지 않는다.
-// S68-44(명진 11/23 "본문 글자 없이도 저장되게"): 본문 칸을 사진만 남기거나 비워서 저장한 손 기사(state ok + 기사 글자 없음)도 사람 것 — 같은 보호.
+// S68-44(사용자 11/23 "본문 글자 없이도 저장되게"): 본문 칸을 사진만 남기거나 비워서 저장한 손 기사(state ok + 기사 글자 없음)도 사람 것 — 같은 보호.
 // 제목만 고친(본문을 보내지 않은) 못 읽은 기사는 상태가 그대로(failed 등)라 여기에 들지 않아 원문 다시 읽기로 본문을 채울 수 있다.
 export const handOwned = (article: Row | null | undefined) =>
   !!article && typeof article.manual_at === "string" && !!article.manual_at &&
   (article.body_kind === "full" || (article.state === "ok" && article.body == null));
-// S69 READ-첨부본문(명진 11/24, 손으로 넣은 기사 본문이 '[사진 1] .'뿐): 손 본문의 글자(띄어쓰기·문장부호·기호 빼고)가 HAND_SHORT_CHARS 미만인 손 기사.
+// S69 READ-첨부본문(사용자 11/24, 손으로 넣은 기사 본문이 '[사진 1] .'뿐): 손 본문의 글자(띄어쓰기·문장부호·기호 빼고)가 HAND_SHORT_CHARS 미만인 손 기사.
 // 이런 기사만 사람이 글 보기 ⋯·까닭 줄 [원문 다시 가져오기](open again)를 누를 때 원래 주소를 다시 읽어 본문을 채울 수 있다(자동 수집·다시 뽑기는 그대로 덮지 않음).
 // 읽은 결과가 전문(ok)일 때만 바꾸고, 손으로 넣은 사진은 앞에 그대로 둔다(saveArticleBody). 제목·매체·기자는 손 값 그대로(pagePatch는 빈 칸만 채움).
 export const HAND_SHORT_CHARS = 20; // 화면 now-model BODY_SHORT_CHARS·ai-assist MATERIAL_MIN_CHARS와 같은 값
@@ -427,7 +427,7 @@ async function summarize(db: Db, ai: AiDeps, ws: string, title: string, body: st
 
 // ---- 읽기 ----------------------------------------------------------------------------------------------------------
 // person=true: 사람이 누른 읽기(공유 보관 save_url·[본문 열기] open)만 요청 하나 PERSON_FETCH_TIMEOUT_MS(S67-10). 수집·다시 뽑기는 기본 상한 그대로.
-// 기사 원문 한 쪽(S68-25, 명진 결정 2026-11-22 "그냥 너도 다 해"): 원문 미리 저장·대기 기사·다시 뽑기·열기·공유 보관은 robots.txt를 보지 않는다
+// 기사 원문 한 쪽(S68-25, 사용자 결정 2026-11-22 "그냥 너도 다 해"): 원문 미리 저장·대기 기사·다시 뽑기·열기·공유 보관은 robots.txt를 보지 않는다
 //   (공용 읽기 skipRobots: true — S68-23과 같은 선택). 매체 피드(RSS) 읽기는 지금처럼 robots를 지킨다(catalog).
 //   건너뛰어도 그대로: 주소 규칙·리다이렉트 재검사(allow)·크기·시간 상한·같은 사이트 GAP_MS 간격·쿠키 없음·정직한 User-Agent,
 //   유료벽·봇 확인 화면은 넘지 않음(page.ts가 lead·bot_check로 남김), 한 번 실행당 읽는 수 상한(MEDIA_BODY_PER_RUN·PENDING_PER_RUN·ROBOTS_RETRY_PER_RUN).
@@ -862,7 +862,7 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
       if (tooOldForNews(it.published_at, nowMs)) { dropped++; continue; }
       const rank = newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords });
       if (rank === null) { dropped++; continue; }
-      // S69-02(명진 11/24 06:43 철도망 기사): 피드 글 끝의 '더 보기' 링크 줄('전체 내용보기' 등)은 본문이 아니다 — 떼어 내고,
+      // S69-02(사용자 11/24 06:43 철도망 기사): 피드 글 끝의 '더 보기' 링크 줄('전체 내용보기' 등)은 본문이 아니다 — 떼어 내고,
       // 그 줄이 붙어 있던 피드 본문은 앞부분뿐이라는 뜻이라 전문(full)으로 치지 않는다(사람이 열 때 글 쪽을 읽게).
       const fc = dropMoreLinks(it.content), sc = dropMoreLinks(it.summary);
       const full = fc.text && !fc.cut && chars(fc.text) >= 200 ? fc.text : null;
@@ -1559,7 +1559,7 @@ async function saveUrl(db: Db, readers: Readers, log: FeedLog, ws: string, raw: 
 // ---- 손으로 넣기(hand_fill, S67-02 NEWS-직접넣기) ------------------------------------------------------------------------
 // 원문을 못 읽은 기사(늦은 답·없는 글·막힘)나 잘못 읽은 기사에 사람이 제목·매체·기자·기사 시각·본문을 넣는다. 화면 [직접 넣기]·⋯ [수정].
 // - 몸통 {id, title, publisher, author, published_at, body?, url?}. body가 없으면 본문은 그대로(제목 등만 고침). 값은 글자로만 저장(HTML 해석 없음).
-// - S68-44(명진 11/23 11:07 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다. body가 사진만이면 사진 본문(image_only), 빈 글자면 본문 비움
+// - S68-44(사용자 11/23 11:07 "본문 글자 없이도 저장되게"): 본문 글자는 필수가 아니다. body가 사진만이면 사진 본문(image_only), 빈 글자면 본문 비움
 //   (블록 failed·no_body — 화면은 '본문 없음'). 제목도 비워 보낼 수 있다(빈 제목 = 지금 제목 그대로).
 //   다만 제목·원문 주소·본문(글 또는 사진)이 모두 빈 요청은 고칠 것이 없는 빈 기사라 400 EMPTY_ARTICLE. 길이·모양 검사는 그대로.
 // - url(S68-39 NEWS-직접넣기원문주소, 선택): 원문 주소를 바로잡는다. 주소로 보관(save_url)과 같은 규칙(saveTarget — http는 https로, 거절 목록·추적 값 떼기,

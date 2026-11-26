@@ -1,4 +1,4 @@
-// HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(시안 docs/design/mockups/help-howto.html · help-first-use.html, 명진 확정 11/16).
+// HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(시안 docs/design/mockups/help-howto.html · help-first-use.html, 사용자 확정 11/16).
 // ① 계정 › 쓰는 법('앱 정보' 바로 아래 — 폰 [메뉴] 창 계정 줄 · 폴드/PC [계정 ▾] 메뉴, S69-71. 왼쪽 메뉴에는 없음) → 쓰는 법 화면(폰: 줄을 누르면 펼침, 넓은 화면: 목차 | 내용)
 // ② 각 화면 ⋯ 맨 아래 '쓰는 법' → 그 메뉴 줄이 펼쳐진(고른) 채로 ③ 운영자 기능 메뉴 줄은 서버 기능 목록에 있을 때만
 // ④ 조직 관리·사업 관리·브리핑 룸이 비어 있을 때 따라하기 3단계 ⑤ 앱 내려받기 기기별 탭(지금 기기 탭 먼저).
@@ -15,7 +15,7 @@ const shot = async (page, name) => { if (process.env.SHOT_DIR) { await page.wait
 const help = page => page.locator('#helpView');
 
 async function openHelpFromMenu(page) {
-  // S69-71(명진 11/24 "쓰는법 계정 안으로 들여보내줘"): 왼쪽 메뉴 맨 아래 줄은 없고, 계정 메뉴 '앱 정보' 바로 아래 한 줄.
+  // S69-71(사용자 11/24 "쓰는법 계정 안으로 들여보내줘"): 왼쪽 메뉴 맨 아래 줄은 없고, 계정 메뉴 '앱 정보' 바로 아래 한 줄.
   await expect(page.locator('#appNav .nav-help, #appNav [data-view="help"]')).toHaveCount(0);
   const phone = (page.viewportSize()?.width || 0) <= 760;
   await accountButton(page).click();
@@ -50,7 +50,7 @@ for (const [label, width, height] of WIDTHS) {
       await help(page).locator('[data-hp-topic="calendar"] > summary').click();
       await expect(help(page).locator('[data-hp-topic="team"]')).not.toHaveAttribute('open', '');
       await expect(help(page).locator('[data-hp-topic="calendar"] [data-hp-ex]')).toBeVisible();
-      // S68-58(명진 11/23 폰 캡처): '내 기록은 누가 보나'를 펼치면 첫 문장은 한 번만, 상자에는 제공/미제공 두 줄.
+      // S68-58(사용자 11/23 폰 캡처): '내 기록은 누가 보나'를 펼치면 첫 문장은 한 번만, 상자에는 제공/미제공 두 줄.
       await help(page).locator('[data-hp-topic="privacy"] > summary').click();
       const priv = help(page).locator('[data-hp-topic="privacy"] .hp-body');
       await expect(priv.locator('.hp-lead')).toHaveText('내가 기록한 내용은 운영자가 볼 수 없습니다.');
@@ -70,7 +70,7 @@ for (const [label, width, height] of WIDTHS) {
       await expect(page).toHaveURL(/topic=brief/);
       await shot(page, `${label}-1-help-brief`);
       await toc.locator('[data-hp-pick="privacy"]').click();
-      // S68-58(명진 11/23): 첫 문장은 한 번만(lead), 상자에는 제공/미제공 두 줄.
+      // S68-58(사용자 11/23): 첫 문장은 한 번만(lead), 상자에는 제공/미제공 두 줄.
       await expect(detail.locator('.hp-lead')).toHaveText('내가 기록한 내용은 운영자가 볼 수 없습니다.');
       await expect(detail.locator('[data-hp-privacy] p')).toHaveText(['운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.', '제공되지 않는 정보: 유저가 기록·업로드한 정보.']);
       expect((await detail.innerText()).split('내가 기록한 내용은 운영자가 볼 수 없습니다.').length).toBe(2);

@@ -29,7 +29,7 @@ export const BRIEF_PUBLIC = 'id,document_id,status,stage,step_no,step_total,page
 
 const S = { type: 'string' };
 const LINES = { type: 'array', items: S };
-// S68-56(명진 11/23 15:06·15:12): 칸을 미리 정하지 않는다. 조각 메모 = 자료 순서 요약 points + 원문 인용(발언자 포함).
+// S68-56(사용자 11/23 15:06·15:12): 칸을 미리 정하지 않는다. 조각 메모 = 자료 순서 요약 points + 원문 인용(발언자 포함).
 // 진행 중이던 작업의 옛 메모(touches·todos·conflicts)는 mergeInput이 칸 이름 없이 줄만 옮겨 합친다.
 const OBJ = (props) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
 export const CHUNK_SCHEMA = Object.freeze({

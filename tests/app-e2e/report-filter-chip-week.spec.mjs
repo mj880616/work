@@ -6,7 +6,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { pickReportBox } from './helpers/report-boxes.mjs';
 import { pickReportFilter } from './helpers/report-filter.mjs';
 
-// S71-10 사업 관리 주 이동 한 줄(명진 11/26 14:41 "한 줄에 우겨넣고 싶어"): 사업 관리 첫 줄 =
+// S71-10 사업 관리 주 이동 한 줄(사용자 11/26 14:41 "한 줄에 우겨넣고 싶어"): 사업 관리 첫 줄 =
 // [고르기(폰은 칩 하나)] ‹ 11.23(월)~11.29(일) › · n건 ……… [녹음][+][⋯]. 둘째 줄은 없다(폰·폴드·PC 모두).
 // 줄이 모자라면 ① 요일을 빼고(11.23~11.29) ② 건수를 짧게(n건) ③ 그래도 넘치면 칩 끝 말줄임 — 글자 겹침·잘림·가로 넘침 없음.
 // ‹ › 누르기는 그대로 주를 넘긴다. (가짜 서버·가짜 보고는 biz-top-tidy.spec.mjs와 같은 틀. 모든 이름은 합성 값.)

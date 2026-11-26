@@ -1,4 +1,4 @@
-// WEEKLY-환류 (docs/design/weekly-draft-feedback.md 3절, 명진 결정 Q3~Q7 추천대로): 주간보고 5. 주요 일정에서 [확정] 때 달력 제목과 다르게
+// WEEKLY-환류 (docs/design/weekly-draft-feedback.md 3절, 사용자 결정 Q3~Q7 추천대로): 주간보고 5. 주요 일정에서 [확정] 때 달력 제목과 다르게
 // 고친 일정 이름·뺀 일정을 "원래 제목"을 열쇠로 내 프로필 칸 하나(app_profiles.weekly_schedule_memory, migration 20261024002000)에 기억하고,
 // 다음 주 초안을 만들 때 먼저 적용한다. Google Calendar 원본은 건드리지 않는다. 회의 종류 빼기(journal-meeting-kinds.js)와 같은 모양이다.
 // - 열쇠 = 원래 제목에서 띄어쓰기를 빼고 소문자로(회의 종류 열쇠와 같은 규칙). 일정 id가 아니라 제목이라 반복 일정·다음 주에 겹치는 둘째 주

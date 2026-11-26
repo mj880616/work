@@ -11,7 +11,7 @@ const widths=[360,412,720,759,760,761,884,1280,1440], results=[];
 const user={id:'audit-user',email:'audit@example.invalid',user_metadata:{display_name:'검사'}};
 const project={id:'p1',workspace_id:'audit-ws',owner_id:user.id,name:'교섭 준비',status:'active',sort_order:1,metadata:{project_system:'v2'}};
 // Same organization names and group boundaries as organization-detail-tasks.spec.mjs.
-const orgs=['공항철도지부','용인경전철지부','서울교통공사9호선지부','인천교통공사노동조합','신분당선지부','전국철도노동조합','메트로9호선노동조합','부산지하철노동조합','김포도시철도지부','서해선지부','대구교통공사노동조합','지티엑스에이운영지부','서울교통공사노동조합','국민연금지부'].map((name,i)=>({id:`o${i}`,workspace_id:'audit-ws',name,active:true,organization_type:'담당조직'}));
+const orgs=['하늘철도지부','솔빛경전철지부','한빛교통공사9호선지부','누리교통공사노동조합','나선지부','전국가람노동조합','별빛메트로노동조합','바다지하철노동조합','구름도시철도지부','가선지부','달빛교통공사노동조합','다온에이운영지부','한빛교통공사노동조합','연금가상지부'].map((name,i)=>({id:`o${i}`,workspace_id:'audit-ws',name,active:true,organization_type:'담당조직'}));
 const day=new Date().toISOString().slice(0,10);
 const task={id:'t1',title:'회의 자료 정리',taskListId:'@default',taskListTitle:'내 할 일',due:`${day}T00:00:00Z`,status:'needsAction',source:'google-task'};
 const json=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});

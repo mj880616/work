@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
-// S63-11(명진 11/16 '3·5 고쳐'): ③ 본문은 저장돼 있는데 제목이 아직 '읽기 전'인 기사를 열면 서버 열기를 한 번 불러 제목을 채우고,
+// S63-11(사용자 11/16 '3·5 고쳐'): ③ 본문은 저장돼 있는데 제목이 아직 '읽기 전'인 기사를 열면 서버 열기를 한 번 불러 제목을 채우고,
 // 목록 줄과 상세 머리가 바로 새 제목. ⑤ PC 두 칸에서 탭을 옮겨 그 탭 목록에 없는 글이면 오른쪽에 남기지 않는다.
 // 서버는 흉내(시계 2026-10-06 10:00 서울), 기사·주소는 모두 가짜(example.org).
 const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 기사 한 줄 요약입니다.', key_sentences: [], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };

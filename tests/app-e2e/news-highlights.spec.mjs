@@ -169,7 +169,7 @@ for (const width of [412, 1440]) {
   });
 }
 
-// S61-38 UI-선택줄글아래(11/13) → S70-16 UI-고른글메뉴(11/25 09:51 명진 "이 메뉴가 글을 가리지 않는 곳에 뜨게", 사진: 바로 아래 줄이 다음 줄 글을 가림)로 바뀜:
+// S61-38 UI-선택줄글아래(11/13) → S70-16 UI-고른글메뉴(11/25 09:51 사용자 "이 메뉴가 글을 가리지 않는 곳에 뜨게", 사진: 바로 아래 줄이 다음 줄 글을 가림)로 바뀜:
 // 줄은 고른 글과 바로 앞뒤 줄을 가리지 않는다. PC는 글 칸 옆 여백 → 고른 글 위(한 줄 띄움) → 아래(한 줄 띄움), 폰은 하단바 바로 위 고정 줄.
 // 스크롤해도 가리지 않는다. 어느 폭에서도 화면·하단바 밖으로 안 나간다. (자리 계산은 select-bar-place-model.mjs, 기준표 docs/design/standard-interactions.md G1)
 const selBox = page => page.evaluate(() => { const r = getSelection().getRangeAt(0).getClientRects(), a = [...r].filter(x => x.width && x.height); return { top: Math.min(...a.map(x => x.top)), bottom: Math.max(...a.map(x => x.bottom)), left: Math.min(...a.map(x => x.left)), right: Math.max(...a.map(x => x.right)) }; });

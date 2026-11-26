@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// S70-09 LIB-PC우클릭(2026-11-25 명진 "이런데가 딱 새 폴더 만들기 이런걸 우클릭해서 하고싶은 곳인데 작동안험"): PC(마우스) 자료실 오른쪽 클릭은
+// S70-09 LIB-PC우클릭(2026-11-25 사용자 "이런데가 딱 새 폴더 만들기 이런걸 우클릭해서 하고싶은 곳인데 작동안험"): PC(마우스) 자료실 오른쪽 클릭은
 // 윈도우 탐색기처럼 앱 메뉴 — 빈 곳(목록 상자 아래 남는 자리 포함) = [새 폴더][파일 올리기]…[모두 선택](지금 폴더), 파일 줄 = 그 줄 ⋯ 메뉴,
 // 여러 개 고른 뒤 고른 줄 = 고른 것 전체 메뉴, 왼쪽 나무 폴더 줄 = 그 폴더 ⋯ 메뉴. 글 입력칸 위는 크롬 메뉴 그대로(앱 메뉴 없음·막지 않음).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];

@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {appOrigin} from './helpers/test-origin.mjs';
 import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
-// S69-34 APP-업데이트확인(명진 요청 "앱에 업데이트 확인 버튼 추가 현재 버전 몇인지도 알려주고"):
+// S69-34 APP-업데이트확인(사용자 요청 "앱에 업데이트 확인 버튼 추가 현재 버전 몇인지도 알려주고"):
 // 계정 메뉴 '앱 정보' → 작은 창(지금 쓰는 판 모두 + [업데이트 확인]).
 // - 화면: Pages 빌드가 app.js에 붙인 판(여기서는 built-shell의 고정 판)과 build-info.json의 배포 시각. [업데이트 확인]은 배포된 index.html의 app.js 판과 비교.
 // - 폰 앱: 사용자 에이전트의 앱 판, 앱 다리 update:check → 답(update:new / update:latest), [받기] = update:get.

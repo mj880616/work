@@ -214,7 +214,7 @@ test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 창은 전
  const settle=sheet=>sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  async function aboveRow(sheet,row){
   const box=await sheet.boundingBox(),r=await segBox(row),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
-  // The row is 44px on the tabs. S54-04·05(명진 11/08 B안·21:20): 폰도 버튼으로 연 고르기 창은 누른 버튼 바로 아래 작은 창이라
+  // The row is 44px on the tabs. S54-04·05(사용자 11/08 B안·21:20): 폰도 버튼으로 연 고르기 창은 누른 버튼 바로 아래 작은 창이라
   // 창 아래 끝이 전환 줄 바로 위에 붙지 않는다(옛 '아래 시트' 기대 = tabs.y-44와 같음은 뺐다). 지키는 것은 그대로: 전환 줄·탭을 덮지 않음.
   expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);expect(box.y+box.height).toBeLessThanOrEqual(tabs.y-44+0.5);
   for(const item of await sheet.locator('[data-sheet-value]').filter({visible:true}).all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}

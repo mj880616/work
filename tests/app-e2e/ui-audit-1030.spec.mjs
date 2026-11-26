@@ -64,13 +64,13 @@ test.describe('폰 412',()=>{
 
   test('C2 사업 보고: 맨 위는 한 줄 [종류 ▾] … [⋯](S52-22 TEAM-맨위한줄, 칩 줄·[거르기] 없음)',async({page})=>{
     await openApp(page,'meetings');
-    // S67-75 UI-걸러보기칩하나(명진 A안): 412는 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 고르기 자리다.
+    // S67-75 UI-걸러보기칩하나(사용자 A안): 412는 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 고르기 자리다.
     const inChip=await reportBoxesInChip(page);
     const bar=page.locator(inChip?'#reportFilterChip':'#meetingsView .report-kind-bar'),kind=page.locator(inChip?'#reportFilterChip':'#reportKindSelect'),more=page.locator('#reportMore');
     await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportFilterBtn')).toHaveCount(0);await expect(kind).toBeVisible();
     const b=await bar.boundingBox(),k=await kind.boundingBox(),m=await more.boundingBox();
     // BIZ-위쪽정돈(11/09 01:22 확정안): [⋯]는 맨 윗줄(제목 줄) 오른쪽 끝으로 올라갔다 — 둘째 줄은 종류·사업영역·[주 ▾]뿐이고 그 위에 ⋯ 줄이 있다.
-    // S67-64 UI-윗줄한줄(명진 11/21 D3): 폰도 제목·고르기·[+]·[⋯]가 한 줄 — [⋯]는 고르기와 같은 가운데 높이, 고르기 줄 오른쪽.
+    // S67-64 UI-윗줄한줄(사용자 11/21 D3): 폰도 제목·고르기·[+]·[⋯]가 한 줄 — [⋯]는 고르기와 같은 가운데 높이, 고르기 줄 오른쪽.
     expect(b.height).toBeLessThanOrEqual(48);expect(Math.abs((m.y+m.height/2)-(k.y+k.height/2))).toBeLessThanOrEqual(2);expect(b.x+b.width).toBeLessThanOrEqual(m.x);expect(k.x+k.width).toBeLessThanOrEqual(412);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });

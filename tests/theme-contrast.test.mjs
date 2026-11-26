@@ -96,7 +96,7 @@ test('colors are distinct from each other (light page color and button color)',(
   const seen=new Map();
   for(const name of THEMES){
     for(const key of ['--kptu-bg','--kptu-primary']){
-      // S67-64: 기본(먹)은 옛 기본(올리브)과 같은 오트밀 바탕을 쓴다(명진 11/21 '기본 색상을 먹으로' — 강조만 먹). 강조색은 모두 달라야 한다.
+      // S67-64: 기본(먹)은 옛 기본(올리브)과 같은 오트밀 바탕을 쓴다(사용자 11/21 '기본 색상을 먹으로' — 강조만 먹). 강조색은 모두 달라야 한다.
       if(key==='--kptu-bg'&&name==='olive')continue;
       const value=light(name)[key].toLowerCase();
       assert.ok(!seen.has(key+value),`${name} repeats ${seen.get(key+value)} for ${key}`);seen.set(key+value,name);
@@ -211,7 +211,7 @@ test('고른 줄 표시: 바탕·왼쪽 줄·글자가 열 가지 색 모두에�
   }
 });
 
-// UI-선택표시톤다운(명진 2026-10-28 18:40): 선택 표시 규칙 — 고른 메뉴·탭·전환·필터는 연한 바탕 + 얇은 선, 꽉 칠한 주 색은 누르는 주 버튼에만, 오늘 표시는 동그라미 테두리.
+// UI-선택표시톤다운(사용자 2026-10-28 18:40): 선택 표시 규칙 — 고른 메뉴·탭·전환·필터는 연한 바탕 + 얇은 선, 꽉 칠한 주 색은 누르는 주 버튼에만, 오늘 표시는 동그라미 테두리.
 const tokenBlock=css.slice(css.indexOf('--ds-select-bg:'),css.indexOf('--ds-today-ink:'));
 // 글자로 쓰는 강조색(--kptu-primary-text): 수수한 다섯은 주 버튼 색, 산뜻한 다섯은 읽히는 글자색.
 const accentText=(name,c)=>VIVID.includes(name)?c['--kptu-primary-ink']:c['--kptu-primary'];
@@ -261,7 +261,7 @@ test('선택 표시 규칙: 색별 조정(레몬은 버터·겨자, 빨강은 �
   assert.ok(sat(light('lemon')['--kptu-primary'])<0.8&&sat(dark('lemon')['--kptu-primary'])<0.7);
 });
 
-// UI-오늘표시통일(명진 2026-10-29 16:33, 일기 달력 방식): 앱의 모든 달력 '오늘'은 공용 규칙 하나(ui-standard.css .ds-today·.ds-today-num).
+// UI-오늘표시통일(사용자 2026-10-29 16:33, 일기 달력 방식): 앱의 모든 달력 '오늘'은 공용 규칙 하나(ui-standard.css .ds-today·.ds-today-num).
 test('오늘 표시 토큰: 칸 둘레 선은 진한 강조 글자색, 모든 색·밝은/어두운 화면에서 칸 바탕 위 3:1 이상',()=>{
   const v=vars(css);
   assert.equal(v['--ds-today-line'],'var(--kptu-primary-ink)');
@@ -286,12 +286,12 @@ test('오늘 표시 규칙: 오늘 모양(네모 선)·고른 날(옅은 바탕)
   assert.deepEqual(bad,[],'오늘 표시는 .ds-today/.ds-today-num 공용 규칙(ui-standard.css)만 쓴다');
   const shared=readFileSync('app/ui-standard.css','utf8');
   assert.match(shared,/#appView \.ds-today::before\{[^}]*border:var\(--ds-today-line-width\) solid var\(--ds-today-line\)/);
-  // UI-오늘네모(명진 2026-10-30): 오늘 숫자는 동그라미 없이 글자색만, 고른 날은 옅은 바탕(.ds-day-sel) 하나.
+  // UI-오늘네모(사용자 2026-10-30): 오늘 숫자는 동그라미 없이 글자색만, 고른 날은 옅은 바탕(.ds-day-sel) 하나.
   const num=shared.match(/#appView \.ds-today \.ds-today-num\{([^}]*)\}/)[1];
   assert.match(num,/box-shadow:none/);assert.match(num,/color:var\(--ds-today-ink\)/);assert.doesNotMatch(num,/border-radius|border:/);
   const photo=shared.match(/#appView \.ds-today:has\(img\) \.ds-today-num\{([^}]*)\}/)[1];
   assert.match(photo,/box-shadow:none/);assert.match(photo,/background:var\(--ds-photo-scrim\)/);
-  // UI-고른날진하게(명진 2026-11-12): 고른 날은 칸이 아니라 날짜 숫자(.ds-day-num)를 진한 채운 동그라미·흰 숫자로. 칸 옅은 바탕·사진 위 옅은 막은 없앴다.
+  // UI-고른날진하게(사용자 2026-11-12): 고른 날은 칸이 아니라 날짜 숫자(.ds-day-num)를 진한 채운 동그라미·흰 숫자로. 칸 옅은 바탕·사진 위 옅은 막은 없앴다.
   const sel=shared.match(/\.ds-day-sel \.ds-day-num:not\(#ds-none\)\{([^}]*)\}/)[1];
   assert.match(sel,/color:var\(--ds-day-sel-ink\)/);assert.match(sel,/background:var\(--ds-day-sel-bg\)/);assert.match(sel,/border-radius:999px/);
   assert.doesNotMatch(sel,/(min-|max-)?(width|height|padding|margin)\s*:/,'고른 날은 색만 바꾼다(크기는 각 달력 숫자 상자가 정해 골라도 변하지 않음)');

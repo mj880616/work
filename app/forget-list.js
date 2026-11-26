@@ -1,9 +1,9 @@
-// S52-20 HOME-잊지말기한목록(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 명진 14:44 '좋은데'): 정리함 화면 안의 한 목록.
+// S52-20 HOME-잊지말기한목록(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 사용자 14:44 '좋은데'): 정리함 화면 안의 한 목록.
 // 텔레그램 요청·챙길 것·가족(잊지 말기 제안)·업데이트는 들어오는 곳만 다를 뿐 같은 결정이라, 칸을 나누지 않고 같은 줄·같은 버튼으로 한 목록(새 것이 위)에 둔다.
 // - 줄 = 공용 부품 notice-box.mjs rowHtml 하나(새 모양 없음). 다른 점은 아래 작은 줄 맨 앞 흐린 출처 꼬리표뿐.
-// - FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 명진 'ㅇ'): 출처와 상관없이 모든 줄이 같은 버튼 일곱
+// - FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 사용자 'ㅇ'): 출처와 상관없이 모든 줄이 같은 버튼 일곱
 //   [할 일로][일정으로][노트로][조직][사업][이미 함] ×(NB_REPORT_ACTS). 가족 줄만 [조직][사업] 없이 다섯(보고 길 막음 유지).
-//   UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로'): 보이는 법만 바뀜 — 폰·폴드는 줄에 [할 일로][이미 함] ⋯, 나머지는 줄 ⋯ 메뉴(아래 more) 안 같은 이름,
+//   UI-잊지말기줄단추(요청함 11/10 11:23, 사용자 '추천대로'): 보이는 법만 바뀜 — 폰·폴드는 줄에 [할 일로][이미 함] ⋯, 나머지는 줄 ⋯ 메뉴(아래 more) 안 같은 이름,
 //   PC는 마우스 올린 줄·초점 줄에만 전부(notice-box.mjs·ui-standard.css). 줄 버튼과 메뉴 항목은 같은 길 rowAct 하나.
 //   [조직]은 담당조직 고르기 창(맨 위에 '조직 › ○○에 넣기' — 줄의 조직이 내 담당조직과 맞을 때 한 번에), [사업]은 사업 고르기 창이고,
 //   고르면 기존 기록 길(quick-save.js 담당조직 기록 → 이번 주 조직보고 제안 / 사업 기록 → 사업 보고·주간보고 사업 칸)로 넣는다.
@@ -61,7 +61,7 @@ export function candidateMeta(c) {
   const from = c?.source_kind === 'telegram' ? (c?.tg?.room_label || '') : RADAR_SOURCE_LABEL[c?.source_kind] ? `${RADAR_SOURCE_LABEL[c.source_kind]}에서` : '';
   return [from, shortDay(c?.source_day), c?.status === 'open' && dueLabel(c?.due) ? `기한 ${dueLabel(c.due)}` : ''].filter(Boolean).join(' · ');
 }
-// 할 일·일정·노트 창에 미리 채울 글. 날짜는 바꾸지 않는다(명진이 창에서 고름).
+// 할 일·일정·노트 창에 미리 채울 글. 날짜는 바꾸지 않는다(사용자가 창에서 고름).
 export const candidateDraft = c => ({title: cut(plainText(c?.summary), 100), // S59-20: 제목에는 마크다운 기호(`**`)를 넣지 않는다
   memo: [c?.source_kind === 'telegram' ? '텔레그램' : RADAR_SOURCE_LABEL[c?.source_kind] || '', c?.tg?.room_label || '', shortDay(c?.source_day)].filter(Boolean).join(' · ')});
 const decidedDay = c => c?.decided_at && Number.isFinite(Date.parse(c.decided_at)) ? dotDay(seoulDateKey(new Date(c.decided_at))) : '';
@@ -191,7 +191,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     }
     const sorted = [...newestFirst(stars), ...newestFirst(out)];
     // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
-    // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
+    // S61-11 FORGET-요청방향 2단계(사용자 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
     // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
     // - 소식(통화·텔레그램, 서버 표 종류 promise): 모든 출처·소식일 때. [원장으로][받음][무시] — 받음·무시는 소식 줄의 기존 상태 길(되돌리기 있음).
     if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => hit(p.summary) && sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
@@ -356,9 +356,9 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       return {status: 'done', message: '다시 보이게 했어요.'};
     }});
   }
-  // FORGET-노트고르기(요청함 11/09 13:34, 명진 13:37): 업무 줄 [노트]는 노트 창 제목 줄 앞 [새 노트 ▾][폴더 ▾](note-pick.js).
+  // FORGET-노트고르기(요청함 11/09 13:34, 사용자 13:37): 업무 줄 [노트]는 노트 창 제목 줄 앞 [새 노트 ▾][폴더 ▾](note-pick.js).
   // 기본은 새 노트 · 폴더 '01. 업무메모'(그 폴더가 없으면 폴더 없음), 기존 노트는 미리 고르지 않는다. 기존 노트를 고르면 그 노트 끝에 더한다.
-  // FORGET-노트작은창(요청함 11/09 21:39, 명진 21:42): [노트로]는 큰 창 대신 누른 줄 아래 작은 창(note-quick.js)이 먼저 뜨고, 길게 쓸 때만 [크게 수정 ↗]로 큰 창.
+  // FORGET-노트작은창(요청함 11/09 21:39, 사용자 21:42): [노트로]는 큰 창 대신 누른 줄 아래 작은 창(note-quick.js)이 먼저 뜨고, 길게 쓸 때만 [크게 수정 ↗]로 큰 창.
   async function openWorkNote(text, done, anchor = null) {
     const [{openNoteWindow}, {createNoteTarget}, {createNoteFolderPick}] = await Promise.all([import('./note-window.js'), import('./note-pick.js'), import('./note-folder-pick.js')]);
     const pick = createNoteFolderPick({rt, initial: WORK_NOTE_FOLDER, title: '노트를 넣을 폴더'});
@@ -671,7 +671,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     // S70-57: 맨 위 칸 '잊지 말기에서 찾기'(basket.js registerScreenFind)가 부른다. 같은 글자면 다시 그리지 않는다.
     query: () => query, setQuery: (raw, {again} = {}) => { const next = String(raw ?? ''); if (next === query && !again) return; query = next; paint(); },
     // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
-    // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다.
+    // FORGET-소식합치기(사용자 '넣어'): 처리 전 소식도 센다.
     openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};
   paint();
   return api;

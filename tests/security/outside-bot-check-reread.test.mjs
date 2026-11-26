@@ -1,4 +1,4 @@
-// S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음" — 사회운동 글 원문 '사이트가 자동 읽기를 막아 둠', 단추 없음, 요약 HTTP 422).
+// S68-49(사용자 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음" — 사회운동 글 원문 '사이트가 자동 읽기를 막아 둠', 단추 없음, 요약 HTTP 422).
 // - 바깥 사이트 읽기 머리글: 브라우저 호환 꼴 User-Agent(위장 없음 — 브라우저 제품 이름 없음) + 일반 브라우저 Accept·Accept-Language, 쿠키·인증 없음.
 // - outside-feed reread: 봇 확인(bot_check) 실패도 한 번 다시 읽는다. 같은 글을 REREAD_COOLDOWN_MS 안에 다시 누르면 사이트를 읽지 않음(recent, 한도도 안 씀).
 // - outside-feed hand_body: 끝내 못 읽는 글에 사람이 본문을 붙여 넣는다(글 id·본문만, 기능 키 작업공간, 읽힌 본문은 덮지 않음).
@@ -183,7 +183,7 @@ test('예약 robots 다시 읽기: 공용 본문이 손 본문(manual@1)이면 �
   assert.match(patch.path, /state=eq\.failed&or=\(rule\.is\.null,rule\.neq\.manual@1\)/);
 });
 
-// S69-02(명진 11/24 "글 안에서도 원문 다시 불러오기 버튼"): 다 읽은 글도 ⋯ [원문 다시 가져오기](again:true) — 새 결과가 전문이고 더 길 때만 바꾼다.
+// S69-02(사용자 11/24 "글 안에서도 원문 다시 불러오기 버튼"): 다 읽은 글도 ⋯ [원문 다시 가져오기](again:true) — 새 결과가 전문이고 더 길 때만 바꾼다.
 test('reread again: 읽힌 본문도 again이면 한 번 읽어 더 긴 전문이면 바꾸고, 같거나 짧으면 same(쓰기 0). again 없이는 예전처럼 stored. 간격·손 본문 그대로', async () => {
   const old = '2026-11-01T00:00:00Z';
   const plain = world({ body: { state: 'ok', reason: null, rule: 'ws@1', chars: 10, updated_at: old } });

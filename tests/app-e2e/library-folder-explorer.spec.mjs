@@ -34,7 +34,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
       await expect(count(page,'f:fa')).toHaveText('폴더 1 · 파일 1');await expect(count(page,'f:fn')).toHaveText('0');
       await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
       expect(await tops(page)).toEqual(['f:fc']);expect(await rowsHere(page)).toEqual(['n-1']);
-      // S69-68(명진 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기(들어가지 않음). 들어가기는 왼쪽 나무.
+      // S69-68(사용자 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기(들어가지 않음). 들어가기는 왼쪽 나무.
       await page.locator('#documentList details[data-lu-node="f:fc"] > summary').click();
       await expect(page.locator('#documentList details[data-lu-node="f:fc"]')).toHaveAttribute('open','');
       await expect(page.locator('#documentList details[data-lu-node="f:fc"] [data-lu-document="a-1"]')).toBeVisible();
@@ -119,7 +119,7 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더'});
     await press(page,menuButton(page,'f:fa'),width);
     // S69-28: 탐색기(넓은 화면 한 칸)의 폴더 줄은 펼치지 않고 들어가므로 [펼치기·접기] 줄이 없다.
-    // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기는 펼치기·접기만이라 [이 폴더로 들어가기]가 첫 줄.
+    // UI-폴더이름펼치기(사용자 11/24 18:09): 폴더 이름 누르기는 펼치기·접기만이라 [이 폴더로 들어가기]가 첫 줄.
     await expect(page.locator('#luFolderMenu button')).toHaveText(['이 폴더로 들어가기','이름 바꾸기F2','안에 새 폴더',...(wideOf(width)?[]:['펼치기']),'옮기기…','색 선택…','정돈 제안','폴더 삭제']);
     await expect(page.locator('#luFolderMenu hr[role="separator"]')).toHaveCount(1);
     // 구분선은 [폴더 지우기] 바로 앞.

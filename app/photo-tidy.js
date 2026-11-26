@@ -1,6 +1,6 @@
 // S46-20 사진 정리 제안 ①(요청함 10/31 11:04, 시안 확정 10/31 13:2x): 사진 메뉴 위 [정리 n] 칩 → 접힌 칸.
 // ① 거르기 줄 [전체|폰에만|원드라이브에만|둘 다] ② 백업 안 됨 n개 폴더 ⑤ 잡동사니(1년 지난 스크린샷·카톡·텔레그램 받은 사진) n장.
-// 줄마다 한 줄 요약 + [보기](<details>). S47-19(요청함 11/01 12:55·12:56): 모든 [보기]는 그 줄 아래에서 사진 칸으로 펼친다(합계 용량·정렬 칩). 지우기·숨기기는 명진이 눌러야만(폰 휴지통은 시스템 확인 창도). 자동 삭제 없음.
+// 줄마다 한 줄 요약 + [보기](<details>). S47-19(요청함 11/01 12:55·12:56): 모든 [보기]는 그 줄 아래에서 사진 칸으로 펼친다(합계 용량·정렬 칩). 지우기·숨기기는 사용자가 눌러야만(폰 휴지통은 시스템 확인 창도). 자동 삭제 없음.
 // - 재료: 폰 사진 전부(앱 다리, 끈 폴더 포함)와 원드라이브 사진 전부(서버 library, 고른 폴더 색인). [정리]를 처음 누를 때 읽는다.
 //   사진·목록은 이 화면 메모리에만 있고 기기·서버에 저장하지 않는다(폰 사진은 서버로 올라가지 않는다).
 // - 규칙은 photo-tidy-model.mjs(같은 사진 판정은 섞어 보기 규칙 그대로).
@@ -24,7 +24,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 export function createPhotoTidy({phone, readOd, readOdTree = null, odReady, odError, phoneError, phoneOff, onChange, isStarred = () => false, now = () => Date.now(),
   watchTrash = async () => 0, seenTrash = async () => {}, hashThumb = null, pause = () => new Promise(ok => setTimeout(ok, 0))}) {
   let st = null, token = 0;
-  const keeps = new Map(); // ④ 명진이 고른 남길 것(묶음 id → 칸 id), 이 화면 메모리만
+  const keeps = new Map(); // ④ 사용자가 고른 남길 것(묶음 id → 칸 id), 이 화면 메모리만
   // S47-19: 펼친 [보기](key → 정렬). 'place:phone'·'space'·'junk:kakao'·'unbacked:<폰 폴더>'·'dups'(묶음 정렬만).
   // 고른 정렬은 이 화면 메모리만(서버 view_prefs.photo_view에 칸이 없어 DB 변경이 있어야 저장할 수 있다).
   const panes = new Map(), sorts = new Map();

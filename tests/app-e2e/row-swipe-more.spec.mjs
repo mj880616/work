@@ -6,7 +6,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { server as planServer, installServer as installPlanServer } from './helpers/report-plan-marks-server.mjs';
-// UI-줄밀기 Raindrop식 2/2(S68-26b, 명진 11/22 21:31 "좌우 스와이프. 이것도 곳곳에 따라해"): 줄 밀기가 없던 목록에 공용 줄 밀기(row-swipe.js)를 붙였다.
+// UI-줄밀기 Raindrop식 2/2(S68-26b, 사용자 11/22 21:31 "좌우 스와이프. 이것도 곳곳에 따라해"): 줄 밀기가 없던 목록에 공용 줄 밀기(row-swipe.js)를 붙였다.
 // 목록마다: 왼쪽으로 조금 밀면 오른쪽 끝 칸(그 목록의 기존 함수만), 오른쪽으로 밀면 [선택] → 여러 개 선택, 줄 위 밀기는 다른 좌우 밀기(칩 넘김)를 하지 않는다,
 // PC(761px~)는 밀기 없음. 휴지통 줄은 project-system-v3.spec.mjs(같은 서버 흉내)에 있다. 글·주소·이름은 모두 가짜.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -93,7 +93,7 @@ async function openReading(page, width) {
 }
 const rdRow = (list, id) => list.locator(`.rd-row[data-rd-open="${id}"]`);
 
-// S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 저장한 글 줄 왼쪽 밀기 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯에만.
+// S70-62 READ-밀기메뉴(사용자 11/26 07:41 "저장된 글에서는 수정 삭제로"): 저장한 글 줄 왼쪽 밀기 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯에만.
 test('저장한 글 390: 왼쪽 밀기 [수정][삭제] 두 칸, 끝까지 밀어도 바로 하지 않고 칸만 열림, [수정]은 제목·매체 칸', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors, list } = await openReading(page, 390);

@@ -25,7 +25,7 @@ test('[직접 쓰기] 칸: 비슷한 조직 줄이 먼저 나오고, 그 줄은 
   const k = orgWriteIn({make:async () => ({}), similar:() => []});
   assert.match(orgWriteInHtml(k), /data-aop-create-input[^>]*placeholder="직접 쓰기 — 조직 이름"/);
   assert.doesNotMatch(orgWriteInHtml(k), /data-aop-create-force/, '비슷한 조직이 없으면 [새로 만들기] 버튼을 따로 내지 않는다');
-  k.text = '철도'; k.similar = [{key:'o:1', name:'철도노조'}];
+  k.text = '철도'; k.similar = [{key:'o:1', name:'가람노조'}];
   const html = orgWriteInHtml(k, key => key === 'o:1');
   assert.ok(html.indexOf('비슷한 조직이 있어요') < html.indexOf('data-aop-create-force'), '비슷한 조직 안내가 [새로 만들기]보다 먼저');
   assert.match(html, /<button data-aop-similar [^>]*data-sheet-value="o:1" aria-pressed="true"/);
@@ -39,10 +39,10 @@ test('orgWriteInFor: 비슷한 이름은 활동 중인 조직 전체에서, 만�
   globalThis.window = {KPTURuntime:fakeRuntime(calls), dispatchEvent() {}};
   try {
     const {orgWriteInFor} = await import('../app/feed-link.js');
-    const orgs = [{id:'a', name:'철도노조', active:true}, {id:'b', name:'철도 옛 지부', active:false}, {id:'c', name:'병원지부', active:true}];
+    const orgs = [{id:'a', name:'가람노조', active:true}, {id:'b', name:'철도 옛 지부', active:false}, {id:'c', name:'병원지부', active:true}];
     const mine = new Set(), made = [];
     const w = orgWriteInFor({orgs, mine, onOrg:org => made.push(org)});
-    const like = w.similar('철도노조');
+    const like = w.similar('가람노조');
     assert.deepEqual(like.map(x => x.key), ['o:a'], '쉰 조직은 비슷한 이름 후보에서 뺀다');
     const row = await w.make('  새   조직 ');
     assert.deepEqual({key:row.key, name:row.name}, {key:'o:new-1', name:'새 조직'});

@@ -7,12 +7,12 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { pinch } from './helpers/pinch.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// OPS-빠진일2차 1(S59-17, 명진 11/11 14:55 '가'): 폴더 누르기 한 규칙 — 자료실·[파일]·노트·사진의 모든 나무·목록(폰·폴드·PC).
+// OPS-빠진일2차 1(S59-17, 사용자 11/11 14:55 '가'): 폴더 누르기 한 규칙 — 자료실·[파일]·노트·사진의 모든 나무·목록(폰·폴드·PC).
 //  ① [파일] PC·폴드 오른쪽 목록 칸도 왼쪽 나무처럼 폴더 누르기 = 그 자리 펼치기·접기(들어가기는 우클릭 [이 폴더로 들어가기]·펼친 폴더 위 두 손가락 벌리기).
-//  ② (UI-폴더이름펼치기, 명진 11/24 18:09로 바뀜) 그 자리 펼치는 목록(두 칸 칸 안·폰 나무)의 폴더 이름 누르기 = 늘 펼치기·접기 — 빈 폴더도 펼쳐 안에 '빈 폴더' 한 줄,
+//  ② (UI-폴더이름펼치기, 사용자 11/24 18:09로 바뀜) 그 자리 펼치는 목록(두 칸 칸 안·폰 나무)의 폴더 이름 누르기 = 늘 펼치기·접기 — 빈 폴더도 펼쳐 안에 '빈 폴더' 한 줄,
 //     주소·위치 그대로. 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기](PC 우클릭도 같은 메뉴)·두 손가락 벌리기만. 전의 '하위 없는 폴더 = 한 번에 열기'는 없앴다.
-// S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): 탐색기(왼쪽 나무 | 오른쪽 그 폴더) 나무 이름 누르기 = 그 폴더 열기 + 펼침,
-//  S69-68(명진 11/24 20:09): 한 칸 오른쪽·폰 '그 폴더만'의 하위 폴더 누르기도 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯·우클릭 메뉴).
+// S69-38 UI-탐색기나무누르기(사용자 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): 탐색기(왼쪽 나무 | 오른쪽 그 폴더) 나무 이름 누르기 = 그 폴더 열기 + 펼침,
+//  S69-68(사용자 11/24 20:09): 한 칸 오른쪽·폰 '그 폴더만'의 하위 폴더 누르기도 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯·우클릭 메뉴).
 // 화면 사진(S59_17_SHOTS=폴더): PC 1280·폰 412·폴드 884. 이름은 모두 지어낸 것이다.
 const shot = async (page, name) => { if (process.env.S59_17_SHOTS) await page.screenshot({ path: `${process.env.S59_17_SHOTS}/${name}.png` }); };
 const files = page => page.locator('#filesRoot');
@@ -98,7 +98,7 @@ test('[파일] 폴드 884 두 칸: 펼친 폴더 위 두 손가락 벌리기 = �
   await expect(list.locator('[data-fx-row="od:OD!11"]')).toBeVisible();
   const before = await crumb.textContent();
   await pinch(page, list.locator('[data-fx-row="od:OD!11"]'), 'out');
-  // UI-폴더줄크기(명진 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 들어가기는 ⋯·우클릭 첫 줄만.
+  // UI-폴더줄크기(사용자 11/25 08:23 "폴더 안으로 들어가기가 아니라"): 들어가기는 ⋯·우클릭 첫 줄만.
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.rowSize)).toBe('l');
   await expect(crumb).toHaveText(before);
   await expect(list.locator('[data-fx-row="od:OD!1"]')).toHaveAttribute('aria-expanded', 'true');
@@ -158,8 +158,8 @@ const nav = page => page.locator('#libraryFolderNav');
 const tops = page => page.locator('#documentList > details').evaluateAll(xs => xs.map(x => x.dataset.luNode));
 const pickGroup = (page, label) => page.locator('#libraryGroupBy').selectOption({ label });
 
-// S69-28 LIB-한칸탐색기(명진 11/24 '윈도우 탐색기처럼'): 한 칸 PC는 나무 이름 누르기 = 그 폴더 열기(하위가 있든 없든). 펼치기·접기는 나무의 폴더 그림.
-// S69-68(명진 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기·접기(들어가지 않음).
+// S69-28 LIB-한칸탐색기(사용자 11/24 '윈도우 탐색기처럼'): 한 칸 PC는 나무 이름 누르기 = 그 폴더 열기(하위가 있든 없든). 펼치기·접기는 나무의 폴더 그림.
+// S69-68(사용자 11/24 20:09): 오른쪽 폴더 줄 누르기 = 그 자리 펼치기·접기(들어가지 않음).
 test('자료실 PC 1280: 나무 이름 누르기 = 그 폴더 열기, 오른쪽 폴더 줄 = 그 자리 펼치기, 나무 그림 = 그 자리 펼치기', async ({ page }) => {
   test.setTimeout(90000);
   const { s, errors } = await bootLibrary(page, 1280, { folders: FOLDERS, items: ITEMS });
@@ -219,7 +219,7 @@ test('자료실 두 칸 884: 칸 안 폴더 누르기 = 늘 그 자리 펼침(�
   expect(errors).toEqual([]);
 });
 
-// UI-폴더이름펼치기(명진 11/24 18:09 '폴더 명칭을 누르면 펼쳐졌으면 / 들어가는 거는 ⋯ 이 폴더 안으로 들어가기를 눌렀을 때만'):
+// UI-폴더이름펼치기(사용자 11/24 18:09 '폴더 명칭을 누르면 펼쳐졌으면 / 들어가는 거는 ⋯ 이 폴더 안으로 들어가기를 눌렀을 때만'):
 //  폰 나무 폴더 이름 누르기 = 그 자리 펼치기·접기(하위 없는 폴더는 안 자료 줄, 빈 폴더는 '빈 폴더' 한 줄), 주소·위치 그대로. 들어가기는 ⋯ 첫 줄만.
 for (const width of [390, 412]) test(`자료실 폰 ${width}: 폴더 이름 누르기 = 그 자리 펼치기·접기(주소 그대로) · 들어가기는 ⋯ [이 폴더로 들어가기]만`, async ({ page }) => {
   test.setTimeout(90000);

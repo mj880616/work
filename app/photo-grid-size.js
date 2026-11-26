@@ -1,4 +1,4 @@
-// OD-사진크기 (명진 요청 2026-10-28 07:28): 사진 격자의 한 줄 칸 수를 [－][＋]와 두 손가락 벌리기·오므리기로 바꾼다.
+// OD-사진크기 (사용자 요청 2026-10-28 07:28): 사진 격자의 한 줄 칸 수를 [－][＋]와 두 손가락 벌리기·오므리기로 바꾼다.
 // - 단계: 좁은 화면(폰·접은 폴드)은 2·3·4·6칸(기본 4), 넓은 화면(761px 이상: 펼친 폴드·PC)은 6·8·10칸(기본 6). 넓이 기준은 diary.css의 격자 기준과 같다.
 // - 고른 값은 서버(view-prefs.js의 photo_cols·photo_cols_wide, 내 프로필 행)에만 저장한다. 기기 저장 없음.
 //   서버가 아직 두 칸을 모르면(DB 적용 전) 쓰기가 거절되어 서버 값은 기본으로 남고, 이번 접속 동안만 고른 칸 수를 메모리에 들고 있다.
@@ -64,7 +64,7 @@ export function changeCols(dir, {prefs = viewPrefs, wide = isWide()} = {}) {
 // [－][＋] 두 버튼(작고 낮게). 격자 줄 오른쪽 끝에 붙인다.
 export const SIZE_BUTTONS = '<span class="photo-size" role="group" aria-label="사진 크기"><button type="button" data-photo-size="-1" aria-label="사진 작게(한 줄 칸 늘리기)">－</button><button type="button" data-photo-size="1" aria-label="사진 크게(한 줄 칸 줄이기)">＋</button></span>';
 
-// PHOTO-핀치꾹누르기 (명진 2026-10-30 23:59 "핀치로 크게 작게 바꾸면 선택화면 활성화됨"): 두 손가락 지킴이. 핀치를 쓰는 모든 화면 공용.
+// PHOTO-핀치꾹누르기 (사용자 2026-10-30 23:59 "핀치로 크게 작게 바꾸면 선택화면 활성화됨"): 두 손가락 지킴이. 핀치를 쓰는 모든 화면 공용.
 // - 두 번째 손가락이 닿는 순간(다른 터치 pointerdown 또는 touches 2개 이상)부터 손가락을 모두 뗄 때까지 '두 손가락 중'이다.
 // - 그 순간 onMultiTouch로 등록한 함수(꾹 누르기 타이머·끌어 고르기 취소)를 부르고, 그동안 쓰는 곳은 꾹 누르기를 새로 걸지 않는다(multiTouchActive).
 // - 모두 뗀 직후 오는 누르기(click)는 핀치 손 떼기라 attachPinch를 붙인 영역 안에서 먹는다(afterMultiTouch). 화면마다 따로 막지 않는다.

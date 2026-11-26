@@ -1,4 +1,4 @@
-// JOURNAL-일기목록 (명진 요청 2026-10-28 08:04, 시안 '일기 목록' 07:52): 일기 [목록] 보기의 순수 규칙. 화면은 diary-list.js, 저장은 diary-data.js.
+// JOURNAL-일기목록 (사용자 요청 2026-10-28 08:04, 시안 '일기 목록' 07:52): 일기 [목록] 보기의 순수 규칙. 화면은 diary-list.js, 저장은 diary-data.js.
 // - 📌 고정·★ 별표는 일기 행(app_notes kind=diary)의 기존 metadata jsonb에 시각으로 둔다(pinned_at·starred_at, 노트 고정 metadata.pinned_at과 같은 방식).
 //   사진 별표(app_diary_stars)와는 따로, 일기 한 편 단위다. DB 변경 없음.
 // - 목록: 최신순. 고정한 일기는 맨 위 '📌 고정' 칸에 따로(목록 달 묶음에는 다시 넣지 않는다). 달마다 머리줄 '2026년 10월 · 9'.

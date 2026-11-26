@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// S71-15 SEARCH-띄어쓰기무시·SEARCH-결과원문으로·SEARCH-비슷한말전체검색(명진 11/26 15:34 "야간총회 검색할 때 야간 띄고 총회 이런 식으로 검색해도
+// S71-15 SEARCH-띄어쓰기무시·SEARCH-결과원문으로·SEARCH-비슷한말전체검색(사용자 11/26 15:34 "야간총회 검색할 때 야간 띄고 총회 이런 식으로 검색해도
 // 또는 유사한 의미의 다른 단어를 검색해도 야간 총회가 나왔으면 … 두 번째 결과를 내가 클릭하면은 그 결과에 해당하는 원문으로 가야 되는데 안 가더라고").
 // 결정 장부 docs/design/standard-interactions.md SR1~SR3. 폰 390·폴드 펼침 884·PC 1280:
 //  ① '야간총회'(붙여 씀)로 '야간 총회'(띄어 쓴) 기록을 찾고 결과 줄에 찾은 곳 칠함. 서버는 흉내(띄어쓰기 무시 규칙은 DB 시험이 본다).

@@ -1,6 +1,6 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// S67-53 ORG-여러개삭제(명진 11/20 22:48·22:54): 조직 관리 화면 ⋯ [여러 개 선택해 삭제] → 줄을 눌러 선택 → [삭제] 한 번 확인 →
+// S67-53 ORG-여러개삭제(사용자 11/20 22:48·22:54): 조직 관리 화면 ⋯ [여러 개 선택해 삭제] → 줄을 눌러 선택 → [삭제] 한 번 확인 →
 // 한 개 [삭제]와 같은 휴지통 길(DELETE 한 곳씩 + app_trash_list 확인) → 되돌리기. 확인 창에는 조직 수와 연결된 조직 보고 수.
 // 가짜 서버(suborganization-filters-canonical-fixture.html ?orgs=order&bulkdel): 공항철도지부 조직 보고 2건, 용인경전철지부 1건. 이름은 모두 합성 값.
 const base=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html?orgs=order&bulkdel`;

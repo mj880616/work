@@ -36,7 +36,7 @@ test('목록 한 쪽: 내가 숨긴 기사는 화면에서 빼되 다음 쪽 자
   assert.equal(last.end, true); assert.equal(last.raw, 2); assert.equal(last.rows.length, 2);
 });
 
-// S70-17 NEWS-제목꼭얻기(명진 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음").
+// S70-17 NEWS-제목꼭얻기(사용자 11/25 10:26 "제목 못읽으면 차라리 목록에서 빠지는게 나음").
 test('S70-17 목록 한 쪽: 제목을 못 얻은 줄은 빼고(지우지 않음), 제목이 생기면 다시 보이고, 보관한 글은 남는다', () => {
   const donga = 'https://www.donga.com/news/Society/article/all/20261125/132845001/1';
   const rows = [

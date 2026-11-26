@@ -1,4 +1,4 @@
-// S67-19(11/20 명진 '금속노조 글 제대로 못불러오는 현상 점검'): 그누보드 글 쪽 본문 칸·잘린 목록 제목.
+// S67-19(11/20 사용자 '금속노조 글 제대로 못불러오는 현상 점검'): 그누보드 글 쪽 본문 칸·잘린 목록 제목.
 // 네트워크 없음. 표본(tests/fixtures/outside-feed/kmwu-article.html·kmwu-list-cut.html)은 그누보드 기본 글 쪽 모양에 맞춰 지어낸 것이다(글자는 실제 성명이 아님).
 import test from 'node:test';
 import assert from 'node:assert/strict';

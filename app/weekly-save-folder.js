@@ -1,4 +1,4 @@
-// S69-67 WEEKLY-저장폴더(명진 11/24 20:12 "주간보고에서 한글파일 만들기를 하든, 내가 수정해서 올리기를 하든 그 파일은 공공팀, 주간보고 폴더로"):
+// S69-67 WEEKLY-저장폴더(사용자 11/24 20:12 "주간보고에서 한글파일 만들기를 하든, 내가 수정해서 올리기를 하든 그 파일은 공공팀, 주간보고 폴더로"):
 // [주간 보고]의 [확정](만든 한글 파일)과 ② [올리기](내가 수정한 최종본)가 자료실에 저장되면(hwp-drive.js saveWeeklyReport·replaceWeeklyReport, 기존 library-files)
 // 그 자료를 사람마다 고른 '주간보고 저장 폴더'에 넣는다. 자료는 하나(복사 아님), 폴더 연결 표 한 줄(owner RLS, library-folder-data.js putDocumentInFolder).
 // 규칙은 weekly-save-folder-model.mjs 한 곳. 저장 폴더 = 내 프로필 행 weekly_folder 칸(받는 폴더·모으는 폴더와 같은 내 행 PATCH, owner RLS). 기기 저장 없음.

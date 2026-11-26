@@ -32,7 +32,7 @@ test("화면 글자에 'Now'가 남지 않았다(업데이트 기록 폴더 제�
   assert.deepEqual(hits, []);
 });
 
-// S68-34(11/23 명진 'News -> 읽을 거리 / 읽을 거리 -> 저장한 글'): 메뉴·제목·찾기 칸 등 화면 글자의 이름이 '읽을 거리'. id·주소(?view=news)·기능 키 outside는 그대로.
+// S68-34(11/23 사용자 'News -> 읽을 거리 / 읽을 거리 -> 저장한 글'): 메뉴·제목·찾기 칸 등 화면 글자의 이름이 '읽을 거리'. id·주소(?view=news)·기능 키 outside는 그대로.
 test("메뉴 이름은 '읽을 거리', id는 그대로 outside · 옛 읽을 거리 화면(reading)은 '저장한 글'", () => {
   const item = MENU_ITEMS.find(m => m.id === 'outside');
   assert.equal(item?.label, '읽을 거리');

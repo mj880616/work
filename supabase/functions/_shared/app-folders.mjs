@@ -1,5 +1,5 @@
-// S69-22(명진 11/24 08:54 "앱과 자동 수집이 쓰고 있는것좀 한 폴더에 몰아두면 안되니"):
-// 서버가 사용자 드라이브에 만드는 앱 폴더를 '맨 위 앱 폴더'(app_drive_settings.root_folder_id — 명진 '웹2', 새 사용자 'WORK ON+') 한 곳 아래로 모은다.
+// S69-22(사용자 11/24 08:54 "앱과 자동 수집이 쓰고 있는것좀 한 폴더에 몰아두면 안되니"):
+// 서버가 사용자 드라이브에 만드는 앱 폴더를 '맨 위 앱 폴더'(app_drive_settings.root_folder_id — 사용자 '웹2', 새 사용자 'WORK ON+') 한 곳 아래로 모은다.
 //
 // 규칙(이 파일 하나가 기준):
 // - 맨 위 앱 폴더는 이름이 아니라 저장한 id(root_folder_id)로만 찾는다. 이름은 바꾸지 않는다(사용자 드라이브 존중).
@@ -10,7 +10,7 @@
 // - 새로 만들 때는 맨 위 앱 폴더 id를 알면 그 아래, 모르면(자료실을 아직 안 쓴 새 사용자) 지금처럼 내 드라이브 맨 위
 //   (createParentFor). 맨 위 앱 폴더를 이 함수들이 몰래 만들지는 않는다 — 맨 위 앱 폴더가 처음 생길 때 서버가 모은다
 //   (S70-29, gather-folders.mjs gatherIntoNewRoot — 옛 [한곳으로 모으기] 버튼은 지움).
-// - 앱 코드 밖(명진 Apps Script·PC 텔레그램 수집기)이 쓰는 폴더는 모으지 않는다(NOT_GATHERED — 옮기면 그쪽이 깨질 수 있음).
+// - 앱 코드 밖(사용자 Apps Script·PC 텔레그램 수집기)이 쓰는 폴더는 모으지 않는다(NOT_GATHERED — 옮기면 그쪽이 깨질 수 있음).
 // - S69-41: [한곳으로 모으기]는 표식(또는 저장한 id)으로 알아본 앱 폴더의 옛 이름('Web2 바구니'·'노조+ 백업' 등)만 새 이름으로 바꾼다
 //   (renameQuery·renameTarget). 사람이 직접 바꾼 이름·사람이 만든 폴더는 건드리지 않는다. 이름 글자는 brand-folders.mjs 한 곳.
 // DOM·네트워크 없음(단위 시험 tests/app-folders.test.mjs).
@@ -60,9 +60,9 @@ export const GATHER_KINDS = Object.freeze([
 // 앱이 옮기지 않는 것(보고·안내용). 앱 코드 밖이 쓰거나 앱이 만들지 않은 것.
 export const NOT_GATHERED = Object.freeze([
   Object.freeze({ name: 'Telegram업무자료', why: 'PC 텔레그램 수집기가 씀(저장소 밖 코드라 이름·위치로 찾는지 확인 불가) — 옮기면 수집이 깨질 수 있음' }),
-  Object.freeze({ name: 'AI 업무수집', why: '명진 Apps Script(통화 전사·수집 점검)가 씀 — 저장소의 수집 코드는 폴더 주소(id)로 찾지만 실제 붙인 스크립트는 확인 불가' }),
+  Object.freeze({ name: 'AI 업무수집', why: '사용자 Apps Script(통화 전사·수집 점검)가 씀 — 저장소의 수집 코드는 폴더 주소(id)로 찾지만 실제 붙인 스크립트는 확인 불가' }),
   Object.freeze({ name: '음성 녹음 백업', why: '휴대폰 녹음 백업 앱·Apps Script가 씀(저장소 밖)' }),
-  Object.freeze({ name: '요청함 문서·Apps Script 파일·web2-phone-key-백업', why: '앱이 만들지 않음. id로 쓰이니 명진이 손으로 옮겨도 됨' }),
+  Object.freeze({ name: '요청함 문서·Apps Script 파일·web2-phone-key-백업', why: '앱이 만들지 않음. id로 쓰이니 사용자가 손으로 옮겨도 됨' }),
 ]);
 
 const quoted = name => String(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -127,7 +127,7 @@ export function renameTarget(file) {
 }
 
 // ---- 쓸 때 이름 맞추기(S69-42) ------------------------------------------------------------------------------------------
-// 명진 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고": 기능(바구니·백업·편집 백업·읽기용 사본)이 앱 폴더를
+// 사용자 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고": 기능(바구니·백업·편집 백업·읽기용 사본)이 앱 폴더를
 // 저장한 id·표식으로 찾은 뒤, 그 폴더 이름이 옛 이름이면 새 이름으로 바꾼다. 이름(name)과 표식만 바꾸고 id·자리·안 파일은 그대로.
 // 같은 자리(부모)에 새 이름 폴더가 이미 있으면 합치지 않고 그대로 둔다('dup'). 이름 바꾸기는 덤이다: 실패해도 부르는 기능은 그대로 간다.
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';

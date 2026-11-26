@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
-// S68-25(명진 11/22 "그냥 너도 다 해"): 원문 읽기는 robots.txt를 보지 않는다. 예전에 robots 때문에 원문이 빈 기사를 열면
+// S68-25(사용자 11/22 "그냥 너도 다 해"): 원문 읽기는 robots.txt를 보지 않는다. 예전에 robots 때문에 원문이 빈 기사를 열면
 // '원문을 읽어 오는 중' 한 줄 → 서버 news-feed open(그 기사 하나만) → 기존 원문 칸에 저장된 원문을 보인다. 다시 열면 저장본(다시 읽지 않음).
 // 실패하면 까닭 한 줄 + [원래 사이트 ↗]. 목록을 열 때 여러 글을 한꺼번에 읽지 않는다. 서버는 흉내, 기사·주소는 모두 가짜(example.org).
 const NOW_DETAIL = { ok: true, kind: 'now_detail', detail: { level: 'full', summary: '가짜 원문으로 만든 가짜 요약.', key_sentences: [], relevance: null, implications: null, related: [], generated_at: '2026-10-06T01:00:00Z', context_at: null }, stale: false };

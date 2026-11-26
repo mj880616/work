@@ -3,8 +3,8 @@ import {openHome, OPERATOR_MENU_FEATURES} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 // MULTI-처음쓰는사람 ④(docs/design/new-user-start.md 2-1): 메뉴는 서버 운영자 기능 답(app_my_features)에 따라 목록에서 뺀다(숨김이 아니라 빼기).
 // - 새 계정(기능 없음): 통화·텔레그램 소식·아스날·News가 PC 왼쪽 메뉴·폰 [메뉴] 창·메뉴 편집 어디에도 없다.
-// - S62-11 MULTI-구글드라이브사진모두(명진 결정): [파일]은 모두에게 — 새 계정에도 위 메뉴에 있다(각자 자기 드라이브만, 서버가 막음).
-// - 운영자 계정(명진): 지금 메뉴 그대로(원장만 빠짐).
+// - S62-11 MULTI-구글드라이브사진모두(사용자 결정): [파일]은 모두에게 — 새 계정에도 위 메뉴에 있다(각자 자기 드라이브만, 서버가 막음).
+// - 운영자 계정(사용자): 지금 메뉴 그대로(원장만 빠짐).
 // - 원장은 모든 계정 메뉴에서 빠지지만, 화면은 그대로 열린다(다른 화면에서 여는 길).
 // - 답을 못 받으면(서버 오류) 아무것도 빼지 않는다(운영자 메뉴가 잠깐 사라지지 않게).
 const OP=['calls','telegram','arsenal','outside'];
@@ -56,7 +56,7 @@ for(const width of [1280,760,412]){
     expect(errors).toEqual([]);
   });
 }
-// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없다. go('ledger')는 홈을 열고 원장 화면 틀은 생기지 않는다.
+// LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 화면은 없다. go('ledger')는 홈을 열고 원장 화면 틀은 생기지 않는다.
 test('원장 화면은 없다: go(ledger)는 홈',async({page})=>{
   await page.setViewportSize({width:1280,height:900});
   await openHome(page,{features:[]});await settle(page);

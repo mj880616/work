@@ -1,4 +1,4 @@
-// UI-자료실파일모양(S69-85 ②, 명진 11/25 "파일 인터페이스로 자료실도 바꿔" · 'ㅇ' 확정): 자료실 목록을 파일 목록 모양으로.
+// UI-자료실파일모양(S69-85 ②, 사용자 11/25 "파일 인터페이스로 자료실도 바꿔" · 'ㅇ' 확정): 자료실 목록을 파일 목록 모양으로.
 // 화면 실측은 tests/app-e2e/library-files-look.spec.mjs. 여기서는 순수 부분(위치 줄 끝 [드라이브 ↗])과 모양 규칙 한 곳을 본다. 값은 모두 가짜.
 import test from 'node:test';
 import assert from 'node:assert/strict';

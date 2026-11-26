@@ -1,4 +1,4 @@
-// S50-35(2026-11-05 명진 결정): 홈에서 새로 넣는 할 일의 기한 기본값(task-due.mjs newTaskDue) — 고르지 않으면 오늘, 고르면 그날.
+// S50-35(2026-11-05 사용자 결정): 홈에서 새로 넣는 할 일의 기한 기본값(task-due.mjs newTaskDue) — 고르지 않으면 오늘, 고르면 그날.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

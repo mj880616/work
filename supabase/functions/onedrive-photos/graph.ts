@@ -32,9 +32,9 @@ export const LIBRARY_SCAN_PAGES = 20;
 export const MOVE_MAX = 50;
 export const STAR_IDS_MAX = 500;
 export const GRAPH_BATCH_MAX = 20;
-// 사진 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
-// S69-42(명진 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 지금 이름은 누구나 ".WORK ON+ 휴지통"(_shared/brand-folders.mjs photo_trash와 같은 값).
-// 옛 이름 ".노조+ 휴지통"(S68-02 명진)·".Web2 휴지통"(BRAND-웹2흔적지우기 전)은 같은 휴지통으로 알아보고, 서버가 휴지통을 쓸 때 이름만 지금 이름으로 바꾼다
+// 사진 휴지통(사용자 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
+// S69-42(사용자 11/24 15:46 "WORK ON+ 휴지통이어야하지 않은지"): 지금 이름은 누구나 ".WORK ON+ 휴지통"(_shared/brand-folders.mjs photo_trash와 같은 값).
+// 옛 이름 ".노조+ 휴지통"(S68-02 사용자)·".Web2 휴지통"(BRAND-웹2흔적지우기 전)은 같은 휴지통으로 알아보고, 서버가 휴지통을 쓸 때 이름만 지금 이름으로 바꾼다
 // (폴더 id·안 사진은 그대로, 같은 자리에 지금 이름 폴더가 이미 있으면 합치지 않고 옛 이름 그대로 쓴다).
 // 이름 글자는 _shared/brand-folders.mjs FOLDER_NAMES.photo_trash 한 곳(지금 이름 now·옛 이름 olds).
 export const TRASH_NAME: string = FOLDER_NAMES.photo_trash.now;

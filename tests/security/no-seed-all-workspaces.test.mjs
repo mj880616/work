@@ -1,9 +1,9 @@
-// S67-53 재발 방지(명진 11/20 "공공기관 조직 목록 … 필히 삭제", "둘 다 해"): 묶음·조직 같은 사용자 자료를 모든 작업공간에 한꺼번에 넣는 migration 금지.
+// S67-53 재발 방지(사용자 11/20 "공공기관 조직 목록 … 필히 삭제", "둘 다 해"): 묶음·조직 같은 사용자 자료를 모든 작업공간에 한꺼번에 넣는 migration 금지.
 // 2026-10-23 migration(20261023231500_ref_bundle_db)이 모든 작업공간에 노조식 참고 묶음 3개를 넣어, 나중에 가입한 사람과 상관없는 묶음이
 // 다른 사람 계정에 남았다(정리: docs/ops/ref-bundle-seed-cleanup.*.sql). 각자 쓰는 개인 업무 앱이므로(AGENTS.md 5절) 미리 채우는 자료는 두지 않는다.
 // 검사: supabase/migrations·docs/*.sql·docs/ops/*.sql의 INSERT 문 중
 //   ① 원본이 public.app_workspaces(모든 작업공간)인 것, ② 원본이 app_workspace_members·auth.users이면서 cross join(같은 줄을 사람마다 곱함)인 것을 막는다.
-//   예외는 아래 표(파일·대상 표·이유)에만 둔다. 새 예외는 명진 결정과 함께 이 표에 적는다.
+//   예외는 아래 표(파일·대상 표·이유)에만 둔다. 새 예외는 사용자 결정과 함께 이 표에 적는다.
 // 함께: 가입 함수 app_workspace_start(마지막 정의)는 작업공간·주인·프로필 말고는 넣지 않는다(새 가입자에게 조직·묶음을 미리 넣지 않음).
 import test from 'node:test';
 import assert from 'node:assert/strict';

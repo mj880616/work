@@ -5,7 +5,7 @@ import {SOURCES, SHELVES, SYNC_EVERY_MS, MOVE_ACROSS_MAX_BYTES, MOVE_SAME_MAX, k
   syncDue, syncFailStep, syncOk, SYNC_BACK_MS, SYNC_ALERT_FAILS, applySyncReply, sortRows, applyChanges, touchesCounts, moveCheck, trailNames, trailIds, pathText, treeRows, folderKey, placeOf, whereOf,
   cleanQuery, findSummary, errorText, failReason, OD_PDF_EXT, GD_EXPORT_MIME} from '../app/files-model.mjs';
 import {ITEMS, defaultLayout} from '../app/menu-model.mjs';
-// FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02). 이름은 모두 가짜.
+// FILES-클라우드탐색기 ④ 화면 모델(docs/design/files-explorer.md, 사용자 결정 F1~F9 11/02). 이름은 모두 가짜.
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const row = (o = {}) => ({source: 'od', item_id: 'A!1', parent_id: null, name: '가짜.txt', is_folder: false, mime: null, size_bytes: 10, modified_at: '2026-11-02T00:00:00Z', ...o});
 
@@ -250,7 +250,7 @@ test('S49-17 폴더 개수: 읽은 값이 있을 때만 글, 모르면 빈 글 �
   assert.equal(isLockedItem(row({source: 'gd', mime: null, size_bytes: 0})), false);
 });
 
-// ---------- FILES-통합 2-① 복사(S49-27, 명진 결정 H-3·H-4·H-5) ----------
+// ---------- FILES-통합 2-① 복사(S49-27, 사용자 결정 H-3·H-4·H-5) ----------
 test('복사·옮기기 거르기: 다른 저장소로 폴더·구글 문서·크기 모름은 막고 안내, 같은 저장소 폴더째 복사는 됨', async () => {
   const m = await import('../app/files-model.mjs');
   const f = {source: 'od', item_id: 'F1', parent_id: null, name: '폴더', is_folder: true, size_bytes: null};

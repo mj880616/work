@@ -4,7 +4,7 @@ import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { screenFind } from './helpers/screen-find.mjs';
 // FILES-출처켜고끄기 + FILES-두드라이브나무(S49-21, 요청함 11/04 07:34): [파일] 위 줄 출처 아이콘 [원드라이브][구글 드라이브] 켜기/끄기(서버 view_prefs.files_sources),
-// S49-26(명진 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
+// S49-26(사용자 결정 H-8): 켜고 끄기 기억은 기기 종류마다 따로(files_sources.app / .phone / .pc) — 412는 폰 브라우저, 884·1440은 PC 칸.
 // 켜진 두 드라이브가 맨 위 줄로 나란히 있는 폴더 나무(폰 [폴더] 탭 포함), 펼치기 2단계 이상, 폴더 눌러 들어가기, 모두 끔 안내. 파일·폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');
 const chip = (page, name) => root(page).locator(`[data-fx-src="${name}"]`);
@@ -190,7 +190,7 @@ test('[파일] 서버가 출처 저장을 거절하면(DB 적용 전) 아이콘�
   expect(errors.filter(e => !/400|violates/.test(e))).toEqual([]);
 });
 
-// S49-26 명진 결정 H-8: 같은 계정, 두 기기(폰 앱 412 · PC 1440). 한 기기에서 끈 출처는 다른 기기에 번지지 않고, 각자 다시 열어도 유지된다.
+// S49-26 사용자 결정 H-8: 같은 계정, 두 기기(폰 앱 412 · PC 1440). 한 기기에서 끈 출처는 다른 기기에 번지지 않고, 각자 다시 열어도 유지된다.
 // 서버(view_prefs)는 하나: 두 기기 흉내 쪽이 같은 서버 값을 이어 받는다(state.value를 넘겨 줌).
 test('[파일] 같은 계정 두 기기: 폰 앱과 PC의 출처 켜고 끄기가 서로 따로 기억되고 다시 열어도 유지', async ({ browser }) => {
   test.setTimeout(150000);

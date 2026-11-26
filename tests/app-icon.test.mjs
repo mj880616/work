@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 
-// WORK ON+ 아이콘(2026-11-21 07:35 명진 확정: 표장 A 'W를 품은 원'에 + 를 단 판, S67-60. 어두운 둥근 네모 + 밝은 원 + 원 안 W 선
+// WORK ON+ 아이콘(2026-11-21 07:35 사용자 확정: 표장 A 'W를 품은 원'에 + 를 단 판, S67-60. 어두운 둥근 네모 + 밝은 원 + 원 안 W 선
 // + 원 테두리 위에 가운데를 둔 +: 원 밖은 밝게, 원 안은 어둡게):
 // PNG 크기·바탕색·maskable 안전 영역·SVG·같은 그림을 쓰는 자리를 확인한다. 그림은 scripts/app-icon/build-app-icons.py가 만든다.
 const icon = name => readFileSync(new URL(`../app/${name}`, import.meta.url));

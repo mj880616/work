@@ -1,11 +1,11 @@
-// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 '잊지 말기' 칩(S53-13 전에는 [하루] 맨 위 한 줄)의 재료와 업데이트 입력줄.
-// - S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 명진 14:44 '좋은데'):
+// HOME-업무일지홈(2026-10-30 사용자 시안 v2 확정): 홈 '잊지 말기' 칩(S53-13 전에는 [하루] 맨 위 한 줄)의 재료와 업데이트 입력줄.
+// - S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 사용자 14:44 '좋은데'):
 //   옛 '나한테 온 요청' 상자·'잊지 말기' 상자(asks-box.js·home-family.js)는 지웠다. 홈 [하루] 맨 위는 '잊지 말기' 한 줄 + 빨간 숫자 동그라미
 //   (앱 안 읽은 알림처럼, 처리 안 한 수 — 0이면 숫자 없음, '놓친 것' 글자 없음)이고, 누르면 정리함(잊지 말기) 한 목록이 열린다.
 //   → S53-13 HOME-잊지말기칩: 그 한 줄을 입력 칸 머리 줄 오른쪽 칩 [잊지 말기 n]으로 옮겼다(아래 forgetChipHtml). 이 파일이 그 자리의 유일한 renderer다.
 //   숫자 = 연결 안 된 업데이트(미분류) + 처리 전 후보(텔레그램 요청 포함, 이미 할 일로 만든 제목은 뺌) + 가족 잊지 말기 제안(운영자 기능 family일 때).
 //   정리함 한 목록의 처리 전 줄과 같은 기준이다(상대 약속은 세지 않음). 메뉴 '홈' 표시(UI-앱안알림, home-asks.js)도 같은 숫자.
-//   LEDGER-화면에서빼기(2026-11-25 명진 결정): 옛 '내일 약속 n ›'(원장으로 가는 흐린 글자 버튼)은 지웠다 — 원장은 사용자 화면에 없다.
+//   LEDGER-화면에서빼기(2026-11-25 사용자 결정): 옛 '내일 약속 n ›'(원장으로 가는 흐린 글자 버튼)은 지웠다 — 원장은 사용자 화면에 없다.
 // - 업데이트 입력줄: home-quick.js 그대로([업데이트 ▾ | 할 일], 폰은 하단 탭 위 고정). 고르기 시트 목록 읽기(dependencies)만 여기서 준다.
 // - 챙길 것 찾기(D7): 이 탭에서 그날 처음 홈을 열 때 서버에 한 번(todo-radar.js autoFindToday).
 // 기기 저장 없음. 가족 줄은 세기만 한다(내용을 이 화면에 그리지 않음).
@@ -22,14 +22,14 @@ import {openedFromPush} from './family-notes-model.mjs';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
 // 순수: 숫자들 → '잊지 말기' 한 줄의 처리 안 한 수. 모르는 값(null)은 null(줄 숨김). family는 모르면 0(가족 기능 없음·못 읽음).
-// news: 처리 전 소식(FORGET-소식합치기, 명진 '넣어') — 운영자 작업공간만, 모르면 0.
+// news: 처리 전 소식(FORGET-소식합치기, 사용자 '넣어') — 운영자 작업공간만, 모르면 0.
 export function forgetCount({update, todo, family = 0, news = 0} = {}) {
   const n = v => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
   const u = n(update), t = n(todo);
   if (u === null || t === null) return null;
   return u + t + (n(family) || 0) + (n(news) || 0);
 }
-// HOME-잊지말기칩(S53-13, 요청함 11/08 13:54 '4글자를 위해 한 줄 전체', 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'):
+// HOME-잊지말기칩(S53-13, 요청함 11/08 13:54 '4글자를 위해 한 줄 전체', 시안 docs/design/mockups/home-forget-slim.html 사용자 13:55 'A'):
 // 홈 [하루] 맨 위 '잊지 말기' 띠 한 줄을 없애고, 입력 칸 머리 줄([업데이트 ▾ | 할 일]) 오른쪽 칩 하나로 — ④ 칩(button.ds-chip) + 톤다운 노랑(forget),
 // 처리 안 한 수는 빨간 숫자(0이면 숫자 없이 칩만 흐리게). 누르면 정리함(잊지 말기) 한 목록. 
 export function forgetChipHtml(count) {

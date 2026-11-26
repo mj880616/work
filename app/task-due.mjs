@@ -5,7 +5,7 @@ import {seoulDateKey, addSeoulDays, formatSeoulTime} from './meeting-time.js';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 // Google keeps a due date as midnight UTC of that date, so its day is the date part as written.
 export const dueDay = task => { const key = String(task?.due || '').slice(0, 10); return DAY.test(key) ? key : ''; };
-// S50-35(2026-11-05 명진 결정): 홈에서 새로 넣는 할 일의 기한 — 고른 날이 있으면 그날, 고르지 않았으면 오늘(한국 날짜).
+// S50-35(2026-11-05 사용자 결정): 홈에서 새로 넣는 할 일의 기한 — 고른 날이 있으면 그날, 고르지 않았으면 오늘(한국 날짜).
 // 넣자마자 홈 [할 일](그날 기한) 칸에 보이게 한다. 새로 만들 때만 쓴다(이미 있는 할 일을 고칠 때는 그 할 일의 기한을 그대로 둔다).
 export const newTaskDue = (picked, today = seoulDateKey(new Date())) => { const key = String(picked || '').slice(0, 10); return DAY.test(key) ? key : today; };
 export const tomorrowKey = (today = seoulDateKey(new Date())) => seoulDateKey(addSeoulDays(today, 1));
@@ -32,7 +32,7 @@ export function dueGroup(day, today = seoulDateKey(new Date())) {
   if (key === tomorrowKey(today)) return 'tomorrow';
   return key <= seoulDateKey(addSeoulDays(today, 7)) ? 'week' : 'later';
 }
-// HOME-업무일지홈 C(2026-10-30 명진 결정): 할 일이 줄로 나오는 곳(홈 할 일 칸, 정리함 챙길 것 줄, 담당조직 할 일 줄 등)의 기한 글자 하나.
+// HOME-업무일지홈 C(2026-10-30 사용자 결정): 할 일이 줄로 나오는 곳(홈 할 일 칸, 정리함 챙길 것 줄, 담당조직 할 일 줄 등)의 기한 글자 하나.
 // '오늘' / 지난 기한 '지남 10.28' / 그 밖 '11.2 (월)'. 기한이 없으면 ''(화면은 아무것도 쓰지 않는다). 모양(작은 진회색)은 ui-standard.css .task-due-text.
 export function dueLabel(day, today = seoulDateKey(new Date())) {
   const key = String(day || '').slice(0, 10);
@@ -41,7 +41,7 @@ export function dueLabel(day, today = seoulDateKey(new Date())) {
   const [, m, d] = key.split('-').map(Number);
   return key < today ? `지남 ${m}.${d}` : `${m}.${d} (${formatSeoulTime(key, {weekday:'short'})})`;
 }
-// S46-30(2026-10-31 명진 결정): 할 일 기한 빠른 버튼 한 줄 — [오늘][내일][모레][다음주][기한 없음]. [다음주]는 바로 저장하지 않고
+// S46-30(2026-10-31 사용자 결정): 할 일 기한 빠른 버튼 한 줄 — [오늘][내일][모레][다음주][기한 없음]. [다음주]는 바로 저장하지 않고
 // 다음 주 월~일 일곱 날 작은 목록(task-week-pick.js)을 연다. 날짜는 한국 날짜 'YYYY-MM-DD' 그대로 셈한다(기기 시간대와 무관).
 const keyDays = (key, n) => { const [y, m, d] = key.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
 export const QUICK_DUES = Object.freeze([['0', '오늘'], ['1', '내일'], ['2', '모레'], ['week', '다음주'], ['', '기한 없음']]);

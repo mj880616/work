@@ -57,7 +57,7 @@ test('제목 줄 앞의 머리말은 첫 회의에 붙는다',()=>{
 });
 
 test('본문 앞줄에서 회의명·날짜·차수를 찾고, 파일 이름 정보가 우선한다',()=>{
-  const key=firstLineKey('전국공공운수노조\n제7차 본부 운영위원회 회의결과\n일시: 2025년 9월 3일(수) 15:00\n장소: 본부 회의실');
+  const key=firstLineKey('전국A노조\n제7차 본부 운영위원회 회의결과\n일시: 2025년 9월 3일(수) 15:00\n장소: 본부 회의실');
   assert.equal(key.round,7);assert.equal(key.date,'2025-09-03');assert.equal(key.name,'본부 운영위원회');assert.equal(key.time,'15:00');
   assert.deepEqual(mergeKey({date:'2025-09-04',round:null,name:'',time:''},key),{date:'2025-09-04',round:7,name:'본부 운영위원회',time:'15:00'});
 });

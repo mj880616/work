@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
-// S70-10 UI-끌기자동스크롤(명진 11/25 09:43 "이렇게 드래그할 때 스크롤 되어야 해 / 전수조사해서 모든 곳 고쳐요"): 자료실 한 칸 폴더 보기는
+// S70-10 UI-끌기자동스크롤(사용자 11/25 09:43 "이렇게 드래그할 때 스크롤 되어야 해 / 전수조사해서 모든 곳 고쳐요"): 자료실 한 칸 폴더 보기는
 // 처음 20개 + '20개 더 보기'라, 화면이 끝까지 구른 뒤에는 더 내려가지 않았다(고치기 전 main에서 이 파일의 시험이 실패: 줄 20개 그대로).
 // 끄는 동안 아래 가장자리에 머물면 '더 보기'가 저절로 열려 계속 굴러가고, 위 가장자리로 다시 올라가 왼쪽 나무 폴더에 놓을 수 있다. 이름은 지어낸 것.
 const FOLDERS=[libFolder('w',null,{name:'가상 주간',sort_order:1024}),libFolder('z',null,{name:'가상 끝',sort_order:4096})];

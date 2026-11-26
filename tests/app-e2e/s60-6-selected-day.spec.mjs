@@ -4,7 +4,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// UI-고른날진하게(S60-6, 명진 2026-11-12): 고른 날이 있는 달력(홈 [하루] 날짜 줄·일기 달력·사업 보고 달력)은 모두
+// UI-고른날진하게(S60-6, 사용자 2026-11-12): 고른 날이 있는 달력(홈 [하루] 날짜 줄·일기 달력·사업 보고 달력)은 모두
 // 공용 규칙 하나(ui-standard.css .ds-day-sel .ds-day-num)로 날짜 숫자를 진한 채운 동그라미·흰 숫자로 그린다.
 // 칸 옅은 바탕은 없고, 골라도 칸·숫자 크기는 그대로, 오늘 표시(일기·사업 보고 = 칸 네모 선, 홈 = 동그라미 선)는 그대로.
 // 사진: SHOT_DIR=<폴더>를 주면 PC 1280·폰 412 사진을 거기에도 남긴다(PR 첨부용).

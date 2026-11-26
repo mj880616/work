@@ -5,7 +5,7 @@ import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {lineCount, pickedToggles} from '../app/chip-rows-model.mjs';
 
-// UI-칩줄두줄(2026-10-31 명진 결정): 앱 전체 칩 줄 = 줄바꿈 두 줄 + [더보기 ›](S51-33 UI-접기꺾쇠: 세모 없음), 옆으로 미는 칩 줄 없음. 실제 화면 폭 확인은 CI E2E(412·PC).
+// UI-칩줄두줄(2026-10-31 사용자 결정): 앱 전체 칩 줄 = 줄바꿈 두 줄 + [더보기 ›](S51-33 UI-접기꺾쇠: 세모 없음), 옆으로 미는 칩 줄 없음. 실제 화면 폭 확인은 CI E2E(412·PC).
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const read = f => readFileSync(join(app, f), 'utf8');
 const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');

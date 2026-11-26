@@ -5,7 +5,7 @@
 //   the basket update with its files in Drive, linked to this organization as a record, and its files put into this
 //   organization's 자료 (basket-file-docs.js putFilesIntoTargets — the same 자료 link as 정리함 [자료로 넣기]).
 // - Letters written → the letters are the record and the files hang on it.
-// - No letters (11/05 16:41 명진 결정) → the server AI reads one of the files and suggests the record's one line (recordLineFor);
+// - No letters (11/05 16:41 사용자 결정) → the server AI reads one of the files and suggests the record's one line (recordLineFor);
 //   when it cannot, the line is '그림 1장 · 이름'. The line is the link's summary, changed later with ⋯ [요약 수정]. Saving never waits on
 //   the AI for more than LINE_TIMEOUT_MS and never fails because of it.
 import { createUploadBatch, mountBasketPicker } from './basket-upload.js';

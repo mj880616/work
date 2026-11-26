@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace BasketDrop.App;
 
 /// <summary>
-/// S63-09 PC도우미구분(명진 11/16): people took this tray program for the web app itself and saw nothing open on double-click.
+/// S63-09 PC도우미구분(사용자 11/16): people took this tray program for the web app itself and saw nothing open on double-click.
 /// This small window says what the program is and opens WORK ON+ (S68-21 name) in the default browser. One window at a time; it holds no data.
 /// </summary>
 internal sealed class HelperForm : Form

@@ -30,7 +30,7 @@ test('문턱을 넘어야 사각형이 시작된다(그 전에 떼면 보통 클
   assert.equal(passed({x: 0, y: 0}, {x: 3, y: 4}), false);
   assert.equal(passed({x: 0, y: 0}, {x: 0, y: 5}), true);
 });
-// S69(명진 11/24 "창 밖에서도 창 안으로 드래그" · "어느곳에서든 자유롭게"): 보이는 사각형은 시작한 칸 경계가 아니라 창 기준으로만 자른다.
+// S69(사용자 11/24 "창 밖에서도 창 안으로 드래그" · "어느곳에서든 자유롭게"): 보이는 사각형은 시작한 칸 경계가 아니라 창 기준으로만 자른다.
 test('사각형은 창 기준(시작 칸 경계에 갇히지 않음) · 빈 곳 누르기는 입력칸 초점을 놓는다', async () => {
   const {readFileSync} = await import('node:fs');
   const src = readFileSync(new URL('../app/marquee-select.js', import.meta.url), 'utf8');

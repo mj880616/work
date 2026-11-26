@@ -180,7 +180,7 @@ test('연결 끊김: 화면이 받은 시간 초과·네트워크 오류·서버
   assert.match(transcribeFailText(null),/^전사하지 못했어요/);
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 세 화면 모두 전사를 하지 않으므로 전사 실패 글(transcribeFailText)을 부르지 않는다. 녹음 저장 실패는 오류 객체째 saveFailText로.
+// S61-5 REC-전사삭제(사용자 11/13): 세 화면 모두 전사를 하지 않으므로 전사 실패 글(transcribeFailText)을 부르지 않는다. 녹음 저장 실패는 오류 객체째 saveFailText로.
 test('지금은 없음: 화면 두 곳(폰 녹음·노트북 녹음)이 전사 실패 글을 쓰지 않고, 녹음 저장 실패는 오류 객체째 넘긴다',()=>{
   for(const f of ['app/phone-recorder-core.mjs','app/meeting-recorder.js'])assert.doesNotMatch(read(f),/transcribeFailText/,f);
   for(const f of ['app/phone-recorder-core.mjs','app/meeting-recorder.js'])assert.match(read(f),/saveFailText\(e,/,f);

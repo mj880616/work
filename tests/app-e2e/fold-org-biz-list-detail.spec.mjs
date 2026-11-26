@@ -66,7 +66,7 @@ for(const [width,height] of FOLD){
   else await expect(orgPane(page)).not.toHaveClass(/kptu-follow-narrow/);
   // 칸에 붙은 상세는 창이 아니라 뒤로가기 한 칸(창 기록)을 쌓지 않는다(mobile-modal-history.js role=region).
   expect(await page.evaluate(()=>[history.state?.kptuOverlay??null,document.querySelector('#wdModal').dataset.kptuHistoryOpen??null])).toEqual([null,null]);
-  // 다른 줄: 같은 칸에서 바뀐다. 사람이 고른 줄은 뒤로가기 한 칸(NAV-PC뒤로직전, 명진 11/11 15:37 결정 (나)) —
+  // 다른 줄: 같은 칸에서 바뀐다. 사람이 고른 줄은 뒤로가기 한 칸(NAV-PC뒤로직전, 사용자 11/11 15:37 결정 (나)) —
   // 처음 고른 줄은 화면 칸에 적히고 그다음 줄부터 한 칸씩 쌓인다(app-router.js pick).
   const length=await page.evaluate(()=>history.length);
   await orgRow(page,'ob').click();await expect(orgTitle(page)).toHaveText('합성 나 지부');
@@ -158,7 +158,7 @@ const shownReport=page=>bizPane(page).locator('#meetingRoundDetailModal.mrd-dock
 for(const [width,height] of FOLD){
  test(`폴드 ${width}: 사업 보고 [회의] — '날짜·이름 목록 | 결과' 두 칸, 줄을 누르면 같은 칸·사람이 고른 줄은 뒤로 한 칸(NAV-PC뒤로직전2), 회의명 거르기·주 넘기기 그대로, 뒤로 = 직전 보고 → 앞 화면`,async({page})=>{
   const {errors}=await bizFixture(page,width,height,{start:'home'});
-  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체], [회의]를 고른다.
+  // MTG-기본종류전체(11/15 사용자): 처음은 [종류 전체], [회의]를 고른다.
   await pickReportKind(page,'회의');
   // 두 칸(세 칸의 종류 칸 없음). 가장 최근 보고(m-c 11.11)가 오른쪽 결과 칸에.
   await expect(bizList(page).locator('.mcol-layout.mcol-two')).toBeVisible();
@@ -185,7 +185,7 @@ for(const [width,height] of FOLD){
   if(width<=760){await expect(bizPane(page)).toHaveClass(/kptu-follow-narrow/);await expect.poll(async()=>(await box(bizPane(page))).bottom-await dockTop(page)).toBeLessThanOrEqual(0)}
   // 칸에 붙은 보고는 창이 아니라 뒤로가기 한 칸(창 기록)을 쌓지 않는다(mobile-modal-history.js role=region).
   expect(await page.evaluate(()=>[history.state?.kptuOverlay??null,document.querySelector('#meetingRoundDetailModal').dataset.kptuHistoryOpen??null])).toEqual([null,null]);
-  // 다른 줄: 같은 칸에서 그 보고로 바뀐다. 사람이 고른 보고는 뒤로가기 한 칸(NAV-PC뒤로직전2, 명진 11/11 15:37 결정) —
+  // 다른 줄: 같은 칸에서 그 보고로 바뀐다. 사람이 고른 보고는 뒤로가기 한 칸(NAV-PC뒤로직전2, 사용자 11/11 15:37 결정) —
   // 처음 고른 줄은 화면 칸에 적히고(스스로 연 m-c는 기록 아님) 그다음 줄부터 한 칸씩 쌓인다(app-router.js pick).
   const length=await page.evaluate(()=>history.length);
   await bizRow(page,'m-b').click();

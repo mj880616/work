@@ -1,4 +1,4 @@
-// record-backup: '내 기록 백업' 서버 입구(PRIVACY-백업안내, 시안 #2677 명진 확정 11/15·11/16).
+// record-backup: '내 기록 백업' 서버 입구(PRIVACY-백업안내, 시안 #2677 사용자 확정 11/15·11/16).
 //
 // 하는 일: 로그인한 사람의 기록을 그 사람 구글 드라이브 '노조+ 백업/날짜'(새 사용자는 'WORK ON+ 백업/날짜', S68-02) 폴더에 종류별 읽기용 문서 1개 + 표마다 csv 1개로 저장한다.
 // 노조+ 서버에는 사본을 두지 않는다(만든 파일은 응답·로그·DB 어디에도 싣지 않음). 운영자는 기록 내용을 보지 않는다(AGENTS.md 3절).
@@ -140,7 +140,7 @@ export function createRecordBackupHandler(deps: BackupDeps) {
     try { const id = await deps.appRootId(workspaceId); return isDriveId(id) ? id : null; } catch { return null; }
   }
   // S68-02: 맨 위 폴더는 이름이 아니라 표식(kptu_backup=root)으로 찾으므로 이미 있는 폴더('노조+ 백업' 등)는 이름 그대로 계속 쓴다.
-  // 없을 때만 만든다: 운영자 기능 nojo_words(명진 화면, 로그인 토큰으로 부른 app_my_features 답)·확인 실패는 '노조+ 백업', 그 밖은 'WORK ON+ 백업'.
+  // 없을 때만 만든다: 운영자 기능 nojo_words(사용자 화면, 로그인 토큰으로 부른 app_my_features 답)·확인 실패는 '노조+ 백업', 그 밖은 'WORK ON+ 백업'.
   // S68-21: 같은 답으로 새로 만드는 읽기용 문서 첫 줄의 앱 이름도 정한다(run에서 한 번 확인).
   async function keepOldNames(auth: string): Promise<boolean | null> {
     try {

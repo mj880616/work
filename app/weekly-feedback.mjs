@@ -8,9 +8,9 @@
 //   feedbackTrend(이번 주, 지난 주들)    → 환류 보고 ① 숫자(지난 주들과 비교)
 //   readExtras / mergeExtras             → 그 주 draft 의 proposed·feedback·rules 칸 모양 검사·합치기(weekly-draft-store.js 가 씀)
 //   withRule* / readRules                → '주간보고 규칙' 확정 목록 고치기·지우기·더하기(20줄까지)
-//   takeCandidate / dropCandidate      → 규칙 후보 [ㅇ]·[고쳐서 확정]·[×](WEEKLY-규칙합의). 폐기 줄을 다시 후보로 돌리는 길은 없다(명진 11/13)
+//   takeCandidate / dropCandidate      → 규칙 후보 [ㅇ]·[고쳐서 확정]·[×](WEEKLY-규칙합의). 폐기 줄을 다시 후보로 돌리는 길은 없다(사용자 11/13)
 //   규칙 칸 모양(v2): {v:2, at, week, lines:[확정 {text, from}], candidates:[후보 {text}], retired:[폐기 {text}]}.
-//   AI 초안이 보는 것은 확정(lines)뿐. 옛 모양(v 없음)의 줄은 모두 후보로 읽는다(명진이 확인하지 않은 자동 정리 규칙).
+//   AI 초안이 보는 것은 확정(lines)뿐. 옛 모양(v 없음)의 줄은 모두 후보로 읽는다(사용자가 확인하지 않은 자동 정리 규칙).
 //   learnInput(행들, 보고 주)            → 학습 재료: 보고 주 '앞' 주들의 고침 기록·규칙만(이번 주 개인본·이번 주 기록은 넣지 않음)
 import {squashLine} from './weekly-lines.mjs';
 import {readPicks, mergePicks} from './weekly-picks.mjs';
@@ -222,7 +222,7 @@ export function readFeedback(raw) {
   if (stats.length) out.cells = stats;
   const review = readReview(raw.review);
   if (review) out.review = review;
-  // WEEKLY-자동화 ②(명진 결정 3): Web2 판 ↔ 고친 판 모양(빈 줄·줄머리·들여쓰기) 숫자. 글 없음, weekly-layout.mjs 모양 검사.
+  // WEEKLY-자동화 ②(사용자 결정 3): Web2 판 ↔ 고친 판 모양(빈 줄·줄머리·들여쓰기) 숫자. 글 없음, weekly-layout.mjs 모양 검사.
   const layout = readLayout(raw.layout);
   if (layout) out.layout = layout;
   return bytes(out) > EXTRA_MAX_BYTES ? null : out;
@@ -345,7 +345,7 @@ export function dropCandidate(rules, key, at) {
   if (!found) return r;
   return readRules({...r, at:stamp(r.at, at), candidates:r.candidates.filter(notKey(k)), retired:[{text:found.text}, ...r.retired]});
 }
-// 폐기 줄 [다시 후보로]는 없앴다(명진 11/13 19:03 — 뺀 규칙 접힘·처리 코드째 삭제). 폐기 줄(retired) 데이터는 서버에 그대로 둔다.
+// 폐기 줄 [다시 후보로]는 없앴다(사용자 11/13 19:03 — 뺀 규칙 접힘·처리 코드째 삭제). 폐기 줄(retired) 데이터는 서버에 그대로 둔다.
 // WEEKLY-개발후보연결(S48-49): sent = 서버(document-actions dev-inbox)가 그 제안을 'Web2 요청함' 문서에 더한 시각. 서버만 쓰고 화면은 읽은 그대로 다시 실어 보낸다
 //   (같은 제안은 한 번만 — 답을 바꿔도 지우지 않음).
 // WEEKLY-개발후보CC(S48-43): [만들기]로 보낸 제안이 실제로 만들어지면 그 PR 번호(made, 양의 정수)를 그 제안에 둔다. 글은 없고 번호만.

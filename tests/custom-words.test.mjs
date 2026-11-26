@@ -12,7 +12,7 @@ import { readdirSync } from 'node:fs';
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const nojo = FACES.nojo, girok = FACES.girok;
 const say = (face, text, slot) => wordIn(face, text, slot);
-// 지금 노동조합+ 화면 이름 그대로(명진이 기록+에서 고친 이름으로 넣을 값, docs/ops/custom-words-operator.apply.sql).
+// 지금 노동조합+ 화면 이름 그대로(사용자가 기록+에서 고친 이름으로 넣을 값, docs/ops/custom-words-operator.apply.sql).
 const OPERATOR = JSON.parse(read('docs/ops/custom-words-operator.apply.sql').match(/set custom_words = '(\{[^']*\})'::jsonb/)[1]);
 // app/의 word('글자')·word('글자','자리') 고정 글자(정규식으로 모음 — 전수는 scripts/check-girok-words.mjs가 AST로 본다).
 function wordLiterals() {
@@ -61,13 +61,13 @@ test('기록+ 기본 이름(고친 이름 없음)에는 노조 색 단어가 없
   assert.deepEqual(parseCustomWords(OPERATOR), OPERATOR);
 });
 
-test('명진 값 = 지금 노동조합+ 화면 이름 그대로: 노동조합+ 얼굴에서는 아무것도 바뀌지 않는다', () => {
+test('사용자 값 = 지금 노동조합+ 화면 이름 그대로: 노동조합+ 얼굴에서는 아무것도 바뀌지 않는다', () => {
   assert.deepEqual(Object.keys(OPERATOR), SLOT_IDS, '15칸 모두');
   for (const slot of SLOTS) assert.equal(OPERATOR[slot.id], defaultName(nojo, slot), slot.id);
   assert.equal(applyCustomWords(nojo, OPERATOR), nojo, '얼굴 그대로(바뀌는 글자 없음)');
 });
 
-test('기록+ 얼굴 + 명진 값: 메뉴·한 건·분류 이름이 지금과 같게 보인다', () => {
+test('기록+ 얼굴 + 사용자 값: 메뉴·한 건·분류 이름이 지금과 같게 보인다', () => {
   const shown = applyCustomWords(girok, OPERATOR);
   const same = {
     '사업 관리': '사업 관리', '사업 보고 쓰기': '사업 보고 쓰기', '사업영역 관리': '사업영역 관리', '사업영역을 고르세요': '사업영역을 고르세요',
@@ -131,7 +131,7 @@ test('저장할 값: 빈칸·기본 이름과 같은 칸은 빼고([기본으로
   assert.deepEqual(buildSaveValue(girok, {area: 'a<b'}), {error: 'area'});
   assert.deepEqual(buildSaveValue(girok, {nope: '이름'}), {value: null}, '모르는 칸은 무시');
   assert.deepEqual(buildSaveValue(girok, OPERATOR).value, Object.fromEntries(Object.entries(OPERATOR).filter(([id]) => OPERATOR[id] !== defaultName(girok, SLOTS.find(s => s.id === id)))));
-  assert.deepEqual(buildSaveValue(nojo, OPERATOR), {value: null}, '노동조합+ 얼굴에서 명진 값은 모두 기본과 같다');
+  assert.deepEqual(buildSaveValue(nojo, OPERATOR), {value: null}, '노동조합+ 얼굴에서 사용자 값은 모두 기본과 같다');
 });
 
 test('시작 순서: 고친 이름 약속은 소유자 확인에 묶이고, word()를 쓰는 모듈보다 먼저 생긴다', () => {
@@ -200,8 +200,8 @@ test('운영자 이름 SQL: 코드에 계정을 넣지 않고 운영자 허용 �
 });
 
 // S67-57: 내 프로필·묶음·주간 캘린더 칸의 소속·주간 이름.
-// 소속·주간은 이름 바꾸기 칸이 아니다(DB 변경 없음): 명진(서버 허용 표 nojo_words)은 바탕 낱말 묶음으로 지금 글자 그대로다.
-test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 명진(바탕 nojo + 15칸)은 예시·안내까지 지금 글자 그대로', () => {
+// 소속·주간은 이름 바꾸기 칸이 아니다(DB 변경 없음): 사용자(서버 허용 표 nojo_words)은 바탕 낱말 묶음으로 지금 글자 그대로다.
+test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 사용자(바탕 nojo + 15칸)은 예시·안내까지 지금 글자 그대로', () => {
   const EXAMPLES = ['○○노동조합 ○○지부', '○○사업팀', '국장'];
   const EMPTY = '같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.';
   // WORK ON 기본(고친 이름 없음)
@@ -214,7 +214,7 @@ test('소속·주간 자리: WORK ON 기본은 노조 색 없음, 명진(바탕 
   assert.equal(say(nojo, '노조', 'group'), '노조');
   assert.equal(say(nojo, '주간 보고', 'weekly'), '주간 보고');
   for (const text of EXAMPLES) assert.equal(say(nojo, text, 'example'), text);
-  // WORK ON + 명진(바탕 nojo + 15칸)
+  // WORK ON + 사용자(바탕 nojo + 15칸)
   const mine = applyCustomWords(withWordBaseSync(girok, 'nojo'), OPERATOR);
   assert.equal(say(mine, '노조', 'group'), '노조');
   assert.equal(say(mine, '주간 보고', 'weekly'), '주간 보고');
@@ -254,7 +254,7 @@ test('내 프로필·묶음·주간 캘린더 칸 글자는 소속·주간 칸 �
   }
 });
 
-test("앱 전체 '주간 보고': WORK ON 기본 '주간 정리', 명진(바탕 nojo)은 문장 안에서도 그대로", () => {
+test("앱 전체 '주간 보고': WORK ON 기본 '주간 정리', 사용자(바탕 nojo)은 문장 안에서도 그대로", () => {
   const mine = applyCustomWords(withWordBaseSync(girok, 'nojo'), OPERATOR);
   for (const text of ['주간 보고', '주간 보고 쓰기 전에 조직별 이번 주를 훑을 때', "주간 보고 '사업' 칸"]) {
     assert.match(say(girok, text), /주간 정리/, text);
@@ -278,7 +278,7 @@ test('바탕 낱말 묶음: 서버 기능 목록에서만 정하고, 단어표�
   assert.ok(Object.isFrozen(based));
 });
 
-test('기록+ 빌드 + 바탕 nojo + 명진 15칸 = 노동조합+ 화면 글자(JS word() 고정 글자 전부)', () => {
+test('기록+ 빌드 + 바탕 nojo + 사용자 15칸 = 노동조합+ 화면 글자(JS word() 고정 글자 전부)', () => {
   const based = applyCustomWords(withWordBaseSync(girok, 'nojo'), OPERATOR);
   assert.equal(based.words, nojo.words, '고친 이름이 모두 기본 이름과 같아 단어표가 nojo 그대로');
   // #2828 '남은 위험 1·2'의 예와 함께, app/의 word() 고정 글자를 모두 nojo와 견준다.

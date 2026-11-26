@@ -1,4 +1,4 @@
-// AI-사람별한도(MULTI-노조사용자 단계 ③ 'AI 상한', 명진 11/13 14:43 "가"): 사람(작업공간)마다 한 달 AI 한도. 판정은 이 파일 한 곳.
+// AI-사람별한도(MULTI-노조사용자 단계 ③ 'AI 상한', 사용자 11/13 14:43 "가"): 사람(작업공간)마다 한 달 AI 한도. 판정은 이 파일 한 곳.
 // - 숫자는 DB 함수(20261113160000_ai_user_cap)가 준다: 이번 달(서울 날짜) 그 작업공간의 OpenAI 토큰 합계(app_ai_daily_usage + app_news_days)·
 //   Gemini 모델별 합계(app_ai_external_usage)·한도(app_workspace_ai_caps, 없으면 3,000원)·운영자 제외(ai_no_cap).
 //   기존 사용 기록 표만 읽는다(새 저장소 없음). 원 셈은 단가표 _shared/ai-prices.mjs 한 곳(홈·프로필 'AI 사용량' 줄과 같은 단가).

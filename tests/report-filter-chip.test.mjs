@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {filterChipText,selectedLabel,FILTER_CHIP_ALL} from '../app/report-filter-chip-model.mjs';
-// S67-75 UI-걸러보기칩하나(2026-11-21 명진 18:33 A안): 폰 사업 관리 윗줄 칩 하나의 글자와, #2847 끝 흐림(mask)을 걷어낸 것.
+// S67-75 UI-걸러보기칩하나(2026-11-21 사용자 18:33 A안): 폰 사업 관리 윗줄 칩 하나의 글자와, #2847 끝 흐림(mask)을 걷어낸 것.
 test('nothing picked reads 전체; picked values only, joined with · in screen order', () => {
   assert.equal(FILTER_CHIP_ALL, '전체');
   assert.equal(filterChipText([]), '전체');

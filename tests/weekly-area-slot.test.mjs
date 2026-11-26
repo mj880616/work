@@ -1,4 +1,4 @@
-// WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 명진 11/13 (나)): 한글 파일 2. 1) 내 줄 찾기.
+// WEEKLY-사업영역묶음 ①(시안 docs/design/mockups/weekly-tidy.html ②, 사용자 11/13 (나)): 한글 파일 2. 1) 내 줄 찾기.
 // 팀 양식은 첫 칸 = 묶음(영역·의제·기본 사업), 둘째 칸 = 내 사업영역. Web2 화면 줄은 첫 칸 = 내 사업영역(1단), 둘째 칸 = 세부 과제(2단).
 // 둘째 칸 이름으로도 내 줄을 찾아 그 자리를 채우고, 표 끝에 새 줄을 만들지 않는다. 이름은 모두 예시(업무 내용 없음).
 import test from 'node:test';

@@ -24,7 +24,7 @@ for (const [width, height] of FOLD) {
     page.on('pageerror', e => errors.push(e.message));
     await page.setViewportSize({ width, height });
     await openHome(page);
-    // S70-57(명진 11/26 "전체 검색은 홈에만"): 홈 머리 줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px).
+    // S70-57(사용자 11/26 "전체 검색은 홈에만"): 홈 머리 줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px).
     const entry = page.locator('#appView > .mobile-shell-header .gs-menu-entry');
     await expect(entry).toBeVisible({ timeout: 15000 });
     { const m = await head(page); expect(m.shown).toBe(true); expect(Math.round(m.h)).toBe(36); expect(m.gap).toBe(8); expect(m.name.text).toBe('');

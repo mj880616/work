@@ -5,7 +5,7 @@
 //   어느 보고에 이을지는 늘 사람이 고른다(서버·AI가 저절로 잇지 않음). 서버가 잇기를 모르면(표·Edge 적용 전) 묻지 않고 지금 길(초안 창).
 // - [그 보고에 잇기] = Edge meeting-transcribe join_start(고른 보고 id + 녹음 결과 id만 — 작업공간·소유는 서버가 로그인으로 정함). 창은 뜨지 않고
 //   녹음 띠는 바로 닫히며(다음 녹음을 바로 시작할 수 있게), 진행·끝은 맨 위 알림 줄(notice-bar.js 손님)에 '○○에 잇는 중' → '○○ 보고에 이어 붙였어요
-//   [열기] [되돌리기]'. [되돌리기] = 통째로 되돌리기(명진 결정 '둠' — 회의 결과·전문·붙인 녹음까지, 녹음 결과는 띠 [초안 열기]로 돌아감).
+//   [열기] [되돌리기]'. [되돌리기] = 통째로 되돌리기(사용자 결정 '둠' — 회의 결과·전문·붙인 녹음까지, 녹음 결과는 띠 [초안 열기]로 돌아감).
 //   앱을 다시 열면 join_list로 줄을 이어 그리고, 폰 알림 주소(?join_job=)면 그 보고를 연다.
 // - 새 할 일은 저절로 만들지 않는다(MTG-할일자동생성금지와 같은 규칙·같은 부품): 잇기 요약의 할 일은 그 보고의 챙길 것 후보(todo-radar-data.js
 //   addMeetingCandidates)로만 올리고, 보고 상세 '후속 할 일' 칸의 후보 줄에서 [할 일로]를 눌러야 생긴다. 이미 붙은 할 일과 제목이 같은 것은 뺀다.
@@ -69,9 +69,9 @@ const whenName=id=>{const m=rowOf(id);return m?labelWhen(m,Date.now()):'그 보�
 function fromName(sourceId,targetId){const s=rowOf(sourceId);if(!s)return '';return whenText(atMs(s.meeting_at),atMs(rowOf(targetId)?.meeting_at))||reportName(s)}
 
 // ---- 물음(3-3절) ----
-// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사·join_start {job_id})은 뺐다.
+// S61-5 REC-전사삭제(사용자 11/13): 녹음 정리 결과를 열기 전에 묻던 길(ask·회의자료 그 자리 전사·join_start {job_id})은 뺐다.
 //   녹음은 전사하지 않으므로 새 녹음 결과가 없다. 지난 잇기 줄·되돌리기, 보고 합치기는 그대로다.
-// S61-24 REC-요약단추삭제(명진 11/13 '빼자'): [회의] 입력 창의 전사 글 요약 전 물음((라), 글로 잇기)도 화면과 함께 뺐다.
+// S61-24 REC-요약단추삭제(사용자 11/13 '빼자'): [회의] 입력 창의 전사 글 요약 전 물음((라), 글로 잇기)도 화면과 함께 뺐다.
 // ---- 진행 줄·끝 줄(맨 위 알림 줄 손님) ----
 const lineKey=id=>`join:${id}`;
 function dropLine(id){if(lines.has(id)){lines.delete(id);removeNotice(lineKey(id))}}

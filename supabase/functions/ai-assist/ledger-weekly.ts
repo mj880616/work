@@ -35,7 +35,7 @@ export function draftWeekOf(reportDay: string): string | null {
   if (!Number.isFinite(t) || new Date(t).getUTCDay() !== 1 || new Date(t).toISOString().slice(0, 10) !== reportDay) return null;
   return new Date(t - 7 * 86400000).toISOString().slice(0, 10);
 }
-// 개인본 재료를 켠 날(한국 날짜 0시). 이 시각 전에 글자를 읽은 개인본은 보지 않는다. 배포가 이 날보다 늦어지면 이 값을 배포일로 올린다(명진 결정).
+// 개인본 재료를 켠 날(한국 날짜 0시). 이 시각 전에 글자를 읽은 개인본은 보지 않는다. 배포가 이 날보다 늦어지면 이 값을 배포일로 올린다(사용자 결정).
 export const WEEKLY_FROM_ISO = "2026-10-26T00:00:00+09:00";
 export const WEEKLY_MAX_DOCS = 20;
 export const WEEKLY_LINE_CHARS: number = LINE_CHARS;

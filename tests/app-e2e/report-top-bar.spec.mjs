@@ -82,7 +82,7 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   const state = makeState();
   await open(page, state, width);
   const bar = page.locator('#meetingsView .report-kind-bar');
-  // S67-75 UI-걸러보기칩하나(명진 A안): 폰(412)은 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 윗줄 [+]와 같은 줄, 상자는 칩이 여는 창 안(한 줄에 하나씩).
+  // S67-75 UI-걸러보기칩하나(사용자 A안): 폰(412)은 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 윗줄 [+]와 같은 줄, 상자는 칩이 여는 창 안(한 줄에 하나씩).
   const inChip = width < 761 && await reportBoxesInChip(page);
   if (inChip) {
     const [c, add] = await Promise.all([page.locator('#reportFilterChip').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
@@ -140,7 +140,7 @@ test('412: [종류 ▾]로 선택하면 그 칸만 보이고 글자가 진해지
   await open(page, state, 412);
   const kind = page.locator('#reportKindSelect');
   await expect(kind.locator('option').first()).toHaveText('종류');
-  // MTG-기본종류전체(11/15 명진): 처음은 [종류 전체](진하지 않음, 회의명 묶음 없음). [회의]를 고르면 회의명도 같은 상자에.
+  // MTG-기본종류전체(11/15 사용자): 처음은 [종류 전체](진하지 않음, 회의명 묶음 없음). [회의]를 고르면 회의명도 같은 상자에.
   await expect(kind).toHaveValue('kind:all');
   await expect(kind).not.toHaveClass(/is-on/);
   await expect(kind.locator('optgroup[label="회의명"]')).toHaveCount(0);

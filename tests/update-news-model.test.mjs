@@ -73,7 +73,7 @@ test('S68-14: 기록 줄 [보냄] → 거둘 소식 찾기·같이 묶인 기록
   assert.equal(WITHDRAW_TEXT, '이 소식을 거둘까요? 이용자 화면에서 사라져요.');
 });
 
-// S68-46 UPDATE-소식자동(명진 11/23 12:37): 자동 소식은 기록 파일 이름(source_files)으로 맞추고, 기록 줄 버튼은 보내기·보냄·다시 보내기 셋.
+// S68-46 UPDATE-소식자동(사용자 11/23 12:37): 자동 소식은 기록 파일 이름(source_files)으로 맞추고, 기록 줄 버튼은 보내기·보냄·다시 보내기 셋.
 test('자동 소식: 파일 이름으로 맞추고(순번이 밀려도), 손으로 보낸 소식은 버전명으로', async () => {
   const {newsHasNote, noteState, withdrawPlan, resendPlan, resendNote, RESEND_TEXT} = await import('../app/update-news-model.mjs');
   const auto = {id: 'a1', auto: true, sources: ['11/23-4'], source_files: ['20261123-1300-d'], withdrawn_at: null};

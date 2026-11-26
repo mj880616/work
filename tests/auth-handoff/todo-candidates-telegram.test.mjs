@@ -106,7 +106,7 @@ test('todo candidates telegram: check adds telegram; one definer insert function
    await assert.rejects(server(c=>c.query("insert into public.app_todo_candidates(workspace_id,kind,summary,source_kind,source_id,source_day,dedupe_key) values($1,'request','x','telegram',$2,'2026-10-29','z')",[WS_A,FEED_A])),/permission denied/);
    await assert.rejects(owner(c=>c.query(fn,[WS_A,'tg:fake:1','가상','',null])),/permission denied/);
    await assert.rejects(as('anon','',c=>c.query(fn,[WS_A,'tg:fake:1','가상','',null])),/permission denied/);
-   // 명진은 화면에서 텔레그램 후보를 보고 처리 칸만 바꾼다(기존 경로 그대로).
+   // 사용자는 화면에서 텔레그램 후보를 보고 처리 칸만 바꾼다(기존 경로 그대로).
    const seen=(await owner(c=>c.query("select source_kind from public.app_todo_candidates"))).rows;
    assert.deepEqual(seen,[{source_kind:'telegram'}]);
    assert.deepEqual((await as('authenticated',STRANGER,c=>c.query('select id from public.app_todo_candidates'))).rows,[]);

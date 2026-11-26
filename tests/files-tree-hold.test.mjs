@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {rowKey, folderKey} from '../app/files-model.mjs';
 
-// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 명진 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"):
+// S69-75 LONGPRESS-폰나무(2026-11-24 21:15 사용자 "파일 목록에 보이는 파일 폴더 꾹 눌러도 선택 안되는데?"):
 // [파일] 폰 나무(저장소 상자·'최근' 상자)의 폴더 줄·파일 줄도 꾹 누르기 = 선택 모드 + 그 줄, 메뉴는 ⋯로만.
 const files = readFileSync(new URL('../app/files.js', import.meta.url), 'utf8');
 

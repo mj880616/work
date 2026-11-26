@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {featuresOf,folderPath,learnModel,nearestFolder,learnWhy} from '../app/library-learn-model.mjs';
 import {learnReasons,ruleReasons,receiveUnits,startRows,tidyUnits,tidyGroups,tidyPlan,autoMovedIds} from '../app/library-sort-model.mjs';
 
-// S69-16 LIB-정돈본보기(명진 11/24 08:26): 사람이 이미 폴더에 넣어 둔 자료를 본보기로 가장 닮은 폴더를 고른다. 이름은 모두 지어낸 것.
+// S69-16 LIB-정돈본보기(사용자 11/24 08:26): 사람이 이미 폴더에 넣어 둔 자료를 본보기로 가장 닮은 폴더를 고른다. 이름은 모두 지어낸 것.
 const id=n=>`e1600000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 // 깊은 폴더: 가상궤도 › 회의 › 대표자 / 집행위, 가상궤도 › 집행국 회의 / 민자철도 회의, 가상팀 › 회의 › 집행위 / 본부 운영위, 받는 폴더 잡동사니
 const A=id(1),AM=id(2),AMR=id(3),AMX=id(4),AG=id(5),AP=id(6),B=id(7),BM=id(8),BMX=id(9),BMO=id(10),RCV=id(11);

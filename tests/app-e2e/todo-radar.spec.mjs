@@ -149,7 +149,7 @@ test('정리함: [×] moves the row to 무시 with a 5 s [되돌리기] that bri
 });
 
 // TODO-이미함·환류: [이미 함]은 할 일을 만들지 않고 빼며 결과 한 줄을 남긴다. [되돌리기]는 둘 다 되돌린다.
-// S52-20: 처리 전 위 '지난주 챙길 것 …' 숫자 줄은 없다(명진 11/07 '챙길 것 정리 숫자 안 보여줘도 돼'). ⋯ [고쳐서 할 일로]는 할 일 창.
+// S52-20: 처리 전 위 '지난주 챙길 것 …' 숫자 줄은 없다(사용자 11/07 '챙길 것 정리 숫자 안 보여줘도 돼'). ⋯ [고쳐서 할 일로]는 할 일 창.
 for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; ⋯ edit opens the task window ${width}`,async({page})=>{
  const fb={posts:[],deletes:[]};
  const f=await fixture(page,{width,routes:async()=>{

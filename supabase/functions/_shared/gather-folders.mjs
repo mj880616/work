@@ -1,5 +1,5 @@
 // S69-22: 앱 폴더 한곳에 모으기 서버 쪽 판단.
-// - S70-29(2026-11-25 명진 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈', S69-22 '누를 때만' 결정을 명진이 바꿈):
+// - S70-29(2026-11-25 사용자 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈', S69-22 '누를 때만' 결정을 사용자가 바꿈):
 //   내 프로필 [한곳으로 모으기] 버튼은 지웠다. 서버가 '맨 위 앱 폴더'를 처음 만들 때(ensureRoot — workspace-drive·library-files·meeting-files·
 //   meeting-transcribe) gatherIntoNewRoot로 같은 모으기를 한 번 한다. 실패해도 그 기능(올리기 등)은 멈추지 않는다(최선만, 숫자만 기록).
 //   workspace-drive POST ?action=gather-folders는 세기(dry_run — 내 프로필 칸의 위치 한 줄)만 남는다.

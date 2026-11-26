@@ -1,4 +1,4 @@
-// BLOG ①(docs/design/blog.md 4절): share-page-read의 블로그 길. 로그인 없이 명진 블로그(bokdoong.com)의 게시판 목록·글 목록·글 본문만 읽는다.
+// BLOG ①(docs/design/blog.md 4절): share-page-read의 블로그 길. 로그인 없이 사용자 블로그(bokdoong.com)의 게시판 목록·글 목록·글 본문만 읽는다.
 // - 블로그 작업공간은 요청이 정하지 않는다. 매번 서버가 app_operator_feature_workspace('blog')(허용된 작업공간이 정확히 하나일 때만)로 정한다.
 //   요청에는 작업공간·사람을 고르는 칸이 없어서, 다른 가입자가 어떤 값을 보내도 그 사람 표는 읽히지 않는다.
 // - 글은 게시 순간의 사본(app_share_pages.blocks, 결정 C '[다시 게시]')만 보인다. 노트 표는 '휴지통·완전히 지움' 확인에만 읽는다(글은 읽지 않음).

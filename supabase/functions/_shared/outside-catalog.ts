@@ -27,7 +27,7 @@ export type ExtractRule = {
 };
 
 export type Kind = "statement" | "comment" | "press" | "article";
-// 묶음 칩(11/02 00:19 명진 요청): [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩.
+// 묶음 칩(11/02 00:19 사용자 요청): [노동] [정당] [사회운동] [외국]. 민주노총·공공운수노조는 [노동] 안 단체 칩.
 export type Group = "labor" | "party" | "movement" | "foreign";
 export type OutsideSource = {
   key: string;
@@ -62,9 +62,9 @@ export type OutsideSource = {
   // 글 쪽 본문 칸(class 이름 또는 id). 맞는 칸의 안쪽만 본문으로 읽는다(없거나 비면 흔한 본문 칸·<article>·페이지 전체 순서).
   bodyClass?: RegExp;
   // 본문·사진 블록 추출 규칙(NEWS-전면개편 P2b, 설계 docs/design/news-overhaul.md 4.2절). 출처마다 반드시 적는다(시험이 고정).
-  // false: 본문 블록을 저장하지 않음(명진 확인 M3 — 외국 매체를 예전처럼 요약만 두고 싶을 때 이 한 칸으로 끔). 본문 칸은 위 bodyClass를 그대로 쓴다.
+  // false: 본문 블록을 저장하지 않음(사용자 확인 M3 — 외국 매체를 예전처럼 요약만 두고 싶을 때 이 한 칸으로 끔). 본문 칸은 위 bodyClass를 그대로 쓴다.
   extract: ExtractRule | false;
-  // robots.txt 예외(명진 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu·laborparty 두 곳뿐 — 시험이 고정).
+  // robots.txt 예외(사용자 결정 기록). 이 칸만으로는 효과가 없고, outside-feed handler의 ROBOTS_EXEMPT_KEYS에도 같은 키가 있어야 한다(둘 다 kptu·laborparty 두 곳뿐 — 시험이 고정).
   robotsException?: string;
   kindOf: (title: string, url: string, category?: string | null) => Kind | null;
 };
@@ -151,27 +151,27 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
-    // robots.txt가 모든 자동 읽기를 막지만(`User-agent: *` `Disallow: /`) 명진 결정 11/01 16:49로 이 단체만 읽는다:
-    // 명진이 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
+    // robots.txt가 모든 자동 읽기를 막지만(`User-agent: *` `Disallow: /`) 사용자 결정 11/01 16:49로 이 단체만 읽는다:
+    // 사용자가 소속된 노조의 공개 성명 게시판. 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다. 2026-11-01 확인: 글 본문은 `div.publishList_write` 안(ASP.NET form 안쪽).
     key: "kptu", name: "공공운수노조", group: "labor", lang: "ko", mode: "html",
     // 판 2(S61-44): 한글 문서 붙여넣기 글의 '&middot'·'13 일' 깨짐을 고친 글자 규칙(S61-37 #2538) — 옛 글을 다시 뽑기(refill)로 한 번 고친다.
     extract: { version: 2 },
-    robotsException: "명진 결정 11/01 16:49",
+    robotsException: "사용자 결정 11/01 16:49",
     lists: ["https://www.kptu.net/board/list.aspx?mid=F686C1F3"], hosts: ["www.kptu.net", "kptu.net"],
     bodyClass: /^publishList_write$/,
     item: /^https:\/\/(www\.)?kptu\.net\/board\/detail\.aspx\?(?=[^#]*\bmid=F686C1F3\b)(?=[^#]*\bidx=\d+\b)/i,
     canon: keepQuery(["mid", "idx"]),
     kindOf: byPrefix("statement"),
   },
-  // [노동] 2단계(명진 결정 11/02 16:26 L1, docs/design/outside-labor-catalog.md 3절): 금속노조·서비스연맹·학비노조. 교육공무직본부는 S62-42(명진 요청 11/16).
+  // [노동] 2단계(사용자 결정 11/02 16:26 L1, docs/design/outside-labor-catalog.md 3절): 금속노조·서비스연맹·학비노조. 교육공무직본부는 S62-42(사용자 요청 11/16).
   // robots 예외 없음 — 다른 단체처럼 실행마다 robots.txt를 먼저 읽고 막힌 경로는 읽지 않는다(last_error='robots'·'robots_denied').
   // 전국공무원노조·전교조·건설노조(L2)는 robots 원문을 확인하지 못했고 앞 조사에서 읽기 도구가 robots에 막혀 넣지 않았다.
   {
     // 그누보드 보도자료/성명 게시판(ce_B12). 맨 위 고정 공지도 같은 주소 모양이라 머리말(공지·안내 등)로 거른다.
     key: "kmwu", name: "금속노조", group: "labor", lang: "ko", mode: "html",
     // @2(S51-15): 공용 추출기 고침(닫는 꼬리표 없는 빼는 칸·본문 앞 공유 줄) — failed/no_body 1건을 다시 뽑기(P2c)로 다시 본다(첨부·그림뿐인 글이면 그대로일 수 있음 [추정]).
-    // @3(S67-19, 11/20 명진 캡처 '본문 칸을 찾지 못함'): 단체 본문 칸이 없어 글 쪽 첫 <article>(그누보드 #bo_v — 제목·작성자·첨부·'목록' 단추·본문·댓글이 한 칸)을
+    // @3(S67-19, 11/20 사용자 캡처 '본문 칸을 찾지 못함'): 단체 본문 칸이 없어 글 쪽 첫 <article>(그누보드 #bo_v — 제목·작성자·첨부·'목록' 단추·본문·댓글이 한 칸)을
     //   본문 칸으로 골랐고, 본문 앞 '목록' 단추 줄에서 끊겨 0줄이었다 [추정: 그누보드 기본 글 쪽 모양 기준, 실측 못 함 — 세션 네트워크가 kmwu.kr에 막힘].
     //   → 그누보드 본문 칸 `#bo_v_con`을 단체 본문 칸으로 고정 + 공용 본문 줄 자르기(parse.ts bodyRange)가 본문 앞 게시판 단추 줄을 건너뜀. 판을 올려 옛 글을 다시 뽑기로 한 번 다시 읽는다.
     extract: { version: 3, drop: /^(bo_v_sns|bo_v_share|bo_v_file|bo_v_link|bo_vc|bo_v_nb)$/ },
@@ -207,7 +207,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: (title) => (HAKBI_NOTICE.test(title) ? null : byPrefix("statement")(title)),
   },
   {
-    // 공공운수노조 전국교육공무직본부(S62-42, 명진 요청 11/16 08:53 'News에 학비노조만 있으면 안돼 교육공무직본부도 추가해줘').
+    // 공공운수노조 전국교육공무직본부(S62-42, 사용자 요청 11/16 08:53 'News에 학비노조만 있으면 안돼 교육공무직본부도 추가해줘').
     // 누리집 주소는 한글 도메인 '교육공무직.com'(punycode xn--ob0btg349a4slcgd.com) [사실: 2026-11-16 공개 웹 읽기 도구로 첫 화면·목록·글 쪽 확인].
     // 성명·보도자료·논평·브리핑·취재요청은 모두 '노동조합 소식 > 브리핑룸'(sub02_02.php, boardid=briefing) 한 게시판에 머리말로 섞여 있다 [사실].
     // 글 주소 모양: sub02_02.php?boardid=briefing&mode=view&idx=번호&sk=&sw=&offset=&category= [사실] → boardid·mode·idx만 남긴다.
@@ -228,12 +228,12 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     kindOf: byPrefix("statement"),
   },
   {
-    // robots.txt 요청을 사이트가 거절해(401·403 → robots_denied, 2026-11-01 20:3x 운영 실행) 명진 결정 11/01 21:08로 이 단체도 읽는다:
+    // robots.txt 요청을 사이트가 거절해(401·403 → robots_denied, 2026-11-01 20:3x 운영 실행) 사용자 결정 11/01 21:08로 이 단체도 읽는다:
     // 공공운수노조 예외와 똑같이 하루 3번 예약 때 목록 한 쪽 + 새 글만(바로 읽기 없음), 요청 머리(User-Agent)는 그대로.
     // 다른 단체의 robots 규칙은 그대로 지킨다.
     key: "laborparty", name: "노동당", group: "party", lang: "ko", mode: "html",
     extract: { version: 1, drop: /^(kboard-document-action|kboard-control|kboard-comments-area)$/ },
-    robotsException: "명진 결정 11/01 21:08",
+    robotsException: "사용자 결정 11/01 21:08",
     lists: ["https://laborparty.kr/?page_id=13642"], hosts: ["laborparty.kr", "www.laborparty.kr"],
     item: /^https:\/\/(www\.)?laborparty\.kr\/\?(?=[^#]*\bmod=document\b)(?=[^#]*\bpage_id=13642\b)(?=[^#]*\buid=\d+\b)/,
     canon: keepQuery(["mod", "page_id", "uid"]),
@@ -301,7 +301,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
     },
   },
   {
-    // 신문 기사와 성명이 한 피드에 섞여 있다. 명진 결정(11/01 22:30): 성명뿐 아니라 기사도 받는다.
+    // 신문 기사와 성명이 한 피드에 섞여 있다. 사용자 결정(11/01 22:30): 성명뿐 아니라 기사도 받는다.
     // 제목 머리말에 '성명'이 있으면([노동자연대 성명]·[성명]·[노동자연대 학생그룹 성명], 괄호 없는 '노동자연대 성명: …') 성명,
     // 나머지는 기사(article: 종류 칸 비움). 공지·안내·모집 등 머리말 글은 다른 단체처럼 뺀다(byPrefix).
     // 하루 수십 건이어도 한 번 실행에 단체마다 새 글 MAX_NEW_PER_RUN(8)건, 나머지는 다음 실행으로 넘긴다(handler.ts).
@@ -359,7 +359,7 @@ export const OUTSIDE_CATALOG: readonly OutsideSource[] = Object.freeze([
   },
   {
     // 사이트(http://socialist.kr/feed)는 로봇 확인 화면(bot_check, 2026-11-01 운영 실행)이라 읽지 않는다 — 그 화면은 절대 우회하지 않는다.
-    // 명진 결정 11/01 21:13: 이 단체의 공개 텔레그램 채널(@ksocialist) 웹 미리보기(로그인 없이 열리는 공개 페이지)를 읽기 경로로 쓴다.
+    // 사용자 결정 11/01 21:13: 이 단체의 공개 텔레그램 채널(@ksocialist) 웹 미리보기(로그인 없이 열리는 공개 페이지)를 읽기 경로로 쓴다.
     // t.me는 이 단체의 이 경로(목록 t.me/s/ksocialist, 글 t.me/ksocialist/<번호>)만 허용한다. robots.txt는 그대로 지킨다(예외 아님).
     // 글 쪽은 읽지 않는다: 본문은 채널 글 자체, 원문 링크는 본문 안 socialist.kr 글 주소(있으면, 요청하지 않고 링크로만) 아니면 채널 글 주소.
     key: "socialist", name: "사회주의자", group: "movement", lang: "ko", mode: "telegram", telegram: "ksocialist",

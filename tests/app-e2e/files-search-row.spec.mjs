@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, phoneFolder } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S62-40 UI-파일검색줄(명진 11/16 07:57 "검색창 폭을 줄여 가지고 두 칸 보기를 위로 올리면은 한 줄 아낄 수 있는데?",
+// S62-40 UI-파일검색줄(사용자 11/16 07:57 "검색창 폭을 줄여 가지고 두 칸 보기를 위로 올리면은 한 줄 아낄 수 있는데?",
 // 시안 #2691 B안, 08:37 선택): [파일] 맨 위 줄 = [찾기][원드라이브][구글 드라이브][이 폰 — 있을 때][두 칸 보기 아이콘] 한 줄.
-// S69-38 FILES-보기두칸(명진 11/24): [두 칸 보기] 아이콘 하나 → 자료실과 같은 붙은 [한 칸 | 두 칸](공용 ⑤ ds-seg). 지금 보기 쪽이 aria-pressed, 폰은 그림만. 이름·id는 모두 가짜.
-// S70-57(명진 11/26 "검색창은 하나로만"): 화면 안 [찾기] 칸은 없앴다 — 찾기는 맨 위 칸 '파일에서 찾기'(폰 틀 앱 머리 줄, PC 상단 줄). 위 줄 = 출처 단추 · [한 칸 | 두 칸].
+// S69-38 FILES-보기두칸(사용자 11/24): [두 칸 보기] 아이콘 하나 → 자료실과 같은 붙은 [한 칸 | 두 칸](공용 ⑤ ds-seg). 지금 보기 쪽이 aria-pressed, 폰은 그림만. 이름·id는 모두 가짜.
+// S70-57(사용자 11/26 "검색창은 하나로만"): 화면 안 [찾기] 칸은 없앴다 — 찾기는 맨 위 칸 '파일에서 찾기'(폰 틀 앱 머리 줄, PC 상단 줄). 위 줄 = 출처 단추 · [한 칸 | 두 칸].
 const root = page => page.locator('#filesRoot');
 const SHOTS = process.env.FILES_SEARCH_ROW_SHOTS || '';
 const shot = async (page, name) => { if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: `${SHOTS}/${name}.png` }); } };

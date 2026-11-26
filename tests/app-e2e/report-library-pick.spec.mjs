@@ -4,7 +4,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import {addReport} from './helpers/report-add.mjs';
-// S67-39(명진 11/20 20:20 "자료 + 자료실에서 추가도 가능하게", 20:25 "사업보고 사진 지우기 가능하게"):
+// S67-39(사용자 11/20 20:20 "자료 + 자료실에서 추가도 가능하게", 20:25 "사업보고 사진 지우기 가능하게"):
 // ① 사업 보고 '자료 +'는 작은 메뉴 [기기에서 올리기]·[자료실에서 선택] 두 갈래다.
 // ② 자료실에서 고른 자료는 저장 전엔 '저장하면 붙어요' 칩, 저장하면 그 자료 행의 사업 보고 칸만 채운다(파일 다시 올리기 없음 — 올리기 요청 0).
 //    다른 보고에 붙은 자료는 흐리게 '다른 보고에 있음'(고를 수 없음). 보기 창 [+]에서 고르면 바로 붙는다.

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
-// UI-저장자리(2026-10-27 명진 요청): 저장 버튼은 창(칸)의 오른쪽 아래, 순서는 [취소] 왼쪽 [저장] 맨 오른쪽.
+// UI-저장자리(2026-10-27 사용자 요청): 저장 버튼은 창(칸)의 오른쪽 아래, 순서는 [취소] 왼쪽 [저장] 맨 오른쪽.
 // 긴 글 쓰기 칸(여기서는 일기 쓰기)은 아래 버튼 줄이 화면 아래에 붙어 있고(스크롤해도), 폰에서 자판이 올라오면 숨었다가 내리면 다시 보인다.
 // 팝업(일정 등록)도 [저장]이 창 오른쪽 아래. 예전의 떠 있는 [저장](#floatSave)은 이 아래 줄이 대신해 없다.
 // 시계는 2026-10-06 KST(openHome).

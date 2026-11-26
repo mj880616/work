@@ -27,7 +27,7 @@ test('listRows: folder docs and briefed docs only, newest first', () => {
   assert.equal(rows[0].state.kind, 'done');
 });
 
-// S68-56(명진 11/23 15:06·15:12): 보기 모델은 요지 → AI가 정한 소제목별 항목 → 원문 인용. 고정 칸 이름 없음.
+// S68-56(사용자 11/23 15:06·15:12): 보기 모델은 요지 → AI가 정한 소제목별 항목 → 원문 인용. 고정 칸 이름 없음.
 test('briefView v3: 요지·소제목(AI가 정한 이름 그대로)·항목(쪽·우리 관련)·인용(발언자·쪽), 잘못된 줄은 뺌', () => {
   const v = m.briefView({ v: 3, lead: '첫 줄', gist: ['첫 줄', '둘째', '셋째', '넷째'], sections: [
     { title: '안건 1. 예시 계획', items: [{ text: '국토교통부 철도국장: 연내 기준 마련', page: 2 }, { text: '예시 거래처 단가', page: null, ours: true }, { text: '' }, null] },
@@ -138,7 +138,7 @@ test('pickResult: 넣은 수·원래 폴더에 둔 수·못 넣은 수', () => {
   assert.equal(m.pickResult({ failed: 2 }).error, true);
 });
 
-// S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].
+// S67-41(사용자 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 형식 꼬리표·이름 한 줄·올린 날짜·[최근]·[폴더].
 test('pickKind·pickDate·pickName: 사진 꼬리표, 숫자뿐인 사진 이름은 사진 · 날짜, 사람이 쓴 제목은 그대로', () => {
   const now = new Date('2026-11-20T00:00:00Z');
   assert.equal(m.pickKind({ file_name: 'a.JPG' }), '사진');

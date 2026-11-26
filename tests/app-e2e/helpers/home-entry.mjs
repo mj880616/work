@@ -36,7 +36,7 @@ export async function placeTrigger(page,root='#homeView [data-home-quick]'){
   const kind=page.locator(root).locator('[data-quick-kind]');
   return (await kind.isVisible())?kind:page.locator(root).locator('[data-quick-org]');
 }
-// 운영자 계정(명진)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
+// 운영자 계정(사용자)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
 export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);
 export async function openHome(
   page,

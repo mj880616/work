@@ -34,7 +34,7 @@ test('one style block: phone only, 20px picture, 44px press area, head name 15px
   // 사업 관리: 같은 요소를 한 줄로 놓을 뿐, 숨기거나 덮어쓰지 않는다.
   assert.match(block,/#appView #meetingsView \.report-top > \.report-top-line\{ display:contents; \}/);
   assert.match(block,/#appView #meetingsView \.report-top > \.report-kind-bar\{ order:1; flex:0 1 auto; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; \}/);
-  // S67-75 UI-걸러보기칩하나(명진 A안): 상자 네 개가 줄에 다 안 들어갈 때 그 줄 자리를 비우는 규칙 하나만 예외다 — 상자는 칩이 여는 작은 창(.is-filter-panel)으로
+  // S67-75 UI-걸러보기칩하나(사용자 A안): 상자 네 개가 줄에 다 안 들어갈 때 그 줄 자리를 비우는 규칙 하나만 예외다 — 상자는 칩이 여는 작은 창(.is-filter-panel)으로
   // 같은 요소 그대로 옮겨 보이므로 숨김이 아니라 자리 바꿈이다. 그 밖의 폰 규칙에는 숨김이 없다.
   const ONE_CHIP='#appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }';
   assert.ok(block.includes(ONE_CHIP));

@@ -45,7 +45,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // NOTE-추가폴더표시: the note input's [폴더 ▾] shows the folder a new note goes into (null = 폴더 없음). The note list owns the
   // choice and its picker (onFolder opens it under this button); setFolder() only paints the name here and in the placeholder.
   let folderName=null;
-  // HOME-입력칸두모양(S61-44, 명진 11/14 12:44 '한 줄·두 줄·세 줄 왔다 갔다' → 12:50 'ㄱ'): the phone home box (≤760) has only two
+  // HOME-입력칸두모양(S61-44, 사용자 11/14 12:44 '한 줄·두 줄·세 줄 왔다 갔다' → 12:50 'ㄱ'): the phone home box (≤760) has only two
   // shapes, both drawn by paint() into one attribute (data-quick-shape, ui-standard.css): one row [종류 ▾][입력칸][잊지 말기 n], and in
   // [할 일] — only while the input has text or focus — the date row on top of it. The [업데이트 | 할 일] row is never shown there; the
   // kind button opens a small list (업데이트 · 할 일 · 기록할 곳 선택). Once the input has text (or files), [추가] takes the chip's place —
@@ -177,7 +177,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerWide.addEventListener('change',()=>{placeHead();paint();});placeHead();
     document.addEventListener('focusin',e=>setFocusIn(focusHere(e.target)));
     box.addEventListener('focusout',e=>{if(!e.relatedTarget)setFocusIn(false);});
-    // HOME-자판내리면한줄(S61-50, 명진 11/14 18:48): on the phone the date row shows only while writing a task with the keyboard up.
+    // HOME-자판내리면한줄(S61-50, 사용자 11/14 18:48): on the phone the date row shows only while writing a task with the keyboard up.
     // The keyboard state comes from the one shared detector (accessibility-dialog.js, event kptu:keyboard). When it goes down
     // (Android back closes only the keyboard) with focus still in the input, the input lets go of focus, so the box is one row
     // again; the text, the chosen date and 사업영역 stay, and pressing the input brings the date row back. While a sheet or small

@@ -31,7 +31,7 @@ test('PC: list opens right below the pressed button, no dimming, Esc and outside
  await expect(sheet).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
 });
 
-// S54-05(11/08 명진 결정): 폰도 버튼으로 연 고르기 창은 누른 버튼 아래 작은 창이라, 폰 폭으로 줄여도 아래 시트가 되지 않고 버튼 아래에 머문다(전에는 아래 시트로 바뀌었다).
+// S54-05(11/08 사용자 결정): 폰도 버튼으로 연 고르기 창은 누른 버튼 아래 작은 창이라, 폰 폭으로 줄여도 아래 시트가 되지 않고 버튼 아래에 머문다(전에는 아래 시트로 바뀌었다).
 test('PC: the list follows the button when the window is resized, and stays below the button at phone width',async({page})=>{
  const trigger=await projectTrigger(page,1280);
  await trigger.click();const sheet=dialog(page);await expect(sheet).toHaveClass(/home-choice-anchored/);

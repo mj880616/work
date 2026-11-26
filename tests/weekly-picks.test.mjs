@@ -90,7 +90,7 @@ test('거르기: 뺀 것·안 내는 종류는 gone(다시 넣기), 이번 주 �
 });
 
 test('같은 경고 한 번만: 같은 줄이 두 칸(투쟁 사업장·산하조직)에 있어도 경고 하나, 칸 이름은 이어 붙임', () => {
-  const cal_ = Object.assign([{id:'a', calendarId:'k', calendarName:'공공운수노조', title:'가상 회의', start:'2026-11-02T10:00:00+09:00', end:'2026-11-02T11:00:00+09:00'}], {calendarNames:['공공운수노조']});
+  const cal_ = Object.assign([{id:'a', calendarId:'k', calendarName:'A노조', title:'가상 회의', start:'2026-11-02T10:00:00+09:00', end:'2026-11-02T11:00:00+09:00'}], {calendarNames:['A노조']});
   const c = w.upcomingSchedule(cal_, '2026-10-26');
   const line = '- 11월 2일(월) 14:00 가상지부 제40차 집행국 회의';
   const found = s.scheduleMismatches({sections:[{where:'가상지부', lines:[line]}, {where:'가상지부', lines:[line]}, {where:'가상 영역 › 가상 과제', lines:[line, line]}], calendar:c, overrides:new Map(), orgs:[]});

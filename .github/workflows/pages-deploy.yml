@@ -61,7 +61,7 @@ jobs:
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-      # S67-56(2026-11-20 명진 결정, AGENTS.md 5절): 운영 앱은 WORK ON 기본 단어 얼굴(girok)로 빌드한다. 고친 이름이 없는 사람은 노조 색 단어 없이,
+      # S67-56(2026-11-20 사용자 결정, AGENTS.md 5절): 운영 앱은 WORK ON 기본 단어 얼굴(girok)로 빌드한다. 고친 이름이 없는 사람은 노조 색 단어 없이,
       # 고친 이름(내 프로필 custom_words)이 있는 사람은 그 이름으로 본다. cloudflare-worker-deploy.yml도 같은 얼굴로 만들어 운영과 맞춘다
       # (scripts/production-face.test.mjs가 두 곳이 같은지 본다).
       - name: Add content-hash ?v= and build the asset manifest

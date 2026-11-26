@@ -5,7 +5,7 @@
 // - 권한은 DB(소유자 RLS)와 Edge(google-calendar: 로그인한 사람의 캘린더만)가 정한다. 화면은 값을 고르지 않는다.
 // - 기기에 저장하지 않는다. 읽은 일정은 이 창이 떠 있는 동안만 메모리에 두고(달마다 EVENTS_TTL), 로그인·계정이 바뀌거나 일정이 바뀌면 비운다.
 // - 서버에 새 표가 없거나(적용 전·되돌린 뒤) 아직 못 읽었으면 planView가 null → 달력은 표시 없이 지금 그대로다.
-// - S67-16(명진 11/20 "넓혀"): 점선 □ '보고할까요?' 판정(report-plan-model.mjs askReason)에 쓸 힌트 두 가지도 여기서 읽는다 —
+// - S67-16(사용자 11/20 "넓혀"): 점선 □ '보고할까요?' 판정(report-plan-model.mjs askReason)에 쓸 힌트 두 가지도 여기서 읽는다 —
 //   내 담당조직 목록(이름·다른 이름, 로그인마다 한 번)과 이 달 사업영역 주요 일정 행의 일정 id(달마다, 일정과 같이). 못 읽으면 그 힌트만 빠진다.
 // - 사라진 일정의 줄을 저절로 지우지 않는다: 이 읽기는 캘린더마다 250건까지이고 고른 캘린더만 읽어, '안 보임'이 '삭제됨'이라는 보장이 없다(PR 본문 '범위 밖').
 import {loadReportPlans, reportPlanData, setEventPlanState, addRulePlans, syncEventCopies, linkReportToEvent, REPORT_PLANS_CHANGED} from './report-plan-data.js';

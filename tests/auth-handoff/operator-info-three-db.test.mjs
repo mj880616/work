@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic(가상 이름·가상 메일).
-// S68-58 운영자정보셋(20261123170000_operator_info_three, 명진 11/23 15:53): 운영자에게 가는 사람 정보 = 이메일주소·가입일·마지막 사용 시각뿐.
+// S68-58 운영자정보셋(20261123170000_operator_info_three, 사용자 11/23 15:53): 운영자에게 가는 사람 정보 = 이메일주소·가입일·마지막 사용 시각뿐.
 // - 규칙 통과(full 흐름), 시험 적용은 아무것도 안 바꿈, 적용 뒤 사후 확인 모두 예, 두 번째 적용 거절.
 // - 가입자 현황 app_signup_list: 줄마다 칸 셋(email·signed_up_at·last_seen_at)만 — 조직·부서·이름·직책 없음.
 // - 새 가입 알림 app_signup_since(service_role): count·newest만(이름 없음).

@@ -1,4 +1,4 @@
-// FILES-내PC드라이브 ②(S50-27, 설계 docs/design/files-pc-drive.md, 시안 A — 명진 결정 11/05): [파일] '내 PC' 줄 모양 계산. DOM·네트워크 없음.
+// FILES-내PC드라이브 ②(S50-27, 설계 docs/design/files-pc-drive.md, 시안 A — 사용자 결정 11/05): [파일] '내 PC' 줄 모양 계산. DOM·네트워크 없음.
 // - 바구니 PC 앱의 문(basket-pc PcDoor.cs, 127.0.0.1:47620~47622)이 돌려준 드라이브·목록을 [파일] 화면이 클라우드 색인 줄과 같은 모양으로 그리게 바꾼다:
 //   {source:'pc', item_id: 'C:\\문서\\a.docx', parent_id: 'C:\\문서', name, is_folder, size_bytes, modified_at, folder_path}.
 // - 경로 규칙은 PC 앱(PcPath.Parse)과 같게 본다(앱이 다시 본다): 'C:\\' 아래, 빈 칸·'.'·'..'·끝 점/빈칸·금지 글자·제어 글자 거절.
@@ -108,8 +108,8 @@ export const pcDeviceOk = ({ua = '', kind = ''} = {}) => kind === 'pc' && /Windo
 // PC 도우미 프로그램(basket-pc TrayApp.cs) 트레이 메뉴의 실제 글자(S68-21부터 모두에게 'WORK ON+에서 이 PC 보기', 0.8.0 판).
 export const PC_TRAY_SHOW_ITEM = 'WORK ON+에서 이 PC 보기';
 // 문 상태 → 나무·안내 한 줄. off = 문이 답하지 않음(꺼짐·앱 없음·크롬이 막음).
-// S68-21(명진 11/22 17:04): 도우미 프로그램 자체 이름·트레이 메뉴가 모두에게 'WORK ON+ …'(basket-pc TrayStatus.Name·TrayApp.cs)라,
-// 프로그램 글자를 가리키는 안내는 사람마다 바꾸지 않고 프로그램과 같은 글자로 둔다(명진 화면도 같음).
+// S68-21(사용자 11/22 17:04): 도우미 프로그램 자체 이름·트레이 메뉴가 모두에게 'WORK ON+ …'(basket-pc TrayStatus.Name·TrayApp.cs)라,
+// 프로그램 글자를 가리키는 안내는 사람마다 바꾸지 않고 프로그램과 같은 글자로 둔다(사용자 화면도 같음).
 export function pcStateText(why) {
   switch (why) {
     case 'off': return word`내 PC가 꺼져 있어요. 화면 오른쪽 아래 WORK ON+ 파일 올리기 아이콘을 오른쪽 클릭 → [${PC_TRAY_SHOW_ITEM}]를 켜 주세요. 처음 한 번 크롬이 '다른 앱에 연결' 허락을 물으면 [허용]을 눌러 주세요.`;

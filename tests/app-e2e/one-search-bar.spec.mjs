@@ -4,10 +4,10 @@ import {openHome} from './helpers/home-entry.mjs';
 import {bootLibrary,libDoc} from './helpers/library-folder-server.mjs';
 import {chooseBasketKind} from './helpers/basket-kind.mjs';
 import {screenFind,screenTools} from './helpers/screen-find.mjs';
-// S70-54 UI-검색창하나로(명진 11/25 21:28~21:30 폴드 펼침 사진 "검색창 두개인데 걍 맨 위 검색창 활용하면 안되나", 설계 docs/design/one-search-bar.md):
+// S70-54 UI-검색창하나로(사용자 11/25 21:28~21:30 폴드 펼침 사진 "검색창 두개인데 걍 맨 위 검색창 활용하면 안되나", 설계 docs/design/one-search-bar.md):
 // 노트·읽을 거리·자료실·조직 관리에서
 //  ① 화면 안 검색 칸 줄이 없다(자리째) ② 맨 위 칸에 치면 그 화면 목록이 걸러진다(안내글 '○○에서 찾기')
-//  ③ (S70-57 명진 11/26 "전체 검색은 홈에만") 걸러진 목록 아래 '전체에서 「…」 찾기' 줄은 없다 ④ 읽을 거리 [매체 ▾]가 맨 위 줄에서 열리고 고르면 목록이 바뀐다.
+//  ③ (S70-57 사용자 11/26 "전체 검색은 홈에만") 걸러진 목록 아래 '전체에서 「…」 찾기' 줄은 없다 ④ 읽을 거리 [매체 ▾]가 맨 위 줄에서 열리고 고르면 목록이 바뀐다.
 // 폭: 폴드 펼침 884(PC 틀)·PC 1280·폰 390(머리 줄 돋보기 → 칸). 서버는 흉내, 이름은 모두 지어낸 것.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const WIDTHS=[884,1280,390];

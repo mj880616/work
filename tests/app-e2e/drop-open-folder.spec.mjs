@@ -3,9 +3,9 @@ import {mkdirSync} from 'node:fs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {start,openFiles,treeGo} from './helpers/files-server.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// S60-13 UI-펼친폴더안놓기전체(명진 11/12 09:23, ★급★): "a폴더(파일·파일·파일 a) b폴더(파일 *·파일·파일)에서 * 파일을 끌어서 '파일 a' 쪽에만 가져가도
+// S60-13 UI-펼친폴더안놓기전체(사용자 11/12 09:23, ★급★): "a폴더(파일·파일·파일 a) b폴더(파일 *·파일·파일)에서 * 파일을 끌어서 '파일 a' 쪽에만 가져가도
 // 드롭이 가능하게. 비슷한 인터페이스는 모두". 공용 규칙(app/drop-open-folder.mjs): 펼친 폴더 묶음 안 아무 자리(자료 줄·[사진 n]·줄 사이) = 그 폴더.
-// 표시: 놓일 묶음 전체 옅은 바탕 + 그 폴더 줄 '여기에 놓기'. 명진 예 그대로(실제 마우스 끌기). 이름은 모두 지어낸 것.
+// 표시: 놓일 묶음 전체 옅은 바탕 + 그 폴더 줄 '여기에 놓기'. 사용자 예 그대로(실제 마우스 끌기). 이름은 모두 지어낸 것.
 // 화면 사진: S60_13_SHOTS=docs/design/screens/s60-13 일 때만 저장.
 const SHOTS=process.env.S60_13_SHOTS||'';
 const shot=async(page,name)=>{if(SHOTS){mkdirSync(SHOTS,{recursive:true});await page.screenshot({path:`${SHOTS}/${name}.png`})}};
@@ -23,7 +23,7 @@ async function dragHold(page,from,to,{read=async()=>null,name=''}={}){
   await page.mouse.up();return seen;
 }
 
-for(const two of [false,true])test(`자료실 PC 1280 ${two?'두 칸':'한 칸'}: 명진 예 — b폴더 '파일 *'를 a폴더 '파일 a' 줄 위에 놓으면 a폴더 · 묶음 표시 · 되돌리기 · [사진 n] 위도 그 폴더`,async({page})=>{
+for(const two of [false,true])test(`자료실 PC 1280 ${two?'두 칸':'한 칸'}: 사용자 예 — b폴더 '파일 *'를 a폴더 '파일 a' 줄 위에 놓으면 a폴더 · 묶음 표시 · 되돌리기 · [사진 n] 위도 그 폴더`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더',init:{viewPrefs:two?null:{library_two:false}}});
   const root=two?'#documentList [data-lu-pane-i="0"]':'#documentList';
@@ -73,7 +73,7 @@ test('자료실 PC 1280 두 칸: 아래 여백 — 두 칸 높이 같음, 마지
 
 // [파일] 목록: a폴더 = 가짜 문서함(안내문·예산표·메모), b폴더 = 가짜 사진함(명단 *, 사진 1장, 하위 폴더).
 // S69-38 UI-탐색기나무누르기: 한 칸은 탐색기(오른쪽 하위 폴더 누르기 = 들어가기)라 그 자리 펼치기는 두 칸 보기 칸 안 목록에만 남는다 — 이 시험은 두 칸 왼쪽 칸에서.
-for(const width of [1280,884])test(`파일 ${width} 두 칸 목록: 명진 예 — 사진함 '명단'을 문서함 '메모' 줄 위에 놓으면 문서함 · 묶음 표시 · [사진 n] 위도 그 폴더`,async({page})=>{
+for(const width of [1280,884])test(`파일 ${width} 두 칸 목록: 사용자 예 — 사진함 '명단'을 문서함 '메모' 줄 위에 놓으면 문서함 · 묶음 표시 · [사진 n] 위도 그 폴더`,async({page})=>{
   test.setTimeout(90000);
   const {errors,server}=await start(page,width);
   server.items.push({source:'od',item_id:'OD!21',parent_id:'OD!2',name:'가짜 행사',is_folder:true,size_bytes:null,mime:null,modified_at:'2026-10-01T01:00:00Z',hash:null,trashed:false,starred:false,library_doc_id:null},

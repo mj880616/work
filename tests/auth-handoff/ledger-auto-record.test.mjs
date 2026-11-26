@@ -319,7 +319,7 @@ test('LEDGER-자동기록 DB: plan, apply, owner boundary, add-only recording, r
    assert.equal((await pool.query('select validity from public.app_ledger_records where id=$1',[made.id])).rows[0].validity,'retired');
    assert.equal(await count('app_ledger_record_sources',"record_id=$2 and locator='되돌릴줄'",[WS_A,evtOld.id]),0);
    const row=await one('select status,undone_at from public.app_ledger_auto_runs where id=$1',[r.run_id]);assert.equal(row.status,'undone');assert.ok(row.undone_at);
-   assert.match((await one("select note from public.app_ledger_record_changes where record_id=$1 and action='retired'",[made.id])).note,/^명진이 취소 · \d{4}-\d{2}-\d{2}$/);
+   assert.match((await one("select note from public.app_ledger_record_changes where record_id=$1 and action='retired'",[made.id])).note,/^사용자가 취소 · \d{4}-\d{2}-\d{2}$/);
    assert.equal((await pool.query("select count(*)::int n from public.app_ledger_audit where event='note' and target_table='auto_runs' and target_id=$1",[r.run_id])).rows[0].n,1);
    // The key stays: the same original and title is skipped next time.
    const r2=await begin();
@@ -365,7 +365,7 @@ test('LEDGER-자동기록 DB: plan, apply, owner boundary, add-only recording, r
 
   // ----- fix requests -----
   let fixStart;
-  await t.test('fix request: dry run shows before/after and leaves no trace; apply replaces (old = 대체됨, new = 명진 지적으로 수정), copies sources and links',async()=>{
+  await t.test('fix request: dry run shows before/after and leaves no trace; apply replaces (old = 대체됨, new = 사용자 지적으로 수정), copies sources and links',async()=>{
    await cleanRunning();
    const target=await rec('EVT-0902');
    const lastEvt=async()=>(await pool.query("select last_number from public.app_ledger_id_counters where workspace_id=$1 and scope='event'",[WS_A])).rows[0].last_number;
@@ -380,7 +380,7 @@ test('LEDGER-자동기록 DB: plan, apply, owner boundary, add-only recording, r
    const done=await fix(request,false);
    assert.equal(done.dry_run,false);assert.ok(done.fix_request_id);
    const old=await rec('EVT-0902'),fresh=await one("select * from public.app_ledger_records where workspace_id=$1 and kind='event' and title='가상 교섭 시작' and validity='current'",[WS_A]);
-   assert.equal(old.validity,'superseded');assert.equal(old.superseded_by,fresh.id);assert.equal(old.supersede_reason,'명진 지적으로 수정: 날짜 오기');
+   assert.equal(old.validity,'superseded');assert.equal(old.superseded_by,fresh.id);assert.equal(old.supersede_reason,'사용자 지적으로 수정: 날짜 오기');
    assert.equal(fresh.summary,'고친 요지');assert.equal((await one('select date_start::text d from public.app_ledger_records where id=$1',[fresh.id])).d,'2026-10-21');
    assert.equal(fresh.kind,'event');assert.equal(fresh.event_status,'tracking');assert.equal(fresh.importance,old.importance);assert.equal(fresh.sensitivity,old.sensitivity);
    assert.equal(fresh.ledger_id.startsWith('EVT-'),true);assert.notEqual(fresh.ledger_id,old.ledger_id);
@@ -388,7 +388,7 @@ test('LEDGER-자동기록 DB: plan, apply, owner boundary, add-only recording, r
    assert.equal(await count('app_ledger_links','record_id=$2',[WS_A,fresh.id]),await count('app_ledger_links','record_id=$2',[WS_A,old.id]));
    assert.equal(await count('app_ledger_links','record_id=$2',[WS_A,fresh.id]),3);
    const created=await one("select note,detail from public.app_ledger_record_changes where record_id=$1 and action='created' and route='correction'",[fresh.id]);
-   assert.match(created.note,/^명진 지적으로 수정 · \d{4}-\d{2}-\d{2}$/);assert.deepEqual(created.detail,{replaces:'EVT-0902'});
+   assert.match(created.note,/^사용자 지적으로 수정 · \d{4}-\d{2}-\d{2}$/);assert.deepEqual(created.detail,{replaces:'EVT-0902'});
    const replaced=await one("select note,detail from public.app_ledger_record_changes where record_id=$1 and action='replaced'",[old.id]);
    assert.equal(replaced.detail.replaced_by,fresh.ledger_id);assert.equal(replaced.detail.prev_validity,'current');
    const fr=await one('select status,received_from,request,result from public.app_ledger_fix_requests where id=$1',[done.fix_request_id]);

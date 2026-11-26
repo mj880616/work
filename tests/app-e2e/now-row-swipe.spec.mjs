@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
-// S49-3 NOW-줄밀기(명진 11/03 08:55): Now 글 줄을 왼쪽으로 밀면 숨기기, 오른쪽으로 밀면 보관(뉴스 = 별표). 공용 줄 밀기(row-swipe.js)와 서버 저장(now-marks.js) 그대로.
+// S49-3 NOW-줄밀기(사용자 11/03 08:55): Now 글 줄을 왼쪽으로 밀면 숨기기, 오른쪽으로 밀면 보관(뉴스 = 별표). 공용 줄 밀기(row-swipe.js)와 서버 저장(now-marks.js) 그대로.
 // PC는 밀기 대신 줄에 마우스를 올리면 [보관][숨기기]. 탭 이동은 탭 줄 위 밀기·누르기만. 서버 흉내(helpers/news-server.mjs), 글은 모두 가짜.
 const item = (page, id) => page.locator(`#newsRoot [data-nc-item="${id}"]`);
 async function swipe(locator, dx) {

@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S68-38c 노트 보드 글 상자·선 곡선(명진 11/23 08:32·08:47). S69-82: 글 상자는 생각 지도 상자가 됨(note-board-mindmap.spec.mjs가 가지·꾸미기를 본다).
+// S68-38c 노트 보드 글 상자·선 곡선(사용자 11/23 08:32·08:47). S69-82: 글 상자는 생각 지도 상자가 됨(note-board-mindmap.spec.mjs가 가지·꾸미기를 본다).
 // - 상자: [+ 주제]·빈 곳 두 번 누르기(PC 더블클릭)로 그 보드에만 있는 짧은 글. 누르면 고르기, 다시 누르면 고치기, 끌면 옮기기, 고른 상자 위 막대에 [삭제].
 //   노트 카드처럼 네 변 손잡이로 선을 잇고 받는다. 노트 목록에는 나오지 않는다(서버 표 app_note_board_texts).
 // - 선: 새 선은 직선. 선 위를 누른 채 끌면 그 점을 지나는 곡선(끄는 동안 보임), 상대 위치로 저장(카드·상자를 옮겨도 따라옴, 새로고침 뒤 유지).

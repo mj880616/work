@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { setup as libSetup, openLibrary } from './helpers/library-multi-delete-scenario.mjs';
 import { libraryTopMenu } from './helpers/library-tree.mjs';
-// UI-고르기막대(S69-85, 명진 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 파일·자료실 고르기 막대는 공용 모양 하나.
+// UI-고르기막대(S69-85, 사용자 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 파일·자료실 고르기 막대는 공용 모양 하나.
 // 폰 390·폴드 펼침 720·PC 1280에서 막대는 늘 한 줄(높이 = 목록 줄 하나 이하), 왼쪽 [✕] + 'N개', 오른쪽 테두리 없는 가벼운 단추,
 // 휴지통·삭제는 맨 끝·바탕 없이 글자색만 경고색. 폭이 모자라면 아이콘만 → 덜 쓰는 것부터 ⋯ 하나로 접고, ⋯ 메뉴 항목은 그 단추와 같은 일을 한다.
 // 이름은 모두 지어낸 것이다(가짜 서버).

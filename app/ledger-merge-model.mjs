@@ -2,7 +2,7 @@
 // - 합칠 후보 = 겹침 표의 same 짝(양쪽 Web2 원문)이 원장에서 서로 다른 두 기록의 근거로 각각 걸려 있는 경우. AI 호출 없음.
 // - 같은 종류(일어난 일·약속 …)끼리, 제목 낱말이 하나라도 겹치는 기록만 짝을 짓는다. 한 기록이 두 원문을 다 가졌으면 이미 합쳐진 것이다.
 // - 합치기 = 기존 원장 수정 요청(app_apply_ledger_fix) 하나: 남는 기록에 다른 기록의 근거를 더하고(add_source), 합쳐진 쪽은 폐기(retire, 지우지 않음).
-//   새 DB 함수·표는 없다. 반영은 명진이 [합치기]를 눌러야 하고(AI는 혼자 합치지 않는다), 반영 뒤 [되돌리기]·[합침 취소]는 app_undo_ledger_fix다.
+//   새 DB 함수·표는 없다. 반영은 사용자가 [합치기]를 눌러야 하고(AI는 혼자 합치지 않는다), 반영 뒤 [되돌리기]·[합침 취소]는 app_undo_ledger_fix다.
 import {isRef, refKind, makeRef, orderPair, pairKey} from './overlap-model.mjs';
 import {PRIORITY} from './overlap-weekly.mjs';
 import {words} from './weekly-file-lines.mjs';

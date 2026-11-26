@@ -170,7 +170,7 @@ test('code shape: owner only, key name only, no transcript stored, no prune/dele
  assert.match(index,/Deno\.env\.get\(GEMINI_KEY_NAME\)/);assert.equal(m.GEMINI_KEY_NAME,'GEMINI_API_KEY');
  assert.doesNotMatch(index,new RegExp(['local','session'].map(x=>x+'Storage').join('|')));
  assert.doesNotMatch(index,/\.delete\(\)|admin\.from\('app_meetings'\)|admin\.from\('app_documents'\)/);
- // S49-2(명진 11/03 11:34 '전사 전문 저장해도돼'): 전사 전문·요약은 서버 정리 작업 표(app_meeting_server_jobs)에만 둔다.
+ // S49-2(사용자 11/03 11:34 '전사 전문 저장해도돼'): 전사 전문·요약은 서버 정리 작업 표(app_meeting_server_jobs)에만 둔다.
  // 파일 전사 작업 표(TABLE)에는 여전히 글을 넣지 않는다(아래 줄). 회의·회의자료는 부른 사람 로그인(userDb)으로만 읽는다.
  for(const m2 of index.matchAll(/transcript_text/g)){const before=index.slice(Math.max(0,m2.index-400),m2.index);assert.match(before,/SERVER_JOB_TABLE|stage: 'summary'|prev\[0\]|v\.transcript_text|withResult/,'transcript_text only in server job rows');}
  assert.match(index,/const OPENAI = \(\) => \(Deno\.env\.get\('WEB2_OPENAI_API_KEY'\)/); // 결정 D2: Web2 전용 열쇠만(REC-정리멈춤반복)

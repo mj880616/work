@@ -1,4 +1,4 @@
-// MTG-고치기바로(명진 2026-10-27): PC 세 번째 칸에서 ⋯ → [수정]이 그 칸을 그 자리에서 고치는 화면으로 바꾼다(팝업 없음).
+// MTG-고치기바로(사용자 2026-10-27): PC 세 번째 칸에서 ⋯ → [수정]이 그 칸을 그 자리에서 고치는 화면으로 바꾼다(팝업 없음).
 // 폰은 같은 창이 고치는 화면으로 바뀐다. 고친 내용이 있는데 다른 곳을 누르면 그 자리에 한 줄('고친 내용을 저장할까요? [저장] [버리기]'). 합성 자료만 쓴다.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';

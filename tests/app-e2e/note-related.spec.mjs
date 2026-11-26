@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
-// S69-98 NOTE-에버노트 ⑦(명진 11/25 "좋아 모두 다 넣어!"): 노트 읽기 아래 '관련' 칸 — 태그·제목·글자가 겹치는 노트(최대 4)와
+// S69-98 NOTE-에버노트 ⑦(사용자 11/25 "좋아 모두 다 넣어!"): 노트 읽기 아래 '관련' 칸 — 태그·제목·글자가 겹치는 노트(최대 4)와
 // 기존 전체 검색(app_search_records, 자료만·대표 낱말 하나)으로 찾은 자료(최대 2). 접을 수 있음, 누르면 그 노트·자료로.
 // 합성 데이터, 390·1280.
 test.use({hasTouch:true});

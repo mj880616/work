@@ -1,4 +1,4 @@
-// UI-보기탭한모양(S52-17, 2026-11-07 명진 13:26 "하단 탭 디자인 통일 제발 뭘 할 때 기존 디자인과 통일감 있게", 시안 docs/design/mockups/bottom-view-tabs.html 'ㅇ').
+// UI-보기탭한모양(S52-17, 2026-11-07 사용자 13:26 "하단 탭 디자인 통일 제발 뭘 할 때 기존 디자인과 통일감 있게", 시안 docs/design/mockups/bottom-view-tabs.html 'ㅇ').
 // 보기 탭(화면 안에서 보기를 바꾸는 칸 묶음)은 공용 ⑤ 보기 바꾸기(.ds-seg + button.ds-seg-btn) 하나로만 그린다.
 // 이 검사기는 화면 코드에서 보기 탭 묶음을 찾는다: role="group"·role="tablist"이고 aria-label에 '보기'가 든 요소, 또는 role="tab" 버튼.
 import {readFileSync, readdirSync} from 'node:fs';

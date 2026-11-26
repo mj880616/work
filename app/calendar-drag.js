@@ -91,7 +91,7 @@ function down(e){
 }
 function move(e){
   if(!g||g.saving||e.pointerId!==g.pointer)return;
-  // 명진 11/24 "일정에 마우스를 올려두면 배경이 생김": 손 뗌을 못 받은 채 남은 끌기가 버튼을 누르지 않은 마우스 움직임(그냥 올려 두기)에
+  // 사용자 11/24 "일정에 마우스를 올려두면 배경이 생김": 손 뗌을 못 받은 채 남은 끌기가 버튼을 누르지 않은 마우스 움직임(그냥 올려 두기)에
   // 놓을 칸 표시·끄는 조각을 그렸다. 끌기는 왼쪽 버튼을 누르고 있는 동안만 — 버튼이 떨어져 있으면 그 끌기를 취소한다.
   if(!(e.buttons&1)){cancel();return}
   if(!g.started){if(Math.hypot(e.clientX-g.x0,e.clientY-g.y1)<SLOP)return;g.started=true;try{g.el.setPointerCapture(e.pointerId)}catch{};getSelection?.()?.removeAllRanges?.();ghostStart(e)}

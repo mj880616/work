@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic.
 // S67-53 참고 묶음 처음 3개 정리(docs/ops/ref-bundle-seed-cleanup.{precheck,apply,rollback}.sql):
-// 2026-10-23 migration(20261023231500_ref_bundle_db)이 모든 작업공간에 넣은 '공공운수노조'·'공공기관사업(본부)'·'기타 조직' 중
+// 2026-10-23 migration(20261023231500_ref_bundle_db)이 모든 작업공간에 넣은 'A노조'·'공공기관사업(본부)'·'기타 조직' 중
 // 운영자 허용 표(app_operator_features)에 없는 작업공간의, 연결된 기록이 없는 것만 지운다. 운영자 작업공간·연결 있는 묶음·다른 이름 묶음은 그대로.
 // precheck는 조회 전용 역할로 개수만, apply는 백업 표(권한 없음)에 남기고, rollback은 같은 id·이름·순서로 되살린다.
 import test from 'node:test';
@@ -17,7 +17,7 @@ import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A,PROJECT_B,MEETING_A,MEETING_B
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
 const WS_C='21000000-0000-4000-8000-000000000003',THIRD='20000000-0000-4000-8000-000000000003';
-const SEED=['공공운수노조','공공기관사업(본부)','기타 조직'];
+const SEED=['A노조','공공기관사업(본부)','기타 조직'];
 const NOTE_AT='2026-10-23T01:02:03.123456Z';
 
 // ref-bundle-db.test.mjs와 같은 운영 모양 선행 사슬(그 migration이 20261023023500 위에 선다).

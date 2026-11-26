@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-// UI-누름움직임(2026-11-06 명진 요청 22:44): 누를 때 '명확하게 눌렸다'는 움직임과 할 일 체크 움직임.
+// UI-누름움직임(2026-11-06 사용자 요청 22:44): 누를 때 '명확하게 눌렸다'는 움직임과 할 일 체크 움직임.
 // 눌림은 공용 규칙 한 곳(ui-standard.css UI-눌림느낌 + 이 절)이고, 체크 움직임은 check-motion.js + [data-check-pop] 규칙 한 곳이다.
 const read = file => readFileSync(file, 'utf8');
 const ui = read('app/ui-standard.css');

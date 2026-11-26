@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { DOC_SCREENS } from './helpers/doc-view.mjs';
-// S70-40b ③ READ-글보기머리(docs/design/reading-screens.md 2절 A9·3절 B7·5절 ③ (가), 명진 11/25 16:16 "추천대로"):
+// S70-40b ③ READ-글보기머리(docs/design/reading-screens.md 2절 A9·3절 B7·5절 ③ (가), 사용자 11/25 16:16 "추천대로"):
 // 두 글 보기 화면(저장한 글·읽을 거리)은 공용 '글 보기 머리'(ui-standard.css .ds-doc-*)를 쓴다.
 // ① 두 칸 위 끝 맞음: PC 1280에서 왼쪽 첫 줄(저장한 글 목록 머리 줄 / 읽을 거리 왼쪽 칸 첫 줄 — 찾기 줄은 맨 위 칸으로 옮김)과 오른쪽 글 머리 첫 줄의 위 끝이 1px 안.
 // ② 머리 아이콘 높이 같음: 머리 첫 줄 아이콘([↗ 원래 페이지]·[−][+]·[⋯])의 보이는 높이가 모두 --ds-compact-height이고 세로 가운데가 1px 안.

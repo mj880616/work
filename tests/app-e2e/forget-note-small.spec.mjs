@@ -1,4 +1,4 @@
-// FORGET-노트작은창(요청함 11/09 21:39, 시안 docs/design/mockups/forget-note-small.html, 명진 21:42 'ㅇㅇ'):
+// FORGET-노트작은창(요청함 11/09 21:39, 시안 docs/design/mockups/forget-note-small.html, 사용자 21:42 'ㅇㅇ'):
 // 잊지 말기 [노트로]는 큰 창 대신 누른 줄 아래 작은 창이 먼저 뜬다. [저장] 한 번으로 새 노트 또는 기존 노트 끝에 한 줄, [크게 수정 ↗]로 큰 창(글 그대로).
 // 서버는 흉내, 글·이름은 모두 지어낸 것. 폰 390 · 폴드 884 · PC 1440.
 import {test,expect} from '@playwright/test';

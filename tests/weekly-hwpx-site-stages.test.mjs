@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {applySiteStages, assembleDraft} from './fixtures/weekly-engine.mjs';
 import {existingStageRows as seedRows} from './dispute-stage-fixture.mjs'; // S67-51: 이미 단계를 쓰는 작업공간(합성)
 
-// ORG-쟁의단계 ② → 명진 11/13 17:14 "한글 파일에서도 빼": 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄을 넣지 않는다. 조직·현황 글은 모두 가짜 값.
+// ORG-쟁의단계 ② → 사용자 11/13 17:14 "한글 파일에서도 빼": 3. 2) 투쟁 사업장 칸에 쟁의 단계 줄을 넣지 않는다. 조직·현황 글은 모두 가짜 값.
 // ('- 조정 신청(10.10)'은 예전에 앱이 넣은 단계 줄 모양 — 이제 뺀다.)
 const stages = seedRows('w').map((row, i) => ({id: 's' + (i + 1), ...row, created_at: '2026-10-01T00:00:00Z'}));
 const sid = name => stages.find(s => s.name === name).id;

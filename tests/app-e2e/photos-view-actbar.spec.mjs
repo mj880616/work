@@ -113,7 +113,7 @@ const press = async (page, locator, { hold = 700, move = 0 } = {}) => {
 
 const bar = page => page.locator('[data-diary-viewer] .diary-viewer-actions');
 const barNames = async page => (await bar(page).locator('button:visible .kptu-act-tx').allTextContents()).map(t => t.replace('▾', '').trim());
-// PHOTO-아래줄정돈(S49-34, 명진 결정 11/04 12:06 A안): 아래 줄 다섯 칸, 나머지는 [공유 ▾]·[편집 ▾]·[더보기] 안 글자 항목.
+// PHOTO-아래줄정돈(S49-34, 사용자 결정 11/04 12:06 A안): 아래 줄 다섯 칸, 나머지는 [공유 ▾]·[편집 ▾]·[더보기] 안 글자 항목.
 const BAR_NAMES = ['별표', '공유', '수정', '삭제', '메뉴'];
 const barMenu = page => page.locator('#photoBarMenu, #shareMenu').locator('button:visible');
 const menuTexts = async (page, trigger) => { await trigger.click(); const t = await barMenu(page).allTextContents(); await page.keyboard.press('Escape'); await expect(page.locator('#photoBarMenu, #shareMenu').locator('button:visible')).toHaveCount(0); return t; };

@@ -30,8 +30,8 @@ test('guard: client_id 값 모양별 판정(빈 값·null은 일반, 문자열 �
   assert.equal(isDelegatedToken(jwt({ sub: USER, client_id: null })), false);
   for (const odd of [0, 1, true, false, {}, [], ['x'], { id: 'x' }]) assert.equal(isDelegatedToken(jwt({ sub: USER, client_id: odd })), true, JSON.stringify(odd));
   // base64url 문자(-, _)와 한글이 든 payload도 바르게 읽는다.
-  assert.equal(isDelegatedToken(jwt({ sub: USER, name: '명진?>>~~~', client_id: 'c?>>' })), true);
-  assert.equal(isDelegatedToken(jwt({ sub: USER, name: '명진?>>~~~' })), false);
+  assert.equal(isDelegatedToken(jwt({ sub: USER, name: '사용자?>>~~~', client_id: 'c?>>' })), true);
+  assert.equal(isDelegatedToken(jwt({ sub: USER, name: '사용자?>>~~~' })), false);
 });
 
 test('guard: JWT 모양이 아닌 값은 Auth 판정에 맡긴다(시험용 가짜 열쇠·빈 값)', () => {

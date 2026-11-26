@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// UI-자판가림(2026-10-31 명진 결정): 폰에서 칸을 누르면 그 칸이 자판 위 보이는 자리에 오고, 화면 아래에 붙은 줄
+// UI-자판가림(2026-10-31 사용자 결정): 폰에서 칸을 누르면 그 칸이 자판 위 보이는 자리에 오고, 화면 아래에 붙은 줄
 // (홈 빠른 입력·[업데이트|할 일]·동그란 [+]·전환 줄·저장 줄·아래 탭)이 그 칸을 덮지 않는다. 자판을 내리면 줄이 돌아온다.
 // 규칙은 한 곳(app/accessibility-dialog.js 감지·올리기, app/ui-standard.css UI-자판가림 숨김 목록).
 // 자판은 두 가지로 흉내 낸다: 앱(interactive-widget=resizes-content)처럼 화면 높이가 줄어드는 것, 화면 위만 덮는 것.

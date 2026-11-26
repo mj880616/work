@@ -1,4 +1,4 @@
-// S63-09 PC도우미구분(명진 11/16): PC에서 WORK ON+를 '프로그램처럼' 쓰는 길은 브라우저의 앱 설치(PWA, app/windows-manifest.json)다.
+// S63-09 PC도우미구분(사용자 11/16): PC에서 WORK ON+를 '프로그램처럼' 쓰는 길은 브라우저의 앱 설치(PWA, app/windows-manifest.json)다.
 // 크롬·엣지가 설치를 허락하면 보내는 beforeinstallprompt를 이 모듈 하나가 붙잡아 두고, [PC에 앱 설치] 단추가 그것을 연다.
 // 붙잡은 것이 없으면(이미 설치됨·브라우저가 아직 안 보냄·지원 안 함) 단추를 누를 때 '주소창 오른쪽 설치 아이콘' 한 줄 안내.
 // 로그인 화면(app/login/app-download.js)과 계정 메뉴(app/topbar-actions.js)가 같이 쓴다. 저장하는 것은 없다(메모리에만).

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁한 일은 명진 할 일(처리 전)에서 빼고 잊지 말기 맨 아래 '상대 약속' 줄로.
+// S61-11 FORGET-요청방향 2단계(사용자 11/13 05:19): 내가 남에게 부탁한 일은 사용자 할 일(처리 전)에서 빼고 잊지 말기 맨 아래 '상대 약속' 줄로.
 const m = await import('../app/forget-news-data.js');
 const fl = await import('../app/forget-list.js');
 const row = (id, kind, extra = {}) => ({id, day: '2026-11-08', source: 'telegram', feed_item_id: 'f' + id, org_name: '가상지부', line: '가상지부 자료 보내기', status: 'suggested',

@@ -6,15 +6,15 @@ const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-not
 // PROFILE-화면정리(docs/design/profile-screen-tidy.md): 이 모듈이 #profileView의 유일한 renderer다.
 // 저장 버튼은 위 줄에 하나(이름·직책 + 담당 사업장 체크 변경). 순서는 프로필 → 사업장 추가 → 사업장 삭제이고, 서버 호출(표·방식)은 그대로다.
 // 담당 사업장 목록의 묶음·순서는 organization-order.js(KPTUOrganizationOrder)의 정의를 그대로 쓴다.
-// PROFILE-담당사업장접기(2026-10-29 명진 결정): 칸은 '담당조직 현황 n' 한 줄로 접힌 채 시작한다. 펼치면 담당만 체크된 채(체크를 풀면
+// PROFILE-담당사업장접기(2026-10-29 사용자 결정): 칸은 '담당조직 현황 n' 한 줄로 접힌 채 시작한다. 펼치면 담당만 체크된 채(체크를 풀면
 // 저장 전까지 흐리게 남음), 그 아래 접힌 '그 외 n'(맨 위 찾기 칸, 초성 포함). 모양은 공용 부품 pick-fold.mjs 하나다.
 const rt=window.KPTURuntime;
 let user=null,workspaceId=null,workplaces=[],legacyWorkplaces=[],organizations=[],assignments=[],profileWorkplaces=[];
-// PROFILE-소속칸글로쓰기(명진 확정 11/15 21:45·21:48): 기본 정보 칸 4개 — 노조명·부서명·이름·직책. 모두 글로 직접(목록·자동완성 없음), 가입 때 받지 않고 여기서 채운다.
+// PROFILE-소속칸글로쓰기(사용자 확정 11/15 21:45·21:48): 기본 정보 칸 4개 — 노조명·부서명·이름·직책. 모두 글로 직접(목록·자동완성 없음), 가입 때 받지 않고 여기서 채운다.
 // 노조명·부서명은 이름·직책과 같은 표(app_profiles.union_name·department_name, 각 60자 한 줄 — DB 검사)·같은 저장 길([저장] → 내 행 PATCH)이다.
 const EMPTY_SAVED={name:'',title:'',union:'',dept:''};
 let baseline=new Set(),saved={...EMPTY_SAVED},saving=false,bound=false,fold=null,freshFold=true,note=null;
-// PROFILE-바뀜것없음글자빼기(명진 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
+// PROFILE-바뀜것없음글자빼기(사용자 확정): 바뀐 게 없으면 상태 글자 없음 + [저장] 흐리게. 고쳤을 때만 'n곳 바뀜, 저장 안 됨'. 저장 직후 잠깐 '저장됨'.
 let justSaved=0,justSavedTimer=null;const SAVED_MS=2000;
 // S62-16 PROFILE-없음칸제목: 담당조직이 하나도 없을 때도 칸 제목 + 안내 한 줄 → 아래 [조직 보고로](연결 안내 공용 부품 connect-note.mjs).
 const foldReady=Promise.all([import('./pick-fold.mjs').then(m=>(fold=m)),import('./connect-note.mjs').then(m=>(note=m))]);

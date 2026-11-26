@@ -1,4 +1,4 @@
-// HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(명진 확정 11/16 10:18 "모두 추천대로", 시안 docs/design/mockups/help-howto.html · help-first-use.html):
+// HELP-메뉴안쓰는법 · HELP-처음쓰는사람안내(사용자 확정 11/16 10:18 "모두 추천대로", 시안 docs/design/mockups/help-howto.html · help-first-use.html):
 // '쓰는 법' 글의 유일한 원본. 쓰는 법 화면(help.js), 조직 관리·사업 관리·브리핑 룸의 빈 화면 안내(first-use.js), 앱 내려받기 안내
 // (app-download-guide.js)가 모두 여기서 읽는다(두 벌 쓰지 않음). DOM·네트워크 없음.
 // 메뉴 이름은 menu-model.mjs의 label을 그대로 읽어, 메뉴 이름이 바뀌면 쓰는 법 글도 같이 바뀐다(tests/help-content.test.mjs가 묶음).
@@ -10,10 +10,10 @@ export const SUMMARY = word('WORK ON+는 내 일정·할 일·조직·사업 기
 export const CONTACT = 'nojoplus.com@gmail.com';
 export const PRIVACY_URL = 'https://work.bokdoong.com/work/about/privacy/';
 export const TERMS_URL = 'https://work.bokdoong.com/work/about/terms/';
-// 2026-11-23 명진 확정 문장(AGENTS.md 3절 '남의 기록 안 보기')을 그대로. 첫 줄은 '내 기록은 누가 보나' 줄의 한 문장(lead),
+// 2026-11-23 사용자 확정 문장(AGENTS.md 3절 '남의 기록 안 보기')을 그대로. 첫 줄은 '내 기록은 누가 보나' 줄의 한 문장(lead),
 // 나머지 두 줄은 펼친 상자(help.js privacyNodes — 첫 줄을 상자에 또 쓰지 않는다). 처리방침·소개 페이지(about/)도 같은 문장.
 export const PRIVACY_LINES = Object.freeze([
-  '내가 기록한 내용은 운영자가 볼 수 없습니다.', // ui-words-ok 명진 확정 문장 그대로(11/23 15:53, 처리방침·소개와 같은 문장)
+  '내가 기록한 내용은 운영자가 볼 수 없습니다.', // ui-words-ok 사용자 확정 문장 그대로(11/23 15:53, 처리방침·소개와 같은 문장)
   '운영자에게 제공되는 정보: 이메일주소, 가입일, 마지막 사용 시각.',
   '제공되지 않는 정보: 유저가 기록·업로드한 정보.',
 ]);
@@ -198,7 +198,7 @@ export function matchTopic(t, query) {
 }
 
 // 처음 쓰는 사람 안내(빈 화면, 시안 help-first-use.html ①②③): 기록이 하나도 없을 때만 그 화면 목록 자리에 그린다(숨김이 아니라 그리는 조건).
-// steps는 [글, 예시] — 예시 이름은 지어낸 것(명진 결정 ③ '이대로').
+// steps는 [글, 예시] — 예시 이름은 지어낸 것(사용자 결정 ③ '이대로').
 export const FIRST_USE = Object.freeze({
   team: {
     title: word('맡은 조직별 상황을 쌓아 두는 곳이에요'),

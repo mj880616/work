@@ -3,7 +3,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
-// S69-23 LIB-폴더째올리기 (2026-11-24 명진 "자료실에 폴더째로도 업로드 가능하게"): 탐색기 폴더를 끌어 놓거나 [폴더 올리기]로 고르면
+// S69-23 LIB-폴더째올리기 (2026-11-24 사용자 "자료실에 폴더째로도 업로드 가능하게"): 탐색기 폴더를 끌어 놓거나 [폴더 올리기]로 고르면
 // 앱 폴더를 같은 구조로 만들고 파일을 각 폴더에 올린다(같은 library-files 길 + 자료 연결 표 한 줄). 가짜 서버만 쓴다(실제 Supabase·Drive 없음).
 const FOLDERS=[libFolder('fw',null,{name:'주간보고',sort_order:1024}),libFolder('fk',null,{name:'교섭',sort_order:2048}),libFolder('fk6',null,{name:'2026',parent_id:'fk',sort_order:0})];
 const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;

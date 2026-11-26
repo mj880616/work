@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청(docs/design/feature-bundle-1029.md 5.2절, 명진 결정 10/29 5-①~③).
+// FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청(docs/design/feature-bundle-1029.md 5.2절, 사용자 결정 10/29 5-①~③).
 // 소식 고르는 같은 AI 호출의 ask_me 칸 → 소식 저장 뒤 서버 전용 DB 함수로 챙길 것 후보 한 줄. 지어낸 Supabase·OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·글은 지어낸 것이다.
 const {createCollectorFeedHandler,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN,ASK_CANDIDATE_FN,ASK_CANDIDATE_AT_FN,ASK_CANDIDATE_DIRECT_FN,OPEN_ASKS_FN,AUTO_DONE_FN,ASK_FILTER_FN,NAMES_FN,ROOM_DAY_CONTEXT_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 const {parseTelegram,telegramMaterial,askEvidence,TELEGRAM_INSTRUCTIONS,TELEGRAM_SCHEMA}=await import('../../supabase/functions/collector-feed/telegram.ts');

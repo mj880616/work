@@ -1,4 +1,4 @@
-// UI-고르기막대(S69-85, 명진 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 공용 고르기 막대의 순수 부분(단추 HTML·접는 차례)과
+// UI-고르기막대(S69-85, 사용자 11/25 00:37~00:42 "두줄로 삐져나오지 않게 … 좀더 세련되게"): 공용 고르기 막대의 순수 부분(단추 HTML·접는 차례)과
 // 막대 모양 규칙 한 곳(base-ui.css .kptu-selbar)을 본다. 실제 폭에서 한 줄인지는 tests/app-e2e/select-bar-one-line.spec.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';

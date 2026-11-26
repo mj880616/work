@@ -1,4 +1,4 @@
-// S69-22(명진 11/24 08:54 "앱과 자동 수집이 쓰고 있는것좀 한 폴더에 몰아두면 안되니"):
+// S69-22(사용자 11/24 08:54 "앱과 자동 수집이 쓰고 있는것좀 한 폴더에 몰아두면 안되니"):
 // 앱 드라이브 폴더를 맨 위 앱 폴더 한 곳 아래로 모으기 — 찾기는 저장한 id·표식, [모으기]는 부모만 바꿈(가짜 드라이브, 네트워크 없음).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -295,7 +295,7 @@ test('S69-41: [한곳으로 모으기]로 이름을 바꾼 뒤에도 바구니 �
   assert.equal(isBasketFolder({ name: '내 바구니', appProperties: { kptu_app_folder: 'basket' } }), true);
 });
 
-// S69-42(명진 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고"): 바구니를 쓸 때 옛 이름('Web2 바구니')이면 이름만 새 이름으로.
+// S69-42(사용자 11/24 15:49 "중단없이 꾸준히 … 폴더명을 바꿔서 기능이 고장나면 안되고"): 바구니를 쓸 때 옛 이름('Web2 바구니')이면 이름만 새 이름으로.
 test('S69-42: 바구니를 쓸 때 옛 이름은 새 이름으로(같은 id, 안 파일 그대로), 같은 자리에 새 이름이 있으면 그대로, 바꾼 뒤에도 같은 폴더', async () => {
   const world = (extra = []) => {
     const folders = [{ ...basketFolder(ROOT), appProperties: { kptu_app_folder: 'basket' } }, ...extra];
@@ -387,7 +387,7 @@ test('전수: 앱 폴더를 맨 위에서 이름으로만 찾는 곳이 없다(�
   assert.match(summary, /kind === 'folder' \? '' :/);
 });
 
-// ---- S70-29(2026-11-25 명진 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈'): [한곳으로 모으기] 버튼 대신 서버가 맨 위 앱 폴더를 처음 만들 때 저절로 ----
+// ---- S70-29(2026-11-25 사용자 '다 없애 1회용 기능'·조사 문서 7번 '자동으로 바꿈'): [한곳으로 모으기] 버튼 대신 서버가 맨 위 앱 폴더를 처음 만들 때 저절로 ----
 test('맨 위 앱 폴더를 처음 만들 때 저절로: gatherIntoNewRoot가 앱 폴더를 옮기고 옛 이름을 맞춘다(이어서, 사람 폴더는 그대로), 실패해도 throw 없음', async () => {
   const { drive, state } = fakeDrive({ files: SCENE() });
   const r = await gatherIntoNewRoot({ drive, rootId: ROOT });

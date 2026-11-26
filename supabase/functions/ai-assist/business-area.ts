@@ -1,10 +1,10 @@
 // ai-assist 사업영역 쓰임 두 가지(MTG-프로젝트합치기, docs/design/project-into-report.md 6·12절): 순수 함수만 둔다(입출력은 handler.ts).
 //
-// (kind=area_week_summary 사업영역 AI 한 줄 요약은 S49-39 — 명진 11/04 16:45 "아예 지우자" — 에서 없앴다. 저장된 draft.area_summaries 값은 지우지 않고 읽는 곳만 없다.)
+// (kind=area_week_summary 사업영역 AI 한 줄 요약은 S49-39 — 사용자 11/04 16:45 "아예 지우자" — 에서 없앴다. 저장된 draft.area_summaries 값은 지우지 않고 읽는 곳만 없다.)
 // kind=area_suggest — 사업 보고 쓰기 창의 '사업영역' AI 추천(요청함 10/28 19:07 ②).
 //    - 아직 저장하지 않은 창이라 제목·글(결과·다음 할 일)을 화면이 보낸다(이 쓰임만 몸통 16KB). 사업영역 목록은 서버가 내 로그인으로 읽는다.
 //    - 비밀번호·토큰·키 모양 글이면 AI에 보내지 않는다(note-title.ts looksSecret, 10/28 17:23 결정). 연락처는 지우고 보낸다.
-//    - 답은 후보(최대 3개)일 뿐 저장하지 않는다. 고르는 것은 명진이 한다.
+//    - 답은 후보(최대 3개)일 뿐 저장하지 않는다. 고르는 것은 사용자가 한다.
 // 기록(로그·사용량)에는 숫자만 남기고, 보고 글·요약 글은 남기지 않는다.
 
 import { looksSecret } from "./note-title.ts";

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// S69-70(명진 11/24 20:43~20:45): 읽을 거리 [메모] 탭 = 메모 있는 글(글에 [메모]로 남긴 노트, 저장하지 않은 글도).
+// S69-70(사용자 11/24 20:43~20:45): 읽을 거리 [메모] 탭 = 메모 있는 글(글에 [메모]로 남긴 노트, 저장하지 않은 글도).
 // - 줄 = 글 줄 + 메모 첫 줄(작게). 관심 없음으로 목록에서 빠진 글·[전체]에 없는 기사도 id로 다시 읽어 보인다. 글을 못 찾으면 메모만 한 줄 → 노트로.
 // - 종류마다 1000줄씩 읽고 넘으면 [더 보기]. 서버 읽기는 내 작업공간 노트만(workspace_id=eq.w, kind=eq.note, 보관 노트 빼고).
 // - '관심 주제 후보 n'은 목록 위 줄이 아니라 ⋯ 메뉴 안(now-detail.spec.mjs가 본다).

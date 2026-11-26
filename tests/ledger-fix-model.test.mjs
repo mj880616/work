@@ -65,7 +65,7 @@ test('home helpers: searching or not, overdue days and label, story order, chips
   const names = new Map([[id(1), '나 지부'], [id(2), '가 지부'], [id(3), '']]);
   assert.deepEqual(chipList([id(1), id(2), id(2), id(3), 'x', null], names), [{ id: id(2), name: '가 지부', count: 2 }, { id: id(1), name: '나 지부', count: 1 }]);
   // 직접 넣거나 수정한 기록(수정 요청이 만든 기록)은 manual.
-  const info = changeInfo([{ record_id: id(9), action: 'created', route: 'correction', note: '명진이 직접 기록 · 2026-10-24' }]);
+  const info = changeInfo([{ record_id: id(9), action: 'created', route: 'correction', note: '사용자가 직접 기록 · 2026-10-24' }]);
   assert.deepEqual([info.get(id(9)).auto, info.get(id(9)).manual], [false, true]);
   assert.deepEqual(Object.values(SENSITIVITY_LABEL), ['공개 가능', '내부', '교섭·전략']);
 });

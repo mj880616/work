@@ -222,16 +222,16 @@
   #meetingList .mrd-docked .mrd-head-ends{align-items:center}
   #meetingList .mrd-docked .modal-head>.status{order:9;flex:0 0 100%;margin:0;font-size:var(--ds-text-meta);overflow-wrap:anywhere}
   #meetingList .mrd-docked .modal-head>.status:empty{display:none}
-  /* 고치는 중 맨 위 오른쪽의 작은 [취소][저장](명진 2026-10-27 11:30 지정: 이 화면은 위, 팝업은 아래 줄). */
+  /* 고치는 중 맨 위 오른쪽의 작은 [취소][저장](사용자 2026-10-27 11:30 지정: 이 화면은 위, 팝업은 아래 줄). */
   #meetingList .mrd-docked .mrd-head-ends .mrd-editor-actions{margin:0;gap:var(--kptu-space-2)}
   #meetingList .mrd-docked .mrd-head-ends .mrd-editor-actions button{box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
   #meetingList .mrd-docked #mrdEditFoot:empty{display:none}
   /* 둘이 나란한 줄은 칸이 좁으면 위아래로 쌓인다(1024px대 세 번째 칸). */
   #meetingList .mrd-docked .meeting-entry-section>.two-col{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
 }
-/* S52-22 TEAM-맨위한줄(요청 11/07 16:18, 시안 docs/design/mockups/report-top-bar.html, 명진 16:33 'ㅇ'): 맨 위는 언제나 한 줄
+/* S52-22 TEAM-맨위한줄(요청 11/07 16:18, 시안 docs/design/mockups/report-top-bar.html, 사용자 16:33 'ㅇ'): 맨 위는 언제나 한 줄
    [종류 ▾][사업영역 ▾] ……… [녹음][+ 사업 보고][⋯]. 고르기는 공용 고르기 상자(<select>, 열리는 작은 목록은 select-menu.js), 고른 값이 있으면 글자가 진하다(is-on).
-   BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 biz-report-top-pc.html): 종류는 모든 폭에서 [회의 ▾] 고르기 상자 하나(회의명은 그 안 '회의명' 묶음) — PC 종류 칩 줄·[회의명 ▾] 상자는 없앴다.
+   BIZ-위쪽정돈PC(사용자 11/09 10:52 A안, 시안 biz-report-top-pc.html): 종류는 모든 폭에서 [회의 ▾] 고르기 상자 하나(회의명은 그 안 '회의명' 묶음) — PC 종류 칩 줄·[회의명 ▾] 상자는 없앴다.
    화면 CSS는 자리·폭만 정한다.
    입력 창 맨 위 칸 칩(#meetingKindPick)은 같은 공용 칩 그대로. */
 #appView #meetingsView .report-kind-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-bottom:var(--kptu-space-1)}
@@ -318,12 +318,12 @@
 #meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js).
-   UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기는 탭 줄이 아니라 위 줄 기간 [주 단위 ▾] 옆 고르기 상자 [목록 ▾]
+   UI-보기탭드롭다운(11/10 사용자 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기는 탭 줄이 아니라 위 줄 기간 [주 단위 ▾] 옆 고르기 상자 [목록 ▾]
    (#reportViewSelect, 모양은 위 .report-top-select 그대로). 아래에 떠 있던 탭 줄·그 자리 여백은 없앴다. 목록 상자 머리 줄은 글 읽기용 제목만 남아 높이 0. */
 #appView #meetingsView #meetingsListCard>.add-list-head{height:0;min-height:0;margin:0;padding:0}
 #meetingsView .report-top-line{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-bottom:var(--kptu-space-1)}
 #meetingsView .report-top-line>.report-head-actions{margin-left:auto}
-/* BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 docs/design/mockups/biz-report-top-pc.html): PC(761px~)는 위쪽 세 줄(.report-top 안 같은 요소)을 한 줄로 놓는다 —
+/* BIZ-위쪽정돈PC(사용자 11/09 10:52 A안, 시안 docs/design/mockups/biz-report-top-pc.html): PC(761px~)는 위쪽 세 줄(.report-top 안 같은 요소)을 한 줄로 놓는다 —
    [회의 ▾][사업영역 ▾][주 ▾] · ‹ 11.9(월)~11.15(일) › · n건 ……… [● 녹음][+][⋯]. S71-10(11/26)부터 폰도 같은 한 줄(ui-standard.css S67-64 절).
    폭이 모자라도 줄을 넘기지 않고 아래 단계로 줄인다. 기간 정하기 창이 열리면 그 창(과 주 줄)이 아래 한 줄을 다 쓴다. */
 @media(min-width:761px){
@@ -575,7 +575,7 @@
 .record-big-head{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px}
 button.record-big-write,:is(#meetingModal,#meetingRoundDetailModal) .record-big-head button.record-big-write{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:22px;min-width:22px;height:22px;min-height:22px;margin:0 0 0 2px;padding:0;color:var(--kptu-muted);background:transparent;border-color:transparent;border-radius:var(--kptu-radius-sm,6px)}
 :is(button.record-big-write):hover{color:var(--kptu-ink)}
-/* S62-02 MTG-원문칸넘침(11/15 명진): 결과·내용 안 주소는 눌러 새 창으로 여는 링크, 주소만 있는 줄은 작은 북마크 줄(도메인 + 주소).
+/* S62-02 MTG-원문칸넘침(11/15 사용자): 결과·내용 안 주소는 눌러 새 창으로 여는 링크, 주소만 있는 줄은 작은 북마크 줄(도메인 + 주소).
    북마크는 줄 하나 높이의 얇은 줄(크고 굵은 카드 아님), 주소는 칸 안에서 줄을 바꾼다. */
 .mrd-text a.record-link{color:var(--kptu-primary-text);text-decoration:underline;text-underline-offset:2px}
 .mrd-text a.record-bookmark{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 6px;min-width:0;max-width:100%;box-sizing:border-box;margin:2px 0;padding:3px 8px;color:var(--kptu-ink);text-decoration:none;line-height:1.4;background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}

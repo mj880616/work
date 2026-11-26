@@ -1,6 +1,6 @@
 // note-import가 읽은 글을 노트용 결과로 다듬는 순수 함수(네트워크·DB 없음).
 // 본문 뽑기는 뉴스와 같은 부품(news-feed/page.ts readArticlePage → _shared/feed-extract.ts)을 그대로 부른다. 여기서는 그 부품에 없는 세 가지만 한다:
-// 받는 형식 검사(글자 판만), 저자 읽기, 노트 글자 상한으로 자르기(사진 블록은 1단계에서 뺀다 — 명진 결정 2026-11-11).
+// 받는 형식 검사(글자 판만), 저자 읽기, 노트 글자 상한으로 자르기(사진 블록은 1단계에서 뺀다 — 사용자 결정 2026-11-11).
 import { cut, oneLine } from "../outside-feed/parse.ts";
 import { decodeText } from "../_shared/html-entities.ts";
 import type { Block } from "../_shared/feed-extract.ts";

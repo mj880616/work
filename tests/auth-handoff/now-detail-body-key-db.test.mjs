@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Edge or production credentials. All data synthetic.
-// S69-01 글 보기 요약·시사점 다시 만들기 고침(20261124070000_now_detail_body_key, 명진 11/24 "매번 다시 만드는 거 같은데 이러지마"):
+// S69-01 글 보기 요약·시사점 다시 만들기 고침(20261124070000_now_detail_body_key, 사용자 11/24 "매번 다시 만드는 거 같은데 이러지마"):
 // - 승인형 workflow plan(엄격 규칙)·dry-run·apply·사후 확인 통과, 두 번째 적용 거절.
 // - 사람별 자세히 표 둘에 body_key 칸 + 모양 검사만. 기존 줄 그대로(비어 있음), 권한·정책·RLS 그대로.
 // - 서버(service_role)는 지문을 쓰고 고칠 수 있고, 화면(authenticated)은 자기 줄 읽기만(지문 고치기 거절), anon은 아무것도 없음.

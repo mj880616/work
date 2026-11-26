@@ -5,7 +5,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { start as startFiles, openFiles, treeGo } from './helpers/files-server.mjs';
 import { measureLayout, uniqueIssues } from './helpers/layout-audit.mjs';
-// QA-여백겹침점검(S70-25, 명진 11/25 11:12 "디자인 전수조사 여백 없어서 답답하거나 겹치는 문제 등 확인후 개선").
+// QA-여백겹침점검(S70-25, 사용자 11/25 11:12 "디자인 전수조사 여백 없어서 답답하거나 겹치는 문제 등 확인후 개선").
 // 앱 메뉴 화면마다 PC 1280·1440, 폰 390, 폴드 펼침 884에서 겹침·붙음·자리 표시 남음을 같은 자로 잰다(helpers/layout-audit.mjs).
 // 가짜 서버·지어낸 자료만 쓴다(운영 접속 없음). 조사 결과: docs/qa/layout-audit-20261125.md.
 // KNOWN 표: 이미 찾았고 고치는 PR이 줄 서 있는 문제(화면|폭 → 허용하는 종류). 고치는 PR은 그 화면 줄을 지워 검사를 켠다(고치기 전 실패 → 고친 뒤 통과).
@@ -77,7 +77,7 @@ for (const [name] of SCREENS) for (const width of WIDTHS) test(`LA ${name} ${wid
   expect(errors).toEqual([]);
 });
 
-// UI-간격기준 A(S70-42, 명진 11/25 15:08 "여기도 자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄 바로 아래 놓기 칸·안내 줄은
+// UI-간격기준 A(S70-42, 사용자 11/25 15:08 "여기도 자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄 바로 아래 놓기 칸·안내 줄은
 // 단추 아래 끝에서 --ds-gap-bar 이상 떨어진다(위 일반 검사의 최소 4px보다 엄격한 기준 토큰 값). 화면 표: [화면, 여는 길, 머리줄 단추, 아래 칸].
 const SBASE = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const openBrief = async page => { // 가짜 서버: 지어낸 자료 하나에 다 된 브리핑 하나(brief-room-delete.spec.mjs와 같은 길)

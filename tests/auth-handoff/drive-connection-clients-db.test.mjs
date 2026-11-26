@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic (no real token).
-// S71-01 AUTH-구글권한나누기 ①(20261126100000_drive_connection_clients): 작업공간 Drive 연결이 어느 구글 창구(심사용 review / 명진 전용 full)로 받은 것인지 적는 표.
+// S71-01 AUTH-구글권한나누기 ①(20261126100000_drive_connection_clients): 작업공간 Drive 연결이 어느 구글 창구(심사용 review / 사용자 전용 full)로 받은 것인지 적는 표.
 // - 승인형 DB workflow 규칙을 통과하고(dry-run은 아무것도 안 바꿈), apply 뒤 사후 확인이 모두 예. 두 번째 apply는 멈춤. 앞 단계가 없으면 멈춤.
 // - 표: workspace_id·oauth_client·updated_at 칸뿐(토큰 칸 없음), oauth_client는 review|full만, 연결 행이 없는 작업공간은 못 넣고, 연결이 지워지면 같이 지워진다.
 // - anon·authenticated는 읽지도 쓰지도 못한다. service_role은 읽기·넣기·고치기(oauth_client)·지우기만, workspace_id는 못 고친다.

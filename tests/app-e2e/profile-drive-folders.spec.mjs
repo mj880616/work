@@ -2,7 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
 // S69-41: [앱 폴더 모으기]를 자료실 위 줄에서 내 프로필 '구글 드라이브' 칸으로 옮김(app/drive-folders-panel.js).
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): [한곳으로 모으기] 버튼은 지웠다(서버가 맨 위 앱 폴더를 처음 만들 때 저절로).
+// S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): [한곳으로 모으기] 버튼은 지웠다(서버가 맨 위 앱 폴더를 처음 만들 때 저절로).
 // 칸은 '앱이 쓰는 드라이브 폴더: 내 드라이브 › (앱 폴더 이름) [열기 ↗]' 한 줄만.
 // 고정 페이지 profile-workplaces-fixture.html(가짜 서버 — 실제 Supabase·Drive 없음). 가짜 폴더 id·이름만.
 const url=`${appOrigin}/tests/app-e2e/profile-workplaces-fixture.html`;

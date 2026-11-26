@@ -13,7 +13,7 @@ test('비밀값 파일: 열쇠·인증서 형식, 비밀번호·토큰·secret �
 
 test('비밀값 보관 폴더·앱 임시 문서·운영 문서', () => {
   for (const n of ['web2-phone-key-백업', 'keystore', '키 백업', 'secrets', 'credentials']) assert.equal(isSecretFolder({ name: n }), true, n);
-  for (const n of ['WORK ON+', '공공운수노조', '키워드']) assert.equal(isSecretFolder({ name: n }), false, n);
+  for (const n of ['WORK ON+', 'A노조', '키워드']) assert.equal(isSecretFolder({ name: n }), false, n);
   assert.equal(isAppTempFile({ name: '아무 이름', appProperties: { web2_ocr: '1' } }), true, '표식이 먼저');
   assert.equal(isAppTempFile({ name: 'x', appProperties: { web2_text_tmp: '1' } }), true);
   assert.equal(isAppTempFile({ name: 'Web2 OCR 1234' }), true, '표식 없는 옛것은 이름');

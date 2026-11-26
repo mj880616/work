@@ -40,7 +40,7 @@ test('home top has no empty header gap, and the header comes back on other tabs'
   await open(page,'home');
   const head=page.locator('#appView>.mobile-shell-header');
   await expect(page.locator('#homeView [data-journal-title]')).toBeVisible();
-  // S70-57(명진 11/26 "전체 검색은 홈에만"): 홈 머리줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px)뿐 — 빈 칸이 아니다.
+  // S70-57(사용자 11/26 "전체 검색은 홈에만"): 홈 머리줄은 이름·아이콘 없이 '전체 검색' 입구 한 칸(36px + 아래 8px)뿐 — 빈 칸이 아니다.
   await expect(head).toBeVisible();await expect(head.locator('[data-mobile-view-name]')).toHaveText('');await expect(head.locator('.head-mark')).toBeHidden();
   await expect(head.locator('.gs-menu-entry')).toBeVisible();
   const homeTop=async()=>{const e=await head.locator('.gs-menu-entry').boundingBox(),t=await page.locator('#homeView [data-journal-title]').boundingBox();return {entry:e.y,gap:t.y-(e.y+e.height)}};

@@ -48,7 +48,7 @@ async function mrdReadTasks(meetingId){
   return mrdApi(mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(meetingId));
 }
 function mrdCanEdit(m){return !!m&&(m.created_by===mrdUser?.id||['owner','admin','editor'].includes(mrdRole))}
-// S61-36 REC-상세녹음(명진 11/13): 머리 줄 [녹음] = 지금 연 보고에 붙는 녹음. 단추 모양(보임·꺼짐·'녹음 중')은 녹음 모듈(meeting-recorder.js)이
+// S61-36 REC-상세녹음(사용자 11/13): 머리 줄 [녹음] = 지금 연 보고에 붙는 녹음. 단추 모양(보임·꺼짐·'녹음 중')은 녹음 모듈(meeting-recorder.js)이
 // 사업 보고 위쪽 [녹음]과 같은 규칙으로 그린다(한 주인). 이 화면은 어느 보고인지만 data-rec-meeting에 적는다(고칠 수 없는 보고면 빈칸 = 안 보임).
 // 녹음은 화면 전환과 상관없이 계속되고, 맨 위 띠 [멈추고 저장]이 이 보고 '회의자료'에도 붙인다(서버 rec_save meeting_id, 작업공간 검사는 서버).
 function mrdPaintRecord(){const b=document.querySelector('#mrdRecordBtn');if(!b)return;b.dataset.recMeeting=mrdCurrent&&mrdCanEdit(mrdCurrent)?mrdCurrent.id:'';window.KPTUMeetingRecorder?.paintButtons?.()}
@@ -102,7 +102,7 @@ function mrdEnsureMoreMenu(){
     // 항목은 공용 작은 메뉴(gt-task-menu)의 줄 하나씩 — 같은 모양을 한 함수로 그린다.
     render:()=>{const m=mrdMenuMeeting(mrdMoreMenu.active?.trigger),join=window.KPTUMeetingJoin,edit=mrdCanEdit(m),item=(act,label,cls='')=>`<button type="button"${cls?` class="${cls}"`:''} data-mrd-more="${act}">${label}</button>`;
       return [edit?item('edit','수정')+item('kind','종류 바꾸기'):'',edit&&join?.canMerge?.(m)?item('merge','다른 보고에 합치기'):'',edit&&join?.unmergeRow?.(m)?item('unmerge','두 보고로 되돌리기'):'',mrdCanDelete(m)?item('delete','삭제','gt-menu-danger'):''].join('')},
-    // PRESS-성명초안삭제(11/09 명진 결정): [성명 초안 만들기]는 기능째 삭제했다. MTG-종류바꾸기이름(11/09): [칸 바꾸기] → [종류 바꾸기].
+    // PRESS-성명초안삭제(11/09 사용자 결정): [성명 초안 만들기]는 기능째 삭제했다. MTG-종류바꾸기이름(11/09): [칸 바꾸기] → [종류 바꾸기].
     onAction:(button,active)=>{const act=button.dataset.mrdMore,out=mrdMenuOut(active.trigger);if(act==='edit'){if(out)void mrdOutsideEdit(out);else mrdStartEdit()}else if(act==='kind')mrdChangeKind(active.trigger,out);else if(act==='delete')void mrdDeleteMeeting(out);else if(act==='merge'||act==='unmerge'){const m=out?out.meeting:mrdCurrent,join=window.KPTUMeetingJoin;if(m)void (act==='merge'?join?.merge?.(m,active.trigger):join?.unmerge?.(m,active.trigger))}}});
   return mrdMoreMenu;
 }
@@ -164,7 +164,7 @@ function mrdRenderMaterials(allDocs){
     document.querySelectorAll('#mrdMaterials [data-mrd-detach-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();const box=b.closest('details');box?.removeAttribute('open');return mrdDetachMaterial(b,allDocs,box?.querySelector('summary'))});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
 }
-// FILE-첨부삭제 ② 뒤 결정 3(2026-11-11 명진 '추천대로'): 자료 줄 끝 ×(지우기)를 없애고 같은 줄 ⋯ 안에 [빼기]·[삭제]로 나눈다.
+// FILE-첨부삭제 ② 뒤 결정 3(2026-11-11 사용자 '추천대로'): 자료 줄 끝 ×(지우기)를 없애고 같은 줄 ⋯ 안에 [빼기]·[삭제]로 나눈다.
 // [빼기] = 이 회의(사업 보고)에서만 떼기 — 자료실 자료·Drive 파일은 그대로. 담당조직 자료 [조직에서 빼기]와 같은 서버 길(app_documents PATCH,
 // 내 작업공간·이 회의에 붙은 줄만, 소유자 확인은 DB RLS). [삭제] = 예전 ×와 같은 삭제 길(document-delete.js: 자료 행 삭제 + Drive 휴지통, 한 번 묻기).
 // 메뉴 항목은 ⋯ 칸(.file-line-more-panel, ui-standard.css 공용 모양) 안 글자 줄이라 6가지 버튼 클래스를 붙이지 않고, 줄 메뉴 공용 부품(row-more.js)처럼
@@ -250,7 +250,7 @@ async function mrdEnsureLibrary(fail){
   return true;
 }
 let mrdPhotoBusy=false,mrdPhotoChain=Promise.resolve();
-// S46-20 사진 정리 ⑥(명진 11/01 01:04): 사진 줄 안 '그 시각 사진 [골라 붙이기]'(time-photos.js). 고른 사진만 위 [+]와 같은 길(mrdAddPhotos, 바로 올림)로 붙인다.
+// S46-20 사진 정리 ⑥(사용자 11/01 01:04): 사진 줄 안 '그 시각 사진 [골라 붙이기]'(time-photos.js). 고른 사진만 위 [+]와 같은 길(mrdAddPhotos, 바로 올림)로 붙인다.
 // 고칠 수 있는 보고에서만 보이고, 다른 보고를 열면 접고 다시 맞춘다.
 let mrdTimePhotos=null,mrdTimePhotosFor_=null,mrdTimePhotosLoading=false;
 function mrdTimePhotosFor(m){
@@ -517,7 +517,7 @@ async function mrdAddFiles(files){
 // '파일·글로 만들기'와 같은 읽기로 본문을 읽어 결과 칸에 넣을지 묻는다 — 고치는 중이면 고치기 칸 글에 더하고(저장은 [수정 저장]), 보는 중이면 바로 저장한다.
 function mrdEditing(){return !document.querySelector('#mrdEditor')?.classList.contains('hidden')}
 function mrdDropFace(){return document.querySelector(mrdEditing()?'#mrdEditor':'#mrdView')}
-// UX-먼저묻고뒤에처리(요청함 11/09 18:04, 명진 원칙 "화면 표시 먼저 → 결정·입력 먼저 → 처리는 뒤에서(화면 옮겨도 끝까지)", docs/design-decisions.md):
+// UX-먼저묻고뒤에처리(요청함 11/09 18:04, 사용자 원칙 "화면 표시 먼저 → 결정·입력 먼저 → 처리는 뒤에서(화면 옮겨도 끝까지)", docs/design-decisions.md):
 // 놓자마자 묻고(결과/회의자료를 이름으로 못 정하면 그때, 결과 파일이면 '본문도 결과 칸에 넣을까요? [파일만][넣기]' — 읽기 전에), 고른 뒤에는 뒤처리 줄
 // (meeting-drop-queue.mjs)이 파일 올리기 → 본문 읽기 → 결과 칸 더하기를 순서대로 한다. 놓은 그 사업 보고 id로 하므로 다른 보고·다른 화면으로 옮겨도 끝까지 하고,
 // 처리 중에 또 놓으면 줄 끝에 선다. 올리기는 창 없이 같은 자료실 올리기 길(library-files, meeting_id, AI 채우기 — 사진 줄과 같은 uploadFileForMeeting).
@@ -706,6 +706,6 @@ window.addEventListener('popstate',e=>{
 window.addEventListener('kptu:tasks-changed',()=>{if(mrdDocked&&mrdCurrent&&!mrdEditor)void mrdRefreshTasks()});
 async function mrdInit(){const shared=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){mrdUser=shared.user;mrdWorkspace=shared.workspace.id;mrdRole=shared.membership?.role||null}else{try{mrdUser=await mrdApi('/auth/v1/user')}catch{return false}const ms=await mrdApi('/rest/v1/app_workspace_members?user_id=eq.'+mrdUser.id+'&select=workspace_id,user_id,role&limit=1');if(!ms?.length)return false;mrdWorkspace=ms[0].workspace_id;mrdRole=ms[0].role}const loadedProjects=window.KPTUTeamData?.spaces?.();mrdProjects=Array.isArray(loadedProjects)&&loadedProjects.length?loadedProjects:await mrdApi('/rest/v1/app_spaces?workspace_id=eq.'+mrdWorkspace+'&select=id,name,status,parent_id');mrdInstallModal();const list=document.querySelector('#meetingList');if(list){list.addEventListener('click',e=>{if(e.target.closest('button,a,input,select,textarea,label'))return;const card=e.target.closest('[data-mrd-meeting]');if(card)mrdOpenMeeting(card.dataset.mrdMeeting)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-mrd-meeting]')){e.preventDefault();mrdOpenMeeting(e.target.dataset.mrdMeeting)}})}return true}
 // PRJ-회의표시: the project detail's 회의 rows open this same meeting result dialog over the projects screen.
-// S61-5 REC-전사삭제(명진 11/13): 회의자료 소리 파일 ⋯ [녹음 글로 옮기기·요약]와 결과를 [수정] 창에 넣는 길은 뺐다. 소리 파일은 다른 자료처럼 열기·내려받기만.
+// S61-5 REC-전사삭제(사용자 11/13): 회의자료 소리 파일 ⋯ [녹음 글로 옮기기·요약]와 결과를 [수정] 창에 넣는 길은 뺐다. 소리 파일은 다른 자료처럼 열기·내려받기만.
 window.KPTUMeetingRoundDetail={open:mrdOpenMeeting,menuAt:mrdMenuAt,outsideMenu:mrdOutsideFollower,dock:mrdDock,undock:mrdUndock,guardLeave:mrdGuardLeave};
 window.__KPTU_MEETING_ROUND_DETAIL_READY__=mrdInit().then(ok=>{if(ok)window.dispatchEvent(new CustomEvent('kptu:report-detail-ready'));return ok}).catch(err=>{console.error('meeting detail init',err);return false});

@@ -1,6 +1,6 @@
 import {pickReportKind,pickedReportKind} from './helpers/report-filter.mjs';
 import {SHEET as AOP_SHEET,pressRow} from './helpers/area-org-picker.mjs';
-// MTG-한줄업데이트(요청함 10/29 08:59, 명진 09:01 '추천대로'): 사업 보고 [전체] [+] 메뉴 맨 위 [✎ 한 줄 업데이트] → 창(사업영역·날짜·한 줄·
+// MTG-한줄업데이트(요청함 10/29 08:59, 사용자 09:01 '추천대로'): 사업 보고 [전체] [+] 메뉴 맨 위 [✎ 한 줄 업데이트] → 창(사업영역·날짜·한 줄·
 // + 다음 할 일) → 저장 본문(칸 oneline·꼬리표·다음 할 일)과 사업영역 연결 → 목록에 그 문장, [한 줄] 칩에서 [+]는 바로 창. 폰 412·884, PC 1440.
 // 모든 이름·글은 합성 값.
 import {test,expect} from '@playwright/test';
@@ -78,7 +78,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   await expect(page.locator('#meetingList').getByText(LINE).first()).toBeVisible();
   await expect(chip(page,'한 줄')).toHaveCount(1);
   if(width<=884)expect(await noSideScroll(page)).toBe(true);
-  // [한 줄] 칩: 그 칸만. MTG-더하기늘고르기(11/14 명진): [+]는 거르기와 상관없이 늘 고르기 창 — 맨 위 [한 줄 업데이트]로 한 줄 창. Esc로 닫힌다.
+  // [한 줄] 칩: 그 칸만. MTG-더하기늘고르기(11/14 사용자): [+]는 거르기와 상관없이 늘 고르기 창 — 맨 위 [한 줄 업데이트]로 한 줄 창. Esc로 닫힌다.
   await pickReportKind(page,'한 줄');
   await page.locator('#newMeetingBtn').click();
   await expect(sheet).toBeVisible();await sheet.locator('[data-report-oneline]').click();
@@ -89,7 +89,7 @@ for(const width of [412,884,1440])test(`${width}: [전체] [+] 맨 위 한 줄 �
   expect(errors).toEqual([]);
 });
 
-// MTG-더하기늘고르기(11/14 명진 '거르기 상관 없이 늘 고르기 창'): [회의]를 고른 채여도 [+]는 고르기 창, 고른 종류 줄이 표시된다.
+// MTG-더하기늘고르기(11/14 사용자 '거르기 상관 없이 늘 고르기 창'): [회의]를 고른 채여도 [+]는 고르기 창, 고른 종류 줄이 표시된다.
 test('412: 칸 칩([회의])에서도 [+]는 고르기 창([회의] 줄 표시) → [회의]로 쓰기 창',async({page})=>{
   const s=state();await open(page,s,412);
   await pickReportKind(page,'회의');

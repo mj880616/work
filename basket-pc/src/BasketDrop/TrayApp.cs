@@ -7,7 +7,7 @@ namespace BasketDrop.App;
 /// (screen-corner box and desktop tile, back in S69-31) and the queue pump. Everything dropped goes through
 /// <see cref="Submit"/>, so limits, the program-file question and the duplicate question are asked in one place, and it
 /// is sent by the one existing queue path (<see cref="QueueProcessor"/>). The clipboard hotkey and right-click Send to
-/// stay removed (S54-13). S69-35 (명진 11/24): a double click on either box opens a small input window
+/// stay removed (S54-13). S69-35 (사용자 11/24): a double click on either box opens a small input window
 /// (<see cref="PasteForm"/>) that sends through the same <see cref="Submit"/>; there is no hotkey for it.
 /// </summary>
 internal sealed class TrayApp : ApplicationContext

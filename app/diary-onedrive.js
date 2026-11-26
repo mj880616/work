@@ -2,7 +2,7 @@
 // - 원드라이브는 Edge 함수 onedrive-photos(로그인한 소유자만)를 통해서만 부른다. 토큰은 서버에만 있고 이 파일은 보지 못한다.
 // - 별표는 app_diary_stars(owner RLS) 한 표에 둔다(원드라이브 사진 + 직접 올린 사진). 모든 저장은 서버, 브라우저에는 아무것도 남기지 않는다.
 // - 사진 그림은 메모리(대기열의 기억, 상한 300장)로 잠시 들고 있다(로그인한 사람이 바뀌면 버린다).
-// - OD-폰보관(2026-10-28 명진 결정, '기기 저장 금지'의 단 하나의 예외): '작은 그림(small)' 바이트 사본만 od-thumb-cache.js(Cache Storage)에 보관한다.
+// - OD-폰보관(2026-10-28 사용자 결정, '기기 저장 금지'의 단 하나의 예외): '작은 그림(small)' 바이트 사본만 od-thumb-cache.js(Cache Storage)에 보관한다.
 //   주소·토큰·파일 이름은 보관하지 않는다. 그 밖의 것(별표·설정·일기)은 계속 서버에만 둔다.
 import './od-thumb-cache.js';
 import {reportLink} from './link-state.js';
@@ -263,7 +263,7 @@ export async function odKeptDrop(rt, ids) {
   for (let i = 0; i < list.length; i += 100) await odCall(rt, {action: 'kept-drop', ids: list.slice(i, i + 100)});
   return list.length;
 }
-// 연결 뒤 돌아올 화면(명진 결정 5): 마이크로소프트가 그대로 돌려주는 state 끝에 '~photos'를 붙인다. 돌아오는 페이지가 떼어 내고 그 화면으로 보낸다
+// 연결 뒤 돌아올 화면(사용자 결정 5): 마이크로소프트가 그대로 돌려주는 state 끝에 '~photos'를 붙인다. 돌아오는 페이지가 떼어 내고 그 화면으로 보낸다
 // (서버가 확인하는 서명 부분은 그대로, 저장 없음). 일기는 붙이지 않는다(예전 그대로).
 export const OD_BACK_VIEWS = Object.freeze(['photos']);
 export function odAuthUrlBack(url, back) {
@@ -382,7 +382,7 @@ export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now =
   const picks = warmPicks(data, today);
   return {done: true, picks: picks.length, kept: await warmThumbs(rt, picks, owner)};
 }
-// PHOTO-미리받기앱시작(2026-10-30 명진 결정 "어 맞아"): 앱을 켜고 한가할 때(od-warm.js) 일기를 열지 않아도 미리 받기를 시작한다.
+// PHOTO-미리받기앱시작(2026-10-30 사용자 결정 "어 맞아"): 앱을 켜고 한가할 때(od-warm.js) 일기를 열지 않아도 미리 받기를 시작한다.
 // 받아 둔 이번 달 목록이 있으면 그것을 쓴다(꺼내지 않고 함께 기다린다 — 일기를 열면 그 목록을 그대로 쓴다). 연결·폴더가 없으면 시작하지 않는다.
 export async function odWarmPrefetch(rt = window.KPTURuntime, {today = todayKey()} = {}) {
   const owner = warmFor(rt);
@@ -553,7 +553,7 @@ export function odKeepForOwner(rt = window.KPTURuntime) { const owner = ownerSco
 // ---- OD-폰보관: 미리 받기 ----
 // 색인된 사진을 최근 달부터 거꾸로(켠 폴더만 — 서버 photos가 켠 폴더만 준다), 화면이 열려 있으면 한가할 때 하나씩 받는다.
 // 화면이 가려지면(앱 닫기·다른 앱) 이미 주소를 받아 둔 다음 몫(최대 100장)을 Background Fetch로 넘긴다(지원 브라우저만). 그 사이 이 반복은 쉰다.
-// 데이터 절약·배터리로 멈추는 장치는 두지 않는다(명진 결정). 주소는 메모리에만 잠시 두고 넘긴 뒤 버린다.
+// 데이터 절약·배터리로 멈추는 장치는 두지 않는다(사용자 결정). 주소는 메모리에만 잠시 두고 넘긴 뒤 버린다.
 // recentBig(PHOTO-미리받기앱시작): 가장 최근 100장은 큰 그림도 받아 둔다(크게 보기가 바로 뜨게). 큰 그림은 폰 보관(OD-폰보관은 작은 그림만) 밖이라
 // 이 탭 메모리에만 둔다(heldLarge, 100장까지, 앱을 닫거나 로그인한 사람이 바뀌면 버린다). 그다음 옛날 사진은 작은 그림만, 더 옛날 큰 그림은 열 때 받는다.
 export const PREFETCH = Object.freeze({chunk: 100, maxMonths: 240, emptyStop: 24, bgPrefix: 'od-thumb-', freshMs: 30 * 60 * 1000, recentBig: 100, bigBatch: 20});
@@ -752,7 +752,7 @@ function observers() {
   return views;
 }
 const RETRY_GAP_MS = 3000;
-// PHOTO-크게보기빨리(2026-10-30 명진 결정 "둘다 넣어"): 크게 보기를 누른 순간 먼저 띄울 작은 그림(요청 없음).
+// PHOTO-크게보기빨리(2026-10-30 사용자 결정 "둘다 넣어"): 크게 보기를 누른 순간 먼저 띄울 작은 그림(요청 없음).
 // ① 화면에 이미 떠 있는 같은 사진 칸(격자·날짜 칸; 크게 보기 안은 빼고) ② 대기열 메모리의 작은 그림 주소. 둘 다 없으면 null(부르는 쪽이 폰 보관 사본을 찾는다).
 export function shownSmallSrc(id, rt = window.KPTURuntime, doc = globalThis.document) {
   for (const el of doc?.querySelectorAll?.('[data-diary-photo]') || []) {

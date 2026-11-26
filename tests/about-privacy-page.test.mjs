@@ -51,7 +51,7 @@ test('로그인 화면 아래에 공개 처리방침 링크가 있다', () => {
   assert.ok(login.includes(`href="${PRIVACY_URL}"`), '로그인 화면에 처리방침 링크 없음');
 });
 
-// 2026-11-05 명진 결정(MULTI D4): Google 앱 인증용 공개 연락처 메일 한 주소만 싣는다.
+// 2026-11-05 사용자 결정(MULTI D4): Google 앱 인증용 공개 연락처 메일 한 주소만 싣는다.
 // 어떤 주소를 허용하는지는 scripts/personal-data-allowlist.json(about/ email hash 1건)이 정하고 check-personal-data가 검사한다.
 test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이어지고, 메일은 공개 연락처 한 주소를 mailto 링크로만 싣는다', () => {
   const mails = new Set();
@@ -71,7 +71,7 @@ test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이
   assert.ok(mails.size <= 1, `공개 연락처 메일은 한 주소만: ${mails.size}개`);
 });
 
-// S62-11 MULTI-구글드라이브사진모두(명진 11/15 결정 1·2): 전체 drive도 Drive를 연결하는 모든 사용자에게 요청하고 각자 자기 것만 본다는 설명이 실제 코드와 맞아야 한다.
+// S62-11 MULTI-구글드라이브사진모두(사용자 11/15 결정 1·2): 전체 drive도 Drive를 연결하는 모든 사용자에게 요청하고 각자 자기 것만 본다는 설명이 실제 코드와 맞아야 한다.
 test('Drive 권한 설명: drive.file·전체 drive 모두 모든 사용자, 각자 자기 Drive만', () => {
   const row = scope => {
     const m = page.match(new RegExp(`<tr><td><code>${scope.replace(/\./g, '\\.')}</code></td><td>([^<]*)</td></tr>`));

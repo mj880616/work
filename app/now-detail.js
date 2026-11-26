@@ -49,7 +49,7 @@ import {clipboardFiles} from './paste-files.mjs';
 // - [원문 다시 가져오기](S68-43): 원문 칸이 다시 읽을 실패(reopenBody — 늦은 답·사이트 오류·예전 robots)면 까닭 줄 끝에 작은 단추. 누른 사람 요청으로
 //   기존 서버 길(뉴스 news-feed open · 사회운동 outside-feed reread — 로그인·기능 키·하루 한도는 서버)을 한 번 부르고 원문 줄을 다시 읽는다.
 //   본문이 생기면 요약·시사점을 다시 만든다(서버가 본문보다 오래된 저장본을 버림). 재료가 없는 글은 요약을 만들지 않고 요약 칸에 '원문을 가져오면 요약해요 · 까닭' 한 줄만.
-// - S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)도 단추(canRefetch — 열 때 저절로 다시 읽지는 않음), 두 갈래 모두.
+// - S68-49(사용자 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)도 단추(canRefetch — 열 때 저절로 다시 읽지는 않음), 두 갈래 모두.
 //   서버가 실제로 다시 읽고도 못 읽었으면(또는 방금 다시 읽어 'recent') 이 탭에서 그 글 단추를 거두고(같은 글 잦은 재시도 막기),
 //   '원래 사이트에서 열기 ↗' + 사람이 채울 길([직접 넣기] — 사회운동 글은 본문 칸만인 [본문 붙여 넣기], 서버 outside-feed hand_body)만 남긴다.
 //   요약 422 no_material 판단은 isNoMaterial 하나(서버 error 칸 — 예전 오류 글 비교는 운영 답에서 늘 빗나가 빨간 'HTTP 422'가 보였다).
@@ -243,7 +243,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
 <div class="nd-hand-f nd-hand-body"><div class="nd-hand-bh"><label for="ndHandBody">본문</label><span class="nd-hand-tools"><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-pick title="폰·PC의 사진을 선택해 커서 자리에 넣어요(여러 장). 복사한 사진은 본문 칸에 붙여 넣어도 돼요."${dis}>사진</button><button type="button" class="ds-chip nd-hand-photo" data-nd-hand-photo title="사진 주소를 붙여 넣으면 커서 자리에 한 줄로 들어가요. 주소 바로 다음 줄을 '사진:'으로 시작하면 사진 설명이 돼요."${dis}>사진 주소 넣기</button></span><input type="file" data-nd-hand-file accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></div><textarea id="ndHandBody" data-nd-hand-in="body" rows="8" maxlength="${HAND_LIMITS.body}"${dis}>${esc(v.body)}</textarea>${picsHtml(v.body)}</div>
 <div class="nd-memo-row">${h.up ? `<span class="nd-faint" data-nd-hand-up role="status">${esc(h.up)}</span>` : h.note ? `<span class="nd-faint" data-nd-hand-note role="status">${esc(h.note)}</span>` : ''}<button type="button" class="secondary" data-nd-hand-cancel${dis}>취소</button><button type="submit" class="secondary"${h.busy ? ' disabled aria-busy="true"' : ''}>저장</button></div></form>`;
   }
-  // S69-03(명진 11/24 06:43·06:48): 아래 줄 단추는 모두 공용 ④ 칩(button.ds-chip) 한 모양 — 눌림은 공용 칩의 aria-pressed 색.
+  // S69-03(사용자 11/24 06:43·06:48): 아래 줄 단추는 모두 공용 ④ 칩(button.ds-chip) 한 모양 — 눌림은 공용 칩의 aria-pressed 색.
   // 저장 단추는 저장한 글이면 '저장됨 ✓'(눌림), 누르면 저장한 글에서 삭제(5초 [되돌리기], dropSaved). [관심 없음]은 읽을 거리 추천 흐름의 환류라
   // 저장한 글에서 연 글(open의 from 'saved')에는 그리지 않는다.
   function actsHtml() {
@@ -924,7 +924,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   });
   // 서버 기억 값이 늦게 오면(첫 로딩) 그 값으로.
   paint();
-  // S69 저장한 글 ⋯ [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도"): 지금 연 뉴스 기사의 ⋯ [수정] 창을 바로 연다(같은 openHand — 새 창 없음).
+  // S69 저장한 글 ⋯ [수정](사용자 11/24 "목록에서 ... 안에 수정 버튼도"): 지금 연 뉴스 기사의 ⋯ [수정] 창을 바로 연다(같은 openHand — 새 창 없음).
   // 본문을 아직 못 읽었으면 저장 원문 줄을 먼저 읽어(사진·글 그대로 칸에 채우게) 연다. 뉴스 기사가 아니면 false.
   async function edit() {
     const c = cur;

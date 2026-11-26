@@ -88,7 +88,7 @@ async function open(page, state, width) {
   await expandLibraryTree(page);
 }
 
-// LIB-사진숨김나머지(S61-1, 명진 결정 11/13 "모두 숨김"): 사업 보고 사진 묶음 줄도 그 묶음 맨 아래 [사진 n]에 합쳐져 접혀 있다.
+// LIB-사진숨김나머지(S61-1, 사용자 결정 11/13 "모두 숨김"): 사업 보고 사진 묶음 줄도 그 묶음 맨 아래 [사진 n]에 합쳐져 접혀 있다.
 // 펼친 뒤에는 묶음 줄이 그대로(누르기·⋯·끌기).
 const openPhotoFolds = openLibraryPhotoFolds;
 

@@ -85,7 +85,7 @@ async function sameButtons(page,region,skip='.icon-btn'){
 }
 async function inputs(region){
  for(const input of await region.locator('input:visible:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],.dt-date>input),select:visible,button.field-btn:visible').all()){
-  // MTG-보고창칸정리(명진 2026-10-27): 창 한 줄 입력칸 높이 46px -> 28px(공용 --ds-field-height). 날짜 칸 위에 투명하게 겹친 달력 입력(.dt-date>input)은 칸 자체(.dt-date)가 28px라 뺀다.
+  // MTG-보고창칸정리(사용자 2026-10-27): 창 한 줄 입력칸 높이 46px -> 28px(공용 --ds-field-height). 날짜 칸 위에 투명하게 겹친 달력 입력(.dt-date>input)은 칸 자체(.dt-date)가 28px라 뺀다.
   const s=await look(input);expect(s.height,await input.getAttribute('id')).toBeGreaterThanOrEqual(28);expect(s.height,await input.getAttribute('id')).toBeLessThanOrEqual(30);expect(s.radius).toBe('8px');expect(s.fontWeight).toBe('400');
  }
 }
@@ -197,7 +197,7 @@ test('공용 셸(폰): 머리줄 15px/500(S67-64), 하단 탭 0.5px 선, ☰ 메
  for(const item of await page.locator('#mobileMenu nav button:visible').all()){
   const s=await look(item);expect(Math.round(s.height)).toBe(36);expect(await touch(item)).toBe(44);expect(s.fontSize).toBe('13px');expect(['400','500']).toContain(s.fontWeight);
  }
- // S68-36(명진 11/23): 설정 링크 묶음은 13px, 운영 줄(업데이트 기록·가입자 현황·받은 의견·로그아웃)은 더 작은 12px. 둘 다 보이는 32px·누르는 범위 44px.
+ // S68-36(사용자 11/23): 설정 링크 묶음은 13px, 운영 줄(업데이트 기록·가입자 현황·받은 의견·로그아웃)은 더 작은 12px. 둘 다 보이는 32px·누르는 범위 44px.
  for(const [group,size] of [['.mobile-menu-settings','13px'],['.mobile-menu-ops','12px']])for(const item of await page.locator(`#mobileAccountGroup ${group} button:visible`).all()){
   const s=await look(item);expect(Math.round(s.height)).toBe(32);expect(await touch(item)).toBe(44);expect([s.fontSize,s.fontWeight]).toEqual([size,'400']);
  }

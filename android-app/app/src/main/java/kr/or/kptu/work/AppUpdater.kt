@@ -29,7 +29,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * 앱 스스로 업데이트(APP-스스로업데이트, 명진 결정 A안). 판단은 UpdateRules(시험으로 고정), 여기서는 받기·확인·설치만 한다.
+ * 앱 스스로 업데이트(APP-스스로업데이트, 사용자 결정 A안). 판단은 UpdateRules(시험으로 고정), 여기서는 받기·확인·설치만 한다.
  * 1. 새 판을 찾으면 공개 릴리스 APK를 앱 전용 공간(noBackupFilesDir/update)에 받는다. 넘김 대상도 허용 목록만, 크기·sha256 확인.
  * 2. 받은 APK의 앱 ID·버전·서명(지금 앱과 같은 인증서)을 PackageManager로 확인한다.
  * 3. 녹음·조각 올리기가 없고 '이 앱에서 설치 허용'이 켜져 있으면 PackageInstaller 세션으로 설치한다.

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S50-31 PHOTO-정보고치기 ②(명진 결정 E3 (가)·E4): PC 1440(폰 앱 없음)에서 원드라이브 사진 우클릭 → [정보수정] →
+// S50-31 PHOTO-정보고치기 ②(사용자 결정 E3 (가)·E4): PC 1440(폰 앱 없음)에서 원드라이브 사진 우클릭 → [정보수정] →
 // 서버 photos-meta-read로 앞 값 → '모두 −8시간' → [저장] = photos-meta-write(confirm:true, ISO 시각) 한 번 → 되돌리기 기록 1줄(source onedrive, 열쇠 od:)
 // → 알림 [되돌리기] = 앞 시각으로 다시 고치고 undone_at. 지어낸 서버(네트워크 없음), 그림은 1×1.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

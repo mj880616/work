@@ -1,5 +1,5 @@
-// S46-24 사진 출처 구글 드라이브(명진 G1 2026-10-31: 드라이브 읽기·쓰기). 설계: docs/design/photo-gdrive-permission.md 0·6절.
-// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 명진 11/15 결정 2 '예'): Drive를 연결한 사람 모두 각자 자기 드라이브만.
+// S46-24 사진 출처 구글 드라이브(사용자 G1 2026-10-31: 드라이브 읽기·쓰기). 설계: docs/design/photo-gdrive-permission.md 0·6절.
+// S62-11 MULTI-구글드라이브사진모두(설계: docs/design/gdrive-photos-all.md 2절, 사용자 11/15 결정 2 '예'): Drive를 연결한 사람 모두 각자 자기 드라이브만.
 // 문(모두 서버에서): ① 로그인(Auth) ② 그 사람이 owner인 작업공간 정확히 1개 ③ 그 작업공간의 Drive 연결(app_drive_connections 그 행)로만 토큰을 받는다.
 //   운영자 기능 키(gdrive_photos)·단 하나 작업공간(slug) 판정은 없앴다. 화면이 보낸 작업공간·사용자 값은 쓰지 않는다.
 //   연결이 없으면 424 drive_not_connected. 다른 작업공간 연결이나 프로젝트 전체 연결(public_policy_drive_config id=1의 갱신 토큰)로 넘어가는 길은 없다.
@@ -7,7 +7,7 @@
 // 쓰기(이름 바꾸기·옮기기·휴지통으로·폴더 만들기·이름·휴지통으로)는 화면이 confirm:true를 보낼 때만(사용자가 누르고 확인 한 번). 자동·일괄 정리 없음.
 // 지우기는 Drive 휴지통으로 옮기기(files.update trashed=true)만 쓴다. 영구 삭제(files.delete)·휴지통 비우기는 이 함수에 없다.
 // 토큰은 service role로만 읽고 응답·로그에 싣지 않는다. 기존 Drive 함수들이 부르는 API는 바꾸지 않는다(쓰기는 이 함수에만).
-// 사진 정보 고치기 ②(S50-31, 명진 결정 E3 (가)·E4·E5): photos-meta-read(앞 256KB만 받아 EXIF 찍은 시각·위치)·photos-meta-write(confirm:true).
+// 사진 정보 고치기 ②(S50-31, 사용자 결정 E3 (가)·E4·E5): photos-meta-read(앞 256KB만 받아 EXIF 찍은 시각·위치)·photos-meta-write(confirm:true).
 //   원본을 메모리로만 받아 EXIF 칸만 바꾸고 같은 파일의 새 판(revision)으로 올린다. 받기 전 headRevisionId를 적고 올리기 직전 다시 확인(바뀌었으면 멈춤).
 //   JPEG만, 한 장 30MB·한 번 10장까지. 권한(drive)·위 문은 그대로.
 // 원본·썸네일은 저장하지 않는다. DB에는 켠 폴더와 그 폴더 사진 목록 사본만 둔다(migration 20261031120000).

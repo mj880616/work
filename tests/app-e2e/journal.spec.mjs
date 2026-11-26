@@ -189,7 +189,7 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   if(unlinked.events&&a==='status')return r.fulfill({json:{connected:false}});
   if(unlinked.events&&a==='start'){links.push('events');return r.fulfill({json:{url:'about:blank#calendar-consent'}});}
   if(unlinked.events&&a==='events')return r.fulfill({status:400,json:{error:'Google 캘린더가 연결되지 않았습니다.'}});
-  if(a==='status')return fail.calendarNames?r.fulfill({status:500,json:{error:'QA failure'}}):r.fulfill({json:{connected:true,enabled:true,selected:['c','p1','p2','p3'],calendars:[{id:'c',summary:'공공운수노조'},{id:'p1',summary:'명진승지'},{id:'p2',summary:'Arsenal  명진'},{id:'p3',summary:'가상 생일 달력'}]}});
+  if(a==='status')return fail.calendarNames?r.fulfill({status:500,json:{error:'QA failure'}}):r.fulfill({json:{connected:true,enabled:true,selected:['c','p1','p2','p3'],calendars:[{id:'c',summary:'공공운수노조'},{id:'p1',summary:'가족'},{id:'p2',summary:'Arsenal  사용자'},{id:'p3',summary:'가상 생일 달력'}]}});
   if(a!=='events')return r.fallback();
   const q=new URL(r.request().url()).searchParams;calendarReads.push([q.get('timeMin'),q.get('timeMax')]);
   if(!sources.events||(fail.upcoming&&q.get('timeMin')!==new Date('2026-10-05T00:00:00+09:00').toISOString()))return r.fulfill({status:500,json:{error:'QA failure'}});
@@ -1333,7 +1333,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await openDraft(page);
  expect(f.sent.other.filter(x=>!x.ai)).toEqual([{category:'in.("주간보고›팀 확정본","주간보고›확정본","주간보고 확정본")'}]); // LIB-소분류: 옛 이름·새 소분류 이름 모두 찾음
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
- // 위 [주간보고 한글 파일 만들기] 상자는 없다(명진 결정 ①). 맨 위 한 줄: ■ 일시 · 이름 · 바탕.
+ // 위 [주간보고 한글 파일 만들기] 상자는 없다(사용자 결정 ①). 맨 위 한 줄: ■ 일시 · 이름 · 바탕.
  await expect(page.locator('#journalRoot [data-hwpx-start]')).toHaveCount(0);
  await expect(topLine(page)).toContainText('■ 일시 2026년 10월 12일(월) · 가상 담당 · 바탕 팀 확정본');
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 3. 투쟁 사업장은 흐름 안, 4. 내 담당 조직 전부(바탕 순서, 바탕에 없는 조직은 끝에 빈 칸 — 한흐름 ④).
@@ -1413,7 +1413,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
  await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
  await expect.poll(()=>!!row().draft.feedback).toBe(true);
- // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 명진 결정 ②).
+ // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 사용자 결정 ②).
  const [again]=await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(async()=>{
   await expect(page.locator('.kptu-ask .kptu-ask-note')).toHaveText('옛 판은 30일 동안 자료실 [이전 파일]에 남아요.');
   asks.push(await answerAsk(page,true));
@@ -1497,7 +1497,7 @@ test('[주간 정리] 환류: 개인 확정본 바탕 + 칸 아래 확정본에�
  expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-환류전칸 ⑤(명진 결정 ③): 확정 전이라도 이 주 동작 기록이 30건 넘게 모이고 마지막 정리에서 6시간이 지났으면 [주간 정리]를 열 때
+// WEEKLY-환류전칸 ⑤(사용자 결정 ③): 확정 전이라도 이 주 동작 기록이 30건 넘게 모이고 마지막 정리에서 6시간이 지났으면 [주간 정리]를 열 때
 // 환류 정리(weekly_review)를 한 번 부르고, 부른 시각을 그 주 picks.reviews 에 남긴다(주 3회 상한). 새 규칙 후보는 '주간보고 규칙·환류'에. 가짜 서버·가짜 글만.
 for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: 동작 30건 넘으면 열 때 한 번 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
@@ -1640,7 +1640,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(learn.locator('[data-journal-learn-rule]')).toHaveCount(1);
  expect(row().draft.rules.retired.map(x=>x.text)).toEqual(['가상 규칙 하나','가상 규칙 후보']);
  await expect(learn.locator('[data-journal-learn-retired]')).toHaveCount(0); // 뺀 규칙 목록 두지 않기(S48-33, 데이터는 retired 에 그대로)
- await expect(learn).not.toContainText('다시 후보로');await expect(learn).not.toContainText('뺀 규칙'); // 명진 11/13 19:03: 뺀 규칙 접힘·[다시 후보로] 없음(처리 코드째 삭제)
+ await expect(learn).not.toContainText('다시 후보로');await expect(learn).not.toContainText('뺀 규칙'); // 사용자 11/13 19:03: 뺀 규칙 접힘·[다시 후보로] 없음(처리 코드째 삭제)
  {const vp=page.viewportSize();for(const w of [412,1280]){await page.setViewportSize({width:w,height:900});await learn.screenshot({path:`docs/design/screens/s61-42/4-learn-no-retired-${w}.png`})}await page.setViewportSize(vp)} // 폰 412·PC 1280 사진
  // ③ 개선 제안 묶음 [+ 추가]: 내 개선 생각 한 줄 → 동작 기록('add', 손) → '만들기로 보낸 것'에 '손'으로.
  await learn.locator('[data-learn-idea-add]').click();
@@ -1724,7 +1724,7 @@ const body=multipartBody(r.request());uploads.push(body);return r.fulfill({heade
  await expect(startBox.getByRole('checkbox',{name:/1\. 간단형/})).toBeChecked();
  await expect(startBox.locator('.journal-weekly-start-ask')).toHaveText('파일이 없으면, 어떤 모양으로 만들까요? (여러 개 선택해도 돼요)');
  await expect(weekly.getByRole('button',{name:'빈 양식에서 만들기'})).toHaveCount(0);
- // '주요 일정'은 이제 처음 고르기 1번(간단형)의 항목 이름(시안 #2732, 명진 결정)이라 고르기 화면 밖에서만 본다.
+ // '주요 일정'은 이제 처음 고르기 1번(간단형)의 항목 이름(시안 #2732, 사용자 결정)이라 고르기 화면 밖에서만 본다.
  for(const word of ['요청사항','임원 배정','상집','투쟁 사업장','산하','요약','기본·영역·의제'])await expect(weekly).not.toContainText(word);
  expect(await weekly.evaluate(n=>{const c=n.cloneNode(true);c.querySelector('[data-weekly-start]')?.remove();return c.textContent;})).not.toContain('주요 일정');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('이 기기 안에서만');
@@ -1816,8 +1816,8 @@ test('[주간 보고] 처음 고르기 [4. 직접 만들기]: 빈 양식에서 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-처음시작고르기(시안 #2732 ★A안, 명진 11/17 "ㅇ"): 처음 사람 → 2번 → [양식 수정] 한 번 거쳐 [저장] → '내 양식' 줄 + ⋯ [다른 모양 선택]으로 다시 열기.
-// WEEKLY-처음시작여러개(명진 11/17 16:04): 2·3번을 함께 고르면 항목을 번호 순서대로 이어 붙인 모양, 0개면 시작 못 함.
+// WEEKLY-처음시작고르기(시안 #2732 ★A안, 사용자 11/17 "ㅇ"): 처음 사람 → 2번 → [양식 수정] 한 번 거쳐 [저장] → '내 양식' 줄 + ⋯ [다른 모양 선택]으로 다시 열기.
+// WEEKLY-처음시작여러개(사용자 11/17 16:04): 2·3번을 함께 고르면 항목을 번호 순서대로 이어 붙인 모양, 0개면 시작 못 함.
 for(const width of [412,880,1440])test(`[주간 보고] 처음 고르기 2·3번 함께 → 양식 수정 → 저장 → ⋯ 다른 모양 선택 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width,noConfirmed:true});
  const forms=[];let row=null;
@@ -2006,8 +2006,8 @@ test('[주간 보고] 내 양식 초안: 일정이 늦게 오면 그 항목만 �
 // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 바탕(자료실 확정본)이 있는 사람은 지금 화면 그대로 — 백지·올리기 줄 없이 양식 칸이 다 보인다.
 for(const width of [412,1280])test(`[주간 보고] 바탕이 있으면 백지 없이 지금 화면 그대로 ${width}`,async({page})=>{
  const f=await hwpxFixture(page,{width});
- // ④-2: 바탕이 있는 사람(명진)은 내 양식 초안을 읽지도 그리지도 않는다.
- // ⑤-2(명진 결정 11/16 '가'): '내 양식'(app_weekly_forms)은 엔진 profile로 읽고 없으면 한 번 자동 저장하므로 그 표 요청은 허용 — 초안 표(own_drafts)만 0.
+ // ④-2: 바탕이 있는 사람(사용자)은 내 양식 초안을 읽지도 그리지도 않는다.
+ // ⑤-2(사용자 결정 11/16 '가'): '내 양식'(app_weekly_forms)은 엔진 profile로 읽고 없으면 한 번 자동 저장하므로 그 표 요청은 허용 — 초안 표(own_drafts)만 0.
  const own=[];page.on('request',q=>{if(/\/rest\/v1\/app_weekly_own_drafts/.test(q.url()))own.push(q.url());});
  await openJournal(page,width);await openWeekly(page);
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
@@ -2678,7 +2678,7 @@ test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 아무�
  expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// WEEKLY-내부회의사람별(11/17 명진 "이건 나에게만 해당되는"): 새 사람(빈 목록)·옛 기본 두 종류만 가진 사람에게는 운영자 전용 단어가 걸리지 않는다 —
+// WEEKLY-내부회의사람별(11/17 사용자 "이건 나에게만 해당되는"): 새 사람(빈 목록)·옛 기본 두 종류만 가진 사람에게는 운영자 전용 단어가 걸리지 않는다 —
 // 자기 '집행위' 회의가 주간 정리·복사 글에 들어간다. 정확히 같은 종류만 빠진다.
 for(const [label,list] of [['빈 목록',[]],['옛 기본 두 종류',['궤도집행국회의','본부집행위']]])test(`[주간 정리] 회의 종류: 다른 사람(${label})에게는 내부 정례 회의 단어가 걸리지 않음`,async({page})=>{
  const f=await kindsFixture(page,{width:1280,list});
@@ -3509,7 +3509,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
-// ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
+// ORG-쟁의단계 ②(2026-10-24 사용자 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
 // 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
@@ -3521,7 +3521,7 @@ async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITE
  return f;
 }
 const hist=(org,stage,date)=>({id:`h-${org}-${date}`,organization_id:org,stage_id:stage,stage_name:defaultStageRows().find(r=>r.id===stage).name,stage_date:date,created_at:`${date}T00:00:00Z`});
-for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 쟁의 단계 줄은 넣지 않음(명진 11/13 — 투쟁 중은 칸 그대로, 끝난 조직은 고칠 목록) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 쟁의 단계 줄은 넣지 않음(사용자 11/13 — 투쟁 중은 칸 그대로, 끝난 조직은 고칠 목록) ${width}`,async({page})=>{
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-10-09')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const sites=page.locator('#journalRoot [data-weekly-flow-cells="sites"]');
@@ -4174,7 +4174,7 @@ for(const width of [412,1440])test(`[주간 정리] 칸 줄: 빈 줄 섞인 칸�
  const a1=flowCell(page,'사업영역 가 › 세부 과제 가-1'),b1=flowCell(page,'사업영역 나 › 세부 과제 나-1');
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  const cellRow=key=>row().draft.rows.find(r=>r.section==='summary'&&r.key===key);
- // [+ 추가]로 'ㅇㅇ'(명진 캡처와 같은 시험 줄).
+ // [+ 추가]로 'ㅇㅇ'(사용자 캡처와 같은 시험 줄).
  await a1.getByRole('button',{name:/칸에 줄 추가$/}).click();
  await a1.locator('[data-flow-input]').fill('ㅇㅇ');await a1.locator('[data-flow-input]').press('Enter');
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- ㅇㅇ']);
@@ -4892,7 +4892,7 @@ for(const width of [390,884,1280])test(`WEEKLY-주요일정제자리고치기: �
  expect(f.errors.filter(e=>!/400|429|500|503/.test(e))).toEqual([]);
 });
 
-// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): [주간 정리] AI 초안 안내 줄의 [AI 초안 다시 쓰기]는 [초안 다시 쓰기].
+// OPS-빠진일2차 4(S59-22, 사용자 11/11 14:55 "제안대로 전부"): [주간 정리] AI 초안 안내 줄의 [AI 초안 다시 쓰기]는 [초안 다시 쓰기].
 // 안내 글자 'AI 초안: …'(AI가 쓴 글임을 알림)은 그대로. KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
 for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`[주간 정리] AI 초안 안내 줄 단추 이름: [초안 다시 쓰기] ${label}`,async({page})=>{
  const weekReport={summary:[

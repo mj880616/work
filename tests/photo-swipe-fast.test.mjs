@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-// PHOTO-스와이프안내·PHOTO-크게보기빨리·PHOTO-미리받기앱시작(2026-10-30 요청함 15:42·17:30, 명진 결정 확정).
+// PHOTO-스와이프안내·PHOTO-크게보기빨리·PHOTO-미리받기앱시작(2026-10-30 요청함 15:42·17:30, 사용자 결정 확정).
 // 손동작 판정·안내 횟수·불러오기 시간 글·대기열 peek·앱을 켠 뒤 미리 받기 순서(최근 100장 작은+큰 → 옛날 작은)를 지어낸 서버로 본다.
 // 네트워크·브라우저 없음. Cache Storage는 지어낸 Map(od-thumb-cache.test.mjs와 같은 모양), 큰 그림은 메모리에만.
 

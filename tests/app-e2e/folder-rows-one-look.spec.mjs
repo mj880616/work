@@ -6,7 +6,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// UI-폴더목록한모양(S69-90, 명진 11/25 "파일 인터페이스로 자료실도 바꿔 … 모든 폴더 쓰는 ui를 통일 시키는 거 맞지? 노트 사진 등 모두"):
+// UI-폴더목록한모양(S69-90, 사용자 11/25 "파일 인터페이스로 자료실도 바꿔 … 모든 폴더 쓰는 ui를 통일 시키는 거 맞지? 노트 사진 등 모두"):
 // 폴더를 쓰는 화면(자료실·노트·사진)의 폴더 줄이 [파일] 폴더 줄과 같은 모양인지 계산된 값으로 비교한다 — 줄 높이·글자 크기·폴더 그림 폭·⋯ 크기·⋯ 자리(줄 오른쪽 끝에서),
 // 고른 줄 표시(옅은 강조 바탕 + 왼쪽 세로줄, 줄 앞 체크칸 없음), 개수 글씨(작은 흐린 글씨), 주소 줄 하나(이름이 두 번 보이지 않음).
 // 폰 390 · 폴드 펼침 880 · PC 1280. 이름은 모두 지어낸 것이다(가짜 서버, 쓰기 없음).
@@ -125,7 +125,7 @@ for (const width of [390, 880, 1280]) for (const [name, slug, open] of SCREENS) 
     const got = await look(o);
     await page.screenshot({ path: `${SHOTS}/s69-90-${slug}-${width}.png` });
     expect(got.old, `${name}: 옛 줄 모양(.nx-row)이 없다`).toBe(false);
-    // UI-폴더줄크기(S69-99, 명진 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 폰 목록 폴더 묶음 머리도 모든 값이 [파일]과 같다
+    // UI-폴더줄크기(S69-99, 사용자 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로"): 자료실 폰 목록 폴더 묶음 머리도 모든 값이 [파일]과 같다
     // (전의 LIB-목록간격 ②·LIB-토글트리 ③ 예외를 대신함).
     const keys = ['height', 'font', 'icon', 'dotsW', 'dotsH', 'dotsRight', 'numFont', ...(width < 761 ? ['iconLeft'] : [])];
     for (const k of keys) expect(got[k], `${name} ${width} ${k}`).toBe(base[k]);

@@ -1,4 +1,4 @@
-// S52-20 HOME-잊지말기한목록(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 명진 14:44 '좋은데') ① 한 목록:
+// S52-20 HOME-잊지말기한목록(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 사용자 14:44 '좋은데') ① 한 목록:
 // - 정리함 화면 안은 칸 나눔 없이 한 목록, 새 것이 위. 텔레그램 요청·챙길 것·가족(잊지 말기 제안)·업데이트가 같은 줄(공용 notice-box)·같은 버튼
 //   [할 일로][일정으로][노트로][이미 함] ×. 출처는 아래 작은 줄 맨 앞 흐린 꼬리표.
 // FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html): 모든 줄(가족 빼고) 같은 일곱
@@ -209,7 +209,7 @@ test('통화·텔레그램을 잠그면 소식·텔레그램 요청 줄 대신 �
   await expect(list(page).locator('[data-forget-src="todo"]').first()).toBeVisible();
 });
 
-// S67-25 그 자리 풀기(명진 11/20 "풀 수 있는 방법도 여기에 줘야지"): '잠김' 줄 끝 [풀기] → 화면을 떠나지 않고 작은 PIN 창(잠금 화면과 같은 숫자 판)
+// S67-25 그 자리 풀기(사용자 11/20 "풀 수 있는 방법도 여기에 줘야지"): '잠김' 줄 끝 [풀기] → 화면을 떠나지 않고 작은 PIN 창(잠금 화면과 같은 숫자 판)
 // → 틀리면 남은 횟수(서버 값) → 맞으면 창이 닫히고 같은 자리에 숨긴 줄들이 보인다. 풀기 전에는 소식 글자가 화면에 없다.
 const SHOTS25=process.env.KPTU_SHOTS?'docs/design/screens/s67-25/':'';
 test('412: 잊지 말기 잠김 줄 [풀기] → 그 자리 PIN → 틀리면 남은 횟수 → 맞으면 같은 화면에 줄들이 보임',async({page})=>{
@@ -330,7 +330,7 @@ test('텔레그램 요청 [조직]: 고른 담당조직 기록으로 넣고 후�
   expect(patches[0]).toMatchObject({id:cid(1),from:'open',body:{status:'done'}});
   await expect(line(page,`c:${cid(1)}`)).toHaveCount(0);
 });
-// FORGET-넣기되돌리기(요청함 11/12 09:16, 명진 09:46 'ㅇ'): [조직]·[사업]으로 넣으면 '○○ 기록에 넣었어요 · [되돌리기]'(2초, 공용 알림).
+// FORGET-넣기되돌리기(요청함 11/12 09:16, 사용자 09:46 'ㅇ'): [조직]·[사업]으로 넣으면 '○○ 기록에 넣었어요 · [되돌리기]'(2초, 공용 알림).
 // [되돌리기] = 넣을 때 받은 id로 그 한 줄만 기존 소유자 삭제 길로 지우고, 원래 줄을 처리 전으로 되살린다 → 다시 넣을 수 있다.
 const ORG='d0000000-0000-4000-8000-000000000001';
 const undoBox=page=>page.locator('[data-undo-notice]');
@@ -416,7 +416,7 @@ for(const width of [390,1280])test(`소식 줄 새 기준: 이유 한 줄 + 맞�
   await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','6');
   for(const r of await list(page).locator('[data-forget-src="news"] .nbx-acts').evaluateAll(oneLine)){expect(r.one).toBe(true);expect(r.right).toBeLessThanOrEqual(width);}
 });
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): '옛 소식 n개 새 기준으로 정리 [정리]' 줄은 지웠다.
+// S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): '옛 소식 n개 새 기준으로 정리 [정리]' 줄은 지웠다.
 // 옛 기준 줄(종류 없음)·방향 규칙 전 할 일 줄이 있어도 정리 줄이 없고, 서버 다시 판정(journal_memorable_recheck)도 부르지 않는다. 옛 기준 줄은 세지도 않는다.
 for(const width of [390,1280])test(`옛 소식 정리 줄은 없다(일회용 지움) ${width}`,async({page})=>{
   const news=[newsRow(2,{app_journal_memorable_picks:{kind:'task',reason:'할 일',picked_at:'2026-10-06T01:00:00Z'}}),newsRow(5,{line:'옛 기준 소식',app_journal_memorable_picks:null}),newsRow(6,{line:'옛 기준 둘',app_journal_memorable_picks:null})];
@@ -434,7 +434,7 @@ test('운영자 기능(통화·텔레그램)이 없는 작업공간은 소식 �
   expect(asked).toEqual([]);
 });
 
-// UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 11/7 줄 단추 결정을 바꿈): 폰은 줄에 [할 일로][이미 함] ⋯ 만,
+// UI-잊지말기줄단추(요청함 11/10 11:23, 사용자 '추천대로' — 11/7 줄 단추 결정을 바꿈): 폰은 줄에 [할 일로][이미 함] ⋯ 만,
 // [일정으로][노트로][조직][사업]·×([무시])는 ⋯ 메뉴 안 같은 이름. PC는 마우스를 올린 줄·키보드 초점 줄에만 버튼 전부(할 일 줄과 같은 방식),
 // 우클릭은 그 줄 ⋯ 메뉴. 사진: FORGET_ROW_SHOTS 폴더가 있으면 docs/design/screens/s56-7/ 용으로 남긴다.
 const ROW_SHOTS=process.env.FORGET_ROW_SHOTS||'';
@@ -505,7 +505,7 @@ for(const width of [412,884])test(`폰 ${width}(터치): 줄에는 [할 일로][
   await ctx.close();
 });
 
-// S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁한 일(소식 종류 promise)은 처리 전 할 일·숫자에서 빠지고
+// S61-11 FORGET-요청방향 2단계(사용자 11/13 05:19): 내가 남에게 부탁한 일(소식 종류 promise)은 처리 전 할 일·숫자에서 빠지고
 // 맨 아래 '상대 약속' 줄(꼬리표 '상대 약속 · 텔레그램/통화')에 [원장으로][받음][무시]로 보인다. 화면 사진(SHOT_DIR=docs/design/screens/s61-11로 돌릴 때만): docs/design/screens/s61-11/.
 for(const width of [412,1280])test(`상대 약속 줄: 소식에서 온 상대 약속이 맨 아래, 세지 않음, [받음]은 소식 처리함·되돌리기 ${width}`,async({page})=>{
   const pk=(kind,reason)=>({kind,reason,picked_at:'2026-10-06T01:00:00Z'});
@@ -530,7 +530,7 @@ for(const width of [412,1280])test(`상대 약속 줄: 소식에서 온 상대 �
   expect(newsPatches[0]).toMatchObject({id:nid(4),body:{status:'kept'}});
   await expect(list(page).locator('[data-forget-promise-news]')).toHaveCount(1);
 });
-// S70-20 FORGET-이미한일빼기(명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지"): 서버가 내가 이미 답한 텔레그램 요청을
+// S70-20 FORGET-이미한일빼기(사용자 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지"): 서버가 내가 이미 답한 텔레그램 요청을
 // '이미 함(저절로)'으로 옮긴 줄(auto_done='replied', 처리한 때 = 옮긴 때)은 처리 전 목록에 없고, '이미 함' 보기에 '답장함' 꼬리표 + [되돌리기].
 // 사람이 다시 [이미 함]을 누른 줄(처리한 때가 다름)은 꼬리표·[되돌리기] 없음. [되돌리기]는 기존 되살리기 길(done → open).
 test('390: 내가 답장한 텔레그램 요청은 처리 전에 없고, 이미 함 보기에 답장함 · [되돌리기]로 처리 전',async({page})=>{
@@ -556,7 +556,7 @@ test('390: 내가 답장한 텔레그램 요청은 처리 전에 없고, 이미 
   await expect(line(page,`c:${cid(2)}`).locator('.nbx-acts [data-nbx-act="task"]')).toBeVisible();
 });
 
-// S70-20b FORGET-기본이미함(명진 11/25 12:39 "모두 추천대로"): 업무 제안은 오늘 것은 한 줄씩, 어제 것은 '어제 들어온 요청 n개' 한 줄 묶음(펼치면 같은 줄),
+// S70-20b FORGET-기본이미함(사용자 11/25 12:39 "모두 추천대로"): 업무 제안은 오늘 것은 한 줄씩, 어제 것은 '어제 들어온 요청 n개' 한 줄 묶음(펼치면 같은 줄),
 // ★(마감·직접 부름)는 맨 위. 하루 지나 서버가 옮긴 줄(auto_done='expired')은 '이미 함 · 지남' + [되돌리기](done → open). 가족 줄은 그대로.
 // 시계는 2026-10-06 10:00 KST(openHome) — 어제 = 10/5(서울).
 for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 묶음, ★는 맨 위, 이미 함 보기 지남 · [되돌리기]`,async({page})=>{

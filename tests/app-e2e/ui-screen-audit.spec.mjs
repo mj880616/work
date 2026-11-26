@@ -1,4 +1,4 @@
-// UI-화면정리(2026-10-28 명진 요청 20:03): 세 폭(폰 접은 412·펼친 884·PC 1440) 화면 사진. 가짜 서버(filter-chip-fixture)만 쓰고 운영 서버는 부르지 않는다.
+// UI-화면정리(2026-10-28 사용자 요청 20:03): 세 폭(폰 접은 412·펼친 884·PC 1440) 화면 사진. 가짜 서버(filter-chip-fixture)만 쓰고 운영 서버는 부르지 않는다.
 // 사진은 test-results/ui-audit/에 남고 app-e2e-check.yml이 ui-audit-<shard> artifact로 올린다(전후 비교용). 사진만 찍으며 화면을 고치거나 판정하지 않는다.
 import {test} from '@playwright/test';
 import {mkdirSync} from 'node:fs';

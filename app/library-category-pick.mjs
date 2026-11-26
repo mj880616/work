@@ -1,4 +1,4 @@
-// S51-28 LIB-화면정리(요청 11/06 01:45, 명진 'ㅇ', 시안 docs/design/mockups/library-phone-dropdown.html):
+// S51-28 LIB-화면정리(요청 11/06 01:45, 사용자 'ㅇ', 시안 docs/design/mockups/library-phone-dropdown.html):
 // 폰·폴드(1199px까지)의 자료실 위 한 줄 [찾기][분류: 정책 외 3 ▾][⋯]에서 [분류 ▾]가 여는 고르기 창의 규칙(순수 함수, node --test).
 // 상태 주인은 그대로 library-upload.js의 '꺼 둔 큰 분류 모음(off)'과 고른 소분류(sub) 하나다(PC 칩 줄과 같은 값, 서버 기억도 그대로).
 // 창 안에서는 '고른 분류(picked)'로 보인다: 아무것도 안 골랐으면 = 분류 전체(off 비움). 고르면 고른 것만 보이고 나머지는 off.

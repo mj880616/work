@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {jsStrings} from './ui-words.mjs';
-// HOME-입력종류업데이트글자잊지말기(S62-15, 명진 11/15 17:09 "업데이트, 할일 입력창에 업데이트를 잊지말기로 하란 소리야 / 거기로 가는 거잖아"):
+// HOME-입력종류업데이트글자잊지말기(S62-15, 사용자 11/15 17:09 "업데이트, 할일 입력창에 업데이트를 잊지말기로 하란 소리야 / 거기로 가는 거잖아"):
 // 홈 빠른 입력칸 종류 글자만 '업데이트' → '잊지 말기'. 동작·저장 자리·오른쪽 [잊지 말기 n] 칩·잊지 말기 목록 안 출처 꼬리표·코드 이름은 그대로.
 const strings = f => jsStrings(readFileSync(f, 'utf8')).map(s => s.text);
 

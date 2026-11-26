@@ -1,5 +1,5 @@
 // CALL-원장재료 L-3 (docs/design/ledger-sources.md 6.5·2.4): 통화 메뉴에서 통화를 지울 때 "원장에 들어간 기록"을 알려 주고,
-// 명진이 누르면 [원장에서도 틀림으로]로 그 통화만 근거인 자동 기록을 틀린 기록으로 표시한다(수정 요청 retire, 지우지 않음).
+// 사용자가 누르면 [원장에서도 틀림으로]로 그 통화만 근거인 자동 기록을 틀린 기록으로 표시한다(수정 요청 retire, 지우지 않음).
 // 읽기는 owner RLS REST, 쓰기는 기존 수정 요청 함수 app_apply_ledger_fix 하나뿐(새 DB 함수·권한 없음). 브라우저 저장소 없음.
 import {soleSourceRecords, sourceRetireRequest} from './ledger-browse-model.mjs';
 

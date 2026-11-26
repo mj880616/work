@@ -2,13 +2,13 @@ import {waitHtml, waitInlineHtml, failHtml, emptyHtml} from './wait-state.js';
 // PHOTO-사진메뉴(docs/design/photo-menu.md, 시안 photo-menu-mock.html): '사진' 메뉴(?view=photos). #photosView의 유일한 그리기 주인.
 // 원드라이브 사진·동영상 색인(Edge onedrive-photos, PR 1410: library·months·days·media-url·photo-delete·trash-*)을 읽어 갤러리처럼 보여 준다.
 // - 위 칩 줄: [사진] [달력] [휴지통] · 오른쪽 끝 거르기(전체·★·동영상·스크린샷)·[－][＋]·원드라이브 아이콘(od-link.js).
-//   거르기·칸 수는 서버 view_prefs.photo_view(명진 결정 6, 일기 칸 수와 따로). 칸 수는 폰 3~6·PC 5~12.
+//   거르기·칸 수는 서버 view_prefs.photo_view(사용자 결정 6, 일기 칸 수와 따로). 칸 수는 폰 3~6·PC 5~12.
 // - [사진]: 최신순 격자 120장씩(library cursor) + 날짜 머리줄. 오른쪽 끝 얇은 막대(months)를 끌면 달 말풍선 '2026.09', 놓으면 그 달로.
 // - [달력]: 날마다 대표 사진·장수(days). 칸을 누르면 [사진]의 그날부터.
-// - [휴지통](명진 결정 1): 앱에서 지운 사진('.WORK ON+ 휴지통' 폴더, 옛 이름 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 바꿈). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
+// - [휴지통](사용자 결정 1): 앱에서 지운 사진('.WORK ON+ 휴지통' 폴더, 옛 이름 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 바꿈). 고르면 [되살리기]·[바로 지우기], 위 줄 [모두 비우기].
 // - 크게 보기: 일기와 같은 공용 부품 photo-strip.js. 동영상은 ▶로 재생(media-url play, 주소는 메모리에만), [ⓘ] 판 [⤓ 원본 받기](media-url download).
 // - 여러 장 고르기: 길게 누르기(0.5초)로 시작, 고른 뒤 좌우로 끌면 여러 칸(화면 끝 자동 스크롤). 아래 [☆ 별표] [⇪ 공유] [⤓ 받기] [🗑 지우기].
-//   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(명진 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
+//   지우기는 묻지 않고 바로 빠지고 [되돌리기] 5초(사용자 결정 7), 그 뒤 한 번에(ids ≤ 50) Web2 휴지통으로.
 // - 원드라이브 설정 창(폴더 바꾸기·하위 폴더·연결 끊기)은 일기와 같은 공용 부품 od-settings.js로 이 화면 안에서 연다(결정 4). 연결 뒤에는 이 화면으로 돌아온다(결정 5).
 // PHOTO-출처 ①(요청함 10/30 17:30): 위 줄 오른쪽 출처 아이콘 [원드라이브][구글 드라이브(운영자 기능이 있을 때만, S46-24 ④)][폰 사진(폰 앱에서만)]. 누르면 그 출처 켜기/끄기(서버 view_prefs.photo_sources).
 //   원드라이브 아이콘은 연결 전·문제가 있으면 누를 때 지금처럼 연결 메뉴, 연결 뒤에는 켜기/끄기이고 꾹 누르기(PC 우클릭)가 연결 메뉴다.
@@ -123,12 +123,12 @@ const PHONE_SVG = '<svg class="photos-src-ic" viewBox="0 0 24 24" width="16" hei
 const MARK_SVG = {onedrive:brandIconSvg('onedrive', {size:11}),
   phone:'<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false"><path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.3 1.3H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="currentColor"/></svg>',
   gdrive:brandIconSvg('gdrive', {size:10})};
-// UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [사진|달력|폴더|앨범|휴지통]은 탭 줄이 아니라
+// UI-보기탭드롭다운(11/10 사용자 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기 [사진|달력|폴더|앨범|휴지통]은 탭 줄이 아니라
 // 도구 줄 맨 앞 고르기 상자 [사진 ▾] 하나(고른 이름이 상자 글자). 자료실 [폴더 ▾]·사업 보고 [주 단위 ▾]와 같은 공용 고르기 상자(select, 열리는 목록은 select-menu.js).
 // 출처 아이콘은 맨 위 줄 단추 자리(아래 srcBox, S70-57). 위쪽은 도구 줄 한 줄.
 const viewOptions = TABS.map(v => `<option value="${v}">${TAB_TEXT[v]}</option>`).join('');
 const filterOptions = Object.entries(FILTER_TEXT).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 화면 첫 줄 제목 '사진'은 없앴다 — 폰 틀은 앱 머리 줄(화면 이름 '사진' + 찾기 돋보기),
+// S70-57(사용자 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 화면 첫 줄 제목 '사진'은 없앴다 — 폰 틀은 앱 머리 줄(화면 이름 '사진' + 찾기 돋보기),
 // PC 틀은 상단 줄 위치. 출처 아이콘은 맨 위 줄 단추 자리(screen-find.js 상자 — PC 상단 줄 찾기 칸 오른쪽, 폰 틀 앱 머리 줄 오른쪽)에 산다. 누르기는 이 화면(srcBox에 직접).
 const srcBox = toolsBox('photos', 'photos');
 srcBox.innerHTML = `<span class="photos-srcs src-chips" role="group" aria-label="사진 출처">${odLinkButtonHtml('data-photos-src="onedrive" data-src-chip aria-pressed="true"')}<button type="button" class="mini photos-src-btn" data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>${GDRIVE_SVG}</button><button type="button" class="mini photos-src-btn" data-photos-src="phone" data-src-chip aria-pressed="true" aria-label="폰 폴더" title="폰 폴더" hidden>${PHONE_SVG}</button></span>`;
@@ -373,7 +373,7 @@ async function trashLogged(list, copyOf, {keep}) {
   }
   return {gone, logFail, error};
 }
-// ---- S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로' — 3-① A) ----
+// ---- S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로' — 3-① A) ----
 // 폰 원본을 지우는 모든 길이 지나는 문: 원드라이브 사본 짝 → 서버가 사본을 다시 확인(copy-check) → 확인된 것만 기본으로 지운다.
 // 백업 없음(짝 없음·서버가 못 찾음·확인 못 함)은 따로 세어 체크 한 줄로만 함께 지운다. 지우기 전 개수·용량 요약 확인 한 번. 폰 휴지통(30일 되살림)으로만.
 // 사본 확인을 DEL_CHECK_MS 안에 못 끝내면 확인 못 함(= 백업 없음)으로 본다.
@@ -811,7 +811,7 @@ function gate() {
 }
 // [사진]·[달력]: 켜진 출처 중 하나라도 읽을 수 있으면 막지 않는다.
 const phoneAskHtml = () => '<p class="photos-muted">폰 사진을 보려면 처음 한 번 허용이 필요해요 <button type="button" class="mini" data-photos-phone-ask>사진 접근 허용</button></p>';
-// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
+// S62-36 UI-클라우드연결안내통일(사용자 11/16): 원드라이브·구글 드라이브 둘 다 연결 전이면 [파일]과 같은 한 칸
 // (연결된 클라우드가 없어요 + 아래 줄 [원드라이브 연결][구글 드라이브 연결], 공용 cloudNoneHtml). 하나라도 연결됐으면 ''(그 출처 안내를 따로 보인다).
 // 원드라이브 연결 준비가 안 된 서버(configured:false)면 원드라이브 버튼은 빼고 구글 드라이브 버튼만.
 function cloudNone(cls = '') {
@@ -1233,7 +1233,7 @@ attachPinch(body, () => {
 // 본문이 짧아도 화면 아래까지 손가락을 받도록 본문 칸 높이를 채우고(CSS), 그 탭에서는 두 손가락을 화면 확대 대신 보기 크기로 쓴다.
 // S51-24 UI-빈칸손짓: 본문 칸은 늘 아래 빈 곳까지(예전 100svh - 240px 어림 대신 공용 gesture-fill.js가 잰 높이).
 fillGestureArea(body);
-// UI-폴더줄크기(S69-99, 명진 11/25 08:23): [폴더] 나무(폰 나무·PC 왼쪽 나무) 위 두 손가락 벌리기·오므리기(PC Ctrl+휠) = 폴더 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값).
+// UI-폴더줄크기(S69-99, 사용자 11/25 08:23): [폴더] 나무(폰 나무·PC 왼쪽 나무) 위 두 손가락 벌리기·오므리기(PC Ctrl+휠) = 폴더 줄 크기 한 단계(row-size.js, 모든 폴더 화면 같은 값).
 // 그 폴더로 들어가기는 ⋯ [이 폴더로 들어가기](PC 우클릭도 같은 메뉴)로만. 사진 격자 위는 위 attachPinch(사진 칸 수) 그대로.
 bindFolderPinch(body, {enabled:at => tab === 'folders' && !select.active && (fxTreeShown() || (treeWide() && !!at?.closest?.('[data-photos-fx-tree]')))});
 // FILES-폰폴더위로 ④⑤: 폰 '그 폴더만'에서 화면 왼쪽 끝에서 오른쪽으로 밀기 = [‹]와 같은 곳(fxUp). 손짓 칸은 사진 화면 칸 전체(왼쪽 여백까지).
@@ -2170,7 +2170,7 @@ const switchHtml = (id, name, on) => `<button type="button" role="switch" class=
 const OD_ATTR = {row:'folder', open:'fx-open', tog:'fx-tog', sw:'fx-sw', more:'fx-more'};
 const GD_ATTR = {row:'gf', open:'gf-open', tog:'gf-tog', sw:'gf-sw', more:'gf-more'};
 const countLabel = n => (Number.isInteger(n) ? `사진 ${n}장` : '사진 장수 모름');
-// UI-폴더목록한모양(S69-90, 명진 11/25 "모든 폴더 쓰는 ui를 통일 … 노트 사진 등 모두"): 사진 폴더 줄도 [파일]·노트·자료실과 같은 공용 줄(folder-tree-ui.mjs ftFolderRowHtml)
+// UI-폴더목록한모양(S69-90, 사용자 11/25 "모든 폴더 쓰는 ui를 통일 … 노트 사진 등 모두"): 사진 폴더 줄도 [파일]·노트·자료실과 같은 공용 줄(folder-tree-ui.mjs ftFolderRowHtml)
 // — 줄 높이·글자·폴더 그림·⋯ 자리·개수 모양이 한 곳. 사진만의 칸('사진에 보이기' 스위치·자리 글자)은 after·nameTail로 붙인다. 옛 줄(.nx-row)은 없앴다.
 // 맨 위 단계 모양(굵은 이름)은 PC 나무 맨 위 줄('카메라'·'구글 드라이브')과 그 바로 아래 한 단계(indent ≤ 1, 옛 .nx-top과 같음).
 function folderRowHtml(r, {wide, a = OD_ATTR, cur = r.id === at && pAt === null && gdAt === null, sw = !!tree?.whole, more = true}) {
@@ -2360,7 +2360,7 @@ function fxOdRowsHtml() {
       const key = fxKey('o', f.id), kids = photoSubfolders(tree, f.id).length > 0, open = fxOpen.has(key);
       // FOLD-넓은화면 C: 맨 위 단계 폴더는 카드(표지 칸 + 카드 안 스위치). 꺼 둔 폴더는 흐리게(스위치가 상태를 보여 '끔' 글자는 두지 않음).
       const card = cards && depth === 0, isOff = whole && f.enabled === false;
-      // UI-폴더이름펼치기(명진 11/24 18:09): 빈 폴더도 그 자리에서 펼친다 — 펼친 표시 + 안에 '빈 폴더' 한 줄(들어가지 않음).
+      // UI-폴더이름펼치기(사용자 11/24 18:09): 빈 폴더도 그 자리에서 펼친다 — 펼친 표시 + 안에 '빈 폴더' 한 줄(들어가지 않음).
       const empty = !kids && f.count === 0;
       const row = ftFolderRowHtml({name:f.name, count:fxCount(f.count), countLabel:Number.isInteger(f.count) ? `사진 ${f.count}장` : '', depth, open, hasContent:kids || f.count !== 0 || open,
         color:folderLook.color('od', f.id), off:card ? false : isOff, rowAttrs:{'data-photos-folder':f.id, 'data-ft-key':key}, mainAttrs:{'data-photos-ftog':key},
@@ -2546,7 +2546,7 @@ function paintPhoneFolderGridNow() {
     io.observe(foot);
   }
 }
-// NAV-PC뒤로직전2(명진 결정 11/11 '직전 화면'): 넓은 화면(나무 | 사진)에서 사람이 고른 폴더 = 뒤로 한 칸(router pick, 한 주인).
+// NAV-PC뒤로직전2(사용자 결정 11/11 '직전 화면'): 넓은 화면(나무 | 사진)에서 사람이 고른 폴더 = 뒤로 한 칸(router pick, 한 주인).
 // [폴더] 칩은 라우터 겹(photos-tab, picks:true) 하나이고 고른 폴더는 그 위에 한 칸씩: A → B → ‹ = A → ‹ = [사진]. › 도 같은 기록.
 // 화면이 스스로 보여 준 첫 폴더는 한 칸이 아니다(첫 고름은 겹 칸에 적힌다). 주소 키 pf = 종류:id(o 원드라이브 · p 폰 · g 구글 드라이브).
 const fxNow = () => gdAt !== null ? fxKey('g', gdAt) : pAt !== null ? fxKey('p', pAt) : at ? fxKey('o', at) : '';
@@ -2818,7 +2818,7 @@ function folderClick(b) {
   // FOLDER-나무새기준 ③: 폰 나무 — 펼치기·접기(줄 어디든), 상자 접기, 'n장 더 보기'(그 폴더만), [‹](나무로), 펼친 폴더의 작은 그림(크게 보기).
   if (b.matches('[data-photos-fx-inline-retry]')) { const k = b.closest('[data-photos-strip]')?.dataset.photosStrip; if (k) { fxInline.delete(k); renderFolders(); } return true; }
   if (b.matches('[data-photos-ftog]')) {
-    // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄). 그 폴더만 보기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
+    // UI-폴더이름펼치기(사용자 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기(빈 폴더도 펼쳐 '빈 폴더' 한 줄). 그 폴더만 보기는 ⋯ 첫 줄 [이 폴더로 들어가기]만
     //  (전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 그 폴더만'은 없앴다).
     const k = b.dataset.photosFtog;
     if (fxOpen.has(k)) fxOpen.delete(k); else fxOpen.add(k); renderFolders(); return true;
@@ -2829,7 +2829,7 @@ function folderClick(b) {
   if (b.matches('[data-photos-fx-back]')) { fxToTree(); return true; }
   if (b.matches('[data-photos-inline]')) { const list = fxInline.get(b.dataset.photosInlineOf)?.items || []; if (list.length) openViewer(Number(b.dataset.photosInline), {list:() => list}); return true; }
   if (gdFolderClick(b)) return true;
-  // S69-38 UI-탐색기나무누르기(명진 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): PC(1200px~) 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로
+  // S69-38 UI-탐색기나무누르기(사용자 11/24 '상위폴더를 눌러도 오른쪽에 내용이 보이게 / 모든곳 공통'): PC(1200px~) 나무 폴더 이름 누르기 = 오른쪽을 그 폴더로
   // (하위 폴더가 있어도), 접혀 있으면 펼침 — 공용 부품 ftExplorePress(자료실·[파일]·노트 나무와 같은 부품). 아이콘([data-photos-fx-tog])은 펼치기·접기만.
   // 오른쪽 칸의 하위 폴더 줄·폰·폴드는 지금처럼 그 폴더로.
   if (b.matches('[data-photos-fx-open]')) {

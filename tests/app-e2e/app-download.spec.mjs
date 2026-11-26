@@ -2,10 +2,10 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {accountButton} from './helpers/shell-navigation.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-// APP-앱내려받기버튼(명진 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기], 로그인 뒤 계정 메뉴 '앱 내려받기'.
+// APP-앱내려받기버튼(사용자 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기], 로그인 뒤 계정 메뉴 '앱 내려받기'.
 // 받는 주소는 배포 때 만든 같은 주소 app/phone-app.json(여기서는 흉내)에서 읽은 최신 폰 앱 APK. 없으면 폰 앱 릴리스 목록.
 // BASKET-노조플러스업로드: 윈도우 PC 보조 프로그램(노조+ 파일 올리기)은 app/pc-app.json의 최신 Setup.exe — PC 브라우저에서 로그인 화면 맨 위·계정 메뉴.
-// S63-09 PC도우미구분(명진 11/16): PC 브라우저는 그 위에 "WORK ON+는 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치, 설치 창이 없으면 안내 한 줄).
+// S63-09 PC도우미구분(사용자 11/16): PC 브라우저는 그 위에 "WORK ON+는 브라우저에서 씁니다" 한 줄 + [PC에 앱 설치](브라우저 앱 설치, 설치 창이 없으면 안내 한 줄).
 // 사진: SHOT_DIR=docs/design/screens/s63-09 로 돌릴 때만.
 // 화면 사진: SHOT_DIR=docs/design/screens/s62-09 로 돌릴 때만. 합성 값만 쓴다.
 const ANDROID='Mozilla/5.0 (Linux; Android 14; SM-F956N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36';

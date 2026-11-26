@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
-// HOME-읽을글밀기(2026-11-11 명진 요청): 홈 [하루] '읽을 만한 글' 줄을 왼쪽으로 밀면 숨기기(뉴스 글 hidden_at), 오른쪽으로 밀면 보관(뉴스 글 별표) —
+// HOME-읽을글밀기(2026-11-11 사용자 요청): 홈 [하루] '읽을 만한 글' 줄을 왼쪽으로 밀면 숨기기(뉴스 글 hidden_at), 오른쪽으로 밀면 보관(뉴스 글 별표) —
 // 어느 쪽이든 홈에서 바로 빠지고(서버 표시를 읽어 거름), 알림 [되돌리기]가 돌려 놓는다. PC는 마우스 단추·우클릭 같은 두 항목. 다 처리하면 '다 읽었어요' 한 줄.
 // 가짜 서버만 쓴다: ai-assist(home_day_picks), 표 app_home_day_picks(읽기), 내 뉴스 표시 app_news_marks(숨김 읽기·고치기, NEWS-모두에게열기 ③),
 // 내 읽을 거리 app_reading_items(보관 읽기)·보관 함수 app_reading_keep(S68-27), 환류 app_news_now_signals(더하기). 글은 모두 가짜.
@@ -112,7 +112,7 @@ test('폰 412: 왼쪽 끝까지 밀어도 칸 [보관][숨기기]만 열림(S70-
   const f = await boot(page, 412, 900);
   await expect(reads(page).locator('.journal-head-count')).toHaveText('3');
   await expect(page.locator('#journalRoot [data-journal-read]:visible')).toHaveCount(2); // 처음 둘만 펼침, 하나는 '1개 더' 안
-  // UI-스와이프메뉴만(S70-60, 명진 11/26): 끝까지 밀어도 숨기지 않고 칸만 펼쳐진다. 숨기기는 [숨기기]를 눌렀을 때만.
+  // UI-스와이프메뉴만(S70-60, 사용자 11/26): 끝까지 밀어도 숨기지 않고 칸만 펼쳐진다. 숨기기는 [숨기기]를 눌렀을 때만.
   await swipe(item(page, 1), -320);
   await expect(page.locator('[data-row-swipe-key="hide"]')).toBeVisible();
   await expect(page.locator('[data-row-swipe-key="save"]')).toBeVisible();

@@ -39,7 +39,7 @@ const CASES=[
  ['jinboparty','[진보당 논평] 가상 반대 (10.31)'],['kgreens','성명: 가상 녹색 전환'],['kgreens','가상 기후정의 행진 | 녹색당'],['kmwu','[기자회견] [성명] 가상 이중 꼬리표'],
  ['jacobin','A Fictional Strike Wave - Jacobin'],['labornotes','Fictional organizing | Labor Notes'],['kfsu','가상   빈칸  많은   제목'],['hakbi','(2026. 10. 31.) 가상 날짜 머리'],
  ['platformc','[플랫폼C 논평] 가상 플랫폼 노동'],['socialism','〈성명〉 가상 전진'],['kctu','가상 제목 (공동성명)'],['kctu','가상 제목 2026년 10월 31일'],['kctu','[입장문] 가상 입장'],
- ['kctu','가상 일반 제목 그대로'],['nocatalog','[성명] 카탈로그 밖 단체'],['justice','[브리핑] 가상 대변인 브리핑'],['leftall','「선언」 가상 선언문'],['kptu','[공공운수노조] 가상 기사'],
+ ['kctu','가상 일반 제목 그대로'],['nocatalog','[성명] 카탈로그 밖 단체'],['justice','[브리핑] 가상 대변인 브리핑'],['leftall','「선언」 가상 선언문'],['kptu','[A노조] 가상 기사'],
  ['socialist','제목 없음 · 원문 링크'],['kctu','가상 (괄호) 가운데 제목'],['kgreens','녹색당 논평 - 가상 개발 반대'],
 ];
 const nameOf=k=>OUTSIDE_CATALOG.find(s=>s.key===k)?.name??'';

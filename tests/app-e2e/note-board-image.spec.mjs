@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S70-32 ② 노트 › 보드 이미지(명진 2026-11-25 "보드에 이미지 넣기"): 사진 파일을 끌어 놓기·붙여넣기·[이미지] 단추로 넣는다.
+// S70-32 ② 노트 › 보드 이미지(사용자 2026-11-25 "보드에 이미지 넣기"): 사진 파일을 끌어 놓기·붙여넣기·[이미지] 단추로 넣는다.
 // - 넣은 사진 = 사진 한 장뿐인 노트(제목만, 첨부 사진 1장 — 노트 첨부 basket-files, owner만). 보드에서는 그 카드가 사진으로 보인다.
 // - 올리기 전 사진 정보(EXIF 위치)를 지운다 — 서버에 간 바이트에 위치 글자가 없다.
 // - 새로 불러와도 보이고, 카드 손잡이로 크기 조절·끌어 옮기기, 남의 작업공간 노트 사진(서버 404)은 보이지 않는다. 이름은 지어낸 것.

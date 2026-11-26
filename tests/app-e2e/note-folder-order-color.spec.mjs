@@ -102,7 +102,7 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  // TREE-탐색기꺾쇠(T10, 명진 11/26): 나무 폴더 이름 누르기 = 오른쪽이 그 폴더(펼침 그대로), 두 번 = + 펼치기/접기. 꺾쇠·←/→ = 펼침·접힘만(오른쪽 그대로).
+  // TREE-탐색기꺾쇠(T10, 사용자 11/26): 나무 폴더 이름 누르기 = 오른쪽이 그 폴더(펼침 그대로), 두 번 = + 펼치기/접기. 꺾쇠·←/→ = 펼침·접힘만(오른쪽 그대로).
   // ⋯ [이 폴더로 들어가기]도 같은 곳.
   test('T10 폴더 이름을 누르면 그 폴더 열기(두 번 = + 펼침), 꺾쇠·←/→는 펼침·접힘만(오른쪽 그대로), ⋯ 메뉴로도 들어가기', async ({ page }) => {
     const f = await fixture(page, 1440, { child: true });
@@ -247,7 +247,7 @@ test.describe('PC 1440', () => {
     expect(f.errors).toEqual([]);
   });
 
-  // S70-04 UI-순서는끌기로(명진 11/25 "위로 아래로 버튼 불편함, 드래그로 다 통일"): 폴더 ⋯ 메뉴에 [위로][아래로]가 없고, 키보드는 Alt+↑↓.
+  // S70-04 UI-순서는끌기로(사용자 11/25 "위로 아래로 버튼 불편함, 드래그로 다 통일"): 폴더 ⋯ 메뉴에 [위로][아래로]가 없고, 키보드는 Alt+↑↓.
   test('폴더 ⋯ 메뉴: 위로·아래로 없음, 키보드 Alt+↑↓로 한 칸씩(초점 그대로), 새로고침해도 그대로', async ({ page }) => {
     const f = await fixture(page, 1440);
     for (const n of [1, 2, 3]) {
@@ -290,7 +290,7 @@ test.describe('폰 412', () => {
     await touch('touchEnd', []);
     await expect.poll(order).toEqual([U(3), U(1), U(2)]);
     expect(f.folders.find(x => x.id === U(3)).parent_id).toBe(null);
-    // S69 LONGPRESS-선택(명진 11/24): 끌지 않고 떼면 메뉴가 아니라 선택 모드 + 그 폴더 선택. 메뉴는 ⋯로.
+    // S69 LONGPRESS-선택(사용자 11/24): 끌지 않고 떼면 메뉴가 아니라 선택 모드 + 그 폴더 선택. 메뉴는 ⋯로.
     await tick(page);
     const c = await center(rowSel(2));
     await touch('touchStart', [{ x: c.x, y: c.y }]); await page.waitForTimeout(650); await touch('touchEnd', []);

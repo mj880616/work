@@ -9,7 +9,7 @@
 // 19:24~19:33, 대조표 docs/design/unified-editor.md 9절): the often-used buttons stay on the row, the rest are under [⋯]:
 //   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
 //   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 지금 시각 서식 없이 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
-// NOTE-노션편집 ①(가) (2026-11-25 명진 03:24 "모바일 편집툴 ui는 좋음 / Pc는 기능이 산개돼있는 느낌"): every width now uses the phone's
+// NOTE-노션편집 ①(가) (2026-11-25 사용자 03:24 "모바일 편집툴 ui는 좋음 / Pc는 기능이 산개돼있는 느낌"): every width now uses the phone's
 // grouped row below — the same groups, the same order, the same names. There is no [⌄] row any more (the old PC layout above is history).
 // Wider than a phone a group's first buttons also stand on the row right before their group button (PC_OUT), and the group's list
 // holds the rest, so reading the row then each list gives the same sequence on every width. When the row is too narrow for them,
@@ -236,7 +236,7 @@ const GROUPS = [
   ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
-// UI-화면정리 C(2026-10-28 명진 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
+// UI-화면정리 C(2026-10-28 사용자 요청 20:03 B④): 폰도 PC와 같은 [· ▾] 한 칸(따로 있던 [·][▾] 두 칸은 하나로). 점은 펼친 목록 맨 앞.
 const PHONE_ORDER = ['style', 'strong', 'symDot', ...GROUP_KEYS, 'blocks', 'undo', 'redo'];
 // NOTE-노션편집 ①(가): wider than a phone, each group's first buttons (a prefix of its list, in its order) stand on the row before the group button.
 export const PC_OUT = {
@@ -310,7 +310,7 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // files: null, or {add(file) -> {src, name, size}, open(src)} (S48-21 [파일]; notes).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
 // opens or the last one closes, so a window can give the phone's back button to the box first. closeBoxes() closes them all and returns true when one was open.
-// shortcuts: ED③ 노트 (2026-10-24 명진 결정 2) — true turns on the engine's own markdown shortcuts (prosemirror-inputrules) at the start of a
+// shortcuts: ED③ 노트 (2026-10-24 사용자 결정 2) — true turns on the engine's own markdown shortcuts (prosemirror-inputrules) at the start of a
 // line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
 // puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
 // by default: the share page editor stays as before (결정 2 가 there: no format while typing).

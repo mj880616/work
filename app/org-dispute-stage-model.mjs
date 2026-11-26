@@ -1,10 +1,10 @@
 // ORG-쟁의단계: 쟁의 단계 판정의 유일한 정의(DOM·네트워크 없음). docs/design/org-dispute-stage.md.
 // 담당조직 화면(목록 꼬리표·상세 줄)·쟁의 단계 관리·주간보고 투쟁 사업장 표가 모두 이 모듈 하나로 판정한다.
-// 판정은 단계 이름이 아니라 단계 표시(투쟁 중으로 봄·끝남·기본 단계)로 한다. 이름은 명진이 바꿀 수 있는 글자일 뿐이다.
+// 판정은 단계 이름이 아니라 단계 표시(투쟁 중으로 봄·끝남·기본 단계)로 한다. 이름은 사용자가 바꿀 수 있는 글자일 뿐이다.
 export const STAGE_NAME_LIMIT = 20;
 
 // 처음 쓰는 사람에게 넣는 기본 단계 5개(S67-51 WORK ON+: 업종 없는 진행 단계, docs/design/workon-union-assumptions-audit.md C2).
-// 예전 기본 11개(교섭 시작 전~임단협 찬반투표·협약체결, 명진 결정 2026-10-24)는 이미 단계를 가진 작업공간에 그대로 남는다 — 넣기는 기본 단계가 없을 때 한 번뿐이다.
+// 예전 기본 11개(교섭 시작 전~임단협 찬반투표·협약체결, 사용자 결정 2026-10-24)는 이미 단계를 가진 작업공간에 그대로 남는다 — 넣기는 기본 단계가 없을 때 한 번뿐이다.
 // 기본 단계 줄을 가장 먼저 넣는다(지우기 함수가 기본 단계를 찾기 때문). '주의 필요'는 표시 '투쟁 중으로 봄'(is_struggle), 완료·종료는 '끝남'.
 // 판정은 이름이 아니라 표시로 하므로 이름은 각자 바꿔 쓴다(단계 관리).
 export const DEFAULT_STAGES = Object.freeze([
@@ -57,7 +57,7 @@ export function stageOfOrg(orgId, histories, stages, {until = ''} = {}) {
   return {row, stage, name: stage?.name ?? row.stage_name, date: row.stage_date, end: row.end_date || '', kind};
 }
 
-// ───── 단계 기간(끝 날짜, 2026-10-24 11:05 명진 결정) ─────
+// ───── 단계 기간(끝 날짜, 2026-10-24 11:05 사용자 결정) ─────
 // 이력 줄의 끝 날짜(end_date)는 선택 칸이다. 비우면 그 날 하루. 끝 ≥ 시작(DB 검사와 같은 규칙).
 export const endOf = row => (row?.end_date || row?.end || row?.stage_date || row?.date || '');
 export function periodProblem(start, end) {
@@ -104,7 +104,7 @@ export function reportKind(cur, week) {
   return '';
 }
 
-// 목록 꼬리표(ORG-단계꼬리표전부, 2026-11-13 명진 결정): 날짜와 상관없이 모든 조직에 지금 단계를 늘 보인다.
+// 목록 꼬리표(ORG-단계꼬리표전부, 2026-11-13 사용자 결정): 날짜와 상관없이 모든 조직에 지금 단계를 늘 보인다.
 //   kind = 'struggle'(투쟁 중, 주황) | 'ended'(끝남, 초록) | 'quiet'(평시·지워진 단계, 회색). 판정은 stageOfOrg의 단계 표시 그대로.
 //   이력이 없으면 stageOfOrg가 기본 단계(교섭 시작 전)를 돌려준다. 이름이 없을 때(단계 목록이 비어 있음)만 null.
 //   주간보고 투쟁 사업장 표 규칙(reportKind)과는 따로다 — 표 규칙은 바꾸지 않는다.

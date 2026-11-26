@@ -67,7 +67,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(list.locator('.br-row').nth(0).locator('[data-br-start]')).toHaveText('브리핑 받기');
     await expect(list.locator('.br-row').nth(1)).toContainText('만드는 중 7/12');
     await expect(list.locator('.br-row').nth(2)).toContainText('평가 지표 중 인건비 항목 배점이 늘고');
-    // S68-44(명진 11/23): 다 된 줄 날짜는 진행 칸 수 'n/m'과 헷갈리지 않는 노트 목록 표기('10.05', 다른 해 '26.10.05'), 진행 줄은 '만드는 중 7/12' 그대로.
+    // S68-44(사용자 11/23): 다 된 줄 날짜는 진행 칸 수 'n/m'과 헷갈리지 않는 노트 목록 표기('10.05', 다른 해 '26.10.05'), 진행 줄은 '만드는 중 7/12' 그대로.
     await expect(list.locator('.br-row').nth(1).locator('.br-st')).toHaveText('만드는 중 7/12');
     await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
     await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
@@ -108,7 +108,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
   });
 }
 
-// S68-56(명진 11/23 15:06·15:12 "미리 정한 칸에 우겨넣지 말고 걍 요약"): 새 형식(v3) — 요지 띠, AI가 정한 소제목(앞 3개 펼침·나머지 접힘),
+// S68-56(사용자 11/23 15:06·15:12 "미리 정한 칸에 우겨넣지 말고 걍 요약"): 새 형식(v3) — 요지 띠, AI가 정한 소제목(앞 3개 펼침·나머지 접힘),
 // 발언자는 문장 안, 항목 옆 쪽 링크·'우리 관련' 작은 표시, 원문 인용(접힘, 발언자·쪽). [할 일로]·챙길 일·대응할 것 없음.
 const brief3 = {
   v: 3, lead: '국토교통부 철도국장이 연내 운영 기준 마련을 약속함.',

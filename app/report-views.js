@@ -34,7 +34,7 @@ function overdueHtml(list, colorOf, open) {
 }
 const LEGEND = `<p class="rv-legend" aria-hidden="true"><span>${markHtml('done', '')}쓴 보고</span><span>${markHtml('todo', '')}보고할 일정</span><span>${markHtml('ask', '')}보고할까요?</span></p>`;
 
-// 사진 줄 하나: 작은 그림 3장 + '외 n장'(명진 결정). 사진이 없으면 빈 글.
+// 사진 줄 하나: 작은 그림 3장 + '외 n장'(사용자 결정). 사진이 없으면 빈 글.
 const stripHtml = (m, photos) => (photos?.get?.(m.id)?.length ? reportPhotosHtml(m.id, photos) : '');
 
 // 달력. ctx = {rows, month, selectedDay, todayKey, photos(Map), colorOf(m), nameOf(m), metaOf(m), plan, planColorOf(item), dueOpen}

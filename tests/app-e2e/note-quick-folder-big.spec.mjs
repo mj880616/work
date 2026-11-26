@@ -3,7 +3,7 @@ import { pickInSheet } from './helpers/folder-sheet.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
-// S66-06 NOTE-폴더고른뒤크게(명진 11/18 17:47, 폰 폴드 접은 화면·폰 앱): 노트 [목록] 보기에서 입력 줄 [폴더 ▾]로 폴더를 고른 뒤
+// S66-06 NOTE-폴더고른뒤크게(사용자 11/18 17:47, 폰 폴드 접은 화면·폰 앱): 노트 [목록] 보기에서 입력 줄 [폴더 ▾]로 폴더를 고른 뒤
 // ① [⤢ 크게]를 누르면 노트 쓰기 창이 그 폴더로 열려야 하고 ② 입력칸을 누르면 [목록] 보기 그대로(화면을 다시 그리지 않음)여야 한다.
 // 폴더를 고르지 않은 경우(지금 잘 되는 길)도 같은 기대로 함께 본다. 가짜 자료만 쓴다. 폰 412 · PC 1280.
 test.use({ hasTouch: true });
@@ -76,7 +76,7 @@ for (const width of [412, 1280]) for (const picked of [true, false]) {
   });
 }
 
-// S66-08 NOTE-폴더고른뒤크게(명진 11/18 20:28 "앱 맞음"): 폰 앱 흉내·늦은 뒤로에서도 같은 기대(폰 412·폴드 접은 화면 344).
+// S66-08 NOTE-폴더고른뒤크게(사용자 11/18 20:28 "앱 맞음"): 폰 앱 흉내·늦은 뒤로에서도 같은 기대(폰 412·폴드 접은 화면 344).
 for (const width of [344, 412]) for (const [label, opts] of [['폰 앱 흉내', { app: true }], ['늦은 뒤로', { lateBack: true }], ['폰 앱 흉내 + 늦은 뒤로', { app: true, lateBack: true }]]) {
   test(`${label}: 폴더를 고른 뒤 [⤢ 크게] → 노트 쓰기 창 ${width}`, async ({ page }) => {
     const f = await fixture(page, width, opts);

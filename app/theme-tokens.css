@@ -1,4 +1,4 @@
-/* S67-64(2026-11-21 명진 08:15 "기본 색상을 먹으로"): 기본 색은 먹 — 바탕·글자 계열은 오트밀(옛 기본 올리브와 같은 바탕),
+/* S67-64(2026-11-21 사용자 08:15 "기본 색상을 먹으로"): 기본 색은 먹 — 바탕·글자 계열은 오트밀(옛 기본 올리브와 같은 바탕),
    바탕·글자·선 값은 옛 기본 올리브와 똑같고, 강조(주 버튼 채움·고른 아래 탭·고른 칩·링크·고른 날 동그라미)만 먹 #22262b 위 글자 #f3f1ea, 연한 고른 바탕은 #e7e5df.
    옛 먹(#4a4a46 회색)을 고른 사람도 이 먹으로 보인다. 올리브는 고르는 색 하나로 남는다. */
 :root,[data-theme="ink"]{
@@ -39,9 +39,9 @@
   --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
   --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
 }
-/* UI-화면색10(명진 결정 2026-10-27): 열 가지. 15:35 재정리로 테라코타·모래·쑥·장미·겨자를 빼고 하늘·민트·코랄·레몬·빨강을 더했다. 차례는 수수한 다섯(올리브·남색·먹·라벤더·청록) → 산뜻한 다섯. 이름 목록은 view-prefs.js THEMES 한 곳.
+/* UI-화면색10(사용자 결정 2026-10-27): 열 가지. 15:35 재정리로 테라코타·모래·쑥·장미·겨자를 빼고 하늘·민트·코랄·레몬·빨강을 더했다. 차례는 수수한 다섯(올리브·남색·먹·라벤더·청록) → 산뜻한 다섯. 이름 목록은 view-prefs.js THEMES 한 곳.
    산뜻한 다섯은 버튼·강조색은 선명하게, 바탕(--kptu-bg)은 같은 색을 아주 연하게 둔다. 견본 값(하늘 #2F7FD0·민트 #168F78·코랄 #E0613A·레몬 #F5CC00·빨강 #D7261E)에서 시작해 흰 글자 대비 4.5:1(tests/theme-contrast.test.mjs)에 맞춰 하늘·민트·코랄만 조금 어둡게 했다(빨강은 견본 그대로).
-   UI-선택표시톤다운(명진 2026-10-28 18:40): 레몬은 형광 노랑을 차분한 버터·겨자(#e3c25a)로, 바탕도 덜 노랗게. 빨강은 경고처럼 보이지 않게 조금 어두운 벽돌색(#b23a2e). 코랄은 [저장] 같은 주 버튼 색만 살짝 낮춤(#b8553a). 나머지 일곱 색은 그대로.
+   UI-선택표시톤다운(사용자 2026-10-28 18:40): 레몬은 형광 노랑을 차분한 버터·겨자(#e3c25a)로, 바탕도 덜 노랗게. 빨강은 경고처럼 보이지 않게 조금 어두운 벽돌색(#b23a2e). 코랄은 [저장] 같은 주 버튼 색만 살짝 낮춤(#b8553a). 나머지 일곱 색은 그대로.
    레몬은 노랑 위에 흰 글자가 안 읽혀 버튼·선택 표시 글자를 진한 갈색(--kptu-on-primary)으로 둔다. 레몬 강조색 자체는 밝은 바탕과 3:1이 안 되므로 글자·링크·구역 제목에는 쓰지 않고 진한 노랑(--kptu-primary-ink·--kptu-link)을 쓴다. */
 [data-theme="sky"]{
   --kptu-bg:#eef6fd;--kptu-surface:#fcfeff;--kptu-surface-subtle:#f5fafe;
@@ -92,7 +92,7 @@
 /* UI-디자인기준(8-9c): 새 디자인 기준의 공통 값. 값은 여기 한 곳에만 둔다.
    새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
-  /* S67-64 UI-윗줄한줄(명진 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
+  /* S67-64 UI-윗줄한줄(사용자 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
   --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
@@ -101,7 +101,7 @@
   --ds-radius-box:12px;--ds-radius-control:8px;
   /* 버튼 높이 하나: 홈 빠른 입력 [추가] 높이(2026-10-16 측정 폰 390·PC 1280 모두 46px). 누르는 영역 44px 이상. */
   --ds-control-height:46px;--ds-control-pad-x:14px;
-  /* MTG-보고창칸정리(명진 2026-10-27): 창 안 한 줄 입력·고르기 칸 높이 하나(전에는 46px). 큰 버튼(--ds-control-height)과 별개다. */
+  /* MTG-보고창칸정리(사용자 2026-10-27): 창 안 한 줄 입력·고르기 칸 높이 하나(전에는 46px). 큰 버튼(--ds-control-height)과 별개다. */
   --ds-field-height:28px;
   /* UI-버튼크기(2026-10-17 사용자 결정): 큰 버튼(--ds-control-height)은 그 화면의 주 동작만. 전환(세그먼트)·필터(알약 칩)·보조 버튼은
      보이는 높이 32px·글자 13px이고, 누르는 범위는 위아래로 늘려 --kptu-touch-target(44px)을 지킨다. */
@@ -114,17 +114,17 @@
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
   /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
   --ds-compact-height-sm:28px;
-  /* UI-보기탭한모양(S52-17, 2026-11-07 명진 'ㅇ', 시안 docs/design/mockups/bottom-view-tabs.html): ⑤ 보기 바꾸기 한 모양 —
+  /* UI-보기탭한모양(S52-17, 2026-11-07 사용자 'ㅇ', 시안 docs/design/mockups/bottom-view-tabs.html): ⑤ 보기 바꾸기 한 모양 —
      연한 알약 바탕(--ds-seg-track) 안에서 고른 칸만 흰 알약(--ds-seg-on)·굵게(--ds-weight-strong). 바탕과 칸 사이 여백 --ds-seg-inset, 칸 사이 --ds-seg-gap. */
   --ds-seg-track:var(--ds-kind-other-soft);--ds-seg-on:var(--kptu-surface);--ds-seg-on-shadow:0 1px 2px rgb(0 0 0 / 12%);
   --ds-seg-inset:3px;--ds-seg-gap:2px;--ds-weight-strong:600;
   /* UI-버튼간격(S49-40): 같은 줄에 나란한 버튼·글자 버튼 사이 간격은 이 값 하나(공용 버튼 줄 .btn-row). */
   --ds-button-gap:8px;
-  /* UI-칩줄두줄(2026-10-31 명진 결정): 칩 줄의 칩은 더 작고 낮게(26px·12px·좌우 8px), 칩 사이 4px(줄 사이도 4px). 줄이 두 줄이라 누르는 범위는 칩 + 둘레 2px(이웃 줄과 겹치지 않음). */
+  /* UI-칩줄두줄(2026-10-31 사용자 결정): 칩 줄의 칩은 더 작고 낮게(26px·12px·좌우 8px), 칩 사이 4px(줄 사이도 4px). 줄이 두 줄이라 누르는 범위는 칩 + 둘레 2px(이웃 줄과 겹치지 않음). */
   --ds-chip-row-height:26px;--ds-chip-row-pad-x:8px;--ds-chip-row-gap:4px;
   /* LIB-맨위다듬기(S53-18): 거르기 칩 줄과 바로 위 줄(보기 탭·찾기 칸) 사이 간격. 화면마다 같은 값. */
   --ds-chip-row-above:6px;
-  /* S70-24 READ-저장한글기본전체(명진 11/25 "메뉴랑 밑에 줄이랑 여백 없어서 답답함"): 보기 탭이 든 머리줄과 그 아래 목록 첫 줄 사이 간격. 위 칩 줄 간격과 같은 값. */
+  /* S70-24 READ-저장한글기본전체(사용자 11/25 "메뉴랑 밑에 줄이랑 여백 없어서 답답함"): 보기 탭이 든 머리줄과 그 아래 목록 첫 줄 사이 간격. 위 칩 줄 간격과 같은 값. */
   --ds-view-tabs-below:var(--ds-chip-row-above);
   --ds-color-dot:12px; /* UI-색점(S52-18): 이름 옆 색 표시 점 하나의 크기(.ui-color-dot) */
   --ds-row-pad-y:9px;--ds-row-pad-x:12px;
@@ -138,15 +138,15 @@
   --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
   --ds-kind-task-soft:#e1f5ee;--ds-kind-task-ink:#0f6e56;
   --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
-  /* UI-선택표시톤다운(명진 2026-10-28, docs/design-decisions.md '선택 표시 규칙'): 고른 메뉴·탭·전환·필터 = 연한 바탕 + 얇은 선(세로 메뉴·목록 줄은 왼쪽 --kptu-shadow-select, 가로 전환은 아래 2px 선(ui-standard.css ::before), 알약 칩은 테두리) + 보통 글자.
+  /* UI-선택표시톤다운(사용자 2026-10-28, docs/design-decisions.md '선택 표시 규칙'): 고른 메뉴·탭·전환·필터 = 연한 바탕 + 얇은 선(세로 메뉴·목록 줄은 왼쪽 --kptu-shadow-select, 가로 전환은 아래 2px 선(ui-standard.css ::before), 알약 칩은 테두리) + 보통 글자.
      꽉 칠한 주 색(--kptu-primary)은 [저장] 같은 누르는 주 버튼에만. 오늘 날짜는 칸 둘레 네모 선(--ds-today-line), 숫자는 강조 글자색(--ds-today-ink).
      선 색은 글자로 쓰는 강조색(--kptu-primary-text)이라 열 가지 색·밝은/어두운 화면 모두 연한 바탕 위에서 3:1 이상(tests/theme-contrast.test.mjs). */
   --ds-select-bg:var(--kptu-primary-soft);--ds-select-ink:var(--kptu-ink);--ds-select-line:var(--kptu-primary-text);
   /* 선 그림자는 Design System 1.0 규칙(box-shadow는 --kptu-shadow-* 토큰만)을 따라 --kptu-shadow-* 이름이다. */
   --kptu-shadow-select:inset 2px 0 0 var(--ds-select-line);
   --ds-today-ink:var(--kptu-primary-text);
-  /* UI-오늘표시통일(명진 2026-10-29) → UI-오늘네모(명진 2026-10-30): 앱의 모든 달력에서 '오늘'은 칸 둘레 전체 진한 네모 선(--ds-today-line)만(숫자 동그라미 없음).
-     UI-고른날진하게(명진 2026-11-12): 고른 날은 날짜 숫자에 진한 채운 동그라미(--ds-day-sel-bg = 테마 주 색)·흰 숫자(--ds-day-sel-ink). 오늘을 고르면 네모 + 채운 동그라미.
+  /* UI-오늘표시통일(사용자 2026-10-29) → UI-오늘네모(사용자 2026-10-30): 앱의 모든 달력에서 '오늘'은 칸 둘레 전체 진한 네모 선(--ds-today-line)만(숫자 동그라미 없음).
+     UI-고른날진하게(사용자 2026-11-12): 고른 날은 날짜 숫자에 진한 채운 동그라미(--ds-day-sel-bg = 테마 주 색)·흰 숫자(--ds-day-sel-ink). 오늘을 고르면 네모 + 채운 동그라미.
      선 색은 테마의 진한 강조 글자색(일기 달력 고른 칸과 같은 색 --kptu-primary-ink)이다. 노랑(나한테 온 요청 전용)은 쓰지 않는다.
      칸이 작은 달력(사진 달력)은 얇은 선(--ds-today-line-width-sm). 규칙은 ui-standard.css '오늘 표시' 한 곳. */
   --ds-today-line:var(--kptu-primary-ink);--ds-today-line-width:2px;--ds-today-line-width-sm:1.5px;
@@ -155,7 +155,7 @@
   /* S51-8 NEWS-전면개편 P4b: News 목록 매체 색(묶음마다 색 계열 하나 · 매체마다 톤다운 한 칸, 계산은 news-colors.mjs 하나)과 분류 꼬리표 4색. */
   --ds-news-labor-1:#a3412e;--ds-news-labor-2:#b8434f;--ds-news-labor-3:#c0643c;--ds-news-labor-4:#8f4a3a;
   --ds-news-party-1:#1f7a78;--ds-news-party-2:#2c8c86;--ds-news-party-3:#3a6f80;--ds-news-party-4:#2a6b5e;
-  /* NEWS-고유색(명진 2026-11-10, 시안 news-identity-colors.html): 키별 고정 색(표는 news-colors.mjs FIXED_*). --ds-news-id-<키> = 이름 글자, -bar = 막대(한 색 또는 여러 색 띠).
+  /* NEWS-고유색(사용자 2026-11-10, 시안 news-identity-colors.html): 키별 고정 색(표는 news-colors.mjs FIXED_*). --ds-news-id-<키> = 이름 글자, -bar = 막대(한 색 또는 여러 색 띠).
      막대는 고유색 그대로(정의당 샛노랑·진보당 주황·녹색당 녹색·노동당 빨강·금속노조 네이비·공공운수노조 네이비·회색·빨강 3색). 글자는 흰 바탕 대비 4.5:1 이상 — 모자라는 밝은 색만 같은 계열 진한 색. */
   --ds-news-id-justice:#946f00;--ds-news-id-justice-bar:#ffcc00;
   --ds-news-id-jinboparty:#b85a00;--ds-news-id-jinboparty-bar:#ff7a00;
@@ -163,7 +163,7 @@
   --ds-news-id-laborparty:#e60012;--ds-news-id-laborparty-bar:#e60012;
   --ds-news-id-kmwu:#1b2a5c;--ds-news-id-kmwu-bar:#1b2a5c;
   --ds-news-id-kptu:#1b2a5c;--ds-news-id-kptu-bar:linear-gradient(#1b2a5c 0 33.3%,#8c8c8c 33.3% 66.6%,#d7282f 66.6% 100%);
-  /* NEWS-고유색 나머지(S57-11, 명진 2026-11-11 08:53 '시안 없이 공식 로고·누리집 대표색으로 바로 적용'): 단체·언론 카탈로그 전부 키별 고정 색. 조사 표·근거·확인 정도: docs/design/news-identity-colors.md.
+  /* NEWS-고유색 나머지(S57-11, 사용자 2026-11-11 08:53 '시안 없이 공식 로고·누리집 대표색으로 바로 적용'): 단체·언론 카탈로그 전부 키별 고정 색. 조사 표·근거·확인 정도: docs/design/news-identity-colors.md.
      로고·누리집에서 색 값을 직접 확인한 곳은 표에 [확인], 못 한 곳은 [추정]·구분용 임시색으로 적었다(확인 뒤 이 줄만 바꾸면 됨). 서로 비슷한 색은 표에서 표시하고 구분되게 조정했다. */
   --ds-news-id-kctu:#a8182a;--ds-news-id-kctu-bar:#a8182a;
   --ds-news-id-kfsu:#008185;--ds-news-id-kfsu-bar:#00b2b8;
@@ -201,7 +201,7 @@
   --ds-news-id-news-psi:#007a85;--ds-news-id-news-psi-bar:#007a85;
   --ds-news-id-news-itf:#46588a;--ds-news-id-news-itf-bar:#46588a;
   --ds-news-id-news-labourstart:#5b8024;--ds-news-id-news-labourstart-bar:#97cc48;
-  /* NEWS-고유색 새 매체(S58-5, 명진 11/11 '추천대로'): NEWS-못넣은곳대안 ②로 카탈로그에 들어온 매체도 키별 고정 색. 로고·누리집 색을 못 읽은 [추정] 구분용 임시색(표 docs/design/news-identity-colors.md). 확인 뒤 이 줄만 바꾸면 됨.
+  /* NEWS-고유색 새 매체(S58-5, 사용자 11/11 '추천대로'): NEWS-못넣은곳대안 ②로 카탈로그에 들어온 매체도 키별 고정 색. 로고·누리집 색을 못 읽은 [추정] 구분용 임시색(표 docs/design/news-identity-colors.md). 확인 뒤 이 줄만 바꾸면 됨.
      S59-1: 길이 없어 카탈로그에서 뺀 7곳(부산일보·뉴스1·이데일리·국제신문·경기일보·경인일보·영남일보)과 미디어오늘의 토큰은 뺐다(값은 그 표에 남김). */
   --ds-news-id-news-worknworld:#7d382c;--ds-news-id-news-worknworld-bar:#7d382c;
   --ds-news-id-news-newsmin:#4f6a2f;--ds-news-id-news-newsmin-bar:#4f6a2f;
@@ -254,9 +254,9 @@
   --ds-note-ink:#2f2f2a;--ds-note-ink-soft:#4a4a44;--ds-note-ink-faint:#6b6b63;--ds-note-fold:rgba(0,0,0,.16);--ds-note-shadow:0 1px 2px rgba(0,0,0,.14),0 4px 10px -6px rgba(0,0,0,.25);--ds-note-shadow-lift:0 6px 18px -4px rgba(0,0,0,.35);
   /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
-  /* UI-눌림느낌(2026-10-27 명진 요청): 누르는 순간 살짝 작아지고(--ds-press-scale) 바탕이 조금 진해진다(--ds-press-tint, 바탕 위에 한 겹).
+  /* UI-눌림느낌(2026-10-27 사용자 요청): 누르는 순간 살짝 작아지고(--ds-press-scale) 바탕이 조금 진해진다(--ds-press-tint, 바탕 위에 한 겹).
      큰 줄·카드는 눌림 도우미(press-feedback.js)가 --ds-press-scale-wide로 낮춘다. 복사됨 글자 색은 --ds-done-ink.
-     UI-누름움직임(2026-11-06 명진 요청 22:44 "명확하게 눌렸다는 모션"): .97·9% → .94·14%(어두운 화면 13% → 18%), 작아지는 시간 0.08초 → 0.04초
+     UI-누름움직임(2026-11-06 사용자 요청 22:44 "명확하게 눌렸다는 모션"): .97·9% → .94·14%(어두운 화면 13% → 18%), 작아지는 시간 0.08초 → 0.04초
      (톡 치는 짧은 누름에도 끝까지 작아진 모습이 보이게). 큰 줄·카드(.985)는 그대로.
      할 일 체크 움직임(작아짐·물결 → 채움·체크 → 줄 긋기)은 --ds-check-ms 안에 끝난다. */
   --ds-press-scale:.94;--ds-press-scale-wide:.985;--ds-press-tint:rgb(0 0 0 / 14%);--ds-press-ms:40ms;--ds-check-ms:240ms;

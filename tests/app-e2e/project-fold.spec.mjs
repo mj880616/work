@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
-// PRJ-목록접어두기 (2026-10-24 요청함 15:00 명진 승인 시안): 잘 안 여는 프로젝트를 목록 맨 아래 '▸ 접어 둔 것 n' 한 줄로 접는다.
+// PRJ-목록접어두기 (2026-10-24 요청함 15:00 사용자 승인 시안): 잘 안 여는 프로젝트를 목록 맨 아래 '▸ 접어 둔 것 n' 한 줄로 접는다.
 // 저장은 기존 app_spaces.metadata.folded(소유자 PATCH, DB 변경 없음) — 폰·PC 같게. 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const at=n=>`2026-09-0${n}T00:00:00Z`;

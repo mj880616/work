@@ -4,7 +4,7 @@ import {bootLibrary,libDoc,libFolder,press} from './helpers/library-folder-serve
 import {folderSheet,sheetGo} from './helpers/folder-sheet.mjs';
 // S69-62: 옮길 폴더 바꾸기 = [파일] '옮길 곳' 창 하나 — 줄 누르기는 고르기, [이 폴더로 정하기]로만 정한다.
 const sheetId=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
-// S61-13 LIB-정돈제안(시안 docs/design/mockups/lib-tidy-suggest.html, 명진 11/13 04:31·04:36):
+// S61-13 LIB-정돈제안(시안 docs/design/mockups/lib-tidy-suggest.html, 사용자 11/13 04:31·04:36):
 // 자료실 맨 위 ⋯·빈 자리 우클릭·폴더 메뉴 [정돈 제안] → 창이 바로 뜨고 묶음은 뒤에서 채움 → 같은 종류인데 폴더가 갈라진 자료를 묶음으로
 // ('지금: … 3 · … 1') → 묶음마다 [옮기기|그대로]·체크·옮길 폴더 ▾ → [옮기기]를 눌러야 옮김 → 되돌리기 한 번으로 전부 원래 자리, 새 빈 폴더도 지움.
 // '회의 녹음' 폴더의 녹음은 묶음에서 빠진다. 가짜 서버·지어낸 이름만. TIDY_SHOTS에 폴더를 주면 PR 사진을 남긴다.

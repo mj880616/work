@@ -1,5 +1,5 @@
 // S68-23: 공용 읽기(_shared/feed-fetch.ts)의 robots.txt 건너뛰기는 '부르는 쪽이 skipRobots: true를 명시할 때만'이다.
-// 명진 결정 2026-11-22 "1. A": 사람이 직접 저장한 기사 한 쪽(note-import)만 robots.txt를 보지 않는다. 자동 수집(news-feed·now-detail-build 등)은 그대로 지킨다.
+// 사용자 결정 2026-11-22 "1. A": 사람이 직접 저장한 기사 한 쪽(note-import)만 robots.txt를 보지 않는다. 자동 수집(news-feed·now-detail-build 등)은 그대로 지킨다.
 // 네트워크 없음: 사이트는 모두 지어낸 응답이다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,7 +62,7 @@ test('skipRobots를 넘기는 함수는 note-import·news-feed 원문 reader·ou
   assert.deepEqual(hits.sort(), ['supabase/functions/_shared/feed-fetch.ts', 'supabase/functions/collector-feed/handler.ts', 'supabase/functions/news-feed/handler.ts', 'supabase/functions/note-import/handler.ts', 'supabase/functions/outside-feed/handler.ts']);
   const handler = readFileSync('supabase/functions/note-import/handler.ts', 'utf8');
   assert.match(handler, /skipRobots: SKIP_ROBOTS,/);
-  // S68-25(명진 결정 2026-11-22): News 원문 reader 두 개(page·open)만 건너뛴다. 매체 피드 reader(catalog)는 robots 확인 그대로.
+  // S68-25(사용자 결정 2026-11-22): News 원문 reader 두 개(page·open)만 건너뛴다. 매체 피드 reader(catalog)는 robots 확인 그대로.
   const news = readFileSync('supabase/functions/news-feed/handler.ts', 'utf8');
   assert.equal((news.match(/skipRobots: ARTICLE_SKIP_ROBOTS/g) || []).length, 2);
   assert.match(news, /catalog: \(s, person = false\) => makeFeedReader\(\{ \.\.\.base, allow: \(raw\) => allowedUrl\(s, raw\), \.\.\.t\(person\) \}\)/);

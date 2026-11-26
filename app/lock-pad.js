@@ -7,7 +7,7 @@
 const lock = () => window.KPTUFeatureLock || {};
 import {hhmm} from './feed-model.mjs';
 import {partStyles} from './part-styles.js';
-// S69-87(명진 11/25 "꾸밈 적용 전 화면이 잠깐 떴다 꾸밈 화면으로 바뀜"): 판을 그리기 전에 모양 파일(lock.css)이 다 붙어 있게 한다.
+// S69-87(사용자 11/25 "꾸밈 적용 전 화면이 잠깐 떴다 꾸밈 화면으로 바뀜"): 판을 그리기 전에 모양 파일(lock.css)이 다 붙어 있게 한다.
 // 이 모듈이 열리기 전에(맨 위) 기다리므로 작은 PIN 창(unlockHere)도 잠금 화면(lock-ui.js)도 꾸밈 없는 판을 한 번도 보이지 않는다.
 await partStyles('lock-pad');
 
@@ -32,7 +32,7 @@ export function padBox({title = '', digits = 0, msg = '', busy = false, forgot =
   if (cancel) box.append(button('secondary mini lk-cancel', '취소', {lkCancel: ''}));
   return box;
 }
-// S67-72(명진 11/21 "숫자 누를 때 눌러지는 느낌이 잘 안 듦"): 숫자를 누를 때는 판을 다시 그리지 않고 점·안내 줄만 바꾼다.
+// S67-72(사용자 11/21 "숫자 누를 때 눌러지는 느낌이 잘 안 듦"): 숫자를 누를 때는 판을 다시 그리지 않고 점·안내 줄만 바꾼다.
 // 판 전체를 다시 그리면 누르고 있던 칸이 사라져 눌림 표시(:active)가 보이지 않았다. 짧은 진동도 함께(되는 기기만).
 export function padTyped(host, {digits = 0, msg = ''} = {}) {
   const dots = host?.querySelector('[data-lk-dots]'); if (!dots) return false;
@@ -41,7 +41,7 @@ export function padTyped(host, {digits = 0, msg = ''} = {}) {
   const note = host.querySelector('[data-lk-msg]'); if (note && note.textContent !== msg) note.textContent = msg;
   return true;
 }
-// S69-87(명진 11/25 "숫자를 빠르게 터치하면 씹힘"): 숫자·지우기 칸은 손가락을 대는 순간(pointerdown) 받는다.
+// S69-87(사용자 11/25 "숫자를 빠르게 터치하면 씹힘"): 숫자·지우기 칸은 손가락을 대는 순간(pointerdown) 받는다.
 // 'click'은 뗄 때 같은 칸 위여야 생기는데, 눌림 모양으로 칸이 작아지거나·두 손가락이 겹치거나·판이 다시 그려지면 빠져 버렸다.
 // 손가락마다 따로 받으므로 두 손가락 번갈아·같은 숫자 연타도 한 번씩. 그 뒤 따라오는 click은 keyOfClick이 버린다
 // (키보드 Enter·Space로 누른 click은 detail 0이라 그대로 받는다).

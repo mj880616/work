@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
-// S55-08 LIB-나무로끌기안됨 + LIB-폴더이름칸닫힘 (2026-11-09 명진 요청).
+// S55-08 LIB-나무로끌기안됨 + LIB-폴더이름칸닫힘 (2026-11-09 사용자 요청).
 // 끌기는 실제 브라우저 끌기(Playwright 마우스 끌기 → 크롬 HTML 끌어 놓기)로 네 방향을 본다:
 //   ⓐ 오른쪽 자료 → 왼쪽 나무 폴더  ⓑ 왼쪽 나무 폴더 → 오른쪽 목록 폴더  ⓒ 오른쪽 자료 → 오른쪽 폴더  ⓓ 왼쪽 나무 폴더 → 왼쪽 나무 다른 폴더
 // 자기·자기 아래 폴더 안으로는 막고, 화면이 모르는 폴더는 '폴더 밖'으로 바꿔 받지 않는다. 이름은 지어낸 것.

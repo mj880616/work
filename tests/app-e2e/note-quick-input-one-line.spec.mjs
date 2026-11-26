@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
-// S70-05 NOTE-입력창한줄(명진 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
+// S70-05 NOTE-입력창한줄(사용자 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
 // PC(1280)의 노트 입력칸은 늘 한 줄 높이([추가] 높이 이하)이고, 세 줄을 넣어도 높이가 그대로이며, [추가]하면 세 줄이 모두 저장된다.
 // 크기 손잡이(resize)는 없고, [폴더 ▾]·[첨부]·[추가]는 칸과 같은 한 줄에 나란히, [⤢ 크게]는 칸 안 오른쪽 끝에서 쓰기 창을 연다.
 // 폰(390·412)은 고치기 전과 같은 한 줄 칸(공용 --ds-control-height). 가짜 자료만 쓴다.

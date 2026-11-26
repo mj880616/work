@@ -1,9 +1,9 @@
-// WEEKLY-처음시작고르기(시안 docs/design/mockups/weekly-start-choice.html ★A안, 명진 11/17 11:52 "ㅇ" = 추천대로):
+// WEEKLY-처음시작고르기(시안 docs/design/mockups/weekly-start-choice.html ★A안, 사용자 11/17 11:52 "ㅇ" = 추천대로):
 // 바탕(자료실 확정본)도 '내 양식'도 없는 사람의 [주간 보고] 첫 화면 — 위 한 줄 [파일 올리기](한글 .hwpx·.hwp, 끌어 놓기는 바깥 상자가 받음),
 // 아래 번호 4개(1 간단형·2 사업별 표·3 조직별·4 직접 만들기, 이름·순서 시안 그대로)와 작은 미리보기, 맨 아래 [이 모양으로 시작].
 // 번호는 바로 저장하지 않는다 — 부르는 쪽(journal.js paintBlank)이 [양식 수정] 화면(weekly-own-form-edit.js)을 그 모양으로 연다.
 // 이 함수는 마디만 만들어 돌려준다(그리는 자리·상태 주인은 journal.js paintBlank 한 곳). 상태는 메모리만(브라우저 저장소 없음).
-// WEEKLY-처음시작여러개(명진 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개 고르기, 4 직접 만들기는 혼자만(규칙은 모델 togglePick), 0개면 [이 모양으로 시작] 못 누름.
+// WEEKLY-처음시작여러개(사용자 11/17 16:04 "복수선택 가능해야할 듯"): 1~3은 여러 개 고르기, 4 직접 만들기는 혼자만(규칙은 모델 togglePick), 0개면 [이 모양으로 시작] 못 누름.
 // 쓴 공용 부품: button.secondary([파일 올리기]·[취소]), button.primary([이 모양으로 시작]), 기본 <input type="checkbox">(키보드·터치 그대로).
 import {START_CHOICES, START_DEFAULT, startPicks, togglePick} from './weekly-own-form-model.mjs';
 import {putUploadLabel} from './upload-label.mjs';

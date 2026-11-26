@@ -72,7 +72,7 @@ const folderIds = page => root(page).locator('[data-photos-folder]').evaluateAll
 const folderIcon = (page, id) => root(page).locator(`[data-photos-folder="${id}"] :is(.nx-ico, .ft-ico)`).first();
 const plainIcon = async (page, id) => { const el = folderIcon(page, id); if (await el.evaluate(e => e.classList.contains('ft-ico'))) await expect(el).not.toHaveAttribute('data-fc', /./); else { await expect(el.locator('svg')).toHaveCount(1); await expect(el).not.toHaveAttribute('data-fc', /./); } };
 // UI-폴더누르기한규칙(S57-5): PC(761px~) 나무 폴더 ⋯ 메뉴는 맨 위에 [이 폴더로 들어가기]
-// UI-폴더이름펼치기(명진 11/24 18:09): 폰 나무 이름 누르기도 펼치기·접기만이라 폰·폴드 폴더 ⋯에도 첫 줄 [이 폴더로 들어가기].
+// UI-폴더이름펼치기(사용자 11/24 18:09): 폰 나무 이름 누르기도 펼치기·접기만이라 폰·폴드 폴더 ⋯에도 첫 줄 [이 폴더로 들어가기].
 const enterItem = () => ['이 폴더로 들어가기'];
 async function openFolderMenu(page, id) {
   await root(page).locator(`[data-photos-fx-more="${id}"]`).first().click();

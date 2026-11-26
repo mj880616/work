@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// UI-위쪽줄흰띠·여백(S55-19, 명진 11/10): PC [파일] 위쪽 줄([◫][찾기][새 폴더][올리기][출처][한 칸 보기])이
+// UI-위쪽줄흰띠·여백(S55-19, 사용자 11/10): PC [파일] 위쪽 줄([◫][찾기][새 폴더][올리기][출처][한 칸 보기])이
 // 화면 바탕 위에 흰 띠로 떠 보이고, 아래 칸 테두리가 그 띠 바로 아래에 붙어 있었다.
 // 지금: 줄 바탕 = 화면 바탕(화면 사진에서 같은 색), 아래 칸과 6px 띄움, 줄 왼쪽 끝 = 아래 칸 왼쪽 끝. 서버는 흉내(이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');

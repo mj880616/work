@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-// ORG-빠진일2차 3번(S59-3, 명진 결정 11/11 14:55 '가'): 사업 보고 상세 창(app/biz-detail-window.js)의 줄 ⋯.
+// ORG-빠진일2차 3번(S59-3, 사용자 결정 11/11 14:55 '가'): 사업 보고 상세 창(app/biz-detail-window.js)의 줄 ⋯.
 //  · 사업 기록(한 줄 글) 줄 ⋯ 맨 아래에만 빨간 [삭제] — 한 번 묻고(아니오면 요청 없음), 예면 그 작업공간의 그 기록 한 행 DELETE(기존 owner RLS), 보이는 줄·뺀 줄 모두.
 //  · 사업 보고 줄 ⋯에는 [삭제]가 없고 [보고 열기](예전 [기록 열기] 자리)만 있다 — 보고 삭제는 보고 창에서.
 // 부품 하나(createBizDetailBox)를 실제 앱 CSS가 걸린 빈 쪽에 붙여 시험한다(서버 응답은 가짜, 이름·글은 모두 합성). 사진: BIZ_ROW_SHOTS 폴더가 있으면 남긴다.

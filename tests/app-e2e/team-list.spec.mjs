@@ -35,7 +35,7 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
    return {count:r(head.querySelector('.so-group-count')).right-r(row.querySelector('.kptu-list-chevron')).right,rowMenus:document.querySelectorAll('#soOrganizationList .so-row .more-dots').length}});
   expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.rowMenus).toBe(0);
   await expect(page.locator('[data-so-row] [data-so-grip="org"]')).toHaveCount(15);
-  // MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정, UI-조직추가숨김을 바꿈): 맨 위 [+ 담당조직] 하나가 모든 폭에 보인다(옛 폰 글자 링크는 없음).
+  // MULTI-다른담당자맞춤 ①(2026-11-13 사용자 결정, UI-조직추가숨김을 바꿈): 맨 위 [+ 담당조직] 하나가 모든 폭에 보인다(옛 폰 글자 링크는 없음).
   await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrg')).toHaveText('+ 담당조직');await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});

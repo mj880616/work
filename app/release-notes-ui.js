@@ -31,9 +31,9 @@ function noteRow(item,current,words){
   if(note.v===current)head.append(el('span','rn-now','지금'));
   else head.append(marked('span','rn-one',item.changes[0]??item.checks[0],words));
   // UPDATE-운영자전용기록업데이트소식 PR3: 줄마다 [보내기](이용자에게 업데이트 소식으로). 소식 서버를 못 읽으면 없다.
-  // S67-73(명진 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
-  // S68-14(명진 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
-  // S68-46(명진 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
+  // S67-73(사용자 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
+  // S68-14(사용자 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
+  // S68-46(사용자 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
   if(news.admin){
     const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
     head.append(send);
@@ -54,7 +54,7 @@ function noteRow(item,current,words){
   return row;
 }
 
-// ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 명진 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
+// ── UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 ①②④ + 사용자 11/15 13:37): 운영자 쪽 '업데이트 소식' 보내기·고치기·거두기·시작 날짜.
 // 쓰기는 서버(app_update_news_*)가 운영자만 받는다. 새 소식 알림·점·숫자는 없다(이용자는 메뉴 › 업데이트 소식을 눌러야만 본다).
 const news={admin:null,notes:[],root:null};
 const rpc=(name,body={})=>window.KPTURuntime.api('/rest/v1/rpc/'+name,{method:'POST',body,singleFlight:false});

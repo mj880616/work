@@ -134,7 +134,7 @@ function wdRenderAff(){const box=document.querySelector('#wdAffChips');if(!box)r
 function wdRenderBasicView(){const box=document.querySelector('#wdBasicView');if(!box)return;const aliases=(wdOrg.aliases||[]).join(', ')||'없음';box.innerHTML=word`<dl class="wd-basic-grid"><div><dt>조직 명칭</dt><dd>${wdE(wdOrg.name||'-')}</dd></div><div><dt>조직 유형</dt><dd>${wdE(wdOrg.organization_type||'미분류')}</dd></div><div><dt>대표자</dt><dd>${wdE(wdOrg.representative_name||'미입력')}</dd></div><div><dt>조합원수</dt><dd>${wdOrg.member_count==null?'미입력':Number(wdOrg.member_count).toLocaleString('ko-KR')+'명'}</dd></div><div><dt>대표자 연락처</dt><dd>${wdE(wdOrg.contact||'미입력')}</dd></div><div><dt>다른 이름(보고서 표기 등)</dt><dd>${wdE(aliases)}</dd></div><div class="wide"><dt>설명</dt><dd>${wdE(wdOrg.description||'미입력')}</dd></div></dl>`}
 function wdSetBasicEditing(on){if(on&&wdOrg?.canEdit)wdSaveNewEditor('basic');else if(!on){wdBasicSequence++;wdBasicEditor=null}const form=document.querySelector('#wdBasicForm'),view=document.querySelector('#wdBasicView'),edit=document.querySelector('#wdEditBasic');form?.classList.toggle('hidden',!on);view?.classList.toggle('hidden',on);if(edit)edit.classList.toggle('hidden',on||!wdOrg?.canEdit);if(on)document.querySelector('#wdName')?.focus()}
 function wdRender(){if(wdOrg?.id!==wdTargetId)return;if(wdReportsFor!==wdOrg.id)void wdLoadReports();else wdPaintReports();document.querySelector('#wdModal').dataset.orgId=wdOrg.id;const can=wdOrg.canEdit;document.querySelector('#wdTitle').textContent=wdOrg.name;document.querySelector('#wdName').value=wdOrg.name||'';document.querySelector('#wdType').value=wdOrg.organization_type||'';document.querySelector('#wdAliases').value=(wdOrg.aliases||[]).join(', ');document.querySelector('#wdDescription').value=wdOrg.description||'';document.querySelector('#wdRep').value=wdOrg.representative_name||'';document.querySelector('#wdContact').value=wdOrg.contact||'';document.querySelector('#wdMembers').value=wdOrg.member_count??'';document.querySelector('#wdMonthSummary').textContent=wdOrg.recent_month_summary||'없음';document.querySelector('#wdYearSummary').textContent=wdOrg.year_summary||'없음';document.querySelector('#wdUpdated').textContent=wdOrg.updated_at?formatSeoulTime(wdOrg.updated_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'}):'-';['wdInbox','wdTaskAdd','wdTaskLink','wdReportLink','wdReportAdd','wdEditBasic','wdAffManage','wdAddTime'].forEach(x=>document.querySelector('#'+x)?.classList.toggle('hidden',!can));wdAttach?.render();wdSetBasicEditing(false);wdRenderBasicView();wdRenderAff();wdRenderUpdates();wdRenderDocs();wdRenderItems();paintStageLine({host:document.querySelector('#wdStage'),orgId:wdOrg.id,orgName:wdOrg.name,workspaceId:wdWorkspace,canEdit:can,rt:wdRt});paintKeyPeople({host:document.querySelector('#wdPeople'),orgId:wdOrg.id,orgName:wdOrg.name,workspaceId:wdWorkspace,canEdit:can,rt:wdRt});wdTab(wdTabKey);const by={};wdTimeline.forEach(x=>(by[x.event_year]??=[]).push(x));document.querySelector('#wdTimeline').innerHTML=wdTimeline.length?Object.keys(by).sort((a,b)=>b-a).map(y=>`<div class="wd-year">${y}년</div>${by[y].map(x=>`<div class="wd-time" data-wd-time="${wdE(x.id)}"><small>${wdE(x.event_date||x.event_year)}<br>${wdE(x.category)}</small><div><b>${wdE(x.title)}${x.occurrence_count>1?`<span class="wd-count">${x.occurrence_count}차례</span>`:''}</b>${x.summary?`<p>${wdE(x.summary)}</p>`:''}</div>${can?`<div class="wd-actions"><button data-wd-time-edit="${x.id}">수정</button><button class="wd-danger" data-wd-time-del="${x.id}">삭제</button></div>`:''}</div>`).join('')}`).join(''):emptyHtml();window.dispatchEvent(new CustomEvent('kptu:workplace-detail-rendered',{detail:{id:wdOrg.id,name:wdOrg.name}}));wdPaintWhere();wdPaintOrgMore()}
-// ORG-목록줄메뉴없음(S71-08, 2026-11-26 명진 '필요하면 각 조직 눌러서 들어가서 수정 삭제 등 할게'): 목록 줄 ⋯를 지우고, 그 조직 메뉴
+// ORG-목록줄메뉴없음(S71-08, 2026-11-26 사용자 '필요하면 각 조직 눌러서 들어가서 수정 삭제 등 할게'): 목록 줄 ⋯를 지우고, 그 조직 메뉴
 // ([이름 바꾸기]·[담당 조직에서 제외]/[담당 조직으로 추가]·[삭제])는 상세 맨 위 쟁의 단계 줄 오른쪽 ⋯ 하나에서 연다. 메뉴 주인은 조직 목록(suborganizations.js
 // KPTUOrgMenu) — 같은 메뉴를 다시 만들지 않는다. 목록이 아직 없는 화면(다른 화면 위에서 연 상세)이나 목록이 모르는 조직이면 ⋯를 그리지 않는다.
 function wdPaintOrgMore(){const b=document.querySelector('#wdOrgMore');if(!b)return;const ok=!!wdOrg&&wdOrg.id===wdTargetId&&!!window.KPTUOrgMenu?.has?.(wdOrg.id);b.hidden=!ok;if(ok)b.setAttribute('aria-label',`${wdOrg.name} 메뉴`)}
@@ -154,7 +154,7 @@ async function wdToggleSource(id){const x=wdUpdates.find(u=>u.id===id),orgId=wdO
 let wdUpMenu=null; // 기록 ⋯ 메뉴(처음 열 때 만든다)
 const wdKeepMenus=paint=>keepMenus([wdUpMenu,linkMenuFollower],{attrs:['data-wd-up-menu','data-basket-link-menu'],root:document.querySelector('#wdUpdates')||document},paint);
 function wdRenderUpdates(){return wdKeepMenus(wdRenderUpdatesNow)}
-// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 '조직 관리 기록 = [수정][삭제] 두 칸'): 폰 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 기록 ⋯ [수정]·[삭제]와 같은 길
+// S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 '조직 관리 기록 = [수정][삭제] 두 칸'): 폰 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 기록 ⋯ [수정]·[삭제]와 같은 길
 // (수정 = 그 줄 자리 고쳐 쓰기 칸, 삭제 = 지금처럼 한 번 묻고 지움). 끝까지 밀어도 칸만. 고칠 수 있는 담당조직·고쳐 쓰는 중이 아닐 때만. 기록에는 여러 개 고르기가 없어 오른쪽 밀기는 없다.
 // 잊지 말기·노트에서 연결된 줄(data-basket-link)도 같은 두 칸: [수정] = 그 줄 ⋯ [요약 수정], [삭제] = ⋯ [원문 삭제](한 번 묻고 휴지통 + 되돌리기).
 function wdBindSwipe(box){bindRowSwipe(box,{row:'[data-wd-up],[data-basket-link]',enabled:()=>!!wdOrg?.canEdit&&!wdUpEditing(box)&&!box.querySelector('[data-link-summary-form]'),
@@ -225,7 +225,7 @@ async function wdAddDoc(files=[]){
   if(!wdRecordCurrent(org.id)||wdOrg?.id!==org.id)return;
   if(!window.KPTULibrary?.startUploadForOrganization?.({id:org.id,name:org.name},files))wdToast('자료 업로드를 열지 못했어요. 잠시 후 다시 눌러 주세요.')
 }
-// S67-39(명진 11/20 "자료 + 자료실에서 추가도 가능하게", 같은 종류 맞춤): 자료 칸 [+] = 사업 보고와 같은 작은 메뉴 [기기에서 올리기](위 올리기 창)·
+// S67-39(사용자 11/20 "자료 + 자료실에서 추가도 가능하게", 같은 종류 맞춤): 자료 칸 [+] = 사업 보고와 같은 작은 메뉴 [기기에서 올리기](위 올리기 창)·
 // [자료실에서 선택](이미 있는 자료의 담당조직 칸만 채움, 다시 올리기 없음 — [조직에서 빼기]의 반대 길, report-library-pick.js).
 async function wdOpenAddMenu(btn){
   const org=wdOrg;if(!org?.canEdit||!btn||!wdRecordCurrent(org.id))return;
@@ -573,7 +573,7 @@ function wdPlace(){
   else{document.body.append(m);m.classList.remove('wd-docked');m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');delete m.dataset.wdDocked;pane?.classList.remove('has-org')}
   wdDialog(m,open&&!dock,{restoreFocus:false});wdRenderDocs();wdPaintSelection();return dock
 }
-// UI-상세기록맨위(S64-19, 명진 11/17 '기록이 맨 위로 오게'): 창(폰)과 PC 칸 모두 입력칸 → 기록 → 할 일 → 자료 → 사업 보고.
+// UI-상세기록맨위(S64-19, 사용자 11/17 '기록이 맨 위로 오게'): 창(폰)과 PC 칸 모두 입력칸 → 기록 → 할 일 → 자료 → 사업 보고.
 // 순서는 wdInstall의 HTML 순서 하나뿐이다(옮기는 코드·CSS order 없음) — Tab 순서도 보이는 순서와 같다.
 // The list row of the organization shown on the right carries the selection (PC only); the list module paints it.
 // ORG-PC상세정리 ①: the pane has no title of its own; the top line's place shows "담당조직 › 조직명" (topbar-actions.js).

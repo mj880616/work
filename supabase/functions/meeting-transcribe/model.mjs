@@ -4,7 +4,7 @@
 // - 전사 글은 여기서 저장하지 않는다. 부른 화면에 한 번 돌려줄 뿐이다(원문은 회의 기록에만).
 import { geminiKrw } from '../_shared/ai-prices.mjs';
 
-// 회의 녹음 전사 모델(S60-9 REC-전사모델바꾸기, 명진 결정 11/12 "더 싼 전사모델로"): 이 한 줄만 바꾸면 전사 요청·사용량·가격 셈이 모두 따라간다
+// 회의 녹음 전사 모델(S60-9 REC-전사모델바꾸기, 사용자 결정 11/12 "더 싼 전사모델로"): 이 한 줄만 바꾸면 전사 요청·사용량·가격 셈이 모두 따라간다
 // (나중에 같은 녹음으로 gemini-2.5-flash-lite와 비교할 때도 여기만). 옛 전사 전용 모델(gemini-3.5-transcribe)의 지난 사용량 행은 그대로 둔다.
 export const TRANSCRIBE_MODEL = 'gemini-3.5-flash-lite';
 // 공식 안내(2026-11-12 확인): gemini-2.5-flash는 이 열쇠에서 404(퇴역 중, 12/1부터 3.5 Flash-Lite로 넘어감) → gemini-3.5-flash-lite. 출력 상한 65,536토큰.
@@ -21,7 +21,7 @@ export const UNATTACHED_TRASH_DAYS = 30;         // 회의에 붙이지 않은 �
 export const SWEEP_LIMIT = 5;                    // 한 번 부를 때 정리하는 녹음 수
 export const AUDIO_TOKENS_PER_SECOND = 32;       // Gemini 음성 토큰(사용량이 비어 올 때 추정용)
 export const USAGE_REF_PREFIX = 'mtg-';
-// 글을 못 받은 시도(빈 답·끝나지 않은 답)는 이 머리로 적는다 — 쓴 돈은 홈 AI 사용량에 그대로 보이고, 월 상한(monthKrw)에는 들어가지 않는다(명진 결정 11/12).
+// 글을 못 받은 시도(빈 답·끝나지 않은 답)는 이 머리로 적는다 — 쓴 돈은 홈 AI 사용량에 그대로 보이고, 월 상한(monthKrw)에는 들어가지 않는다(사용자 결정 11/12).
 export const FAILED_USAGE_REF_PREFIX = 'mtgfail-';
 const KST = 9 * 3600000;
 
@@ -85,7 +85,7 @@ export const MESSAGES = Object.freeze({
   bad_target: '[회의] 보고에만 이어 붙일 수 있어요.',
   not_applied: '되돌릴 내용을 찾지 못했어요.',
   text_too_long: '글이 너무 길어 이어 붙일 수 없어요.',
-  // S61-5 REC-전사삭제(명진 11/13 '회의 전사 기능은 아예 웹2에서 삭제, 파일만 제공'): 전사·요약 입구는 이 코드로만 답한다.
+  // S61-5 REC-전사삭제(사용자 11/13 '회의 전사 기능은 아예 웹2에서 삭제, 파일만 제공'): 전사·요약 입구는 이 코드로만 답한다.
   transcribe_off: '회의 녹음 전사는 이제 하지 않아요. 녹음 파일은 자료실 \'회의 녹음\' 폴더에 있어요.',
   no_recording: '저장할 녹음 파일을 찾지 못했어요.',
 });

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { FACE_IDS } from './brand-face.mjs';
 
-// S67-56(2026-11-20 명진 결정, AGENTS.md 5절): 운영 배포는 WORK ON 기본 단어 얼굴(girok)이다.
+// S67-56(2026-11-20 사용자 결정, AGENTS.md 5절): 운영 배포는 WORK ON 기본 단어 얼굴(girok)이다.
 // 운영 Pages를 만드는 곳(pages-deploy.yml)과 운영 파일과 맞춰 보는 곳(cloudflare-worker-deploy.yml)이 같은 얼굴이어야 하고,
 // PR 검사(pages-build-check.yml)는 그 얼굴 빌드를 따로 만들어 같은 검사·화면 시험을 한다.
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');

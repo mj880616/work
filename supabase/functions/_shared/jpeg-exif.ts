@@ -1,4 +1,4 @@
-// S50-31 PHOTO-정보고치기 ②(설계 docs/design/photo-info-edit.md 5-2절, 명진 결정 E3 (가)·E5): JPEG 사진의 EXIF 찍은 시각·위치만 읽고 고치는 작은 부품.
+// S50-31 PHOTO-정보고치기 ②(설계 docs/design/photo-info-edit.md 5-2절, 사용자 결정 E3 (가)·E5): JPEG 사진의 EXIF 찍은 시각·위치만 읽고 고치는 작은 부품.
 // 원드라이브(onedrive-photos)·구글 드라이브(gdrive-photos)가 함께 쓴다. 외부 라이브러리 없음, Deno·Node 둘 다에서 돈다(파일·네트워크 없음, 메모리만).
 // 원칙:
 //  - 그림 바이트는 그대로다. 바꾸는 곳은 EXIF 조각(APP1 "Exif") 하나뿐이고, 그 앞뒤 JPEG 조각은 한 바이트도 바꾸지 않는다.

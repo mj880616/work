@@ -101,7 +101,7 @@ export const PAGE_SIZE = 120;
 export const STAR_CHUNK = 500;
 export const validFilter = v => (FILTERS.includes(v) ? v : 'all');
 
-// 칸 수(설계: 폰 3~6·PC 5~12, 명진 결정 6: view_prefs.photo_view.cols 하나로 일기와 따로). 저장 값은 하나라 화면 폭마다 범위 안으로 맞춰 쓴다.
+// 칸 수(설계: 폰 3~6·PC 5~12, 사용자 결정 6: view_prefs.photo_view.cols 하나로 일기와 따로). 저장 값은 하나라 화면 폭마다 범위 안으로 맞춰 쓴다.
 export const COLS_RANGE = Object.freeze({narrow: Object.freeze([3, 6]), wide: Object.freeze([5, 12])});
 export const COLS_DEFAULT = Object.freeze({narrow: 4, wide: 8});
 const range = wide => COLS_RANGE[wide ? 'wide' : 'narrow'];
@@ -186,7 +186,7 @@ export function monthAt(bar, ratio) {
   const r = Math.max(0, Math.min(1, ratio));
   return bar.find(m => r < m.to) || bar.at(-1);
 }
-// PHOTO-연월이동(S49-5, 요청함 11/03 10:47 명진 결정 A+B 둘 다): 화면 없이 시험하는 규칙.
+// PHOTO-연월이동(S49-5, 요청함 11/03 10:47 사용자 결정 A+B 둘 다): 화면 없이 시험하는 규칙.
 // A 오른쪽 끝 날짜 막대: 막대 위 연도 눈금(해마다 그 해 가장 최근 달 자리, 사진 많은 쪽이 길다)과 '2025년 3월' 말풍선.
 export const monthLabelKo = key => { const ym = parseMonth(key); return ym ? `${ym.year}년 ${ym.month + 1}월` : ''; };
 export function yearTicks(bar) {
@@ -314,7 +314,7 @@ export function photoMoveTargets(tree, {moving = null, here = null} = {}) {
 }
 // 폴더 이름 규칙(서버 cleanFolderName과 같음): 원드라이브 금지 글자·제어 글자·끝 점·1~200자·휴지통 이름(새·옛) 거절. 맞으면 다듬은 이름, 아니면 null.
 // 사진 휴지통 폴더 이름(서버 onedrive-photos/graph.ts·_shared/brand-folders.mjs photo_trash와 같은 값).
-// S69-42(명진 11/24 15:46): 지금 이름은 누구나 '.WORK ON+ 휴지통'. 옛 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 지금 이름으로 바꾼다.
+// S69-42(사용자 11/24 15:46): 지금 이름은 누구나 '.WORK ON+ 휴지통'. 옛 '.노조+ 휴지통'·'.Web2 휴지통'은 서버가 쓸 때 지금 이름으로 바꾼다.
 // 폴더 이름 거절은 세 이름 모두.
 export const TRASH_FOLDER_NAME = '.WORK ON+ 휴지통';
 export const WORKON_TRASH_FOLDER_NAME = TRASH_FOLDER_NAME;

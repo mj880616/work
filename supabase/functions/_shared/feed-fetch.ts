@@ -2,7 +2,7 @@
 // '허용 주소 판정 함수'만 바꿔 끼울 수 있게 뺀 것이다(설계 docs/design/news-clipping.md 2.3).
 // - 매 요청·매 리다이렉트 단계마다 allow()로 주소를 다시 검사한다(리다이렉트 MAX_REDIRECTS번까지).
 // - robots.txt를 먼저 읽고(출처마다 한 번, 실행 하나 안에서만 기억) 막힌 경로는 읽지 않는다. 우회 없음.
-//   예외 하나(S68-23, 명진 결정 2026-11-22 "1. A"): 부르는 쪽이 skipRobots: true를 '명시'하면 robots.txt를 읽지 않는다.
+//   예외 하나(S68-23, 사용자 결정 2026-11-22 "1. A"): 부르는 쪽이 skipRobots: true를 '명시'하면 robots.txt를 읽지 않는다.
 //   사람이 직접 한 주소를 저장할 때(note-import)만 쓴다. 기본값은 robots 확인 — 수집(news-feed·now-detail-build 등)은 넘기지 않는다.
 //   건너뛰어도 allow() 주소 재검사·리다이렉트 상한·크기·시간 상한·출처별 간격·쿠키 없음은 그대로다.
 // - 응답 FETCH_MAX_BYTES·FETCH_TIMEOUT_MS 상한, 쿠키·인증 헤더 없음, 정직한 User-Agent.

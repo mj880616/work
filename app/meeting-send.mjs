@@ -1,4 +1,4 @@
-// BIZ-저장먼저닫기(요청함 11/11 07:01, 명진 "저장 버튼 누르면 일단 창 닫히고 백그라운드에서 업로드 이어 가는"):
+// BIZ-저장먼저닫기(요청함 11/11 07:01, 사용자 "저장 버튼 누르면 일단 창 닫히고 백그라운드에서 업로드 이어 가는"):
 // 사업 보고에 사진·자료 '한 묶음 올리기'. 글 저장이 끝난 뒤 창은 닫히고, 고른 파일은 이 묶음으로 뒤에서 하나씩 올라간다.
 // - 줄 세우기는 새로 만들지 않는다: 자료 등록 창이 쓰는 뒤 줄(library-upload.js luBackTail)에 line()으로 선다(#2345와 같은 한 길).
 // - 파일은 그 탭 메모리에만 둔다(기기 저장소 없음). 한 번에 하나만 읽어 보낸다(폰 메모리).
@@ -44,7 +44,7 @@ export function createAppHandoff(up, {max = 20, kind = 'meeting', ids = target =
     if (!up?.usable || !items?.length || silent) return {ok: false, error: 'off'};
     let on = await up.ready();
     if (!up.known()) silent = true;
-    // S67-38(명진 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 앱이 세션을 만들게 하고(up:login), 못 하면 지금 길.
+    // S67-38(사용자 결정 11/14 ①): 위젯 로그인이 없어도 앱 로그인으로 뒤에서 올린다 — 앱이 세션을 만들게 하고(up:login), 못 하면 지금 길.
     if (!on && up.canLogin?.()) on = await up.login();
     if (!on || !up.can(kind)) return {ok: false, error: 'off'};
     try { started(); } catch { /* 알림뿐 */ }

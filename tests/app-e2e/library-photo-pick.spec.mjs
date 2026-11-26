@@ -7,7 +7,7 @@ import {treeEnter} from './helpers/tree-enter.mjs';
 const movePicker=page=>folderSheet(page);
 const moveFolder=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
 const goMove=async(page,id,width)=>{await press(page,moveFolder(page,id),width);await press(page,folderSheet(page).locator('[data-fx-dest-go]'),width)};
-// S69-14(명진 11/24 08:15 '사진도 선택해서 옮길 수 있게', 08:16 '사진 우클릭하면 브라우저 메뉴'): 자료실 폴더 안 [사진 n]을 펼친 작은 그림도
+// S69-14(사용자 11/24 08:15 '사진도 선택해서 옮길 수 있게', 08:16 '사진 우클릭하면 브라우저 메뉴'): 자료실 폴더 안 [사진 n]을 펼친 작은 그림도
 // 문서 줄과 같은 선택 모드(네모 칸·위 막대 'n개 선택됨 · … · 폴더로 옮기기 · 삭제 · 취소')로 고르고, 같은 폴더 고르기 창으로 옮기고, '옮겼어요 · 되돌리기'.
 // 폰은 작은 그림 꾹 누르기 = 그 사진이 골라진 채로 선택 모드. PC 우클릭은 브라우저 메뉴가 아니라 그 사진의 ⋯ 메뉴(선택 모드에서도).
 // 모든 이름·번호는 지어낸 것이다.
@@ -109,7 +109,7 @@ test.describe('PC 우클릭 1440',()=>{
   });
 });
 
-// 명진 캡처의 PC 두 칸 보기: 칸 안 [사진 n]도 같은 네모 칸·같은 위 막대·같은 우클릭 메뉴.
+// 사용자 캡처의 PC 두 칸 보기: 칸 안 [사진 n]도 같은 네모 칸·같은 위 막대·같은 우클릭 메뉴.
 test.describe('PC 두 칸 보기 1440',()=>{
   test('두 칸 안 사진도 고르기·옮기기·우클릭 메뉴',async({page})=>{
     const {s,errors}=await bootLibrary(page,1440,{folders:FOLDERS,items:[],docs:structuredClone(DOCS),group:'폴더',init:{viewPrefs:null}});
@@ -138,7 +138,7 @@ test.describe('PC 두 칸 보기 1440',()=>{
   });
 });
 
-// S69-24(명진 11/24 09:11 '사진 선택했을 때 선택됐다는 티가 안나서 뭐가 선택됐는지를 모름'): 고른 사진 칸은 공용 사진 고르기 표시
+// S69-24(사용자 11/24 09:11 '사진 선택했을 때 선택됐다는 티가 안나서 뭐가 선택됐는지를 모름'): 고른 사진 칸은 공용 사진 고르기 표시
 // (채운 동그란 ✓ 배지·3px 선택 선·줄어든 사진), 안 고른 칸은 빈 동그라미. 밝은 사진·어두운 사진 둘 다에서 같은 표시.
 const LIGHT=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP49esHAAXeAu1bZGBTAAAAAElFTkSuQmCC','base64');
 const DARK=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPg4eEDAABOACcIJqNdAAAAAElFTkSuQmCC','base64');

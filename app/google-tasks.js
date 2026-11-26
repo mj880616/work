@@ -27,7 +27,7 @@ import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 �
 import { chevHtml } from './fold-chevron.mjs';
 import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
-// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '할 일에서 찾기' = 할 일 제목 거르기(renderTasks 안, 서버 검색 없음, 메모리만).
+// S70-57 UI-검색창하나로(사용자 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '할 일에서 찾기' = 할 일 제목 거르기(renderTasks 안, 서버 검색 없음, 메모리만).
 import {registerScreenFind,findFor} from './screen-find.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('google-tasks');
@@ -76,7 +76,7 @@ function section(){
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
     // TASK-파일붙이기: "파일 붙이기" only once the server and table answered action=files for this owner.
-    // S69-18(명진 11/24): [수정] 바로 아래 [기한 바꾸기] — 메뉴 자리에 작은 기한 고르기(task-inline.js 날짜 칸), 고르면 바로 저장·5초 [되돌리기]. 끝낸 할 일에는 없다.
+    // S69-18(사용자 11/24): [수정] 바로 아래 [기한 바꾸기] — 메뉴 자리에 작은 기한 고르기(task-inline.js 날짜 칸), 고르면 바로 저장·5초 [되돌리기]. 끝낸 할 일에는 없다.
     render:id=>'<button type="button" data-gt-menu-action="edit">수정</button>'+(lastTasks.find(t=>t.id===id)?.status==='completed'?'':'<button type="button" data-gt-menu-action="due">기한 바꾸기</button>')+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
     onAction:(button,active)=>{active.trigger.focus({preventScroll:true});const action=button.dataset.gtMenuAction,task=lastTasks.find(t=>t.id===active.id);if(action==='edit'){if(task)openEditor(task,{docked:true,picked:true})}else if(action==='due'){chooseTaskDue(active.id,active.trigger)}else if(action==='files'){if(task)openFiles(task)}else queueDelete(active.id)}
   });
@@ -102,7 +102,7 @@ function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m
 // UI-PC할일: on a wide screen the [할 일] screen shows the same editor docked in the right pane instead of as a popup.
 // It is the same element (it keeps its .modal look: buttons, labels) and the same save, complete and delete functions; only its place
 // changes, and it is not a modal dialog there (no focus trap). Phones keep the popup.
-// S51-13 TODO-폴드목록상세(2026-11-06 명진 'ㅇ', docs/design/mockups/todo-fold-list-detail.html): the unfolded Fold (600px~, phone
+// S51-13 TODO-폴드목록상세(2026-11-06 사용자 'ㅇ', docs/design/mockups/todo-fold-list-detail.html): the unfolded Fold (600px~, phone
 // frame below 761) shows the same '왼쪽 목록 | 오른쪽 상세' as the PC. In the pane every change is saved at once (no [저장]; see
 // autoSave below), ✕·Esc·Back close the pane (one history step, router layer 'task-detail'), and with nothing chosen there is no
 // pane: the list takes the whole width (TASK-넓게쓰기, 2026-11-10; paintPane below). The folded phone keeps the popup and its [저장].
@@ -115,7 +115,7 @@ const isDocked=()=>document.querySelector('#gtTaskModal')?.dataset.gtDocked==='1
 // UI-저장자리(2026-10-27): [저장]과 상태 글은 팝업이든 PC 상세 칸이든 아래 줄(.modal-action-footer) 오른쪽 아래에 둔다. 예전에는 PC 상세 칸에서 제목 줄로 옮겨 있었다(2026-10-20).
 // UI-칸안스크롤하나로(시안 A): PC 상세 칸은 따로 스크롤 없이 화면에 붙어 따라오고(follow-pane.js), 할 일을 열 때마다 칸 머리부터 보인다.
 // S51-13: the pane is not a window of mobile-modal-history.js (data-kptu-history-off); its Back step is the router layer below.
-// TASK-넓게쓰기(2026-11-10 명진 B안, docs/design/mockups/task-wide-list.html): with nothing chosen there is no right pane — the
+// TASK-넓게쓰기(2026-11-10 사용자 B안, docs/design/mockups/task-wide-list.html): with nothing chosen there is no right pane — the
 // list takes the whole width (every bucket stacked, titles not cut). Choosing a task opens '왼쪽 목록 | 오른쪽 상세' as before and
 // closing it (✕·Esc·Back) widens the list again. This is the one place that decides it: the pane's hidden attribute and the
 // section's gt-wide class follow whether the editor is docked in the pane; the drag boundary shows only with the pane.
@@ -464,7 +464,7 @@ function toggleTask(task){const owner=currentOwner();if(!task||!owner)return;con
 async function saveToggle(id,p,epoch,owner){p.busy=true;let failed=null;while((p.base.status==='completed')!==p.want){const want=p.want;try{const d=await rt.api(endpoint('toggle'),{method:'POST',body:{action:'toggle',task_list_id:p.base.taskListId,task_id:id,task_list_title:p.base.taskListTitle,completed:want}});if(!stillCurrent(epoch,owner))return;p.base=d?.task?.id===id?{...d.task,unlinked:p.base.unlinked}:withStatus(p.base,want)}catch(e){if(!stillCurrent(epoch,owner))return;failed=e;break}}pendingToggles.delete(id);savedToggles.set(id,{task:p.base,seq:++toggleSeq});const shown=lastTasks.find(t=>t.id===id);if(shown&&isDone(shown)!==isDone(p.base))showChange(id,shown,p.base);putTask(p.base,owner);syncLinkedTask(p.base);syncEditorTask(p.base);fetchedOwner='';if(!failed){window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed',{detail:{source:'toggle',task:p.base}}));return {ok:true}};const msg=String(failed?.message||failed),notice=(p.want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다');if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))renderConnect('reconnect');else setSync(notice,true);for(const box of linkedBoxes.keys())if(box.isConnected&&box.querySelector(`[data-gt-linked-toggle="${CSS.escape(id)}"]`))linkedMessage(box,notice+' '+errorText(failed));return {ok:false,message:notice+' '+errorText(failed)}}
 // Overdue pending tasks (묶음C-4) come first in their own group, oldest due first; then today and tomorrow..+7 days; then every task completed
 // in the last 3 days whatever its due date (2026-09-27 decision: completing an overdue or undated task keeps it visible).
-// TASK-제목날짜만(2026-11-09 명진 결정): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄. 연결 조직·사업 이름은 줄에 쓰지 않는다(연결은 상세·담당조직·사업 화면에서 본다).
+// TASK-제목날짜만(2026-11-09 사용자 결정): 할 일 줄은 '○ 제목… 날짜 ⋯' 한 줄. 연결 조직·사업 이름은 줄에 쓰지 않는다(연결은 상세·담당조직·사업 화면에서 본다).
 const taskMeta=t=>dueDateKey(t.due)?`<span class="gt-meta"><span class="gt-due">${esc(due(t.due))}</span></span>`:'';
 const taskRow=(t,overdue=false,fx=null)=>`<div class="gt-row ${t.status==='completed'?'completed':'pending'}${overdue?' overdue':''}${fx?fx.cls:''}" data-google-task="${esc(t.id)}"${fx?` style="--gt-t:-${Math.max(0,Math.round(fx.t))}ms"`:''}><button class="gt-check" type="button" data-gt-toggle="${esc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><button class="gt-main" type="button" data-gt-edit="${esc(t.id)}"><b>${esc(t.title||'제목 없음')}</b>${taskMeta(t)}</button><button class="icon-btn gt-menu-trigger" type="button" data-gt-menu="${esc(t.id)}" aria-label="할 일 관리: ${esc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="gtTaskMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>${sourceLink(t.id)}${fileLinks(t)}</div>`;
 // UI-PC할일: PC(≥761) card in a due-date column. Same controls and data attributes as taskRow (completion circle, open, ⋯),
@@ -588,8 +588,8 @@ function renderTasks(tasks){
   if(unlinkedOnly){section()?.classList.remove('gt-pc');syncSplit();const unlinked=pending.filter(x=>x.t.unlinked);paintBody(body,'gt-list',`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`);body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감).
-  // S68-31(명진 11/23 02:24): 맨 끝에 [삭제] — ⋯ [삭제]와 같은 queueDelete(5초 '삭제 대기 [되돌리기]' 뒤에 지움). 삭제가 맨 끝이라 끝까지 밀어도 칸만 열린다.
-  // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [완료][수정][삭제]. [수정] = 줄 제목 누르기와 같은 수정 창. 빠진 [기한]은 ⋯ '기한 바꾸기'.
+  // S68-31(사용자 11/23 02:24): 맨 끝에 [삭제] — ⋯ [삭제]와 같은 queueDelete(5초 '삭제 대기 [되돌리기]' 뒤에 지움). 삭제가 맨 끝이라 끝까지 밀어도 칸만 열린다.
+  // S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): [완료][수정][삭제]. [수정] = 줄 제목 누르기와 같은 수정 창. 빠진 [기한]은 ⋯ '기한 바꾸기'.
   bindRowSwipe(body,{row:'.gt-row[data-google-task]',actions:el=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);return t?{start:PICK,end:[{key:'toggle',label:t.status==='completed'?'완료 취소':'완료',tone:'info'},EDIT,DELETE]}:null},
     run:(key,el)=>{const t=lastTasks.find(x=>x.id===el.dataset.googleTask);if(!t)return;if(key==='toggle')toggleTask(t);else if(key==='edit')openEditor(t,{docked:false,picked:false});else if(key==='delete')queueDelete(t.id)},
     // S70-64 UI-오른쪽밀기고르기: 고르기 막대 [삭제] = 고른 할 일을 한꺼번에 줄 [삭제]와 같은 길(queueDelete — 5초 '삭제 대기 [되돌리기]', 확인 없음).

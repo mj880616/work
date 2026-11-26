@@ -7,13 +7,13 @@ import java.security.MessageDigest
 
 /**
  * FILES-통합 3단계(S49-51, 설계 docs/design/files-unified-plan.md J절 H-1): [파일]의 '이 폰' 저장 공간 다리 규칙. 안드로이드 API 없이 JVM 시험으로 고정한다.
- * - 명진 결정 H-1: 폰 전체 저장 공간('모든 파일 접근', MANAGE_EXTERNAL_STORAGE)을 쓴다. 대신 다리 안전장치를 두껍게:
+ * - 사용자 결정 H-1: 폰 전체 저장 공간('모든 파일 접근', MANAGE_EXTERNAL_STORAGE)을 쓴다. 대신 다리 안전장치를 두껍게:
  *   ① 사진 다리(PhoneMediaRules)와 같은 열쇠·Origin·https·허용 호스트·GET 검사(열쇠는 이 다리 몫으로 따로), ② 쓰기는 사람이 누른 것만(이 판은 읽기만),
  *   ③ Android/data·Android/obb·숨김(점으로 시작) 칸은 다리에서 막는다(목록에서도 빠짐), 경로는 '내부 저장소 뿌리' 안만(../·빈 칸·역슬래시·제어 글자 거절,
  *   바로 가기(심볼릭 링크)로 뿌리 밖이나 막힌 곳을 가리키면 거절), ④ 로그에 파일 이름·경로·목록을 남기지 않고 서버로 보내지 않는다.
  * - 웹(app/phone-files.js)은 다리(KPTUAppShell)에 'pfiles:hello'를 보내 {all, key}를 받고, 목록·원본·작은 그림은
  *   https://<허용 호스트>/work/app/__phone/<열쇠>/files/{list|recent|raw|thumb}?… 를 fetch한다. 앱이 가로채 폰 안에서 답한다.
- * - 'pfiles:ask' = 안드로이드 설정 '모든 파일 접근 허용' 화면(명진이 한 번 켬). 돌아오면 상태를 다시 알린다.
+ * - 'pfiles:ask' = 안드로이드 설정 '모든 파일 접근 허용' 화면(사용자가 한 번 켬). 돌아오면 상태를 다시 알린다.
  */
 object PhoneFilesRules {
     /** 경로 한 칸·전체 길이 한도. */

@@ -1,4 +1,4 @@
-// UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 + 명진 11/15 13:37): '업데이트 소식' 계산(DOM·네트워크 없음).
+// UPDATE-운영자전용기록업데이트소식 PR3(시안 PR 2638 + 사용자 11/15 13:37): '업데이트 소식' 계산(DOM·네트워크 없음).
 // - 운영자가 개발 기록 줄을 골라(여러 기록 묶기 가능) 문구를 고쳐 보낸다. '폰에서 볼 것' 줄은 기본으로 빼고, 넣기를 고르면 붙인다.
 // - 서버(app_update_news_*)가 쓰기는 운영자만, 읽기는 로그인 이용자(시작 날짜 이후·거두지 않은 것)로 막는다. 여기서는 모양만 다룬다.
 export const LINES_MAX = 12, LINE_MAX = 200, TITLE_MAX = 80, SOURCES_MAX = 30;
@@ -70,20 +70,20 @@ export function startGapText(items, startOn) {
 }
 
 /** 지금 보내는 새 소식이 이용자에게 보이는지 → 보내기 창 안내와 '시작 날짜도 정하기' 칸. 보이면 null.
- *  시작 날짜가 없으면 오늘로 정하기 칸을 기본으로 켜고(추천안, 명진 확인 대기), 시작 날짜가 오늘보다 뒤면 당기기 칸을 꺼 둔다(이미 정한 값이라). */
+ *  시작 날짜가 없으면 오늘로 정하기 칸을 기본으로 켜고(추천안, 사용자 확인 대기), 시작 날짜가 오늘보다 뒤면 당기기 칸을 꺼 둔다(이미 정한 값이라). */
 export function sendStartHint(startOn, today) {
   if (!startOn) return {text: '시작 날짜가 없어 이용자에게 아직 안 보여요', option: `오늘(${shortDay(today)})부터 보이게 시작 날짜도 정하기`, checked: true};
   if (startOn > today) return {text: `시작 날짜(${shortDay(startOn)}) 앞이라 이 소식은 이용자에게 아직 안 보여요`, option: `시작 날짜를 오늘(${shortDay(today)})로 당기기`, checked: false};
   return null;
 }
 
-// ── S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄의 [보냄]을 눌러 그 기록이 든 소식을 거둔다.
+// ── S68-14(사용자 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄의 [보냄]을 눌러 그 기록이 든 소식을 거둔다.
 /** 기록 버전 v(또는 기록 {v,file})가 들어 있는 보낸(거두지 않은) 소식 id들과, 그 소식들에 같이 묶인 다른 기록 개수. 없으면 ids는 빈 배열. */
 export function withdrawPlan(items, v) {
   return notePlan((items || []).filter(item => !item.withdrawn_at && newsHasNote(item, v)), v);
 }
 
-// ── S68-46 UPDATE-소식자동(명진 11/23 12:37 "업데이트 기록 기본 자동으로 보내고 수동으로는 회수 가능하게"):
+// ── S68-46 UPDATE-소식자동(사용자 11/23 12:37 "업데이트 기록 기본 자동으로 보내고 수동으로는 회수 가능하게"):
 // 새 기록은 배포되면 서버가 자동으로 소식 하나씩 보낸다(app_release_notes_put → private.app_update_news_auto, 자동 소식은 auto·source_files를 가짐).
 // 화면은 기록 줄 버튼 하나로 [보내기](아직 안 나감) · [보냄](눌러서 거두기) · [다시 보내기](거둔 것)를 보인다.
 

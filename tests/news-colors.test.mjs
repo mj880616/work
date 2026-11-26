@@ -57,7 +57,7 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);
 });
 
-// NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·공공운수노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
+// NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·A노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
 const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 const darkPart = css.slice(css.indexOf('@media (prefers-color-scheme:dark)'));
@@ -163,14 +163,14 @@ test('고정 색 토큰: 밝은·어두운 화면 모두 있고, 이름 글자�
       assert.match(bar || '', /^(#[0-9a-f]{6}|linear-gradient\((#[0-9a-f]{6} [0-9. %]+,?)+\))$/, `${k} 막대`);
     }
   }
-  // 명진 지정: 정의당 막대 샛노랑, 공공운수노조 막대 네이비·회색·빨강 3색(이름 글자 네이비), 금속노조 네이비.
+  // 사용자 지정: 정의당 막대 샛노랑, A노조 막대 네이비·회색·빨강 3색(이름 글자 네이비), 금속노조 네이비.
   assert.equal(tok(lightPart, 'ds-news-id-justice-bar'), '#ffcc00');
   assert.equal((tok(lightPart, 'ds-news-id-kptu-bar').match(/#[0-9a-f]{6}/g) || []).length, 3);
   assert.equal(tok(lightPart, 'ds-news-id-kptu'), tok(lightPart, 'ds-news-id-kmwu'));
   assert.doesNotMatch(css, /--ds-news-party-(justice|kgreens|laborparty|jinboparty):/);
 });
 
-// 서로 너무 비슷한 색 없음: 한 색 막대끼리 밝은 화면에서 CIE Lab 거리 12 이상(어두운 화면 6 이상). 여러 색 띠(공공운수노조·Red Pepper·Socialist Worker)는 띠 색 차례가 서로 달라야 하고,
+// 서로 너무 비슷한 색 없음: 한 색 막대끼리 밝은 화면에서 CIE Lab 거리 12 이상(어두운 화면 6 이상). 여러 색 띠(A노조·Red Pepper·Socialist Worker)는 띠 색 차례가 서로 달라야 하고,
 // 붉은 계열이 겹치는 노동당·Red Pepper·Socialist Worker는 띠 둘째 색으로 가른다(표 docs/design/news-identity-colors.md '비슷한 색').
 const labOf = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); const X = (0.4124 * c[0] + 0.3576 * c[1] + 0.1805 * c[2]) / 0.95047, Y = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2], Z = (0.0193 * c[0] + 0.1192 * c[1] + 0.9505 * c[2]) / 1.08883; const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116); return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))]; };
 const dist = (a, b) => Math.hypot(...labOf(a).map((v, i) => v - labOf(b)[i]));
@@ -197,7 +197,7 @@ test('붉은 계열이 겹치는 노동당·Red Pepper·Socialist Worker·민주
 });
 
 test('줄: 막대 색이 글자 색과 다를 때만 --nw-bar를 따로 쓴다', () => {
-  const base = {key: 'outside:1', openAttr: 'data-os-open', openId: '1', title: 't', src: '공공운수노조', time: '09:00'};
+  const base = {key: 'outside:1', openAttr: 'data-os-open', openId: '1', title: 't', src: 'A노조', time: '09:00'};
   assert.match(rowHtml({...base, color: 'var(--ds-news-id-kptu)', bar: 'var(--ds-news-id-kptu-bar)'}, esc), /style="--nw-c:var\(--ds-news-id-kptu\);--nw-bar:var\(--ds-news-id-kptu-bar\)"/);
   assert.match(rowHtml({...base, color: 'var(--ds-news-labor-1)', bar: 'var(--ds-news-labor-1)'}, esc), /style="--nw-c:var\(--ds-news-labor-1\)"/);
   assert.match(readFileSync(new URL('../app/now.css', import.meta.url), 'utf8'), /\.nw-bar\{[^}]*background:var\(--nw-bar,var\(--nw-c\)\)/);

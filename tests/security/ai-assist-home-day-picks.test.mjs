@@ -240,7 +240,7 @@ test('pure rules: slot, due, diary overlap, ended events',()=>{
   assert.equal(hd.weekStart('2026-11-09'),'2026-11-09');assert.equal(hd.weekStart('2026-11-15'),'2026-11-09');
 });
 
-// NEWS-운영자만(S63-03, 명진 11/16): '읽을 만한 글'은 News 기사에서 고르므로 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지 않고 고르지 않는다.
+// NEWS-운영자만(S63-03, 사용자 11/16): '읽을 만한 글'은 News 기사에서 고르므로 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지 않고 고르지 않는다.
 test("NEWS-운영자만: 'outside' 키가 없으면 뉴스 표를 읽지 않고 '읽을 만한 글' AI를 부르지 않는다(지운 것 없음)",async()=>{
   const {handler,calls,db}=harness({features:[],items:[news(N1,'가상지부 교섭 결렬','2026-11-08T22:00:00.000Z')]});
   const res=await post(handler,ask());
@@ -250,7 +250,7 @@ test("NEWS-운영자만: 'outside' 키가 없으면 뉴스 표를 읽지 않고 
   assert.equal(db.app_news_items.length,1,'모인 글은 그대로');
 });
 
-// S67-46(명진 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 오늘(한국 날짜) 일만. 다른 날 줄은 재료·AI 답 모두에서 빠지고,
+// S67-46(사용자 11/20 "11월 20일인데 오늘 / 옛 일정이 제안으로"): 기록 제안 재료는 오늘(한국 날짜) 일만. 다른 날 줄은 재료·AI 답 모두에서 빠지고,
 // 다른 날 만든 저장 제안은 돌려주지 않고 새로 고른다. 합성 자료만.
 const D20='2026-11-20',EVE20=Date.parse('2026-11-20T12:37:00Z'); // 21:37 KST
 test('S67-46: 어제·지난주 회의·통화는 재료에서 빠지고(한국 자정 경계), 지운 회의도 빠진다',async()=>{

@@ -98,7 +98,7 @@ for(const width of [390,900,1280])test(`Google needs reconnect: link line first,
   await expect(line(page,'collect')).toBeHidden();
   const count=page.locator('#noticeBar .kptu-notice-bar-count');
   await expect(count).toHaveText('1/2');
-  // 11/18 명진 "잘리지 않고 다 보이게": 좁은 폰에서는 글이 줄을 바꿔 끝까지 보인다(말줄임 없음). 넓은 화면은 한 줄.
+  // 11/18 사용자 "잘리지 않고 다 보이게": 좁은 폰에서는 글이 줄을 바꿔 끝까지 보인다(말줄임 없음). 넓은 화면은 한 줄.
   const g=await geometry(page);
   expect(g.lines).toBe(width<600?2:1);
   expect(g.overflow).toBe(false);

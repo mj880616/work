@@ -359,7 +359,7 @@ test('hand url: first body line that is only an address moves to the url field; 
   assert.deepEqual(M.movedUrlValues({title: 't', url: '', body: url}), {title: 't', url, body: ''});
 });
 
-// S68-44(명진 11/23 11:07 "본문 글자 없이도 저장되게"): 제목·본문 글자는 필수가 아니다. 모두 빈 것만 막는다.
+// S68-44(사용자 11/23 11:07 "본문 글자 없이도 저장되게"): 제목·본문 글자는 필수가 아니다. 모두 빈 것만 막는다.
 test('S68-44 hand request: body may be emptied or photos only; title may be empty; only a fully empty article is refused', () => {
   const init = M.handInitial({title: '합성 제목', url: 'https://news.example.org/a/1'}, [{t: 'p', text: '본문'}]);
   // 본문 비우기 → 빈 글자 그대로 보냄(서버 = 본문 없음).
@@ -385,9 +385,9 @@ test('hand url: addresses inside a paragraph become link pieces; trailing punctu
   assert.deepEqual(M.textWithUrls('(https://x.example.org/a)'), [{text: '('}, {url: 'https://x.example.org/a', text: 'https://x.example.org/a'}, {text: ')'}]);
 });
 
-// S68-49(명진 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)·robots 실패도 [원문 다시 가져오기], 두 갈래 같다.
+// S68-49(사용자 11/23 12:43 "업데이트 됐는데도 여전히 못 읽음"): 봇 확인(bot_check)·robots 실패도 [원문 다시 가져오기], 두 갈래 같다.
 // 열 때 저절로 다시 읽는 것(reopenBody)은 그대로 — 봇 확인은 누를 때만. 손 본문(manual@1)은 다시 읽지 않는다.
-// S69-02(명진 11/24 "글 안에서도 원문 다시 불러오기 버튼 … 어디있지"): 못 읽은 글(lead·failed — 까닭 상관없이)은 까닭 줄 단추, 두 갈래 같다.
+// S69-02(사용자 11/24 "글 안에서도 원문 다시 불러오기 버튼 … 어디있지"): 못 읽은 글(lead·failed — 까닭 상관없이)은 까닭 줄 단추, 두 갈래 같다.
 test('S69-02: canRefetch — 앞부분만·실패 본문은 까닭 상관없이 단추(뉴스·사회운동), 손 본문·읽힌 본문·없는 줄은 아님', async () => {
   const {canRefetch, reopenBody} = await import('../app/now-model.mjs');
   for (const type of ['news', 'outside', '']) {

@@ -5,7 +5,7 @@ import { noteTrash } from './helpers/note-trash.mjs';
 import { touchDrag } from './helpers/touch-drag.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
 
-// S69-27 (명진 11/24): 노트 [폴더] 보기
+// S69-27 (사용자 11/24): 노트 [폴더] 보기
 // ① "폴더 밑에 바로 들어가있는 메모도 목록으로 보여야해 / 왼쪽은 목록 오른쪽에는 노트 내용" — PC·펼친 폴드 왼쪽 나무에 폴더 바로 아래 노트 줄(하위 폴더 먼저),
 //    노트를 누르면 오른쪽 칸에 그 노트(나무는 그대로). 폰은 목록 → 노트 화면, 뒤로가기 = 목록.
 // ② "지운 노트 어디서봐? 휴지통 보여야함" — 나무 맨 아래 '휴지통 N', 누르면 지운 노트(제목·지운 날), [되돌리기] = 원래 폴더로.

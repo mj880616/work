@@ -1,6 +1,6 @@
 // 연결 안내 공용 부품(S62-16: TASK-구글할일연결문구 · FILES-구글드라이브아이콘연결전 · PROFILE-없음칸제목, HOME-연결안내한줄아래와 같은 모양).
 // 모양: '안내 한 줄 → 그 아래 줄 왼쪽에 버튼 하나'(폭과 상관없이 늘 두 줄). 화면마다 따로 만들지 않고 이 한 곳에서 그린다.
-// 연결 글 규칙(명진 11/15): 한 번도 연결 안 한 사람 = '연결', 연결은 했는데 권한만 빠진 사람 = '다시 연결'. 표기는 '구글', 말투는 '해요'체.
+// 연결 글 규칙(사용자 11/15): 한 번도 연결 안 한 사람 = '연결', 연결은 했는데 권한만 빠진 사람 = '다시 연결'. 표기는 '구글', 말투는 '해요'체.
 // 모양 CSS는 base-ui.css의 .connect-note 하나. 무엇을 누르는지는 화면마다 속성(attrs)으로 알아본다.
 
 const ESC = {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'};
@@ -54,7 +54,7 @@ export function connectNoteFor(service, mode = 'none', {line = '', attrs = {}, b
   return connectNoteHtml({line:line || t.line, button:t.button, attrs, boxAttrs:{'data-connect-service':service, 'data-connect-mode':mode === 'reconnect' ? 'reconnect' : 'none', ...boxAttrs}, role, why, cls});
 }
 
-// S62-36 UI-클라우드연결안내통일(명진 11/16): 원드라이브·구글 드라이브를 둘 다 쓰는 화면에서 둘 다 연결 전이면
+// S62-36 UI-클라우드연결안내통일(사용자 11/16): 원드라이브·구글 드라이브를 둘 다 쓰는 화면에서 둘 다 연결 전이면
 // [파일] 화면과 같은 한 칸 — '연결된 클라우드가 없어요.' 한 줄 + 그 아래 연결 버튼들 한 줄([원드라이브 연결][구글 드라이브 연결]).
 // items: [{service:'onedrive'|'gdrive', attrs}] — 연결 안 된 것만 넘긴다(넘긴 순서대로 왼쪽부터). 버튼 글은 CONNECT_TEXT 그대로.
 export const CLOUD_NONE_LINE = '연결된 클라우드가 없어요.';

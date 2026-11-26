@@ -25,7 +25,7 @@ test('담당조직 탭은 검색·협의회·유형 필터 없이 내 담당조�
   await expect(rail.locator('.sof-type')).toHaveCount(0);
   await expect(page.locator('.so-group-heading')).toHaveText('철도1곳');
   await expect(rail.locator('.so-chevron')).toHaveText('›');
-  await expect(rail).not.toContainText('김명진');
+  await expect(rail).not.toContainText('홍길동');
 });
 
 test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일 렌더러만 사용한다',async()=>{

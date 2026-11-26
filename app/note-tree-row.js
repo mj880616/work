@@ -1,6 +1,6 @@
 // 노트 폴더 나무의 줄 하나(폴더 줄 / 잠긴 폴더 줄 / 노트 줄) HTML — 노트 [보드] 왼쪽 '노트 목록'(note-boards.js), 폰 보드 [+ 노트 붙이기] 고르기 창,
 // 잊지 말기 [노트] 창의 노트 고르기(note-pick.js)가 같이 쓰는 부품. 줄 재료는 note-tree.mjs treeRows·recentRows.
-// NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 이걸 통일해야함. 파일쪽에 맞춰서"):
+// NOTE-폴더디자인통일(S70-82, 사용자 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 이걸 통일해야함. 파일쪽에 맞춰서"):
 // 모양은 [파일]·노트 [폴더] 나무와 같은 공용 줄(folder-tree-ui.mjs ftFolderRowHtml·ftItemRowHtml, folder-tree.css .ft-*) 하나다.
 // 전의 노트 전용 줄(.nbb-folder·.nbb-note — 26px/32px 줄, 오른쪽 끝 개수, 잠긴 폴더 큰 [풀기] 단추)은 지웠다.
 // 누르기·끌기가 알아보는 data 이름(folderAttr·noteAttr·lockAttr)은 줄 단추(.ft-main)에, 끌기 순서 표시(data-reorder-id)는 줄(.ft-row)에 붙는다.

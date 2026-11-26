@@ -77,7 +77,7 @@ export function minuteText(minutes){
 }
 
 // 띠 진행 한 줄: 올림 › 저장. 지금 단계는 strong으로 표시(화면이 그린다).
-// S61-5 REC-전사삭제(명진 11/13): 전사·요약·초안 단계는 없다. 멈추면 녹음 파일을 자료실 '회의 녹음' 폴더에 저장하는 것까지.
+// S61-5 REC-전사삭제(사용자 11/13): 전사·요약·초안 단계는 없다. 멈추면 녹음 파일을 자료실 '회의 녹음' 폴더에 저장하는 것까지.
 export const STEPS=Object.freeze(['올림','저장']);
 export function stepParts(current){
   const at=STEPS.indexOf(current);

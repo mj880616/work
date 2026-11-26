@@ -1,6 +1,6 @@
 // FILES-통합 2-③ 두 칸(S49-30, 설계 docs/design/files-unified-plan.md D-3·D-4·J절 H-2, 시안 files-unified-mockup.html ⑥⑧): 화면 없이 시험하는 계산.
 // - 두 칸 켬은 서버 view_prefs.files_two에 기기 종류별로 둔다(files_sources와 같은 모양: {app?: {...}, phone?: {...}, pc?: {...}}, migration 20261104190000).
-//   기기 칸 안은 화면 폭 종류마다 참·거짓: fold = 폴드 펼침(600~1199, 공용 판정 screen-width.mjs), wide = PC(1200~). 칸이 없으면 기본값 — 한 칸(왼쪽 나무 + 오른쪽 목록). S50-33(명진 결정, 시안 승인): 폴드 펼침도 PC처럼 한 칸이 기본(H-2의 '폴드 기본 두 칸'을 바꿈). [두 칸 보기]로 켠 값은 그대로 기억.
+//   기기 칸 안은 화면 폭 종류마다 참·거짓: fold = 폴드 펼침(600~1199, 공용 판정 screen-width.mjs), wide = PC(1200~). 칸이 없으면 기본값 — 한 칸(왼쪽 나무 + 오른쪽 목록). S50-33(사용자 결정, 시안 승인): 폴드 펼침도 PC처럼 한 칸이 기본(H-2의 '폴드 기본 두 칸'을 바꿈). [두 칸 보기]로 켠 값은 그대로 기억.
 // - 폰(600px 미만)은 기본 한 칸, [두 칸 보기]로 켜면 위·아래 두 칸(S51-20 ②).
 export const FILES_TWO_KEY = 'files_two';
 // S51-20 ②(시안 files-phone-grid-two-drag.html ②): 폰(600px 미만)도 [두 칸 보기] — 위·아래 두 칸. 켬은 narrow 칸(migration 20261106200000, 기본 한 칸).
@@ -45,7 +45,7 @@ export function otherStart(leftWhere, on) {
 // 끌어 놓기 받을 곳 묻기 글자(시안 ⑥ drop-hint).
 export const DROP_ASK_TEXT = '여기에 놓으면';
 
-// S52-07 FILES-칸출처고르기(명진 결정 11/07: 칸 머리 '원드라이브 ▾' 이름 → 목록, 고른 출처는 서버에 기억; 시안 morning-1107/4-files-pane-source.html 1-A).
+// S52-07 FILES-칸출처고르기(사용자 결정 11/07: 칸 머리 '원드라이브 ▾' 이름 → 목록, 고른 출처는 서버에 기억; 시안 morning-1107/4-files-pane-source.html 1-A).
 // - 서버 view_prefs.files_panes = {app?|phone?|pc?: [첫 칸(왼쪽·위) 출처, 둘째 칸(오른쪽·아래) 출처]}(migration 20261107110000). 폴더 위치는 넣지 않는다(고르면 그 출처 맨 위).
 // - 적용 전에는 서버가 거절(400)해 값이 되돌아간다 — 칸은 그 자리에서만 바뀐다(기기 저장 없음).
 export const FILES_PANES_KEY = 'files_panes';

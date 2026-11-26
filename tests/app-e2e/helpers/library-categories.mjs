@@ -1,6 +1,6 @@
 import {expect} from '@playwright/test';
 // 자료실 분류 고르기 도우미.
-// LIB-위쪽한줄(11/09 명진 B·가안): 자료실 분류는 폰·폴드·PC 모두 위 줄 [분류: … ▾] 하나다(분류 칩 줄·'✎ 분류 수정' 줄 끝 버튼은 없앴다).
+// LIB-위쪽한줄(11/09 사용자 B·가안): 자료실 분류는 폰·폴드·PC 모두 위 줄 [분류: … ▾] 하나다(분류 칩 줄·'✎ 분류 수정' 줄 끝 버튼은 없앴다).
 // 창(공용 고르기 창 #libraryCategorySheet)에서 체크 = 보일 큰 분류(아무것도 안 고르면 전체), [적용]으로 건다. 상태 읽기도 같은 창에서 한다(열고 읽고 [취소]).
 const sheetOf=page=>page.locator('#libraryCategorySheet');
 const pickOf=page=>page.locator('#libraryCategoryPick');

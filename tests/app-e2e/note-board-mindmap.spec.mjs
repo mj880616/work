@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S69-82 노트 › 보드 → 브레인스토밍·마인드맵(명진 11/24 23:51 "전체를 브레인 스토밍 마인드맵 하게. 제대로 개선", docs/design/note-board-mindmap.md).
+// S69-82 노트 › 보드 → 브레인스토밍·마인드맵(사용자 11/24 23:51 "전체를 브레인 스토밍 마인드맵 하게. 제대로 개선", docs/design/note-board-mindmap.md).
 // - 상자(보드에만 있는 글, 서버 표 app_note_board_texts): 가로 글(글 길이만큼 폭), 고른 채 Tab = 하위 가지, Enter = 형제 가지, Delete = 지우기(아래가 있으면 확인).
 // - 자동 배치(양쪽·겹침 없음), 끌면 가지째, 다른 상자 위에 놓으면 그 아래로, 빈 곳에 놓으면 떼어 혼자 선 상자. 접기·펼치기.
 // - 고른 상자 위 막대: 색·모양·글자 크기·+ 하위·+ 형제·삭제. 손잡이로 잇기(가까이 놓아도 붙음, 빈 곳 = 새 상자 + 선).

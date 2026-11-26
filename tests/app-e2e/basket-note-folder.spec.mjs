@@ -147,7 +147,7 @@ for (const width of [390, 1280]) test(`select mode: [선택] → pick rows → m
   await press(page, noteRow(page, 'n3'), width);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-note-detail]')).toBeHidden();
-  // S69(명진 11/24 "선택된거 클릭하면 선택해제"): 고른 줄을 다시 누르면 풀리고, 또 누르면 다시 골라진다(자료실과 같은 규칙).
+  // S69(사용자 11/24 "선택된거 클릭하면 선택해제"): 고른 줄을 다시 누르면 풀리고, 또 누르면 다시 골라진다(자료실과 같은 규칙).
   await press(page, noteRow(page, 'n3'), width);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await press(page, noteRow(page, 'n3'), width);
@@ -291,7 +291,7 @@ test.describe('PC mouse (no touch)', () => { test.use({ hasTouch: false }); test
   expect(f.errors).toEqual([]);
 }); });
 
-// S69 LONGPRESS-선택(명진 11/24): 꾹 눌렀다 움직이지 않고 떼면 메뉴가 아니라 선택 모드 + 그 줄 선택. 메뉴는 줄 ⋯로만.
+// S69 LONGPRESS-선택(사용자 11/24): 꾹 눌렀다 움직이지 않고 떼면 메뉴가 아니라 선택 모드 + 그 줄 선택. 메뉴는 줄 ⋯로만.
 test('phone 390: long-press a note and let go without moving picks it (select mode); the row ⋯ opens the menu; [폴더로 옮기기] moves it', async ({ page }) => {
   const f = await fixture(page, 390);
   await showOutside(page, 390);
@@ -335,7 +335,7 @@ test('phone 390: 나무에서 그 자리 펼치기 → 두 손가락 그 폴더�
   await expect(noteRow(page, 'n2')).toBeVisible();
   await expect(noteRow(page, 'n1')).toHaveCount(0);
   // 폰 '그 폴더만'은 위치를 [‹] 줄 안에 보이고 따로 위치 줄을 두지 않는다.
-  // UI-폴더이름펼치기(명진 11/24 18:09, 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'를 대신함): 그 안 빈 폴더(하위)도 누르면 그 자리 펼침('빈 폴더' 한 줄),
+  // UI-폴더이름펼치기(사용자 11/24 18:09, 전의 OPS-빠진일2차 1 '하위 없는 폴더 = 한 번에 열기'를 대신함): 그 안 빈 폴더(하위)도 누르면 그 자리 펼침('빈 폴더' 한 줄),
   // 한 단계 더 들어가기는 ⋯ 첫 줄 [이 폴더로 들어가기].
   await expect(page.locator('[data-nx-where]')).toBeHidden();
   await press(page, page.locator(`#noteRows [data-nx-open="${U(3)}"]`), 390);
@@ -370,7 +370,7 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
   expect(errors).toEqual([]);
 });
 
-// UI-고르기막대(S69-85, 명진 11/25 "두줄로 삐져나오지 않게"): 노트 고르기 막대도 파일·자료실과 같은 공용 막대 — 늘 한 줄(높이 = 목록 줄 하나 이하),
+// UI-고르기막대(S69-85, 사용자 11/25 "두줄로 삐져나오지 않게"): 노트 고르기 막대도 파일·자료실과 같은 공용 막대 — 늘 한 줄(높이 = 목록 줄 하나 이하),
 // 왼쪽 [✕] 'N개 선택됨', 오른쪽 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
 for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 막대 한 줄 ${width}`, async ({ page }) => {
   const { mkdirSync } = await import('node:fs');

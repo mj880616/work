@@ -203,7 +203,7 @@ test('종류 묶기: 소분류 묶음 이름과 값',()=>{
   assert.deepEqual(cat.map(n=>[n.label,n.category,n.count]),[['선전','선전',1],['선전 › 투쟁속보','선전›투쟁속보',1]]);
 });
 
-// LIB-외줄합치기없애기(명진 11/26 08:43 '합치기를 없애기'): 하위 폴더 하나뿐인 폴더도 접지 않는다 — 자기 이름 · 자기 개수, '›' 경로 없음.
+// LIB-외줄합치기없애기(사용자 11/26 08:43 '합치기를 없애기'): 하위 폴더 하나뿐인 폴더도 접지 않는다 — 자기 이름 · 자기 개수, '›' 경로 없음.
 test('하위 폴더 하나뿐인 폴더: 자기 이름·자기 개수로 한 줄, 하위 폴더는 안쪽 자기 줄',()=>{
   const folders=[{id:'g1',project_id:null,parent_id:null,name:'07. 사업',sort_order:0},{id:'g2',project_id:null,parent_id:'g1',name:'2026 사업',sort_order:0},{id:'g3',project_id:null,parent_id:'g2',name:'집행위<',sort_order:0},{id:'h1',project_id:null,parent_id:null,name:'갈래',sort_order:1},{id:'h2',project_id:null,parent_id:'h1',name:'가',sort_order:0},{id:'h3',project_id:null,parent_id:'h1',name:'나',sort_order:1}];
   const docs=[doc('d1','a'),doc('d2','a')];

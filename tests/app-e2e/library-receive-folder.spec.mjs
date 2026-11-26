@@ -3,7 +3,7 @@ import {mkdirSync} from 'node:fs';
 import {bootLibrary,libFolder,menuButton,folderMenuItem,press} from './helpers/library-folder-server.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
-// S59-11 LIB-받는폴더(시안 docs/design/mockups/lib-receive-folder.html #2396, 명진 11/11 "잡동사니 시안 ㄱ"):
+// S59-11 LIB-받는폴더(시안 docs/design/mockups/lib-receive-folder.html #2396, 사용자 11/11 "잡동사니 시안 ㄱ"):
 // 폴더 우클릭(폰 ⋯) 메뉴 한 줄 [폴더 안 정한 자료 받기]로 켜고 끈다(켜면 ✓, 받는 폴더는 하나뿐). 켠 폴더 줄에 작은 '받는 폴더'.
 // 켤 때 지금 '폴더 밖' 자료 개수를 보여 주고 물은 뒤 한 번에 옮긴다(되돌리기 있음). 설정은 서버 프로필 칸(가짜 서버 state.receiveFolder),
 // 폴더를 정하지 않고 올린 자료를 받는 폴더에 넣는 일은 서버(DB 트리거 — 가짜 서버의 library-files가 흉내)가 한다.

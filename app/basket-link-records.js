@@ -125,7 +125,7 @@ export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
 // EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
 export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
 // extra: html put inside the record under its line (ORG-기록첨부: the picture/file strip, record-files.js).
-// UI-기록카드하나로(S70-42, 명진 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
+// UI-기록카드하나로(S70-42, 사용자 11/25 "사진이 있는거랑 글자가 있는거랑 먼가 통일감이 없음"): 글 기록 줄과 같은 틀 [날짜 칸 'MM.DD.' | 본문 | ⋯].
 // 본문 = 글(또는 사진만인 기록의 한 줄) + 그 아래 extra(기록 띠: 작은 사진·파일 이름, record-files.js). 긴 날짜·시각은 날짜 칸 title로만.
 export function linkRecordHtml(row,{extra=''}={}){
   const ok=Number.isFinite(Date.parse(row.occurred_at)),date=ok?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'',day=ok?dayCell(row):'';
@@ -141,7 +141,7 @@ function recordMenu(host){
   linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'잊지 말기 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
     // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정]. UI-연결요약수정: [요약 수정] changes only this link's summary.
-    // ORG-연결노트삭제(2026-11-12 명진 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
+    // ORG-연결노트삭제(2026-11-12 사용자 지시): 노트 줄에도 업데이트와 같은 자리·이름의 [원문 삭제](맨 아래, 위험 색). 노트 화면 [삭제]와 같은 휴지통 길.
     render:id=>([...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button>')+'<button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>'+'<button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;

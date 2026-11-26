@@ -1,8 +1,8 @@
-// UI-목록밀기(2026-10-30 명진 요청): 폰(≤760px) 목록 줄을 손가락으로 밀어 처리하는 공용 부품. 텔레그램 소식 줄 밀기와 같은 손동작
+// UI-목록밀기(2026-10-30 사용자 요청): 폰(≤760px) 목록 줄을 손가락으로 밀어 처리하는 공용 부품. 텔레그램 소식 줄 밀기와 같은 손동작
 // (셈은 row-swipe-model.mjs, 텔레그램도 같은 기준을 쓴다).
-// UI-줄밀기 Raindrop식(S68-26, 명진 11/22 21:31): 왼쪽으로 밀면 오른쪽 끝에 단추 여러 칸(최대 3, 왼쪽부터 덜 위험한 것 → 맨 오른쪽 삭제),
+// UI-줄밀기 Raindrop식(S68-26, 사용자 11/22 21:31): 왼쪽으로 밀면 오른쪽 끝에 단추 여러 칸(최대 3, 왼쪽부터 덜 위험한 것 → 맨 오른쪽 삭제),
 // 오른쪽으로 밀면 그 줄이 골라진 채로 '여러 개 고르기'(S70-64 W3, 칸을 열어 두지 않음 — 아래 '여러 개 고르기' 설명).
-// 왼쪽으로 밀면 칸만 보이고 멈춘다. 끝까지 밀어도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 누를 때만(S70-60 UI-스와이프메뉴만, 명진 11/26).
+// 왼쪽으로 밀면 칸만 보이고 멈춘다. 끝까지 밀어도 바로 실행하지 않는다 — 일은 펼쳐진 칸을 누를 때만(S70-60 UI-스와이프메뉴만, 사용자 11/26).
 // - 손가락(터치)만, 폰 폭만. PC·중간 폭은 지금처럼 ⋯·우클릭·마우스 올림 단추다. 세로 스크롤과 헷갈리지 않게 가로로 충분히 민 뒤에만 시작한다.
 // - 목록 줄 위에서는 줄 밀기가 먼저다: 다른 좌우 밀기(탭 넘김·노트 보기 전환 등)는 claimedSince()로 이 손동작을 건너뛴다.
 // - 데이터는 이 부품이 지우지 않는다. run(key, row)·select.run(key, ids)은 그 목록의 기존 길(휴지통 삭제 + '지웠어요 [되돌리기]', 보류, 무시 …)을 부른다.
@@ -26,7 +26,7 @@ export const PICK = Object.freeze({key:'select', label:'선택', tone:'pick', ic
 // 이름이 같은 일은 같은 그림(그 목록이 icon을 주지 않았을 때).
 const ICON = {select:'pick', delete:'trash', move:'move', share:'share', hide:'hide', save:'archive', release:'undo', unstar:'undo', toggle:'done', done:'done',
   hold:'archive', unhold:'undo', pin:'pin', dismiss:'hide', edit:'edit', rename:'rename', 'to-task':'task', more:'more', star:'star', restore:'undo', purge:'trash', unhide:'show'};
-// S70-65 UI-밀기메뉴통일(2026-11-26 08:16 명진 가안): 왼쪽 밀기 칸은 [주 동작][수정][숨기기·삭제] 세 칸. 같은 일은 같은 이름·그림 —
+// S70-65 UI-밀기메뉴통일(2026-11-26 08:16 사용자 가안): 왼쪽 밀기 칸은 [주 동작][수정][숨기기·삭제] 세 칸. 같은 일은 같은 이름·그림 —
 // 목록은 아래 칸을 그대로 쓰고 주 동작만 제 것으로 준다. 수정 칸 이름은 용어 기준표(docs/design/ui-words.md)의 '수정', 파일은 '이름 바꾸기'.
 export const EDIT = Object.freeze({key:'edit', label:'수정', tone:'info', icon:'edit'});
 export const RENAME = Object.freeze({key:'rename', label:'이름 바꾸기', tone:'info', icon:'rename'});
@@ -81,7 +81,7 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   }
 
   // ---- 여러 개 고르기(오른쪽 밀기) ----
-  // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와
+  // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 사용자 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야 / 선택시 전체선택이랑 삭제 칸이 나와
   //   복수 또는 일괄 삭제 / 전테선택은 누르면 체크표시되고 다시 누르면 전체 선택 해제 / 다 이런식으로 왼쪽에서 오른쪽으로 스와이프 하는 건"):
   // - 줄을 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 그 줄이 골라진 채 고르기 상태가 된다. 고르기 중 줄 누르기 = 고름/풀림.
   // - 위 고르기 막대(공용 .kptu-selbar 모양, S8): [✕] 'n개 선택됨' · [전체 선택](켜면 네모 안 체크 + 화면 목록 전체, 다시 누르면 모두 풀림)
@@ -138,7 +138,7 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   }
   if (pick) document.addEventListener('keydown', e => { if (e.key === 'Escape' && picking() && root.isConnected) { e.preventDefault(); stopPicking(); } });
 
-  // S68-50(명진 11/23 12:46 "좌우 스와이프 제대로 작동 안함 점검"):
+  // S68-50(사용자 11/23 12:46 "좌우 스와이프 제대로 작동 안함 점검"):
   // - 칸이 열린 채 다른 곳(다른 줄·⋯ 등 목록 안)을 누르면 닫기만 한다 — 그 누름으로 다른 줄이 열리거나 단추가 눌리지 않게(iOS 메일과 같음).
   // - 열린 칸 위에서 시작한 좌우 밀기도 그 줄을 민다(오른쪽으로 밀면 닫힘). 민 뒤 따라오는 click은 삼키므로 칸 단추는 직접 누를 때만 실행된다.
   root.addEventListener('pointerdown', e => {

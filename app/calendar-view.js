@@ -4,7 +4,7 @@ import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
 import {dayItems,calendarDateKey} from './calendar-day-items.js';
 import {dayKey,ranges} from './home-read-model.js';
 import {viewPrefs} from './view-prefs.js';
-// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '일정에서 찾기'.
+// S70-57 UI-검색창하나로(사용자 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '일정에서 찾기'.
 import {registerScreenFind,findFor} from './screen-find.js';
 import {loadEvents} from './global-search-data.js'; // S70-67: 다른 달 일정 찾기 = 전체 검색의 일정 읽기 그대로
 // Owns view choice, list/week ranges and list pagination. The choice is remembered on the server (view-prefs.js, profile view_prefs).

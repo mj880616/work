@@ -9,7 +9,7 @@
 // 연결 요약 답은 후보일 뿐 저장하지 않는다. 저장은 화면의 기존 저장 경로(app_basket_confirm_links 등)가 한다.
 // 챙길 것 찾기는 후보만 owner RLS 표 app_todo_candidates에 "대기"로 더한다(요약·출처·짧은 근거만, 원문 없음).
 // 할 일 만들기·원장 쓰기는 하지 않는다. 상대 약속(COM)은 저장하지 않고 응답으로만 돌려준다(화면 [원장으로 복사]).
-// 원장 후보 만들기는 후보만 owner RLS 표 app_ledger_candidates에 "대기"로 더한다. 원장 행은 명진이 화면에서 [확정]해야 생긴다.
+// 원장 후보 만들기는 후보만 owner RLS 표 app_ledger_candidates에 "대기"로 더한다. 원장 행은 사용자가 화면에서 [확정]해야 생긴다.
 // (조직 현황 요약 org_summary·현황 표 줄 뽑기 org_status_rows는 WEEKLY-메뉴짝짓기 P7에서 지웠다 — 주별 조직보고 제안 org_week_lines가 대신. 저장된 표는 보존.)
 // 자료실 빈 칸 채우기(kind=library_fill, LIB-AI자동분류, docs/design/library-ai-fill.md):
 //   fill = 막 올린 자료(1시간 안)의 제목·자료 날짜·작성 주체·유형 중 사용자가 넣지 않은 칸만 바로 저장(사용자 요청 ①, 버튼 없음).
@@ -32,18 +32,18 @@
 // 원장 고치기 미리보기(kind=ledger_fix, LEDGER-수정요청): 일상어 한 줄 → 원장 수정 요청 모양. AI 답은 다시 검사하고 DB 해 보기로 전·후만
 //   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 ⋯ [고치기]로 직접 지정한 한 건만 보낸다(2026-10-26 결정).
 // 사업영역 AI(MTG-프로젝트합치기, docs/design/project-into-report.md 6·12절, business-area.ts):
-//   (area_week_summary 한 줄 요약은 S49-39, 명진 11/04 16:45 "아예 지우자"로 없앴다. 이미 저장된 draft.area_summaries 값은 지우지 않고 읽는 곳만 없다.)
+//   (area_week_summary 한 줄 요약은 S49-39, 사용자 11/04 16:45 "아예 지우자"로 없앴다. 이미 저장된 draft.area_summaries 값은 지우지 않고 읽는 곳만 없다.)
 //   area_suggest = 사업 보고 쓰기 창의 사업영역 추천(요청 19:07 ②). 저장하지 않은 창의 제목·글만 받아 후보 최대 3개를 돌려준다(저장 없음).
 // 업무일지 '오늘 한 줄' 저녁 초안(kind=journal_draft, JOURNAL-오늘한줄초안, journal-draft.ts): 업무일지 화면이 오늘 18시 뒤 한 줄이 없을 때 한 번 부른다.
 //   화면은 그날 재료 줄(일정·한 일·회의·소식·업무 통화 요약, 60줄까지)만 보낸다(이 쓰임만 몸통 32KB). 초안은 owner RLS 표 app_journal_drafts에만
 //   넣는다(하루 1행). 그날 초안이나 업무일지 줄이 이미 있으면 AI를 부르지 않는다. 업무일지 줄(app_notes kind=work)은 쓰지 않는다.
-// 성명·보도자료 초안(kind=press_draft)은 2026-11-09 명진 결정으로 삭제했다(PRESS-성명초안삭제). 이 kind는 이제 400 unsupported_kind.
-// 다음 주 준비 한 장(kind=next_week_sheet)·교섭·회의 전 한 장(kind=pre_meeting_sheet)은 2026-11-16 명진 결정으로 삭제했다(S62-27). 두 kind도 400 unsupported_kind.
+// 성명·보도자료 초안(kind=press_draft)은 2026-11-09 사용자 결정으로 삭제했다(PRESS-성명초안삭제). 이 kind는 이제 400 unsupported_kind.
+// 다음 주 준비 한 장(kind=next_week_sheet)·교섭·회의 전 한 장(kind=pre_meeting_sheet)은 2026-11-16 사용자 결정으로 삭제했다(S62-27). 두 kind도 400 unsupported_kind.
 //   저장 표 app_journal_next_week_sheets·app_pre_meeting_sheets와 행은 보존한다(지우기는 따로 결정).
 // Web2에 물어보기(kind=ask_web2, FEAT-1029묶음 ①, web2-ask.ts·evidence.ts): 검색칸 질문 한 줄을 받아 서버가 낱말을 뽑고 기존 검색 함수 두 개
 //   (app_search_records — 업무 통화·텔레그램 종류 포함, app_ledger_search)를 내 로그인으로 불러 근거 줄을 모은 뒤 AI 한 번으로 줄마다 근거 꼬리표가 붙은 답을 만든다.
 //   근거가 없으면 AI를 부르지 않는다. 근거에 없는 ref·근거 없는 줄은 공용 근거 검사가 버린다. AI 제외 노트는 근거 목록에만 보이고 AI에는 안 보낸다.
-//   명진 결정 변경(10/29): 원장 S2도 AI에 보내고, 찾은 텔레그램 소식은 그 id만 다시 읽어 원문·보낸 사람 표시 이름을 붙여 보낸다(tg-raw.ts, 길이 상한).
+//   사용자 결정 변경(10/29): 원장 S2도 AI에 보내고, 찾은 텔레그램 소식은 그 id만 다시 읽어 원문·보낸 사람 표시 이름을 붙여 보낸다(tg-raw.ts, 길이 상한).
 //   통화·노트 본문은 직접 읽지 않는다(개인 통화함·개인 텔레그램 표는 어떤 경로로도 안 읽음). 답은 owner RLS 표 app_ask_answers에 30일 둔다(넣을 때 30일 지난 행을 지움).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
@@ -188,7 +188,7 @@ export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
 export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
 export const MONTHLY_LIMIT_KRW = 15000;
-// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
+// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 사용자 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 // 숫자는 _shared/ai-daily-usage.mjs 한 곳(녹음 요약·초안 함수와 같은 한도).
 export { DAILY_TOTAL_LIMIT };
@@ -1836,7 +1836,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
 }
 
 // ---- 쓰임 ledger_auto: 원장 자동 기록(LEDGER-자동기록 2단계, docs/design/ledger-auto-record.md 3·4절·10절 2번) ------------
-// 화면은 {kind:"ledger_auto"}만 보낸다(원문·ID 없음). 서버가 명진 로그인 토큰으로 "아직 안 본 기록"만 읽고, AI 한 번, 답을 검사해
+// 화면은 {kind:"ledger_auto"}만 보낸다(원문·ID 없음). 서버가 사용자 로그인 토큰으로 "아직 안 본 기록"만 읽고, AI 한 번, 답을 검사해
 // DB 함수 app_auto_ledger_begin → app_auto_ledger_record(한 거래)로 원장에 더한다. 서버 관리자 키를 쓰지 않는다(owner RLS·INVOKER 함수).
 // 자동 기록이 하는 일은 더하기(새 기록·변화로 이어 붙이기·근거 추가)와 이미 뽑은 기록 '확인필요' 표시뿐이다. 기존 기록을 고치거나 폐기하지 않는다.
 // 시작점: 처음 실행(자동 기록 실행 표의 가장 이른 시작) 30분 전부터 저장·고친 기록만 본다(켜기 전 기록은 보지 않음, 3.1).
@@ -2002,7 +2002,7 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
     const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
       full(calls);
-      // CALL-손고치기: 명진이 손으로 고친 제목·조직·핵심내용(app_call_edits)이 있으면 AI 값 대신 그 값을 재료로 쓴다. 표가 아직 없으면(DB 적용 전) 그대로 AI 값.
+      // CALL-손고치기: 사용자가 손으로 고친 제목·조직·핵심내용(app_call_edits)이 있으면 AI 값 대신 그 값을 재료로 쓴다. 표가 아직 없으면(DB 적용 전) 그대로 AI 값.
       const userEdits = await readCallEdits(ctx, (calls as Record<string, unknown>[]).map((c) => c.id).filter(isUuid).map((id) => String(id).toLowerCase()));
       for (const c0 of calls as Record<string, unknown>[]) {
         const c = applyCallEdits(c0, isUuid(c0.id) ? userEdits.get(String(c0.id).toLowerCase()) : undefined);
@@ -2026,7 +2026,7 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: numb
   } catch {
     log("ledger_auto_call_skipped");
   }
-  // 개인 공유 캘린더 일정(calendar_ref, CAL-승지명진참고 C-3)은 더 읽지 않는다(CAL-조직참고캘린더, 요청함 10/30 16:03 명진 결정: 그 캘린더는 한 조직 상집 캘린더라
+  // 개인 공유 캘린더 일정(calendar_ref, CAL-가족사용자참고 C-3)은 더 읽지 않는다(CAL-조직참고캘린더, 요청함 10/30 16:03 사용자 결정: 그 캘린더는 한 조직 상집 캘린더라
   // 내 일정을 원장에 붙일 것이 없음). 쌓인 참고 일정 표 행과 이미 붙은 원장 근거는 그대로 둔다. 종류 이름(ledger-auto.ts)은 옛 처리 기록을 읽으려고 남긴다.
 
   // 주간보고 개인본(WEEKLY-개인본대조 W-3, 설계 4절). 통화처럼 실패해도 자동 기록 전체는 돈다(개인본만 건너뜀).
@@ -2479,7 +2479,7 @@ async function runLedgerFix(ctx: Ctx, input: LedgerFixInput, deps: RadarDeps): P
     if (rows.length !== 1 || rows[0].ledger_id !== input.target) throw new Fail(404, "not_found");
     target = rows[0];
     if (!["current", "needs_check", "fulfilled"].includes(target.validity)) throw new Fail(409, "ledger_fix_inactive");
-    // 교섭·전략(S2) 기록도 고칠 대상으로 직접 지정하면 AI에 보낸다(명진 결정 2026-10-26). 모르는 등급은 닫는다.
+    // 교섭·전략(S2) 기록도 고칠 대상으로 직접 지정하면 AI에 보낸다(사용자 결정 2026-10-26). 모르는 등급은 닫는다.
     // ledger_auto·원장 재료는 S2를 여전히 보내지 않는다(sendable). 기록 목록(known)에도 S2는 싣지 않는다.
     if (!fixableRecord(target)) throw new Fail(422, "ledger_fix_sensitive");
   }
@@ -3153,7 +3153,7 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
 // ---- 쓰임: 공유 페이지 AI 초안(share_draft, 원장 빠짐32, share-draft.ts) -------------------------------------------
 // 화면이 고른 기록(사업 보고·노트, 1~6)을 호출한 사람의 로그인으로 다시 읽어(owner RLS + 작업공간 확인) 근거로 쓴다.
 // 노트는 kind note|basket만, 보관·AI 내보내기 끔이면 근거에서 빼고 skipped로 센다(일기·업무일지 줄은 읽지 않는다). 비밀 모양 부분은 AI 글에서 가린다(본문은 여기서 maskSecret, 제목은 share-draft.ts shareMaterial — 근거 목록 화면은 원래 제목).
-// 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 본문에 넣기·저장은 화면에서 명진이 누를 때만. 기록에는 숫자만 남긴다.
+// 서버는 아무것도 저장하지 않는다(사용량 숫자만). 미리보기를 돌려주고, 본문에 넣기·저장은 화면에서 사용자가 누를 때만. 기록에는 숫자만 남긴다.
 async function runShareDraft(ctx: Ctx, input: ShareInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now(), today = kstDay(started);
   const ws = encodeURIComponent(ctx.workspaceId);
@@ -3604,7 +3604,7 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
 
 // ---- 쓰임 call_refill: 업무로 옮긴 통화 한 건 다시 채우기(CALL-개인통화함 4단계, docs/design/call-personal.md 7절) ------------------
 // 옮긴 직후(moved_at 있고 refilled_at 없음) 업무 통화 한 건의 전문으로 제목(주제)·관련 조직·상대 이름·직함만 정해 DB 함수 app_call_work_info로 저장한다.
-// 핵심내용·전문은 건드리지 않는다. 개인 통화는 AI에 보내지 않고, 업무로 옮긴 그 한 건만 예외다(명진 승인). 기록에는 숫자만 남긴다.
+// 핵심내용·전문은 건드리지 않는다. 개인 통화는 AI에 보내지 않고, 업무로 옮긴 그 한 건만 예외다(사용자 승인). 기록에는 숫자만 남긴다.
 async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   // 통화는 운영자 작업공간만(MULTI 단계 ①). 판정 함수가 없으면(DB 적용 전) 준비 안 됨, 읽기 실패는 503, 허용 없음은 403.
@@ -3686,7 +3686,7 @@ async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps):
     throw new Fail(502, "ai_invalid_response");
   }
   // AI가 정하지 못한 칸은 지금 값을 그대로 다시 보내 지우지 않는다(DB 함수는 상대·조직이 비면 비운다).
-  // 조직 연결은 지금 값 그대로(사람이 고른 값·근거 있는 값). 비어 있으면 비워 두고 명진이 상세에서 고른다. 상대 앞의 조직도 지금 연결 조직만.
+  // 조직 연결은 지금 값 그대로(사람이 고른 값·근거 있는 값). 비어 있으면 비워 두고 사용자가 상세에서 고른다. 상대 앞의 조직도 지금 연결 조직만.
   const currentOrg = isUuid(c.organization_id) ? String(c.organization_id).toLowerCase() : null;
   const orgId = currentOrg;
   const linked = currentOrg ? orgs.find((o) => o.id === currentOrg) ?? null : null;
@@ -4752,7 +4752,7 @@ async function runAreaSuggest(ctx: Ctx, input: AreaSuggestInput, deps: RadarDeps
     deps.log("ai_invalid_response");
     throw new Fail(502, "ai_invalid_response");
   }
-  // 저장하지 않는다. 화면이 [사업영역] 칸에 후보로 보여 주고 명진이 고른다.
+  // 저장하지 않는다. 화면이 [사업영역] 칸에 후보로 보여 주고 사용자가 고른다.
   deps.log("area_suggest_done", { options: options.length, picks: picks.length });
   return json({ ok: true, kind: "area_suggest", suggestions: picks.map((o) => ({ id: o.id, name: o.name })) });
 }
@@ -4820,7 +4820,7 @@ async function markNoteSendable(ctx: Ctx, sources: AskSource[]) {
   }
 }
 
-// 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(명진 결정 변경 10/29). 로그인 토큰(owner RLS)으로
+// 찾은 텔레그램 소식(업무 텔레그램 줄)에 원문과 보낸 사람 표시 이름을 붙인다(사용자 결정 변경 10/29). 로그인 토큰(owner RLS)으로
 // 이번에 찾은 소식 id만, 그 방·그날 이름 표만 읽는다. 원문·이름은 AI 재료에만 쓰고 로그·저장·응답에 넣지 않는다.
 // 읽지 못하면 원문 없이(요약·핵심 줄만) 계속한다. 이름 표를 못 읽으면 라벨(A·B…) 그대로 둔다.
 async function addTelegramRaw(ctx: Ctx, sources: AskSource[]) {
@@ -5091,7 +5091,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
         log("ai_invalid_response");
         throw new Fail(502, "ai_invalid_response");
       }
-      // 저장하지 않는다. 화면이 요약 칸에 넣고 명진이 기존 저장 버튼을 누른다(5.1, D11).
+      // 저장하지 않는다. 화면이 요약 칸에 넣고 사용자가 기존 저장 버튼을 누른다(5.1, D11).
       return json({ ok: true, kind: input.kind, summary });
     } catch (e) {
       if (e instanceof Fail) return failure(e.status, e.code, e.shown);

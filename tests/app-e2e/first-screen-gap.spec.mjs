@@ -5,7 +5,7 @@ import { noteMenuAction } from './helpers/note-menu.mjs';
 import { noteField } from './helpers/note-editor.mjs';
 import { treeEnter } from './helpers/tree-enter.mjs';
 
-// NOTE-최근5개 ③(명진 10/29 08:57): 폰 노트 첫 화면 '노트' 제목(위 머리줄)과 검색 칸 사이가 크게 비었다. 같은 빈 공간이 다른 메뉴 첫 화면에
+// NOTE-최근5개 ③(사용자 10/29 08:57): 폰 노트 첫 화면 '노트' 제목(위 머리줄)과 검색 칸 사이가 크게 비었다. 같은 빈 공간이 다른 메뉴 첫 화면에
 // 다시 생기지 않게, 메뉴마다 위 머리줄 아래 끝 → 화면에서 처음 보이는 내용(글자·입력칸·버튼·그림·테두리 있는 칸)의 위 끝 거리를 잰다.
 // 기준은 머리줄 아래 간격(12px) + 여유 6px. 폰 412·884(폴드 펼침), PC 1440은 노트 화면(최근 5개 포함)을 함께 본다. 가짜 자료만.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';

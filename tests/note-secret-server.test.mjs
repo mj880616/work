@@ -1,4 +1,4 @@
-// NOTE-AI제외정리(2026-11-10 17:41 명진 결정 A): 노트를 통째로 AI에서 빼지 않고, 비밀번호·토큰·키 모양 부분만 서버가 AI로 보내기 직전에 가린다.
+// NOTE-AI제외정리(2026-11-10 17:41 사용자 결정 A): 노트를 통째로 AI에서 빼지 않고, 비밀번호·토큰·키 모양 부분만 서버가 AI로 보내기 직전에 가린다.
 // 가림 함수는 supabase/functions/ai-assist/note-secret.ts 한 곳(maskSecret·aiNoteRow). 길마다 실제 AI 요청 본문 검사는
 // tests/security/ai-assist-*.test.mjs의 NOTE-AI제외정리 시험이 본다. 전수 표: docs/design/note-ai-mask.md. 예시 값은 모두 지어낸 가짜 글이다.
 import test from 'node:test';

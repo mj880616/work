@@ -534,8 +534,8 @@ test('desktop month view enlarges typography, bars and lane capacity across supp
   }
 });
 
-// S48-6 UI-폰달력월보기(2026-11-02 명진 결정, #1708 질문 1): 폰 칸 글자를 읽히게 키운다 — 날짜 11px, 제목 11px, 줄 15px(막대 14px).
-// S52-11 CAL-제목먼저(2026-11-07 명진): 폰 칸 안 줄은 제목만 — 시각 글자는 칸에 없다(읽기 이름에는 남음).
+// S48-6 UI-폰달력월보기(2026-11-02 사용자 결정, #1708 질문 1): 폰 칸 글자를 읽히게 키운다 — 날짜 11px, 제목 11px, 줄 15px(막대 14px).
+// S52-11 CAL-제목먼저(2026-11-07 사용자): 폰 칸 안 줄은 제목만 — 시각 글자는 칸에 없다(읽기 이름에는 남음).
 test('mobile month density stays compact but readable at 360, 390, 412 and 430 pixels',async({page})=>{
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});

@@ -110,11 +110,11 @@ test('ref bundle db: precheck, dry-run, apply, reference links, owner/workspace 
    }
    assert.equal(post['reference bundles rows'],'6');assert.equal(post['reference links'],'0');assert.equal(post['record links policies'],'3');
    assert.deepEqual((await pool.query("select name,sort_order from public.app_reference_bundles where workspace_id=$1 order by sort_order",[WS_A])).rows,
-    [{name:'공공운수노조',sort_order:10},{name:'공공기관사업(본부)',sort_order:20},{name:'기타 조직',sort_order:30}]);
+    [{name:'A노조',sort_order:10},{name:'공공기관사업(본부)',sort_order:20},{name:'기타 조직',sort_order:30}]);
    assert.equal((await run('apply','9903')).ok,false);
   });
   await t.test('confirm links: reference alone, with an organization, duplicate, bad inputs',async()=>{
-   const etc=await bundleId(WS_A,'기타 조직'),union=await bundleId(WS_A,'공공운수노조'),n=await note();
+   const etc=await bundleId(WS_A,'기타 조직'),union=await bundleId(WS_A,'A노조'),n=await note();
    assert.deepEqual(await confirm(OWNER,n,[{kind:'reference',target_id:etc,reason:'노조 전체 소식'}]),{ok:true,created:1,existing:0});
    assert.deepEqual(await confirm(OWNER,n,[{kind:'reference',target_id:etc,reason:'다시'}]),{ok:true,created:0,existing:1});
    assert.deepEqual((await pool.query('select organization_id,project_id,bundle_id,status,report_kind,note_id from public.app_record_links where bundle_id=$1',[etc])).rows,

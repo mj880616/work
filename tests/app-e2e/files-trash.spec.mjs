@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles } from './helpers/files-server.mjs';
-// S69-62 휴지통 보기(명진 11/24 18:17 "파일에서 Google 드라이브 휴지통 볼 수가 없네" / "OneDrive도 마찬가지고 휴지통을 볼 수 있어야 돼. 지운파일 복구하려면").
+// S69-62 휴지통 보기(사용자 11/24 18:17 "파일에서 Google 드라이브 휴지통 볼 수가 없네" / "OneDrive도 마찬가지고 휴지통을 볼 수 있어야 돼. 지운파일 복구하려면").
 // [파일] 구글 드라이브·원드라이브 상자 맨 아래 '휴지통' 줄 → 그 클라우드 휴지통 창. 구글은 목록(이름·지운 날·크기, 2개씩 [더 보기]) → 선택 → [되살리기]
 // (untrash, confirm:true)로만 되살림, 되살린 파일은 원래 폴더에 다시 보인다. 원드라이브는 목록 길이 없어 웹 휴지통 열기 한 줄. 영구 삭제 단추는 없다. 서버는 흉내.
 const root = page => page.locator('#filesRoot');

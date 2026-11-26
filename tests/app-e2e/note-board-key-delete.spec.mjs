@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { boardFixture, nbNode, nbEditor, nbBox } from './helpers/note-board-fixture.mjs';
 
-// S70-03 ② NOTE-보드선택지우기(명진 11/25 09:30 "주제+ 2개 선택된 상태에서 backspace 랑 delete 누르면 지워지게").
+// S70-03 ② NOTE-보드선택지우기(사용자 11/25 09:30 "주제+ 2개 선택된 상태에서 backspace 랑 delete 누르면 지워지게").
 // - 보드에서 하나 이상 고른 상태(글쓰기 중이 아닐 때) Delete·Backspace = 고른 것 모두 지우기(주제·글자·도형·선·카드 같은 규칙, 카드는 보드에서 빼기 — 노트는 그대로).
 // - 지운 뒤 알림 한 줄 + [되돌리기](공용 small-notice, Ctrl+Z도 같음). 서버에서도 지워지고, 되돌리면 서버에 다시 생긴다.
 // - 글 칸 안에서 쓰는 중 Backspace·Delete는 글자만 지운다.

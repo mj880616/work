@@ -1,4 +1,4 @@
-// FEEDBACK-의견보내기 PR5(명진 11/15 18:13 '가'): 계정 메뉴 맨 아래 '의견 보내기'(모두) · 운영자 '받은 의견'.
+// FEEDBACK-의견보내기 PR5(사용자 11/15 18:13 '가'): 계정 메뉴 맨 아래 '의견 보내기'(모두) · 운영자 '받은 의견'.
 // 서버는 page.route로 흉내 낸다(보내기 app_feedback_send — 보낸 사람은 서버가 정함, 읽기 app_feedback_* — 운영자만).
 // 화면 사진은 docs/design/screens/s62-19/에 남긴다(폰 412·폴드 펼침 880·PC 1280).
 import { appOrigin } from './helpers/test-origin.mjs';

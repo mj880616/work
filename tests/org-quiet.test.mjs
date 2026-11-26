@@ -1,4 +1,4 @@
-// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락' 판정 규칙(명진 결정 10/29)과 줄 계산(조직 관리 목록 맨 아래). 가짜 이름만.
+// FEAT-1029묶음 ③ 오래 연락 안 한 담당조직: '연락' 판정 규칙(사용자 결정 10/29)과 줄 계산(조직 관리 목록 맨 아래). 가짜 이름만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
@@ -106,7 +106,7 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   assert.match(src, /selectMyOrganizations/);
   assert.match(src, /if \(mine\.fallback\) throw new Hide\(\)/);
   assert.doesNotMatch(src, /method:\s*'(POST|PATCH|DELETE)'/);
-  // 2026-11-24 명진 요청: 줄은 홈에서 빼고 조직 관리 목록 맨 아래 하나(suborganizations.js가 자리만 둔다). MULTI-다른담당자맞춤 ⑥: 기준 단추는 조직 관리 ⋯ 하나.
+  // 2026-11-24 사용자 요청: 줄은 홈에서 빼고 조직 관리 목록 맨 아래 하나(suborganizations.js가 자리만 둔다). MULTI-다른담당자맞춤 ⑥: 기준 단추는 조직 관리 ⋯ 하나.
   const home = readFileSync(new URL('../app/journal.js', import.meta.url), 'utf8');
   assert.doesNotMatch(home, /data-home-quiet|org-quiet|mountOrgQuiet/);
   for (const f of ['home-quick.css', 'journal.css']) assert.doesNotMatch(readFileSync(new URL('../app/' + f, import.meta.url), 'utf8'), /home-quiet|\.oq-/);
@@ -124,7 +124,7 @@ test('화면: org-quiet.js가 줄의 유일한 renderer, 기기 저장·AI 없�
   }
 });
 
-// ORG-연락없음1대1수집(11/13 명진 결정): 1:1 방은 상대(주요 인물)가 그 날 직접 쓴 글이 있으면 연락. 단체방은 묻고 → 답 그대로.
+// ORG-연락없음1대1수집(11/13 사용자 결정): 1:1 방은 상대(주요 인물)가 그 날 직접 쓴 글이 있으면 연락. 단체방은 묻고 → 답 그대로.
 test('1:1 방: 상대가 직접 쓴 글이 있는 날만 연락, 단체방은 지금 규칙', () => {
   const who = {A:{self:true, people:[]}, B:{self:false, people:['p1']}};
   const of = l => who[l] || null;

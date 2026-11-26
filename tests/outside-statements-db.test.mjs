@@ -68,7 +68,7 @@ test('기존 표를 바꾸지 않고, 기록 1행이 파일 이름과 같다', (
   assert.match(sql.trimEnd(), /commit;$/);
 });
 
-test('설계 문서: 명진 결정이 결정됨으로, 공공운수노조·전국결집 줄이 채워짐', () => {
+test('설계 문서: 사용자 결정이 결정됨으로, A노조·전국결집 줄이 채워짐', () => {
   const doc = read('docs/design/outside-statements.md');
   assert.match(doc, /kptu\.net\/board\/list\.aspx\?mid=F686C1F3/);
   assert.match(doc, /leftall\.com/);

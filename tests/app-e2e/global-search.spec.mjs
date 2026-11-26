@@ -190,7 +190,7 @@ test('Phone 390: the home header has the one search field (not the menu sheet); 
  await openHome(page,{beforeLoad:()=>routeSearch(page,calls)});
  await expect(page.locator('#homeView input[type="search"]')).toHaveCount(0);
  await expect(page.locator('[data-search-slot]')).toBeHidden();
- // S70-57(명진 11/26 "전체 검색은 홈에만"): 입구는 홈 앱 머리 줄 하나. 메뉴 창에는 없다.
+ // S70-57(사용자 11/26 "전체 검색은 홈에만"): 입구는 홈 앱 머리 줄 하나. 메뉴 창에는 없다.
  const entry=page.locator('#appView > .mobile-shell-header .gs-menu-entry');
  await expect(entry).toBeVisible();
  await page.locator('#mobileMenuTab').click();

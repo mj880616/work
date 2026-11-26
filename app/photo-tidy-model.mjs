@@ -1,7 +1,7 @@
 // S46-20 사진 정리 제안(요청함 10/31 11:04, 시안 확정 10/31 13:2x): 사진 메뉴 [정리] 칸의 순수 규칙(화면·네트워크 없음, 단위 시험 대상).
 // - 재료: 폰 사진 전부(앱 다리 page, 끈 폴더 포함)와 원드라이브 사진 전부(서버 library). 모두 이 화면 메모리에만 둔다(기기·서버 저장 없음).
 // - 같은 사진 판정은 섞어 보기의 '같은 사진이면 한 장' 규칙(photo-sources-model.mjs sameMedia·dupFinder)을 그대로 쓴다.
-// - 제안은 보여 주기만 한다. 지우기·숨기기는 명진이 눌러야만(이 파일은 목록만 만든다).
+// - 제안은 보여 주기만 한다. 지우기·숨기기는 사용자가 눌러야만(이 파일은 목록만 만든다).
 import {dupFinder, sameMedia, SAME_MS} from './photo-sources-model.mjs';
 
 export const PLACES = Object.freeze(['all', 'phone', 'onedrive', 'both']);
@@ -280,17 +280,17 @@ export function defaultKeep(items, kind) {
   if (kind === 'copy') return (items.find(p => /^DCIM\//.test(p.folder || '')) || items[0]).id;
   return items.reduce((best, p) => (bytesOf(p) > bytesOf(best) ? p : best), items[0]).id;
 }
-// 지울 것(남길 것 말고 전부). keeps = Map(묶음 id → 남길 칸 id), 명진이 고른 것이 기본값보다 앞선다.
+// 지울 것(남길 것 말고 전부). keeps = Map(묶음 id → 남길 칸 id), 사용자가 고른 것이 기본값보다 앞선다.
 export function dupTrashList(groups, keeps = new Map()) {
   const out = [];
   for (const g of groups || []) { const keep = g.items.some(p => p.id === keeps.get(g.id)) ? keeps.get(g.id) : g.keep; out.push(...g.items.filter(p => p.id !== keep)); }
   return out;
 }
 export const DUP_TEXT = Object.freeze({copy:'같은 사진', burst:'연사', similar:'비슷한 사진'});
-// 묶는 기준 한 줄(명진 12:54 '어떤 원리로 같은 사진을 추리는지').
+// 묶는 기준 한 줄(사용자 12:54 '어떤 원리로 같은 사진을 추리는지').
 export const DUP_HOW = Object.freeze({copy:'크기·가로세로·찍은 시각에 작은 그림까지 똑같은 사진', burst:'카메라로 1초 안에 이어 찍은 사진', similar:'10분 안에 같은 장면을 조금씩 다르게 찍은 사진'});
 
-// ---- S47-32 PHOTO-비슷한사진(명진 11/01 '비슷한 사진 추리는 기능 있나?') ----
+// ---- S47-32 PHOTO-비슷한사진(사용자 11/01 '비슷한 사진 추리는 기능 있나?') ----
 // 판정은 기기에서만: 화면이 받는 작은 미리보기(폰 앱 thumb small)를 9×8 회색으로 줄여 64비트 지각 해시(dHash, 16자리 16진수)를 만들고,
 // 찍은 시각 SIMILAR_MS 안 카메라 사진끼리만 비교해 해밍 거리 SIMILAR_DIST 이하면 묶는다(묶음 첫 장과 SIMILAR_MS 안, 한 묶음 SIMILAR_MAX장까지).
 // 같은 사진·연사 묶음에 든 사진은 다시 묶지 않는다. 시각이 10분 안에 이웃이 없는 사진은 해시를 만들지 않는다(받기를 줄인다).

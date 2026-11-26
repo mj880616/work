@@ -81,7 +81,7 @@ for(const width of [390,1280])test(`[연결하기] [참고 ▾]로 선택 → �
  await expect(sheet.locator('[data-sheet-value]')).toHaveText(['합성 노조 전체','합성 본부 사업','합성 기타 조직']);
  await tap(page,sheet.getByRole('button',{name:'합성 본부 사업',exact:true}),width);await expect(sheet).toBeHidden();
  await expect(detail.locator(`[data-manual-target="reference:${b2}"]`)).toContainText('참고 · 합성 본부 사업');
- // UPD-요약부품통일 A(2026-10-24 명진 요청): 참고에도 담당조직·프로젝트와 같은 작은 [AI 요약]이 있다(누르지 않으면 요청 없음).
+ // UPD-요약부품통일 A(2026-10-24 사용자 요청): 참고에도 담당조직·프로젝트와 같은 작은 [AI 요약]이 있다(누르지 않으면 요청 없음).
  await expect(detail.locator(`[data-manual-target="reference:${b2}"] [data-manual-ai-run]`)).toHaveCount(1);
  expect(await noWideScroll(page)).toBe(true);
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);

@@ -154,7 +154,7 @@ jobs:
               )],
           }
 
-          # OD-폰보관(2026-10-28 명진 결정, docs/design-decisions.md "OD-폰보관"): '기기 저장 금지'의 단 하나의 예외.
+          # OD-폰보관(2026-10-28 사용자 결정, docs/design-decisions.md "OD-폰보관"): '기기 저장 금지'의 단 하나의 예외.
           # 원드라이브 작은 그림(썸네일) 바이트 사본만 Cache Storage에 둔다. 다시 받을 수 있는 캐시이고 주소·토큰·기록은 넣지 않는다.
           # Cache Storage는 이 파일 한 곳에서만 허용한다(서비스 워커도 이 파일을 importScripts로 부른다). 다른 파일·다른 저장 방식은 계속 막힌다.
           cache_storage_allowed={'app/od-thumb-cache.js'}

@@ -1,4 +1,4 @@
-// TG-방별보기 (요청함 10/30 11:28, 명진 결정 "OKAY"): 텔레그램 소식 [날짜별 | 방별] 가운데 방별의 순수 규칙.
+// TG-방별보기 (요청함 10/30 11:28, 사용자 결정 "OKAY"): 텔레그램 소식 [날짜별 | 방별] 가운데 방별의 순수 규칙.
 // DOM·네트워크 없음. 재료는 날짜별과 같은 방·날 줄(app_feed_room_day_lines, tg-day-model.mjs lineOf)뿐이고 새 읽기는 없다.
 // 방 이름·내용은 시험에 가짜 값만 쓴다.
 import {sortLines} from './tg-day-model.mjs';

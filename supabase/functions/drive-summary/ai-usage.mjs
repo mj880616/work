@@ -3,7 +3,7 @@
 //   수집 점검 신호(heartbeat)와 같은 비밀값 머리글만 받는다. 몸통은 숫자·모델 이름·보고 번호(ref)뿐이고 글·전사 내용은 받지 않는다.
 //   같은 ref를 다시 보내면 한 번만 들어간다(app_ai_external_usage, 넣기만).
 // - GET ?action=ai_usage: 소유자 JWT만. 이번 달 OpenAI(Web2 서버 AI: ai-assist의 app_ai_daily_usage + collector-feed의 app_feed_days.ai_*)·
-//   + 뉴스·사회운동 [번역]의 app_news_days.ai_*(AI-비용보기 3단계)·Gemini(위 보고) 사용량을 단가(_shared/ai-prices.mjs)로 셈해 원으로 돌려주고, 명진이 넣은 충전·청구 금액(app_ai_cost_entries)으로
+//   + 뉴스·사회운동 [번역]의 app_news_days.ai_*(AI-비용보기 3단계)·Gemini(위 보고) 사용량을 단가(_shared/ai-prices.mjs)로 셈해 원으로 돌려주고, 사용자가 넣은 충전·청구 금액(app_ai_cost_entries)으로
 //   잔액과 보정 비율을 계산한다. 읽기는 호출한 사람의 토큰 + anon 키(소유자 RLS)로만 한다(서버 키로 읽지 않음).
 // 금액은 모두 '추정'이다. OpenAI·Gemini 모두 잔액을 프로그램으로 주지 않으므로(관리자 키는 쓰지 않음) 충전 금액에서 쓴 만큼 뺀다.
 import {
@@ -11,7 +11,7 @@ import {
 } from '../_shared/ai-prices.mjs';
 
 export const AI_USAGE_BODY_BYTES = 1024;
-export const WARN_RATIO = 0.8;          // 월 상한 80%(명진 결정 10/28 00:55)
+export const WARN_RATIO = 0.8;          // 월 상한 80%(사용자 결정 10/28 00:55)
 export const WARN_BALANCE_KRW = 10000;  // 잔액 1만 원 아래
 export const RATIO_RANGE = Object.freeze([0.25, 4]);
 const KEYS = Object.freeze(['ref', 'provider', 'source', 'model', 'calls', 'input_tokens', 'audio_tokens', 'output_tokens']);
@@ -19,7 +19,7 @@ const SOURCES = Object.freeze(['transcript', 'analysis']);
 const REF = /^[A-Za-z0-9_.:-]{8,80}$/;
 // AI-비용보기 2단계: 보고 번호(ref) 앞머리로 어디서 쓴 것인지 나눈다.
 // - mtg-·mtgfail-: 회의 녹음 전사(meeting-transcribe가 서버 안에서 직접 넣음). 수집 비밀값 보고로는 받지 않는다(회의 월 상한을 부풀리지 못하게).
-// - call-: 통화 전사(source transcript), calla-: 통화 분석(source analysis). 명진 앱 스크립트가 docs/ops/ai-usage-report.gs로 보낸다.
+// - call-: 통화 전사(source transcript), calla-: 통화 분석(source analysis). 사용자 앱 스크립트가 docs/ops/ai-usage-report.gs로 보낸다.
 // - 그 밖: 옛 보고(앞머리 없음) — source로만 나눈다.
 export const REF_MEETING = Object.freeze(['mtg-', 'mtgfail-']);
 export const REF_CALL_TRANSCRIPT = 'call-';

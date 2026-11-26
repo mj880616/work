@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
-// UI-눌림느낌(2026-10-27 명진 요청): 누르는 느낌은 공통 규칙 한 곳(ui-standard.css)에서 정의하고, 완료 표시('✓ 복사됨')는 press-feedback.js 하나가 맡는다.
+// UI-눌림느낌(2026-10-27 사용자 요청): 누르는 느낌은 공통 규칙 한 곳(ui-standard.css)에서 정의하고, 완료 표시('✓ 복사됨')는 press-feedback.js 하나가 맡는다.
 // 여기서는 규칙 문장(움직임 줄이기 포함), 눌림 대상 판정, 완료 표시의 켜짐·복귀, 복사 버튼이 그 부품을 쓰는지를 확인한다.
 const css = file => readFileSync(`app/${file}`, 'utf8');
 const mod = await import('../app/press-feedback.js');

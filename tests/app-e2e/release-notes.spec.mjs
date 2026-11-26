@@ -100,7 +100,7 @@ for(const width of [1440,412])test(`계정 메뉴 [내 프로필] 아래 [업데
   const names=await rows.evaluateAll(list=>list.map(b=>(b.querySelector('.account-action-name')||b).textContent.trim()));
   expect(names).toEqual(['내 프로필','업데이트 소식','앱 정보','쓰는 법','PC에 앱 설치','앱 내려받기','메뉴 수정','화면 색','잠금','의견 보내기','업데이트 기록','가입자 현황','받은 의견','로그아웃']);
   const entry=panel.locator('[data-updates-open]');
-  // 명진 11/23: 메뉴 줄은 '업데이트 기록' 이름만(옆 '현재 판' 글자 없음).
+  // 사용자 11/23: 메뉴 줄은 '업데이트 기록' 이름만(옆 '현재 판' 글자 없음).
   await expect(entry).toHaveText('업데이트 기록');
   await expect(entry.locator('[data-account-ver]')).toHaveCount(0);
   await page.screenshot({path:`test-results/account-updates-menu-${width}.png`});

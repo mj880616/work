@@ -16,7 +16,7 @@ function state(){
   const s=baseState();s.draftWrites=[];
   const row=(id,title,at,area)=>({id,workspace_id:s.workspace.id,title,series_name:title,round_no:1,meeting_at:at,transcript_text:'합성 결과 글',activity_kind:'meeting',business_area_id:area,next_plan:'',created_by:s.user.id,created_at:at,updated_at:at,notes:'',decisions:''});
   s.meetings=[row('m-now','합성 이번 주 간담회','2026-11-18T01:00:00Z','child-a1'),row('m-old','합성 지난주 간담회','2026-11-11T01:00:00Z','child-a1')];
-  // 전환 주 임시저장: 국토부 대응 칸에 명진이 쓴 줄과 담당. 산자부 대응 칸은 없음 → '—'.
+  // 전환 주 임시저장: 국토부 대응 칸에 사용자가 쓴 줄과 담당. 산자부 대응 칸은 없음 → '—'.
   s.drafts={[FROM]:{id:'wk-1',workspace_id:s.workspace.id,week_start:FROM,items:[],draft:{v:1,base:null,me:'',me_from:'',date:'',rows:[{section:'summary',key:`${AREA}›${TASK}`,n:0,lines:['- 합성 지난 상황']}],titles:[],owners:{[`${AREA}›${TASK}`]:'합성 담당'}},draft_saved_at:'2026-11-10T00:00:00.000Z',updated_at:'2026-11-10T00:00:00.000Z'}};
   return s;
 }

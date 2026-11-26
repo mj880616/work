@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {scan, compare, cssDebt, htmlDebt, KIND_CLASSES} from './button-six-kinds.mjs';
-// UI-버튼6가지(2026-11-06 명진 요청 23:23, 시안 승인): 버튼은 6가지뿐, 모양은 ui-standard.css 한 곳. 재발 방지 시험(App smoke check).
+// UI-버튼6가지(2026-11-06 사용자 요청 23:23, 시안 승인): 버튼은 6가지뿐, 모양은 ui-standard.css 한 곳. 재발 방지 시험(App smoke check).
 const ui = readFileSync('app/ui-standard.css', 'utf8');
 const block = ui.slice(ui.indexOf('/* ===== UI-버튼6가지')); // 다른 규칙의 설명에 이름이 나와도 묶음 머리부터
 

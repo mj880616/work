@@ -4,7 +4,7 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { readFileSync } from 'node:fs';
 
-// S70-32 ③ 노트 › 보드 내보내기(명진 2026-11-25 "보드 PDF·HTML 내보내기"): 보드 칸 메뉴 [PDF로 내보내기]·[HTML로 내보내기].
+// S70-32 ③ 노트 › 보드 내보내기(사용자 2026-11-25 "보드 PDF·HTML 내보내기"): 보드 칸 메뉴 [PDF로 내보내기]·[HTML로 내보내기].
 // - 보드 전체(맞추기 범위) 그대로 — 내보낸 HTML의 카드·상자·사진 수 = 보드와 같다, 손잡이·⋯ 단추는 빠진다.
 // - PDF는 쪽 1 이상인 파일. 기기에서 내려받기만(서버에 새 요청 없음). 이름은 지어낸 것.
 test.use({ hasTouch: true });

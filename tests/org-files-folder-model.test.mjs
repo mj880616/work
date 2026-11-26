@@ -94,7 +94,7 @@ test('공유 조직(남의 작업공간)은 내 조직 표에서만 찾고 서�
   assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /to anon|to public|disable row level security|rtw_/i);
 });
 
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 조직 관리 ⋯ [지난 조직 기록 자료도 조직 폴더로 모으기] 메뉴 줄은 없고, 모으는 폴더를 처음 정할 때 저절로 모은다.
+// S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): 조직 관리 ⋯ [지난 조직 기록 자료도 조직 폴더로 모으기] 메뉴 줄은 없고, 모으는 폴더를 처음 정할 때 저절로 모은다.
 test('지난 자료 모으기: 메뉴 줄 없음, 처음 정할 때(askParent [예]·처음 고르기) 저절로', async () => {
   const {readFileSync} = await import('node:fs');
   const so = readFileSync(new URL('../app/suborganizations.js', import.meta.url), 'utf8');

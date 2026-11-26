@@ -6,7 +6,7 @@ import {ftFocusCount} from '../app/folder-tree-ui.mjs';
 import {buildTree, folderCountOf, treeHtml} from '../app/library-tree.js';
 import {pickerRows} from '../app/library-move.mjs';
 
-// LIB-폴더개수(명진 11/24 18:04): 폴더 줄 개수 글자는 한 곳(folder-count.mjs) — 파일 화면·'그 폴더만' 머리·자료실이 같은 말.
+// LIB-폴더개수(사용자 11/24 18:04): 폴더 줄 개수 글자는 한 곳(folder-count.mjs) — 파일 화면·'그 폴더만' 머리·자료실이 같은 말.
 test('folderFileText: 하위 폴더가 있으면 폴더 N · 파일 M, 파일 0이면 폴더 N, 하위 없으면 alone', () => {
   assert.equal(folderFileText(13, 0), '폴더 13');
   assert.equal(folderFileText(3, 1), '폴더 3 · 파일 1');

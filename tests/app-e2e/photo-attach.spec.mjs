@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expandLibraryTree, openLibraryPhotoFolds } from './helpers/library-tree.mjs';
 
-// S46-20 사진 정리 ⑥(명진 11/01 01:04 추천대로): 사업 보고 사진 줄 안 '그 시각 사진 [골라 붙이기]'.
+// S46-20 사진 정리 ⑥(사용자 11/01 01:04 추천대로): 사업 보고 사진 줄 안 '그 시각 사진 [골라 붙이기]'.
 // - 폰 앱 412: 그 보고 시각 앞뒤 3시간 폰 사진만 보이고(앱 다리 흉내 + __phone 가로채기 흉내), 고른 사진만 기존 사진 올리기 길(library-files POST)로 올라간다.
 // - PC 1280: 폰 앱이 아니면 원드라이브 사진(연결·폴더 있음)만, 고른 한 장만 올라간다. 고르지 않으면 아무것도 올리지 않는다.
 // 모든 이름·번호는 합성 값, 사진은 1×1 그림, 네트워크 없음.

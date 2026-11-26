@@ -6,7 +6,7 @@ import {hoverButtonsHtml} from './now-row-acts.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
 import {notify} from './small-notice.js';
 import {hiddenEntries, withoutEntry, HIDDEN_LIMIT, UNHIDE_LABEL, UNHIDE_TEXT, HIDDEN_EMPTY} from './now-hidden-model.mjs';
-// S70-62 READ-밀기메뉴 [숨긴 글](명진 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 읽을 거리 머리 ⋯ [숨긴 글] 칸. 이 칸(box)의 유일한 그리기 주인.
+// S70-62 READ-밀기메뉴 [숨긴 글](사용자 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 읽을 거리 머리 ⋯ [숨긴 글] 칸. 이 칸(box)의 유일한 그리기 주인.
 // - 목록 = 내가 숨긴 글(뉴스 hidden_at · 사회운동 관심 없음), 최근 숨긴 것 먼저 100개. 원본은 서버 표시 표(작업공간 주인 RLS) — 기기 저장 없음.
 // - 줄 = 다른 탭과 같은 글 줄(news-row.mjs, 껍데기 rowOf). 폰은 왼쪽으로 밀어 [다시 보이기], PC는 줄에 마우스를 올린 단추·우클릭 메뉴.
 //   다시 보이기 = 숨기기의 반대(같은 서버 길 now-marks.js setMark 'dismiss' 끄기 + 환류 기록 'undismiss'), 5초 [되돌리기].

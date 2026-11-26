@@ -40,7 +40,7 @@ export function isStalled(row, nowMs) {
   return lease <= nowMs && nowMs - upd >= BRIEF_STALE_MS;
 }
 
-// S68-44(명진 11/23 11:42·11:45): 다 된 줄의 날짜가 '11/20'이면 '만드는 중 17/22' 진행 칸 수와 같은 자리·같은 모양이라 멈춘 진행으로 읽혔다.
+// S68-44(사용자 11/23 11:42·11:45): 다 된 줄의 날짜가 '11/20'이면 '만드는 중 17/22' 진행 칸 수와 같은 자리·같은 모양이라 멈춘 진행으로 읽혔다.
 // 날짜는 노트 목록과 같은 공용 표기(short-date.mjs: 올해 '11.20', 다른 해 '25.11.20', 서울 시간)로 쓴다. 진행 'n/m'은 그대로.
 export const doneDate = (iso, now = new Date()) => (iso ? shortListDate(iso, now) : '');
 
@@ -91,7 +91,7 @@ export function listRows({ docs, folderIds, briefs }) {
   return rows.sort((a, b) => b.at - a.at);
 }
 
-// S68-56(명진 11/23 15:06·15:12 "챙길 일에 집착하지 마 / 미리 정해 놓은 칸에 우겨넣지 말고 걍 요약"):
+// S68-56(사용자 11/23 15:06·15:12 "챙길 일에 집착하지 마 / 미리 정해 놓은 칸에 우겨넣지 말고 걍 요약"):
 // 보기 = 요지 1~3줄(옅은 띠) → AI가 자료 짜임대로 정한 소제목별 항목(앞 SHOW_N개 소제목만 펼침, 나머지 접힘) → 원문 인용(접힘).
 // 칸 이름(챙길 일·우리 조직 관련·대응할 것)은 화면이 정하지 않는다. '우리 관련'은 항목 옆 작은 표시만(서버가 확실할 때만 남김).
 export const SHOW_N = 3;
@@ -156,7 +156,7 @@ export function startError(code) {
   return '브리핑을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요.';
 }
 
-// BRIEF-브리핑룸삭제(S63-08, 명진 확정 11/16 10:55): 줄 ⋯·여러 개 선택에서 두 가지 삭제를 고른다.
+// BRIEF-브리핑룸삭제(S63-08, 사용자 확정 11/16 10:55): 줄 ⋯·여러 개 선택에서 두 가지 삭제를 고른다.
 // brief = 브리핑 결과만 삭제(자료는 자료실에 그대로, '브리핑 요청함' 폴더에 있었으면 폴더 밖으로), doc = 자료까지 삭제(자료실 삭제와 같은 길, Drive 휴지통).
 export const DELETE_KINDS = Object.freeze({ brief: '브리핑만 삭제', doc: '자료까지 삭제' });
 export function deleteConfirm(kind, n, name = '') {
@@ -170,13 +170,13 @@ export function deleteResult(kind, { done = 0, failed = 0, skipped = 0 } = {}) {
   return { text: done ? `${done}개는 삭제했고 ${bad}개는 삭제하지 못했어요` : `${what} 삭제하지 못했어요`, error: true };
 }
 
-// BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31 "브리핑룸 이미 자료실에 있는 파일도 가능하게"):
+// BRIEF-자료실에서고르기(S64-10, 사용자 11/17 09:31 "브리핑룸 이미 자료실에 있는 파일도 가능하게"):
 // 브리핑 룸 [자료실에서 고르기] 창(공용 고르기 창 library-move-picker.js, 여러 개 고르기)에 보일 줄.
 // 찾는 말이 없으면 최근 자료 PICK_RECENT개, 있으면 이름(제목·파일 이름)에 낱말이 모두 든 자료 PICK_FOUND개까지.
 // 이미 브리핑 룸 목록에 있는 자료는 흐리게 '이미 있음'(고를 수 없음).
 export const PICK_RECENT = 50, PICK_FOUND = 100, PICK_FOLDER = 200;
 export const PICK_SECTIONS = Object.freeze({ all: '최근 자료', found: '찾은 자료' });
-// S67-41(명진 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 찾기 칸 아래 [최근]·[폴더] 두 보기.
+// S67-41(사용자 11/20 18:10 "폴더도 보여야할 것같고 먼가 찾기쉽게"): 찾기 칸 아래 [최근]·[폴더] 두 보기.
 export const PICK_VIEWS = Object.freeze([{ id: 'recent', label: '최근' }, { id: 'folder', label: '폴더' }]);
 const IMAGE = /^(jpe?g|png|gif|webp|heic|heif|bmp)$/i;
 /** 줄 앞 형식 꼬리표: 사진은 '사진', 나머지는 fileBadge(PDF·HWP·DOC…). */
@@ -256,7 +256,7 @@ export function pickResult({ added = 0, kept = 0, failed = 0 } = {}) {
   return { text: parts.join(' · '), error: failed > 0 };
 }
 
-// S69-86 BRIEF-밑줄노트(명진 11/25 00:50 "브리핑 밑줄 저장, 답글 달기(노트에 메모로 저장), 보관(노트로 보관) … 브리핑룸에서 없애도 파생 저장은 남기게").
+// S69-86 BRIEF-밑줄노트(사용자 11/25 00:50 "브리핑 밑줄 저장, 답글 달기(노트에 메모로 저장), 보관(노트로 보관) … 브리핑룸에서 없애도 파생 저장은 남기게").
 // 밑줄·답글·보관 노트는 모두 글을 복사해 넣는다(브리핑·자료를 가리키는 연결 없음 — 지워도 남는다). 출처는 '브리핑 · 날짜 · 자료 이름' 글자로만.
 // 원래 주소(Drive)는 넣지 않는다: 자료까지 삭제하면 Drive 파일이 휴지통으로 가 주소가 죽기 때문. 다시 찾아가는 길은 노트 › 밑줄 [원문에서 보기]뿐이고,
 // 브리핑이 사라졌으면 그 길만 꺼진다(알림 한 줄).

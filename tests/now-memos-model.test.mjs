@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {MEMO_PAGE, MEMO_KEY, memoTarget, memoLine, memoPage, memoEntries, memoHit} from '../app/now-memos-model.mjs';
 import {rowHtml} from '../app/news-row.mjs';
 import {tabForItem} from '../app/now-model.mjs';
-// S69-70(명진 11/24 20:43~20:45): 읽을 거리 [메모] 탭(메모 있는 글)과 '관심 주제 후보'를 ⋯ 메뉴 안으로.
+// S69-70(사용자 11/24 20:43~20:45): 읽을 거리 [메모] 탭(메모 있는 글)과 '관심 주제 후보'를 ⋯ 메뉴 안으로.
 const N = 'b1000000-0000-4000-8000-000000000001', P = 'a1000000-0000-4000-8000-000000000001', P2 = 'a1000000-0000-4000-8000-000000000002';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 

@@ -1,4 +1,4 @@
-// UI-눌림느낌(2026-10-27 명진 요청): 누르는 느낌과 '✓ 복사됨' 알림의 공용 부품. 모양 규칙은 ui-standard.css 한 곳(:active·[data-pressing]·[data-done]).
+// UI-눌림느낌(2026-10-27 사용자 요청): 누르는 느낌과 '✓ 복사됨' 알림의 공용 부품. 모양 규칙은 ui-standard.css 한 곳(:active·[data-pressing]·[data-done]).
 // 1) 눌림: 진짜 버튼류는 CSS :active가 맡는다. 이 파일은 (a) 버튼이 아닌데 눌리는 줄·카드·칩·라벨(cursor:pointer)을 누르는 동안
 //    data-pressing으로 표시하고, (b) 폭·높이가 큰 줄·카드는 data-press-wide로 덜 작아지게 한다(3%가 아니라 1.5%). 저장소·서버에 아무것도 남기지 않는다.
 // 2) flashDone(button): 결과가 눈에 안 보이는 동작([복사] 등)이 끝나면 버튼 글자가 1.5초 동안 '✓ 복사됨'(초록)으로 바뀌었다 돌아온다.

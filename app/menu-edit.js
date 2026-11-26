@@ -2,7 +2,7 @@
 // ③ 아래 붙는 메뉴(PC 왼쪽 맨 아래 · 폰 [메뉴] 창 맨 아래). ⠿을 잡고 끌어 세 칸 사이를 옮기고(폰은 길게 눌러 끌기, reorder-drag.js),
 // 키보드 위·아래도 칸 사이를 넘는다. 홈은 맨 앞 고정. 오른쪽(폰은 아래)에 PC 왼쪽 메뉴 미리보기(pcSplit, 실제 왼쪽 메뉴와 같은 규칙).
 // 바꾸면 그 자리에서 메뉴에 반영되고 서버에 저장된다(menu-layout.js). [처음대로]는 기본 순서로, [완료]는 창을 닫는다.
-// S67-71(명진 11/21 "메뉴 이름을 여기서 바꿀 수 있어야") · S67-77(명진 11/21 "좀더 직관적으로" → A안): 이름 바꾸기 칸이 있는 메뉴(custom-words-model.mjs SLOTS의 menu)는
+// S67-71(사용자 11/21 "메뉴 이름을 여기서 바꿀 수 있어야") · S67-77(사용자 11/21 "좀더 직관적으로" → A안): 이름 바꾸기 칸이 있는 메뉴(custom-words-model.mjs SLOTS의 menu)는
 // 줄의 이름 자리가 처음부터 입력칸(값 = 지금 이름)이다. 칸 밖으로 나가기·Enter = 저장, Esc = 고치던 글자 되돌리기, 빈칸 = 기본 이름(흐린 글자로 보임).
 // 끌기는 ⠿ 손잡이(폰은 입력칸 밖을 길게 누르기)에서만 시작한다. 저장은 내 프로필 '이름 바꾸기'와 같은 칸·같은 길(custom-words-store.js).
 // 고친 이름은 시작할 때 한 번 읽어 모든 화면이 쓰는 구조(app/brand/custom-words.mjs)라, 이름을 바꾼 뒤 창을 닫으면 앱을 한 번 다시 열어 메뉴·하단바·왼쪽 메뉴가 새 이름으로 그려진다.
@@ -41,7 +41,7 @@ function setNote(text) {
 }
 const DEFAULT_NOTE = '폰은 줄을 길게 눌러 끌어요. 키보드는 위·아래 화살표.';
 
-// MENU-숨김: 숨긴 메뉴는 명진이 고르는 개인 표시이고 기능을 숨기는 것이 아니다(docs/design-decisions.md). 줄마다 [숨기기]/[꺼내기] 작은 글자 버튼, 끌어서 숨김 칸에 놓아도 된다.
+// MENU-숨김: 숨긴 메뉴는 사용자가 고르는 개인 표시이고 기능을 숨기는 것이 아니다(docs/design-decisions.md). 줄마다 [숨기기]/[꺼내기] 작은 글자 버튼, 끌어서 숨김 칸에 놓아도 된다.
 function rowHtml(id, list) {
   const item = itemOf(id), fixed = id === FIXED_ID;
   const handle = fixed ? '<span class="me-handle me-fixed" aria-hidden="true">⠿</span>'

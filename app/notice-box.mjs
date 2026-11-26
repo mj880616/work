@@ -1,4 +1,4 @@
-// S52-09 UI-요청상자통일(요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html, 명진 'ㅇ'): 홈 '나한테 온 요청'과 '잊지 말기'가 함께 쓰는
+// S52-09 UI-요청상자통일(요청함 11/07 10:52, 시안 docs/design/mockups/home-asks-box.html, 사용자 'ㅇ'): 홈 '나한테 온 요청'과 '잊지 말기'가 함께 쓰는
 // 알림 상자 부품 하나. 상자·머리 줄·줄·버튼 모양은 여기 한 곳이 만들고, 색만 tone('ask' = 톤다운 파랑, 'forget' = 톤다운 노랑)으로 나눈다.
 // - 머리 줄: 제목 · 개수(있을 때) · 흐린 글(출처 또는 '새 … 없음') · 오른쪽 [열기 ›](③ 글자 버튼).
 // - 줄: 내용 한 줄 + 아래 작은 줄(왼쪽 누가·출처·날짜, 오른쪽 줄 버튼(③ 글자 버튼 — UI-줄버튼 '줄 안 동작 버튼') ×·⋯(⑥ 아이콘)). 폰·PC 보이는 법은 아래 rowHtml 'UI-잊지말기줄단추'.
@@ -11,9 +11,9 @@ export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;',
 // 새 파서 없이 기존 공용 함수(md-telegram.mjs telegramInline = 앱의 [텔레그램용 복사]가 쓰는 같은 규칙)를 그대로 쓴다. 글자 굵기는 목록 줄 규칙(400·500)이 정하므로
 // 줄 안에서 굵게를 따로 그리지 않는다. 읽을 글·할 일 제목·읽기 프로그램 이름은 모두 이 함수 하나를 거친다.
 export const plainText = v => telegramInline(String(v ?? ''));
-// 줄 버튼 4개 + ×. 순서·이름은 모든 줄이 같다(명진 10:52 '노트로 버튼도 넣어', S52-20 시안 forget-one-list.html: [할 일로][일정으로][노트로][이미 함] ×).
+// 줄 버튼 4개 + ×. 순서·이름은 모든 줄이 같다(사용자 10:52 '노트로 버튼도 넣어', S52-20 시안 forget-one-list.html: [할 일로][일정으로][노트로][이미 함] ×).
 export const NB_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['done', '이미 함']]);
-// FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 명진 'ㅇ'): 잊지 말기 줄은 원래 다섯(위 넷 + ×) 그대로에
+// FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html, 사용자 'ㅇ'): 잊지 말기 줄은 원래 다섯(위 넷 + ×) 그대로에
 // [조직][사업] 두 개만 더한 일곱 — [할 일로][일정으로][노트로][조직][사업][이미 함] ×. 출처(텔레그램 요청·챙길 것·업데이트·소식)와 상관없이 같은 순서.
 // 가족 줄은 보고 길을 막아 두므로 위 NB_ACTS(다섯) 그대로다.
 export const NB_REPORT_ACTS = Object.freeze([['task', '할 일로'], ['event', '일정으로'], ['note', '노트로'], ['org', word('조직')], ['area', '사업'], ['done', '이미 함']]);
@@ -24,7 +24,7 @@ export const NB_UNDO_MS = 5000;
 // open: {attr: 'data-…', label: '정리함 열기 ›'} — 머리 줄 오른쪽 글자 버튼. faint: 흐린 글(예 '· 텔레그램 ·', '· 새 요청 없음 ·').
 // countAttr: 개수 칸에 붙일 data 이름(시험·다른 화면이 읽음, 없으면 생략).
 // badge: 빨간 바탕 흰 글자 숫자 동그라미(앱 안 읽은 알림처럼, S52-20 홈 '잊지 말기' 한 줄). 0이면 그리지 않는다. 99를 넘으면 '99+'.
-// titleOpen: {attr} — 제목(과 숫자) 자체가 여는 버튼(오른쪽 [열기 ›] 없음). 명진 11/07 22:31 홈 '잊지 말기': "그냥 잊지말기 텍스트 클릭하면 되게, 열기 텍스트는 삭제".
+// titleOpen: {attr} — 제목(과 숫자) 자체가 여는 버튼(오른쪽 [열기 ›] 없음). 사용자 11/07 22:31 홈 '잊지 말기': "그냥 잊지말기 텍스트 클릭하면 되게, 열기 텍스트는 삭제".
 // end: 머리 줄 맨 오른쪽에 더 붙일 HTML(이미 esc된 것, 예 '내일 약속 n ›').
 export function headHtml({title, count = 0, faint = '', open = null, countAttr = '', badge = 0, titleOpen = null, end = ''}) {
   const n = Number.isInteger(count) && count > 0 ? `<span class="nbx-n"${countAttr ? ` ${countAttr}` : ''}>${count}</span>`
@@ -46,7 +46,7 @@ export function headHtml({title, count = 0, faint = '', open = null, countAttr =
 // - more: 줄 ⋯(⑥ 아이콘)에 붙일 속성(이미 esc된 글, 예 data-forget-more="c:…") — 이 줄의 ⋯ 메뉴(우클릭도 같은 메뉴, context-menu.js)를 그리는 쪽이 연다.
 // - tail: 줄이 제 ⋯를 따로 가진 경우(업데이트 줄 — basket.js 메뉴) 그 ⋯ HTML. 있으면 위 more ⋯는 그리지 않는다(줄마다 ⋯ 하나).
 // - acts: 버튼 목록과 × 대신 쓸 버튼 목록(같은 ③ 글자 버튼, 없앨 수 없는 줄만 — 상대 약속 [원장으로]).
-// UI-잊지말기줄단추(요청함 11/10 11:23, 명진 '추천대로' — 11/7 HOME-잊지말기한목록의 줄 단추 결정을 바꿈):
+// UI-잊지말기줄단추(요청함 11/10 11:23, 사용자 '추천대로' — 11/7 HOME-잊지말기한목록의 줄 단추 결정을 바꿈):
 //   폰·폴드(좁은 창 또는 마우스 없음)는 줄에 [할 일로][이미 함] ⋯ 만 — [일정으로][노트로][조직][사업]·×는 .nbx-fold로 접혀 ⋯ 메뉴 안에 같은 이름으로 있다.
 //   PC(761px~ 마우스)는 마우스를 올린 줄·키보드 초점이 있는 줄(메뉴가 열린 줄 포함)에만 버튼 전부 + ⋯(할 일 줄 task-inline과 같은 방식).
 //   모양 규칙은 ui-standard.css 'UI-잊지말기줄단추' 한 곳. 접힌 동작은 foldActs()의 같은 이름으로 ⋯ 메뉴에 둔다(이름 하나).

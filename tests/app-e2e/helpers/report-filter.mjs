@@ -3,7 +3,7 @@ import {openReportBoxes} from './report-boxes.mjs';
 // S52-22 TEAM-맨위한줄: 사업 보고 사업영역·회의명 고르기는 맨 위 한 줄의 공용 고르기 상자(<select>)다(예전 [거르기 ▾] 창은 없앰).
 // - 사업영역: #reportAreaSelect(전체·각 사업영역·사업영역 없음).
 // - 회의명: 모든 폭에서 [종류 ▾](#reportKindSelect) 안 '회의명' 묶음(값 'name:…', 회의명 전체 = 'kind:meeting').
-//   BIZ-위쪽정돈PC(명진 11/09 10:52 A): PC(1200px~)의 종류 칩 줄·[회의명 ▾](#reportNameSelect) 상자는 없앴다 — 폰과 같은 상자 하나.
+//   BIZ-위쪽정돈PC(사용자 11/09 10:52 A): PC(1200px~)의 종류 칩 줄·[회의명 ▾](#reportNameSelect) 상자는 없앴다 — 폰과 같은 상자 하나.
 // 시험은 사람이 하듯 상자에서 고른다. 줄 글자는 첫 줄을 '전체'로 맞춰 돌려준다.
 export const reportAreaSelect=page=>page.locator('#reportAreaSelect');
 export const reportNameSelect=page=>page.locator('#reportKindSelect');
@@ -20,7 +20,7 @@ async function nameValue(page,pick){
 export async function pickReportFilter(page,key,pick){
   const sel=reportFilterSelect(page,key);await openReportBoxes(page,sel); // S67-75: 폰 폭이면 칩을 눌러 상자 창부터
   if(key==='area'){if(typeof pick==='object')await sel.selectOption({label:pick.label});else await sel.selectOption(pick);return}
-  // MTG-기본종류전체(11/15 명진): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음은 [회의]를 고른 뒤에만 있으므로 사람처럼 [회의]부터 고른다.
+  // MTG-기본종류전체(11/15 사용자): 사업 보고는 [종류 전체]로 열린다. 회의명 묶음은 [회의]를 고른 뒤에만 있으므로 사람처럼 [회의]부터 고른다.
   if(!(await sel.locator('optgroup[label="회의명"]').count())&&await sel.inputValue()!=='kind:meeting'){await sel.selectOption('kind:meeting');await expect(sel).toHaveValue('kind:meeting');await openReportBoxes(page)}
   await sel.selectOption(await nameValue(page,pick));
 }

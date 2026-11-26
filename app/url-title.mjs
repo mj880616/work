@@ -1,4 +1,4 @@
-// S69 NEWS-제목늘읽기(명진 11/24 "제목은 읽어놔야 누르든 말든하지"): 서버가 제목을 못 읽은 줄의 마지막 대신 제목.
+// S69 NEWS-제목늘읽기(사용자 11/24 "제목은 읽어놔야 누르든 말든하지"): 서버가 제목을 못 읽은 줄의 마지막 대신 제목.
 // 주소 경로에서 사람이 읽을 만한 조각 하나(예: /2026/11/24/minimum-wage-talks-stall → 'minimum wage talks stall', /뉴스/임금-협상 → '임금 협상').
 // 숫자·기사 번호·흔한 경로 이름(article·view·news 등)뿐이면 ''. 순수 계산(DOM·네트워크 없음) — 뉴스 줄(news-clipping-model.mjs)과 읽을 거리 줄(reading-model.mjs)이 함께 쓴다.
 const PLAIN = /^(news|article|articles|articleview|view|read|story|stories|post|posts|amp|m|www|ko|kr|en|html|index|detail|newsview|board|bbs|p|a|v|c|s|section|category|opinion|politics|economy|society|national|world|culture|all)$/i;

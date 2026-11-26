@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
-// S69-67 WEEKLY-저장폴더(명진 11/24 "주간보고에서 한글파일 만들기를 하든, 내가 수정해서 올리기를 하든 그 파일은 … 주간보고 폴더로"):
+// S69-67 WEEKLY-저장폴더(사용자 11/24 "주간보고에서 한글파일 만들기를 하든, 내가 수정해서 올리기를 하든 그 파일은 … 주간보고 폴더로"):
 // [주간 보고] [확정]·② [올리기]가 자료실에 저장한 자료(journal-hwpx.js → weekly-save-folder.js fileWeeklyReport)는 사람마다 고른 저장 폴더에 하나 들어간다(복사 아님).
 // 처음 한 번 묻고(지난 주간보고가 모인 폴더를 권함), 고르면 서버(내 프로필 weekly_folder)에 저장. 칸이 없는 서버면 지금처럼(아무것도 안 함).
 // 폴더에 넣은 뒤 드라이브는 기존 맞추기(drive-mirror auto)만 부탁한다. 가짜 서버만 쓴다. 이름은 지어낸 것.

@@ -16,7 +16,7 @@ import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
 import {requestBasketNote,requestNoteDocOpen} from './basket-note-tasks.js';
 import {readReferenceBundles,createReferenceBundle,renameReferenceBundle,deleteReferenceBundle,saveBundleOrder,bundleStats,bundleErrorText,BUNDLE_NAME_MAX,sortBundles} from './reference-bundles-data.js';
-// S67-53 ORG-여러개삭제(명진 11/20): 목록 ⋯ [여러 개 선택해 삭제] — 공용 선택 모드(select-mode.js, 폰 뒤로가기 = 선택 끝)로 빈 묶음 여러 개를
+// S67-53 ORG-여러개삭제(사용자 11/20): 목록 ⋯ [여러 개 선택해 삭제] — 공용 선택 모드(select-mode.js, 폰 뒤로가기 = 선택 끝)로 빈 묶음 여러 개를
 // 한 번 확인하고 차례로 삭제(한 개 [묶음 삭제]와 같은 REST DELETE·같은 기준: 붙은 소식이 있는 묶음은 선택할 수 없고 DB도 거절). 휴지통이 없어 확인 창에 되돌릴 수 없다고 적는다.
 import {createSelectMode} from './select-mode.js';
 import {deleteSequentially} from './library-select.js';

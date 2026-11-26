@@ -6,7 +6,7 @@ globalThis.window={dispatchEvent:e=>events.push(e.type),addEventListener:()=>{},
 globalThis.CustomEvent=class{constructor(type){this.type=type}};
 const mod=await import('../app/update-places.js');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const places={projects:[{project:{id:'p1',name:'합성 프로젝트',status:'active'},depth:0}],orgs:{recent:[],groups:[[{id:'o1',name:'합성 조직'}]]},bundles:[{id:'b1',name:'공공운수노조'},{id:'b2',name:'기타 조직'}]};
+const places={projects:[{project:{id:'p1',name:'합성 프로젝트',status:'active'},depth:0}],orgs:{recent:[],groups:[[{id:'o1',name:'합성 조직'}]]},bundles:[{id:'b1',name:'A노조'},{id:'b2',name:'기타 조직'}]};
 
 test('reference places round-trip through the sheet value and keep their name',()=>{
   assert.equal(mod.placeValue({kind:'reference',id:'b1'}),'reference:b1');

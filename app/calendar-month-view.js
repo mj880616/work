@@ -190,7 +190,7 @@ import {addTip} from './calendar-tip.js';
     b.setAttribute('aria-label',taskLabel(ev));addTip(b,taskTip(ev));
     return b;
   }
-  // S48-6c 폰 월 보기(2026-11-02 명진 결정): 기한이 그날인 할 일도 칸 안에 제목 줄로. 일정 막대와 구별되게 바탕색 없이 글자만,
+  // S48-6c 폰 월 보기(2026-11-02 사용자 결정): 기한이 그날인 할 일도 칸 안에 제목 줄로. 일정 막대와 구별되게 바탕색 없이 글자만,
   // 앞에 작은 체크 네모. 완료한 할 일은 칸에 넣지 않는다(그날 목록에는 그대로). 누르면 calendar-tasks.js가 할 일 상세 창을 연다.
   function cellTaskButton(seg){
     const ev=seg.ev,b=document.createElement('button');
@@ -218,7 +218,7 @@ import {addTip} from './calendar-tip.js';
       week.laneCount=Math.max(week.laneCount,lane);
     });
   }
-  // S52-19 CAL-확대높이따로(명진 11/07): 두 손가락으로 키운 동안은 제목이 줄을 바꿔 높이가 저마다 다르다. 한 주 가로 줄(lane)을 7일이
+  // S52-19 CAL-확대높이따로(사용자 11/07): 두 손가락으로 키운 동안은 제목이 줄을 바꿔 높이가 저마다 다르다. 한 주 가로 줄(lane)을 7일이
   // 같이 쓰면 그 줄에서 가장 긴 제목 높이로 같은 줄 일정이 다 늘어나므로, 여러 날에 걸친 띠(span>1)만 위쪽 가로 줄로 잇고
   // 하루짜리 일정·할 일은 날마다 따로 쌓는다(자기 글 길이만큼). 처음 크기·PC는 줄 높이가 고정이라 기존 가로 줄 그대로.
   function zoomStacks(week){
@@ -264,9 +264,9 @@ import {addTip} from './calendar-tip.js';
     // BIZ-보고할일정 PR B: 보고할 일정이면 막대 맨 앞에 ✓·□(report-plan-mark.js). 읽어 둔 값이 없으면 표시 없이 지금 그대로.
     const plan=ev.source==='google'?planMarkOf(ev.raw):null;
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title+planMarkSuffix(plan);
-    // S52-11 CAL-제목먼저(명진 11/07): 폰 월 보기 칸 안 줄은 제목만 — 시각은 읽기 이름(aria-label·title)과 그날 목록·일정 창에 남는다.
+    // S52-11 CAL-제목먼저(사용자 11/07): 폰 월 보기 칸 안 줄은 제목만 — 시각은 읽기 이름(aria-label·title)과 그날 목록·일정 창에 남는다.
     // PC·펼친 폴드(761px 이상)는 칸이 넓어 시각 + 제목 그대로.
-    // S52-40 CAL-확대시각(명진 11/07·11/08): 폰에서 두 손가락으로 키운 동안 날마다 쌓는 하루짜리 일정(appendZoomStacks → zoomed)은
+    // S52-40 CAL-확대시각(사용자 11/07·11/08): 폰에서 두 손가락으로 키운 동안 날마다 쌓는 하루짜리 일정(appendZoomStacks → zoomed)은
     // 제목 앞에 작은 시각. 띠·종일·할 일은 시각 없음. 오므리면 render가 다시 그려 제목만.
     const showTime=tm&&(!mq760.matches||(zoomed&&zoomMode&&seg.span<=1));
     b.innerHTML=(showTime?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
@@ -309,7 +309,7 @@ import {addTip} from './calendar-tip.js';
 
     const heads=document.createElement('div');heads.className='cmv-head-row';
     ['일','월','화','수','목','금','토'].forEach((name,i)=>{const h=document.createElement('div');h.className='cal-head'+(i===0?' sunday':i===6?' saturday':'');h.textContent=name;
-      // S49-6 CAL-날칸누르기: 요일 줄을 눌러도 이번 주(오늘이 든 주) 그 요일의 날 창이 열린다(명진 답 전 기본).
+      // S49-6 CAL-날칸누르기: 요일 줄을 눌러도 이번 주(오늘이 든 주) 그 요일의 날 창이 열린다(사용자 답 전 기본).
       h.dataset.weekday=String(i);h.setAttribute('role','button');h.tabIndex=0;h.setAttribute('aria-label',`이번 주 ${name}요일 보기`);
       heads.appendChild(h)});
     grid.appendChild(heads);

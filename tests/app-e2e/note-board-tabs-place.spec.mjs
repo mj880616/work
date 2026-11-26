@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
-// S70-21 NOTE-보드탭자리(명진 11/25 10:53, PC 노트 [보드] 사진): "여기서 이 메뉴 위치가 뜬금없음 오른쪽 보드 위쪽으로 가야할 듯 이쯤"
+// S70-21 NOTE-보드탭자리(사용자 11/25 10:53, PC 노트 [보드] 사진): "여기서 이 메뉴 위치가 뜬금없음 오른쪽 보드 위쪽으로 가야할 듯 이쯤"
 // · "왼쪽은 노트목록이잖아". 보드 고르기 줄([보드 이름들] [+ 새 보드])은 오른쪽 보드 칸의 머리 — 판 바로 위, 판과 같은 왼쪽 끝.
 // 왼쪽 노트 목록 칸 위에는 아무것도 없고, 판 위 도구 막대(+주제…맞추기)와도 겹치지 않는다. 폰(한 칸)·전체 화면도 같다.
 // 보드 이름·노트 제목은 지어낸 것.

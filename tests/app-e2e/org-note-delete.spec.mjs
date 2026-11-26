@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
-// ORG-연결노트삭제(2026-11-12 명진 지시): 조직 창·사업영역 상세 기록 목록의 노트 연결 줄 ⋯에 업데이트와 같은 [원문 삭제](맨 아래, 위험 색).
+// ORG-연결노트삭제(2026-11-12 사용자 지시): 조직 창·사업영역 상세 기록 목록의 노트 연결 줄 ⋯에 업데이트와 같은 [원문 삭제](맨 아래, 위험 색).
 // 누르면 한 번 묻고('노트를 삭제할까요? 휴지통으로 가요. 이 기록 줄도 빠져요' + 다른 곳 n군데), 노트 화면 [삭제]와 같은 휴지통 길
 // (owner-RLS DELETE 한 번 → 서버 가로채기가 휴지통 표시)로 보낸 뒤 '노트를 삭제했어요 · 되돌리기'. 되돌리면 노트와 기록 줄이 다시 보인다.
 // 예전 basket-files note-delete 서버 길은 쓰지 않는다. 이름·글은 모두 합성 값이다.

@@ -307,7 +307,7 @@ function meetingWorld(over = {}) {
     ...over,
     driveFiles: [
       folder('org', '03. 궤도', LIB), folder('meet', '회의', ORG),
-      folder('mtA', '궤도협의회 대표자회의', MEET),
+      folder('mtA', '레일협의회 대표자회의', MEET),
       file('mtA1', '회의록.hwp', id('mtA'), { md5Checksum: 'A'.repeat(32), size: '1001' }),
       ...(over.driveFiles || []),
     ],
@@ -334,7 +334,7 @@ test('S70-73b ① 짝 폴더 아래 새 드라이브 하위 폴더 → 자료실
   assert.equal(rows.length, before + 1);
   const made = rows.find(f => f.drive_folder_id === id('mtA'));
   assert.ok(made, '짝 드라이브 폴더 id가 연결됨');
-  assert.equal(made.name, '궤도협의회 대표자회의');
+  assert.equal(made.name, '레일협의회 대표자회의');
   assert.equal(made.parent_id, 'af-meet', '짝 폴더(회의) 아래');
   assert.equal(made.workspace_id, 'w1');
   assert.equal(r.folders_made, 1);
@@ -363,7 +363,7 @@ test('S70-73b ② 두 단계 깊이도 위에서 아래로 같게', async () => 
 
 test('S70-73b ③ 같은 부모 아래 같은 이름·짝 없는 자료실 폴더가 있으면 새로 만들지 않고 연결만(행 수 그대로)', async () => {
   const { auto, tables } = meetingWorld({ tables: { extraFolders: [
-    { id: 'af-mtA', workspace_id: 'w1', parent_id: 'af-meet', name: '궤도협의회 대표자회의', sort_order: 1, drive_folder_id: null, deleted_at: null },
+    { id: 'af-mtA', workspace_id: 'w1', parent_id: 'af-meet', name: '레일협의회 대표자회의', sort_order: 1, drive_folder_id: null, deleted_at: null },
   ] } });
   const before = folderRows(tables).length;
   const r = await auto.run();
@@ -384,7 +384,7 @@ test('S70-73b ④ 앱 폴더 이름·앱 표식·비밀값 보관 폴더·예전
   const r = await auto.run();
   const names = folderRows(tables).map(f => f.name);
   for (const n of ['정리 대기', '할 일 첨부', '아무개', '폰 키 백업', '지운 폴더', '가'.repeat(41), '드라이브에서 만든 폴더']) assert.equal(names.includes(n), false, n);
-  assert.equal(names.includes('궤도협의회 대표자회의'), true);
+  assert.equal(names.includes('레일협의회 대표자회의'), true);
   assert.equal(tables.app_documents.some(d => d.file_name === '열쇠 메모.txt'), false, '비밀값 보관 폴더 안 파일은 안 들어옴');
   assert.equal(itemOf(tables, docNamed(tables, '지운 폴더 파일.pdf').id), 'af-recv', '예전 짝 폴더 안 파일은 지금처럼 잡동사니');
   assert.equal(itemOf(tables, docNamed(tables, '새 폴더 파일.pdf').id), 'af-recv', '자료실 맨 위 바로 아래 새 폴더는 지금처럼');
@@ -407,7 +407,7 @@ test('S70-73b 짝 연결이 거절되면(휴지통 폴더가 그 드라이브 �
     { id: 'af-gone', workspace_id: 'w1', parent_id: 'af-meet', name: '옛 이름', sort_order: 9, drive_folder_id: id('mtA'), deleted_at: 'old' },
   ] } });
   const r = await auto.run();
-  assert.equal(folderRows(tables).some(f => f.name === '궤도협의회 대표자회의'), false);
+  assert.equal(folderRows(tables).some(f => f.name === '레일협의회 대표자회의'), false);
   assert.equal(tables.app_documents.some(d => d.file_name === '회의록.hwp'), false, '잡동사니로 잘못 가지 않음');
   assert.equal(r.skipped.hold, 1); assert.equal(r.more, true); assert.equal(r.skipped.folder_failed, 1);
 });

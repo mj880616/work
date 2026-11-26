@@ -22,11 +22,11 @@ class WidgetWeekTest {
 
     @Test
     fun weekRangeIsSundayToNextSundayLikeAppCalendar() {
-        // S69-위젯일요일(11/24 명진 "위젯이 일월화수목금토여야 돼"): 앱 달력 월 보기처럼 일요일 시작, 칸 순서 일 월 … 토.
+        // S69-위젯일요일(11/24 사용자 "위젯이 일월화수목금토여야 돼"): 앱 달력 월 보기처럼 일요일 시작, 칸 순서 일 월 … 토.
         assertEquals("2026-10-24T15:00:00Z" to "2026-10-31T15:00:00Z", WidgetWeek.range(now))
         assertEquals("이번 주 10/25–10/31", WidgetWeek.header(now))
         assertEquals(LocalDate.of(2026, 10, 25), WidgetWeek.start(now))
-        // 명진 요청 그날: 2026-11-24(화) → 이번 주 11/22–11/28.
+        // 사용자 요청 그날: 2026-11-24(화) → 이번 주 11/22–11/28.
         val tue1124 = at(2026, 11, 24, 18, 54)
         assertEquals("이번 주 11/22–11/28", WidgetWeek.header(tue1124))
         assertEquals("2026-11-21T15:00:00Z" to "2026-11-28T15:00:00Z", WidgetWeek.range(tue1124))
@@ -178,7 +178,7 @@ class WidgetWeekTest {
 
     @Test
     fun noUpcomingOrReportLinesAndNoBusySummary() {
-        // S69-07(11/24 명진 "디마이너스 1 디마이너스 2 뭐 이런 건 안 해도 돼"): 목록 끝 'D-n'·'월 보고일' 줄은 없다.
+        // S69-07(11/24 사용자 "디마이너스 1 디마이너스 2 뭐 이런 건 안 해도 돼"): 목록 끝 'D-n'·'월 보고일' 줄은 없다.
         val c = WidgetWeek.content(
             200,
             body(
@@ -392,7 +392,7 @@ class WidgetWeekTest {
 
     @Test
     fun candidatesAddressIsNoLongerRead() {
-        // S68-13(11/22 명진): 처리 전 후보는 '지금' 위젯만 읽었다. 위젯과 함께 허용 목록에서 뺐다(어떤 방식도 안 됨).
+        // S68-13(11/22 사용자): 처리 전 후보는 '지금' 위젯만 읽었다. 위젯과 함께 허용 목록에서 뺐다(어떤 방식도 안 됨).
         val url = "https://xmlkxfjeagycwttklxjw.supabase.co/rest/v1/app_todo_candidates?status=eq.open&select=source_kind,summary&order=created_at.desc&limit=100"
         assertFalse(WidgetRules.allowed("GET", url))
         assertFalse(WidgetRules.allowed("POST", url))
@@ -466,7 +466,7 @@ class WidgetWeekTest {
     }
 
     /**
-     * S69-78(11/24 명진 "지난주 갔다가 > 누르면 이번주를 건너뛰고 다음주로 감"): ‹ ›는 지금 보이는 주에서 한 칸.
+     * S69-78(11/24 사용자 "지난주 갔다가 > 누르면 이번주를 건너뛰고 다음주로 감"): ‹ ›는 지금 보이는 주에서 한 칸.
      * 위젯 한 번 그리기 = 4×2 틀과 4×1 틀을 모두 그린다(HomeWidgets.sized). 누름 보관함은 PendingIntent처럼 data 주소가 열쇠이고
      * 같은 주소로 다시 만들면 실린 값이 덮인다(FLAG_UPDATE_CURRENT).
      */

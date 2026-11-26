@@ -39,7 +39,7 @@ const GRANTS={
 };
 const COUNTERS=['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens'];
 
-// 명진의 통화 분석 v3.2(분석 앱 스크립트 analysisRenderMarkdown_)가 만드는 모양을 따른 지어낸 분석 파일.
+// 사용자의 통화 분석 v3.2(분석 앱 스크립트 analysisRenderMarkdown_)가 만드는 모양을 따른 지어낸 분석 파일.
 // work: is_work_related 값('true'|'false'|null=칸 없음). counterpart: 옛 모양 `## 상대 이름·직책` 절(null이면 절 없음).
 function analysis({version='3.2',work='true',status='검토대기',title='가상노조 위원장 · 3차 교섭 일정 변경',when='2026-10-24 09:30:00',ref='SRCFAKE0001aa',
   counterpart=null,txt='통화 홍길동_261024_093000.txt',head='- 상대 이름: 홍길동\n- 상대 직책: 위원장\n- 주체 확인필요: 아니오',related='["가상노동조합"]',extraFront='',
@@ -791,7 +791,7 @@ test('CALL-업무기본: 조직도 아는 이름도 없는 애매 통화는 그�
   assert.equal(n.db.app_call_personal[0].kind,'unsure','번호만 있는 상대는 규칙 대상이 아님');
 });
 
-test('CALL-업무기본: 명진이 고른 상대는 기억한 대로 갈린다(업무/개인), 다른 상대·다른 작업공간은 영향 없음',async()=>{
+test('CALL-업무기본: 사용자가 고른 상대는 기억한 대로 갈린다(업무/개인), 다른 상대·다른 작업공간은 영향 없음',async()=>{
   const key=await contactDigest(WS,contactNorm('김가상'));
   const work=harness({choices:[{workspace_id:WS,contact_key:key,choice:'work'}]});
   assert.equal((await sendUnsure(work,'통화 김가상_261024_093000.txt')).kept,1);assert.equal(work.db.app_call_personal.length,0);

@@ -4,8 +4,8 @@ import {writeNewsMark, writeOutsideMark as writeOutside, writeSaved, writeSignal
 // 누른 일마다 환류 기록 한 줄(사람별 반응 표, 더하기만). 서버 길은 feed-shared.js 하나. 기기 저장 없음.
 export {workspaceOf};
 
-// S67-09 NEWS-보관별표하나로(명진 11/19): 두 쪽 다 '보관' = 별표 하나.
-// S68-27 READ-보관기록일원화(명진 11/22 21:37): 그 '보관'의 원본은 읽을 거리 줄 하나다 — 켜기·끄기는 서버 함수 app_reading_keep(feed-shared.js writeSaved).
+// S67-09 NEWS-보관별표하나로(사용자 11/19): 두 쪽 다 '보관' = 별표 하나.
+// S68-27 READ-보관기록일원화(사용자 11/22 21:37): 그 '보관'의 원본은 읽을 거리 줄 하나다 — 켜기·끄기는 서버 함수 app_reading_keep(feed-shared.js writeSaved).
 //   표시 표에는 숨김(hidden_at)·관심 없음(dismissed_at)·별표 폴더(folder_id)만 쓴다. 옛 별표 칸(starred_at·archived_at)은 읽지도 쓰지도 않는다.
 // 사회운동 글 표시. fields: {dismissed_at?} (값 = 시각 문자열 또는 null)
 export const writeOutsideMark = (id, fields) => writeOutside(id, fields);
@@ -29,7 +29,7 @@ export async function setMark(item, act, on) {
 export const setSaved = (item, on) => setMark(item, 'star', on);
 // 보관 풀기 = 읽을 거리 줄 지우기(뉴스는 별표 폴더도 비운다).
 export const release = item => setMark(item, 'star', false);
-// S67-11 NEWS-보관빼기(명진 11/19): 보관에서 빼기. 끄기 전 보관 시각·표시를 돌려준다 — 되돌리기(restoreStar)가 원래 보관 시각·폴더로 되살려 원래 자리.
+// S67-11 NEWS-보관빼기(사용자 11/19): 보관에서 빼기. 끄기 전 보관 시각·표시를 돌려준다 — 되돌리기(restoreStar)가 원래 보관 시각·폴더로 되살려 원래 자리.
 // 끄기 전 값을 못 읽어도 끄기는 한다(되돌리면 지금 시각으로 보관).
 const before = item => readMarkRaw(item).catch(() => null);
 export async function unstar(item) { const prev = await before(item); await setMark(item, 'star', false); return prev; }

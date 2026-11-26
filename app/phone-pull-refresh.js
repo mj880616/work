@@ -8,7 +8,7 @@ const EDITABLE = /^(INPUT|TEXTAREA|SELECT)$/;
 const NO_PULL = '.nb-board,.nb-scroll,.nb-card,[data-no-pull]';
 const OPEN_LAYER = 'dialog[open],[role="dialog"],[aria-modal="true"],.modal:not(.hidden),#edWindow:not(.hidden)';
 
-// S68-59(명진 11/23 16:17 "왼쪽으로 스와이프 여전히 안됨"): 옆으로 미는 손가락은 당기기가 아니다.
+// S68-59(사용자 11/23 16:17 "왼쪽으로 스와이프 여전히 안됨"): 옆으로 미는 손가락은 당기기가 아니다.
 // 오른손 엄지로 줄을 왼쪽으로 밀면 손끝이 호를 그리며 조금씩 아래로 내려간다(오른쪽으로 밀면 위로 올라간다). 앱 껍데기(SwipeRefreshLayout)는
 // 가로·세로를 견주지 않고 아래로 몇 px만 내려가도 '당기기'로 보고 손가락을 웹에서 빼앗았다(웹에는 pointercancel) — 그래서 맨 위에서
 // 왼쪽 밀기만 늘 끊겼다. 손가락이 SIDE_PX 넘게 움직인 첫 순간 가로가 세로보다 크면 그 손가락은 'pull:off'로 바꿔 앱이 가져가지 않게 한다.

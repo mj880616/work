@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18, 명진 '시안대로 진행'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
+// PHOTO-위쪽두줄앨범보기(요청함 10/31 16:18, 사용자 '시안대로 진행'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
 // - (UI-보기탭드롭다운 11/10) 보기는 [사진 ▾] 고르기 상자 하나. 다섯 보기 모두 위쪽 높이가 같고 도구 줄 한 줄(S70-57: 화면 첫 줄 제목 없음).
 // - 출처 아이콘은 맨 위 줄(폰 틀 앱 머리 줄·PC 상단 줄, S70-57). 구글 드라이브 칩의 점(::before ≤10px)·누르는 범위(::after ≥44px) 그대로.
 // - 앨범 탭: 정렬 [－][＋] … 출처 [+ 새 앨범](출처 칩은 모든 탭에서 보임). [－][＋]로 큰 칸 → 작은 그림 목록(이름·장수·기간) → 한 줄 목록, 서버(view_prefs.album_view)에 저장되어 새로고침해도 그대로.

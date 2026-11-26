@@ -85,13 +85,13 @@ test('학습 재료: 보고 주 앞의 고침 기록·규칙만(이번 주 행�
 
 test('학습 시험: 줄마다 같음·비슷·다름·빠짐·AI만, 그대로 쓸 수 있는 줄 n/m', () => {
   const ai = new Map([[id('가›가-1'), ['- 가상 교섭 3차 진행', '- 가상 행사 준비 중', '- AI가 지어낸 줄 하나']], [id('나›나-1'), ['- 가상 회의 열림']]]);
-  const mine = new Map([[id('가›가-1'), ['- 가상 교섭 3차 진행', '- 가상 행사 준비 중(10/28)', '- 명진만 쓴 줄']], [id('나›나-1'), ['- 가상 회의 열렸고 다음 일정 정함']]]);
+  const mine = new Map([[id('가›가-1'), ['- 가상 교섭 3차 진행', '- 가상 행사 준비 중(10/28)', '- 사용자만 쓴 줄']], [id('나›나-1'), ['- 가상 회의 열렸고 다음 일정 정함']]]);
   const r = compareTest(ai, mine);
   const by = s => r.rows.filter(x => x.status === s).map(x => x.mine || x.ai);
   assert.deepEqual(by('same'), ['- 가상 교섭 3차 진행']);
   assert.deepEqual(by('similar'), ['- 가상 행사 준비 중(10/28)']);
   assert.deepEqual(by('differ'), ['- 가상 회의 열렸고 다음 일정 정함']);
-  assert.deepEqual(by('missing'), ['- 명진만 쓴 줄']);
+  assert.deepEqual(by('missing'), ['- 사용자만 쓴 줄']);
   assert.deepEqual(by('ai_only'), ['- AI가 지어낸 줄 하나']);
   assert.equal(r.usable, 2);
   assert.equal(r.total, 4);
@@ -128,7 +128,7 @@ test('규칙 상태(WEEKLY-규칙합의): 옛 줄은 후보, [ㅇ]·[고쳐서 �
   assert.deepEqual(r.candidates, []);
   assert.deepEqual(r.retired, [{text:'후보 셋'}]);
   assert.equal(r.at, 'd');
-  // 없는 후보는 그대로, 확정과 같은 후보·폐기는 읽을 때 빠짐. 폐기 줄을 다시 후보로 돌리는 길은 없다(명진 11/13 — 폐기 데이터는 그대로).
+  // 없는 후보는 그대로, 확정과 같은 후보·폐기는 읽을 때 빠짐. 폐기 줄을 다시 후보로 돌리는 길은 없다(사용자 11/13 — 폐기 데이터는 그대로).
   assert.equal(takeCandidate(r, '없는 후보', 'f').at, 'd');
   const mixed = readRules({v:2, at:'g', lines:[{text:'같은 줄', from:'added'}], candidates:[{text:'같은 줄'}, {text:'폐기 줄'}, {text:'새 후보'}], retired:[{text:'폐기 줄'}]});
   assert.deepEqual([mixed.lines.length, mixed.candidates.map(c => c.text), mixed.retired.map(c => c.text)], [1, ['새 후보'], ['폐기 줄']]);

@@ -1,5 +1,5 @@
 // MTG-노트북녹음 2단계: 노트북 [녹음] → 녹음 띠 → [멈추고 저장] → 자료실 '회의 녹음'(띠에 파일 줄), '이어서 저장', 폰 폭에는 [녹음] 없음.
-// S61-5 REC-전사삭제(명진 11/13): 전사·요약·초안은 없다 — 전사·서버 정리 호출이 0번인지 시험마다 확인한다.
+// S61-5 REC-전사삭제(사용자 11/13): 전사·요약·초안은 없다 — 전사·서버 정리 호출이 0번인지 시험마다 확인한다.
 // 실제 마이크·운영 서버는 쓰지 않는다: 가짜 MediaRecorder·getUserMedia(addInitScript)와 가짜 Supabase(page.route).
 import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';

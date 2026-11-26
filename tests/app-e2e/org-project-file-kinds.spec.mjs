@@ -231,7 +231,7 @@ test('a project or organization with no documents shows no kind box',async({page
  expect(f.errors).toEqual([]);
 });
 
-// 2026-10-24 명진 결정: 담당조직·프로젝트 상세 [자료]는 '회의'도 보이는 채 연다(자료실 기억을 쓰지 않음) → 상자는 늘 [종류 전체]에서 시작.
+// 2026-10-24 사용자 결정: 담당조직·프로젝트 상세 [자료]는 '회의'도 보이는 채 연다(자료실 기억을 쓰지 않음) → 상자는 늘 [종류 전체]에서 시작.
 for(const width of [390,1280])test(`organization details open at 종류 전체 so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
  const docs=[
   doc('m1','합성 노사협의회 안건','회의자료','2026-10-09',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
@@ -255,7 +255,7 @@ for(const width of [390,1280])test(`organization details open at 종류 전체 s
  expect(f.calls('app_profiles','PATCH')).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// LIB-사진숨김(S60-10, 명진 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ②③④): 사업 보고로 올린 사진이 보고 제목을 달고
+// LIB-사진숨김(S60-10, 사용자 결정 11/12, 시안 docs/design/mockups/photo-hide-thumbs.html ②③④): 사업 보고로 올린 사진이 보고 제목을 달고
 // 다른 자료와 같은 줄로 보이던 것 → 사진은 줄에서 빠지고 칩 줄 끝 [사진 n]만, 줄마다 파일 종류(한글·PDF). [사진 n]을 누르면 그때만 작은 그림,
 // 누르면 크게 보기, ⋯는 지금 메뉴. 기록 줄 첨부 사진은 [사진 n] 하나(누르면 작은 그림). 자료 수·[전체 N개 보기]는 그대로. 껐다 켠 것은 기억하지 않는다.
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');

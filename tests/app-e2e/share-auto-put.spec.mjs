@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
 import { pickBasketView } from './helpers/forget-view.mjs';
 
-// SHARE-바로넣기(2026-10-30 명진 결정): 폰 앱에서 공유하면 확인 줄·[넣기] 없이 바로 정리함에 들어가고,
+// SHARE-바로넣기(2026-10-30 사용자 결정): 폰 앱에서 공유하면 확인 줄·[넣기] 없이 바로 정리함에 들어가고,
 // 위쪽 작은 알림 "업데이트로 보냈어요(S49-9, 옛 정리함에 넣었어요) [메모 달기] [되돌리기]", 실패하면 "넣지 못했어요 [다시]". 앱 다리·파일은 시험용 흉내(서버 키 없음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.3.3';

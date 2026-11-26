@@ -1,4 +1,4 @@
-// RECORD-보고용글잘림(요청함 11/10 ★급★): 명진이 직접 쓴 보고용 글(report_body)은 60자 한 줄 규칙으로 자르지 않는다.
+// RECORD-보고용글잘림(요청함 11/10 ★급★): 사용자가 직접 쓴 보고용 글(report_body)은 60자 한 줄 규칙으로 자르지 않는다.
 // 표 줄·[보고용으로 수정] 칸·복사·한글 파일·확정 사진이 모두 글 전체를 쓴다. 이름·글은 모두 가짜.
 import test from 'node:test';
 import assert from 'node:assert/strict';

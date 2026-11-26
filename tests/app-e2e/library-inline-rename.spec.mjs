@@ -153,7 +153,7 @@ for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,
   });
 });
 
-// OPS-빠진일2차 4(S59-22, 명진 11/11 14:55 "제안대로 전부"): 파일 이름 수정 칸의 [AI 이름]은 [이름 추천 받기]. 폰 412에서도 칸 안에서 넘치지 않는다.
+// OPS-빠진일2차 4(S59-22, 사용자 11/11 14:55 "제안대로 전부"): 파일 이름 수정 칸의 [AI 이름]은 [이름 추천 받기]. 폰 412에서도 칸 안에서 넘치지 않는다.
 // KPTU_SHOTS=1이면 docs/design/screens/s59-22/에 PC 1280·폰 412 사진을 남긴다(가짜 자료만).
 const SHOTS=process.env.KPTU_SHOTS==='1';
 const shot22=async(page,name)=>{if(SHOTS){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${name}.png`})}};

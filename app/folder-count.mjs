@@ -1,4 +1,4 @@
-// LIB-폴더개수(명진 11/24 18:04 "폴더 몇 개 파일 몇 개 이렇게 보여 줘야"): 폴더 줄 회색 개수 글자 한 곳(순수 함수, node --test로 시험).
+// LIB-폴더개수(사용자 11/24 18:04 "폴더 몇 개 파일 몇 개 이렇게 보여 줘야"): 폴더 줄 회색 개수 글자 한 곳(순수 함수, node --test로 시험).
 // 파일 화면(files-model.mjs folderCountText)과 자료실 나무·목록·두 칸(library-tree.js folderCountOf)이 같은 말을 쓴다.
 //  하위 폴더가 있으면 '폴더 N · 파일 M'(파일 = 바로 안 파일 수, 0이면 빼고 '폴더 N'), 하위 폴더가 없으면 alone(파일 수) — 화면마다 '3'·'3개'.
 export const countText = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString('ko-KR') : '';

@@ -87,7 +87,7 @@ test('끝나지 않은 녹음 줄: 이 폰 녹음 먼저, 서버 목록에서 �
   assert.deepEqual(pendingList({state:'idle'}, [{session_id:'x'}]).map(s => s.session_id), ['x']);
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 멈추면 자료실 '회의 녹음' 폴더에 저장(rec_finish → rec_save). 전사·요약·초안 호출은 0번.
+// S61-5 REC-전사삭제(사용자 11/13): 멈추면 자료실 '회의 녹음' 폴더에 저장(rec_finish → rec_save). 전사·요약·초안 호출은 0번.
 const noTranscribe = t => assert.equal(t.calls.some(c => /transcribe|job_/.test(c.action)), false, '전사·서버 정리 호출 없음');
 test('녹음 → 조각 올리기(재시도 포함) → 멈추고 저장 → 자료실 파일 줄', async () => {
   const t = setup({failPieceOnce:true});

@@ -102,7 +102,7 @@ for (const width of [1280, 412]) test(`folder ⋯ [새 노트] opens the new not
   const win = page.locator('#edWindow');
   await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
   await press(page, page.locator(`[data-nx-folder-more="${U(2)}"]`).first(), width);
-  // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 ⋯ 첫 줄은 [이 폴더로 들어가기], 그다음 [새 노트].
+  // UI-폴더이름펼치기(사용자 11/24 18:09): 폴더 ⋯ 첫 줄은 [이 폴더로 들어가기], 그다음 [새 노트].
   await expect(page.locator('#noteDocMenu button').first()).toHaveText('이 폴더로 들어가기');
   await expect(page.locator('#noteDocMenu button').nth(1)).toHaveText('새 노트');
   await press(page, page.locator('#noteDocMenu [data-nx-new-note]'), width);
@@ -131,7 +131,7 @@ for (const width of [1280, 412]) test(`inside a folder the head ⋯ has [이 폴
   await expect(page.locator('#edWindow [data-edw-folder]')).toHaveText('회의 ▾');
 });
 
-// S69-62(명진 11/24 18:16 "파일 메뉴에서 사용하는 게 제일 좋아"): 노트 입력 줄 [폴더 ▾] 창도 [파일] '옮길 곳' 창과 같은 창 —
+// S69-62(사용자 11/24 18:16 "파일 메뉴에서 사용하는 게 제일 좋아"): 노트 입력 줄 [폴더 ▾] 창도 [파일] '옮길 곳' 창과 같은 창 —
 // 폰은 아래에서 올라오는 창(화면 폭 전체, 하단바 위), PC·폴드는 가운데 아래 창. 화면 밖으로 넘치지 않는다.
 for (const width of [390, 884, 1280]) test(`노트 [폴더 ▾] 고르기 창은 [파일] 옮길 곳 창과 같은 자리 ${width}`, async ({ page }) => {
   const f = await fixture(page, width);

@@ -12,7 +12,7 @@ import java.security.SecureRandom
 import java.util.concurrent.Executors
 
 /**
- * FILES-통합 3-③(S49-51, 명진 결정 H-1·H-3): [파일] '이 폰' 쓰기(규칙은 PhoneFilesRules 쓰기 절). 화면이 사람이 누른 것만 confirm:true로 보낸다.
+ * FILES-통합 3-③(S49-51, 사용자 결정 H-1·H-3): [파일] '이 폰' 쓰기(규칙은 PhoneFilesRules 쓰기 절). 화면이 사람이 누른 것만 confirm:true로 보낸다.
  * - 새 폴더·이름 바꾸기: 뿌리 안·막힌 곳 밖만. 같은 이름이 있으면 하지 않는다(exists).
  * - 휴지통: 파일만, 안드로이드 휴지통. 사진·동영상·음악은 그 모음 주소로 MediaStore.createTrashRequest(시스템 확인 창, '미디어 관리 허용'이면 바로),
  *   문서·PDF 같은 나머지는 '모든 파일 접근'으로 IS_TRASHED=1(S53-7, 0.5.4 — 확인 창이 Files 주소를 받지 않음). 영구 삭제는 없다.

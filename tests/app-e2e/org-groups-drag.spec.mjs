@@ -1,7 +1,7 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-// MULTI-다른담당자맞춤 ②(시안 PR 2522, 명진 11/13 'ㅇ'·'ㅇㅋ'): 조직 보고 화면에서 묶음 만들기(화면 ⋯)·손잡이 ⋮⋮ 끌기·묶음 ⋯ [이름 바꾸기][묶음 풀기].
-// 값은 화면 기억 org_order 하나(window.__orgOrderPrefs 대역). 두 계정: 막 가입한 다른 담당자(?orgs=none)와 명진(?orgs=order). 이름은 합성 값.
+// MULTI-다른담당자맞춤 ②(시안 PR 2522, 사용자 11/13 'ㅇ'·'ㅇㅋ'): 조직 보고 화면에서 묶음 만들기(화면 ⋯)·손잡이 ⋮⋮ 끌기·묶음 ⋯ [이름 바꾸기][묶음 풀기].
+// 값은 화면 기억 org_order 하나(window.__orgOrderPrefs 대역). 두 계정: 막 가입한 다른 담당자(?orgs=none)와 사용자(?orgs=order). 이름은 합성 값.
 const base=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 const SHOTS=process.env.S61_39_SHOTS;
 const rowOf=(page,name)=>page.locator('#soOrganizationList .so-row').filter({has:page.locator('.kptu-list-name',{hasText:new RegExp(`^${name}$`)})});
@@ -93,7 +93,7 @@ for(const width of [412,1280])test(`새 담당자: [묶음 만들기]로 만들�
   expect(errors).toEqual([]);
 });
 
-for(const width of [412,1280])test(`명진: 지금 묶음 그대로 + 손잡이, 묶음 순서 끌기·조직을 그 외로 빼기 ${width}px`,async({page})=>{
+for(const width of [412,1280])test(`사용자: 지금 묶음 그대로 + 손잡이, 묶음 순서 끌기·조직을 그 외로 빼기 ${width}px`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width,height:900});await page.goto(base+'?orgs=order');await phoneShell(page);
   const heads=['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳','그 외2곳','제외한 조직1곳'];

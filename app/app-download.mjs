@@ -1,4 +1,4 @@
-// APP-앱내려받기버튼(명진 지시 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기]와 로그인 뒤 메뉴 '앱 내려받기'가 같이 쓰는 한 곳.
+// APP-앱내려받기버튼(사용자 지시 11/15 00:11): 로그인 화면 [안드로이드 앱 내려받기]와 로그인 뒤 메뉴 '앱 내려받기'가 같이 쓰는 한 곳.
 // 받을 주소는 Pages 배포 때 scripts/phone-app-latest.mjs가 GitHub 공개 릴리스에서 고른 최신 폰 앱(phone-app-v<버전>의 web2-phone-<버전>.apk)을
 // 같은 주소의 app/phone-app.json 한 파일에 적어 둔 것이다. 화면은 이 파일만 읽고 GitHub API를 부르지 않는다(바구니 PC 릴리스와 섞이지 않음).
 // 파일이 없거나 읽지 못하면 폰 앱 릴리스 목록 주소로 연다(거기서 맨 위 web2-phone-*.apk). 로그인·토큰·개인정보와 상관없다.
@@ -39,7 +39,7 @@ export async function loadPhoneAppInfo(fetchImpl = globalThis.fetch, base = impo
 
 // BASKET-노조플러스업로드: 윈도우 PC 보조 프로그램(WORK ON+ 파일 올리기). 받을 주소는 배포 때 같은 스크립트가 고른 최신 PC 설치 파일
 // (basket-pc-v<버전>의 BasketDropApp-win-Setup.exe)을 적은 같은 주소의 app/pc-app.json. 폰 앱 파일과 섞이지 않는다.
-// S63-09 PC도우미구분(명진 11/16): 이 프로그램을 WORK ON+ 자체로 아는 사람이 있어, 이름을 'WORK ON+ 파일 올리기'(도우미)로 하고
+// S63-09 PC도우미구분(사용자 11/16): 이 프로그램을 WORK ON+ 자체로 아는 사람이 있어, 이름을 'WORK ON+ 파일 올리기'(도우미)로 하고
 // 받는 곳마다 "WORK ON+는 브라우저에서 쓴다" 한 줄을 먼저 보인다(PC_BROWSER_LINE). PC에서 WORK ON+를 바탕화면에 두는 길은 브라우저 '앱 설치'(pwa-install.mjs).
 export const PC_RELEASES_PAGE = `https://github.com/${PHONE_REPO}/releases?q=basket-pc-v&expanded=true`;
 export const PC_SETUP_NAME = 'BasketDropApp-win-Setup.exe';

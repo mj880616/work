@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 // S47-19 정리 [보기] 그 줄 안 펼침(요청함 11/01 12:55·12:56): 정리 칸의 모든 [보기]는 그 줄 아래 사진 칸으로 펼치고(아래 [사진] 목록을 바꾸지 않음),
 // 합계 용량·칸마다 용량·정렬 칩([용량 큰 순][찍은 날 최신][찍은 날 오래된])이 있다. 공간 비우기 수천 장도 처음 칸이 바로 보이고 내리면 이어 그린다.
-// 펼친 칸 사진 → 크게 보기 → 뒤로가기 = 펼친 칸 그대로(명진 12:52 사례).
+// 펼친 칸 사진 → 크게 보기 → 뒤로가기 = 펼친 칸 그대로(사용자 12:52 사례).
 // 네트워크 없음(지어낸 서버·지어낸 앱), 사진은 1×1 그림.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const CDN = 'https://od-thumb.example.test';

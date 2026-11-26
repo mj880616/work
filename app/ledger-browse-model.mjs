@@ -224,7 +224,7 @@ export function web2OpenTarget(src, row) {
   if (src.kind === 'meeting') return { view: 'meetings', id: src.id };
   if (src.kind === 'org_update') return UUID.test(String(row.organization_id || '')) ? { view: 'team', id: String(row.organization_id) } : null;
   if (src.kind === 'project_update') return UUID.test(String(row.project_id || '')) ? { view: 'projects', id: String(row.project_id) } : null;
-  // 통화: 명진이 통화 메뉴에서 지웠으면(hidden_at) 원문이 지워진 것으로 본다(설계 6.3).
+  // 통화: 사용자가 통화 메뉴에서 지웠으면(hidden_at) 원문이 지워진 것으로 본다(설계 6.3).
   if (src.kind === 'call') return row.hidden_at ? null : { view: 'calls', id: src.id };
   return null;
 }
@@ -276,7 +276,7 @@ export function undoErrorText(e) {
   return '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
 }
 
-// ---------- LEDGER-화면정리(명진 요청 2026-10-24 07:17): 첫 화면 칸과 이야기(타임라인) ----------
+// ---------- LEDGER-화면정리(사용자 요청 2026-10-24 07:17): 첫 화면 칸과 이야기(타임라인) ----------
 // 검색·조건이 하나라도 걸렸으면 결과 목록, 아니면 첫 화면(안 지킨 약속·추적 중·조직/주제 칩·최근 자동 기록).
 export function isSearching(filters) {
   const f = { ...freshFilters(), ...(filters || {}) };
@@ -355,7 +355,7 @@ export function sourceRetireRequest(ledgerIds) {
   return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: ids.map(target => ({ target, do: 'retire', reason: '원문(통화)을 삭제하면서 함께 틀린 기록으로 표시' })) };
 }
 
-// FEAT-1029묶음 ⑥ 결정 변경 이력(설계 docs/design/feature-bundle-1029.md 6절, 명진 결정 10/29): 상세 맨 아래 접힌 '이전 결정 n ▸'.
+// FEAT-1029묶음 ⑥ 결정 변경 이력(설계 docs/design/feature-bundle-1029.md 6절, 사용자 결정 10/29): 상세 맨 아래 접힌 '이전 결정 n ▸'.
 // 원장 고치기(app_apply_ledger_fix replace)가 남긴 '대체됨' 기록(validity=superseded, superseded_by=새 기록)을 거꾸로 따라간다.
 // 6-① 결정이 아닌 기록(약속·일어난 일 등)도 같은 방식으로 '이전 기록 n'. 6-② 같은 주제의 다른 결정은 섞지 않고 따로 한 줄.
 export const HISTORY_COLS = 'id,ledger_id,kind,title,summary,date_start,created_at,supersede_reason,validity,superseded_by';

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S70-72 FILES-상세칸정리(명진 11/26 08:50 "이렇게 우클릭하면 메뉴가 나오기 때문에 난 이 화면에서는 굳이 오른쪽 상세화면에서 메뉴가 불필요한거같아
+// S70-72 FILES-상세칸정리(사용자 11/26 08:50 "이렇게 우클릭하면 메뉴가 나오기 때문에 난 이 화면에서는 굳이 오른쪽 상세화면에서 메뉴가 불필요한거같아
 // 그리고 오른쪽 상세화면은 펼쳤다 닫았다할 수있게해줘"):
 // - PC 넓은 폭 [파일] 오른쪽 상세 칸 = 정보만(이름·★·보기·위치·크기·바뀐 날·종류). 아래 동작 줄 두 줄은 그리지 않는다.
 // - 상세 칸에만 있던 [열기](새 창)·[받기]·[공유]는 줄 우클릭 메뉴로 옮겨 빠지는 동작이 없다.

@@ -1,5 +1,5 @@
 // S52-46 FEED-최신화즉시수집 2/3: POST ?action=collector_pull — 통화·텔레그램 [최신화] "지금 한 번 수집".
-// 설계 docs/design/feed-pull-now.md 2절 (나)·4절 차례 2. 명진 결정 11/08 08:41(F1=(나), F2=사람마다 하루 20번·3분 간격).
+// 설계 docs/design/feed-pull-now.md 2절 (나)·4절 차례 2. 사용자 결정 11/08 08:41(F1=(나), F2=사람마다 하루 20번·3분 간격).
 // - 사람 입구: 소유자 JWT만(core authorize, cron·수집 비밀 머리글은 거절). 몸통은 {source: 'telegram'|'call'}뿐(작업공간·주소 값 안 받음).
 // - 운영자 확인: 서버가 service_role로 app_operator_feature_workspace('telegram'|'calls')를 불러 로그인 본인 작업공간과 같을 때만(화면 숨김 아님).
 // - 횟수: DB 함수 app_feed_pull_take(20261108040000)가 센다. 간격·하루 초과는 429(웹 앱을 부르지 않음). 간격은 retry_after(초)도 싣는다(공용 런타임이 error.retryAfter로 넘김).

@@ -63,7 +63,7 @@ test('자료실·노트·[파일]이 같은 공용 키 부품을 쓴다(화면�
   assert.doesNotMatch(notes, /e\.key === 'F2' && \(!selected/);
 });
 
-// K1 지우기 한 규칙(I-6, 2026-11-25 명진 결정 6): 되돌리기가 있으면 확인 없이 바로, 없으면 확인 창.
+// K1 지우기 한 규칙(I-6, 2026-11-25 사용자 결정 6): 되돌리기가 있으면 확인 없이 바로, 없으면 확인 창.
 test('confirmDelete: 되돌리기 있음 → 확인 창을 열지 않고 바로 지움', async () => {
   let asked = 0;
   assert.equal(deleteNeedsConfirm({undo:true}), false);

@@ -1,4 +1,4 @@
-// S70-62 READ-밀기메뉴 [숨긴 글](명진 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 숨긴 글 목록의 순수 규칙(화면·서버 없음 — 단위 시험).
+// S70-62 READ-밀기메뉴 [숨긴 글](사용자 11/26 07:41 "근데 숨기기는 어떻게 다시 보지?"): 숨긴 글 목록의 순수 규칙(화면·서버 없음 — 단위 시험).
 // 원본은 서버 표시 표(뉴스 app_news_marks.hidden_at · 사회운동 app_outside_article_marks.dismissed_at). 이 파일은 두 쪽을 합쳐 최근 숨긴 것 먼저로 줄 세운다.
 export const HIDDEN_LIMIT = 100;
 export const HIDDEN_TITLE = '숨긴 글';

@@ -504,7 +504,7 @@ for(const width of [390,1280])for(const view of ['meetings']){// 자료실은 li
   });
 }
 
-// FILE-첨부삭제 결정 3(2026-11-11 명진 '추천대로'): 보고 자료 줄 ⋯ → [빼기](이 보고에서만 떼기, 자료실·Drive 그대로) / [삭제](예전 × 길).
+// FILE-첨부삭제 결정 3(2026-11-11 사용자 '추천대로'): 보고 자료 줄 ⋯ → [빼기](이 보고에서만 떼기, 자료실·Drive 그대로) / [삭제](예전 × 길).
 for(const width of [412,1280])test(`보고 자료 ⋯ [빼기]: 한 번 묻고 이 보고 줄만 떼고, 자료실 자료·Drive는 그대로 ${width}px`,async({page})=>{
   const state=await boot(page,width);
   await openMeetingResult(page,'meeting-1');

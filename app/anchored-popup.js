@@ -1,6 +1,6 @@
 // UI-PC팝업위치: on a wide screen (761px~) a small popup opens right below the button that was pressed (above it when there is
 // no room below, beside it when neither has room) instead of rising from the bottom of the screen. Phones keep their bottom
-// sheets; callers decide with isWide(). S54-04 UI-고르기창버튼아래(11/08 명진 결정 B): the shared folder/media picker
+// sheets; callers decide with isWide(). S54-04 UI-고르기창버튼아래(11/08 사용자 결정 B): the shared folder/media picker
 // (library-move-picker.js) opened from a button (place 'below') uses placeAnchored on phones too, with bottomInset = the
 // bottom bars and keyboard, so it opens right under the pressed button and never covers the bottom tabs. Used by the shared choice sheet (choice-sheet.js); a ⋯ menu or any other small popup
 // can use the same two calls: placeAnchored() for the position and followAnchor() to keep it there while the page moves.

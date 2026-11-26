@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import {screenFind} from './helpers/screen-find.mjs';
-// S62-13 NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
+// S62-13 NOTE-News밑줄보관보기(사용자 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html ①~④):
 // 노트 [폴더] 목록 맨 아래 'News에서' + [밑줄 n]·[보관한 글 n]. 복사본 없이 News와 같은 서버 자료(app_news_highlights, app_outside_marks·app_news_items 별표)를 읽는다.
 // 밑줄 ⋯ = News 밑줄 메뉴 + [원문에서 보기], 보관한 글 [전체|뉴스|사회운동 글], 노트 검색이 밑줄·보관도 찾음('노트 n · 밑줄 n · 보관 n'),
 // [목록] 등 다른 보기에는 없음, 줄을 누르면 News로 가서 그 글을 연다. 폰 412·폴드 펼침 880·PC 1280. 글은 모두 가상.

@@ -82,7 +82,7 @@ test('달력 글: 날짜 칸에 제목, 누르면 사업 보고, 고른 날 목�
   assert.match(calendarHtml(ctx({rows: []})), /data-wait-empty>맞는 사업 보고 없음</);
   assert.match(calendarHtml(ctx({rows: [meeting('a', '<b>x</b>', '2026-10-24T01:00:00Z')]})), /&lt;b&gt;x&lt;\/b&gt;/);
 });
-// S57-8 BIZ-달력우클릭끌기 ④(명진 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 칸 전체가 '그날 고르기'.
+// S57-8 BIZ-달력우클릭끌기 ④(사용자 폰 제보 "숫자를 눌러야 클릭이 됨, 터치 범위 넓혀요"): 칸 전체가 '그날 고르기'.
 test('달력 글: 이번 달 칸마다 칸 전체 누르기 표시(data-rv-cell), 이번 달 밖 칸은 없음, 숫자 단추는 그대로', () => {
   const html = calendarHtml(ctx());
   assert.equal((html.match(/<td [^>]*data-rv-cell="/g) || []).length, 31);

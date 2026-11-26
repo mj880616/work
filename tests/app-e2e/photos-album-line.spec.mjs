@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
-// S47-26(요청함 11/01 12:44, 명진 '시안대로'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
+// S47-26(요청함 11/01 12:44, 사용자 '시안대로'). 지어낸 서버(onedrive-photos·gdrive-photos·app_photo_tags·app_my_features), 네트워크 없음.
 // 1) [+ 새 앨범] = 위쪽 둘째 줄 바로 아래 한 줄 [입력칸(엷은 글자 '새 앨범 이름')][만들기][×]. 카드·제목·'(#태그)'·'사진을 길게 눌러…' 안내 없음.
 //    열면 바로 입력칸에 커서, Enter = 만들기(목록에 바로 보임), × = 닫기, 뒤로가기 = 닫기(앨범 탭 그대로).
 // 2) 앨범 목록 위 두 손가락 오므리기 = 한 단계 작게(큰 칸 → 작은 그림 목록 → 한 줄 목록), 펼치기 = 한 단계 크게. [－][＋]와 같은 서버 값(view_prefs.album_view).

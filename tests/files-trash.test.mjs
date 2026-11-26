@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-// S69-62 [파일] 휴지통 보기(명진 11/24 18:17): 구글 드라이브는 휴지통 목록·되살리기, 원드라이브는 웹 휴지통 열기. 영구 삭제·비우기 없음.
+// S69-62 [파일] 휴지통 보기(사용자 11/24 18:17): 구글 드라이브는 휴지통 목록·되살리기, 원드라이브는 웹 휴지통 열기. 영구 삭제·비우기 없음.
 const DEVICE_STORES = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB']].map(p => p.join('')).join('|'));
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 

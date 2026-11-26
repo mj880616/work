@@ -208,7 +208,7 @@ test.describe('폰 앱 412', () => {
   });
 });
 
-// S48-32(명진 실기기 11/03 00:03): 원드라이브 칩을 켠 보통 목록에서는 폰·원드라이브 같은 사진이 원드라이브 칸(O1)으로 보인다.
+// S48-32(사용자 실기기 11/03 00:03): 원드라이브 칩을 켠 보통 목록에서는 폰·원드라이브 같은 사진이 원드라이브 칸(O1)으로 보인다.
 // 그 칸만 골라도 폰 원본 짝(사진 정리와 같은 짝 판정)이 있으면 두 갈래 창. 짝 없는 원드라이브 칸만이면 예전 그대로. 크게 보기 한 장도 같은 판단.
 test.describe('폰 앱 412 · 원드라이브 칸', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
@@ -298,7 +298,7 @@ test.describe('폰 앱 412 · 원드라이브 칸', () => {
   });
 });
 
-// S52-06 PHOTO-폰지우기안전장치(명진 11/07 '모두 추천대로'): 백업 없는 폰 원본은 기본으로 지우지 않고, 지우기 전 개수·용량 요약 한 번.
+// S52-06 PHOTO-폰지우기안전장치(사용자 11/07 '모두 추천대로'): 백업 없는 폰 원본은 기본으로 지우지 않고, 지우기 전 개수·용량 요약 한 번.
 test.describe('폰 앱 412 · 삭제 안전장치', () => {
   test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
   const trashedIds = async page => (await sentOf(page, /^photos:trash:/)).flatMap(m => m.slice('photos:trash:'.length).split(',')).sort();

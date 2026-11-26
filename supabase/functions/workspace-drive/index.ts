@@ -9,12 +9,12 @@ import { safeErrorLog, safeErrorMessage } from "../_shared/safe-error.ts";
 import { ROOT_FOLDER_NAME } from '../_shared/brand-folders.mjs';
 // S69-20 ①: 자료실 저장 위치 한 줄(드라이브 폴더 이름 경로·열기 주소). 폴더 이름만 읽고 파일 내용은 열지 않는다.
 import { drivePlace, metaUrl, parsePlaceRequest } from './drive-place.mjs';
-// S69-22: [앱 폴더 한곳에 모으기] — 명진이 누를 때만. 내 드라이브 맨 위의 앱 폴더를 맨 위 앱 폴더 아래로(부모만 바꿈, 지우지 않음).
+// S69-22: [앱 폴더 한곳에 모으기] — 사용자가 누를 때만. 내 드라이브 맨 위의 앱 폴더를 맨 위 앱 폴더 아래로(부모만 바꿈, 지우지 않음).
 // S69-41: 같은 누름에서 표식으로 알아본 앱 폴더의 옛 이름도 새 이름으로(이름·표식만, 사람이 바꾼 이름은 그대로).
 import { gatherCandidates, gatherFolders, gatherIntoNewRoot, GatherError, parseGatherRequest, renameCandidates } from '../_shared/gather-folders.mjs';
 // S69-20 ③④⑤: 자료실 앱 폴더 = 드라이브 폴더(앞으로 같게 'auto', [드라이브 폴더 맞추기] 'align'). 규칙은 library-mirror.mjs 한 곳.
 import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../_shared/library-mirror.mjs';
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브와 맞는지 보기](POST ?action=drive-check)·[드라이브 폴더 맞추기](drive-mirror mode 'align')는 지웠다.
+// S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브와 맞는지 보기](POST ?action=drive-check)·[드라이브 폴더 맞추기](drive-mirror mode 'align')는 지웠다.
 // 남은 것: drive-mirror 'auto'(앞으로 같게). _shared/library-drive-check.mjs(어긋남 판정)는 S70-29 지시대로 파일로 남긴다(지금 부르는 곳 없음).
 const SB=Deno.env.get('SUPABASE_URL')!;const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});

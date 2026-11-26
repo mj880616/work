@@ -1,4 +1,4 @@
-// UI-작은알림자리(2026-10-28 명진 결정 10:52): 작은 알림 2초·올려 두면 멈춤, 되돌리기 기록 10개·Ctrl+Z 규칙.
+// UI-작은알림자리(2026-10-28 사용자 결정 10:52): 작은 알림 2초·올려 두면 멈춤, 되돌리기 기록 10개·Ctrl+Z 규칙.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

@@ -290,7 +290,7 @@ test('부르는 파일 제한: 잊지 말기 표는 collector-feed handler 밖 E
   assert.doesNotMatch(fam,/app_family_notes|fetch\(/);
 });
 
-// CALL-배우자이름통일(명진 11/10): 가족 1명 통화의 '배우자'(아내·와이프·집사람) 표기 → 가족 이름(서버 설정 FAMILY_NAME). 이름은 지어낸 값.
+// CALL-배우자이름통일(사용자 11/10): 가족 1명 통화의 '배우자'(아내·와이프·집사람) 표기 → 가족 이름(서버 설정 FAMILY_NAME). 이름은 지어낸 값.
 function spouseMd({title='배우자 · 일상 및 저녁 일정 대화',cp=''}={}){
   return ['---','analysis_version: "3.5"','status: "개인"','source_type: "통화녹음"','source_txt_id: "SRCFAKE0010zz"','source_txt_name: "통화 가상가족_261024_093000.txt"',
     'recording_datetime: "2026-10-24 09:30:00"','analysis_model: "gemini-fake"','analysis_at: "2026-10-24 09:45:00"','is_work_related: false',`call_title: "${title}"`,

@@ -29,7 +29,7 @@ test('PC month cells show task titles like the phone and open the day from the t
   await expect(page.locator('#calendarDayModal')).toBeHidden();
 });
 
-// S48-6c(2026-11-02 명진 결정): 폰 월 보기는 ✓n 대신 기한이 그날인 할 일 제목을 칸 안 줄로 보인다. 일정 먼저·할 일 다음,
+// S48-6c(2026-11-02 사용자 결정): 폰 월 보기는 ✓n 대신 기한이 그날인 할 일 제목을 칸 안 줄로 보인다. 일정 먼저·할 일 다음,
 // 바탕색 없이 글자만(앞에 체크 네모), 완료한 할 일은 칸에 없음, 넘치면 일정과 합쳐 '+n', 밀어서 펼치면 다 보임, 누르면 할 일 상세.
 test('phone cells show task titles after events, merge overflow into +n and open the task',async({page})=>{
   await page.setViewportSize({width:360,height:844});

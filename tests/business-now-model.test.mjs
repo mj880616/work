@@ -44,7 +44,7 @@ test('글 검사: 지금 상황 1000자·줄바꿈 허용·제어문자 정리, 
 
 test('처음 한 번 채우기: 지금 상황 행이 하나도 없는 사업만, 전환 주 행으로(사람이 쓴 사업은 건너뜀)', () => {
   const spaces = [{id: S1, area: '가 사업', task: '하나'}, {id: S2, area: '가 사업', task: '둘'}, {id: S2, area: '가 사업', task: '둘'}];
-  const rows = [row('r1', S1, '2026-11-23', '명진이 쓴 글')]; // 다른 주라도 행이 있으면 사람이 쓴 것
+  const rows = [row('r1', S1, '2026-11-23', '사용자가 쓴 글')]; // 다른 주라도 행이 있으면 사람이 쓴 것
   const cells = {'하나': {lines: ['- 덮으면 안 됨'], owner: 'x'}, '둘': {lines: ['- 지난주 첫 줄', '', '- 둘째 줄'], owner: ' 다 담당 '}};
   const list = M.fillRows({spaces, rows, cellOf: s => cells[s.task]});
   assert.deepEqual(list, [{space_id: S2, week_start: M.RECORD_ONE_FROM, body: '- 지난주 첫 줄\n- 둘째 줄', owner_text: '다 담당'}]);

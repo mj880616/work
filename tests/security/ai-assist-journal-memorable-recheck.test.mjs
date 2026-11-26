@@ -2,7 +2,7 @@ import test from 'node:test';
 import {withAiMonth} from './helpers/ai-month-fake.mjs';
 import assert from 'node:assert/strict';
 
-// S70-29 (2026-11-25, 명진 '다 없애 1회용 기능'): kind=journal_memorable_recheck (S54-28 쌓인 소식 한 번 다시 판정) was a one-time cleanup and is removed.
+// S70-29 (2026-11-25, 사용자 '다 없애 1회용 기능'): kind=journal_memorable_recheck (S54-28 쌓인 소식 한 번 다시 판정) was a one-time cleanup and is removed.
 // The real ai-assist handler now rejects it as an unknown request before reading or writing anything. Synthetic Supabase
 // (Auth + PostgREST that applies owner RLS per caller token + operator feature check) and a mocked OpenAI. No network, no real key, synthetic text only.
 const {createAiAssistHandler,DAILY_LIMITS}=await import('../../supabase/functions/ai-assist/handler.ts');

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { screenFind } from './helpers/screen-find.mjs';
-// FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
+// FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 사용자 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
 // 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 파일·폴더 이름은 모두 가짜.
 const root = page => page.locator('#filesRoot');

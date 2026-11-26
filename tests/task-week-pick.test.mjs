@@ -1,4 +1,4 @@
-// S46-30(2026-10-31 명진 결정): 할 일 기한 [다음주] → 다음 주 월~일 요일 목록, 빠른 기한 줄 하나를 모든 곳이 같이 쓴다.
+// S46-30(2026-10-31 사용자 결정): 할 일 기한 [다음주] → 다음 주 월~일 요일 목록, 빠른 기한 줄 하나를 모든 곳이 같이 쓴다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

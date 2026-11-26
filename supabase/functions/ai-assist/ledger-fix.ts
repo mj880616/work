@@ -1,9 +1,9 @@
-// ai-assist 쓰임 ledger_fix(LEDGER-수정요청, docs/design/ledger-auto-record.md 7절·10절 4번, 명진 요청 2026-10-24 07:17): 순수 함수만(입출력은 handler.ts).
-// 명진이 원장 화면 [+ 기록하기]·기록 ⋯ [고치기]에 쓴 일상어 한 줄(예: "나 지부 2차 교섭은 11/4가 아니라 11/5였음")을
+// ai-assist 쓰임 ledger_fix(LEDGER-수정요청, docs/design/ledger-auto-record.md 7절·10절 4번, 사용자 요청 2026-10-24 07:17): 순수 함수만(입출력은 handler.ts).
+// 사용자가 원장 화면 [+ 기록하기]·기록 ⋯ [고치기]에 쓴 일상어 한 줄(예: "나 지부 2차 교섭은 11/4가 아니라 11/5였음")을
 // 원장 수정 요청 모양(kptu-ledger-fix v1, received_from:'user')으로 바꾼다. 서버는 DB 해 보기(p_dry_run=true)까지만 하고 반영하지 않는다.
 // - AI 답은 믿지 않는 입력: 할 일(do)·칸 이름·값 모양·글자 수·날짜를 다시 검사하고, 대상·사건·조직·주제 ID는 서버가 보낸 목록에 있는 것만 쓴다.
 // - 바꿀 수 있는 칸은 DB 함수와 같은 목록에서 종류에 맞는 것만(사건 상태는 사건, 결정유형은 결정, 상대측·이행상태·후속확인일은 약속).
-// - 교섭·전략(S2) 기록: 기록 ⋯ [고치기]로 대상을 직접 지정한 한 건만 AI에 보낸다(명진 결정 2026-10-26, LEDGER-S2고치기). 기록 목록(known_records)에는 S2를 넣지 않는다.
+// - 교섭·전략(S2) 기록: 기록 ⋯ [고치기]로 대상을 직접 지정한 한 건만 AI에 보낸다(사용자 결정 2026-10-26, LEDGER-S2고치기). 기록 목록(known_records)에는 S2를 넣지 않는다.
 //   ledger_auto·원장 재료(ledger-sources)가 S2 제목·내용을 AI에 보내지 않는 기준(ledger-auto.ts sendable)은 그대로다.
 // - 개인정보 모양(주민번호·휴대전화)이 든 입력·답은 쓰지 않는다.
 import { cleanLine } from "./todo-radar.ts";

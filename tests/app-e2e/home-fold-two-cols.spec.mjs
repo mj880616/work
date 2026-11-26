@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 명진 선택 11/11 09:51):
+// FOLD-넓은화면 ④(S57-16, 시안 docs/design/mockups/home-fold-two-columns.html '안 1', 사용자 선택 11/11 09:51):
 // 홈 [하루] 카드는 폴드 펼침(600~1199px)에서 5:5 두 단 — 왼쪽 [그날 일정 → 할 일], 오른쪽 [오늘 한 일 → 읽을 글·사진 → 재료], 다가오는 일은 두 단 폭 전체 한 줄,
 // 두 단은 한 덩어리로 같이 내림(안쪽 스크롤 없음), 입력 줄은 카드 밖이라 날짜 줄 아래 전체 폭 그대로. 접은 폰(600 미만)·PC(1200~)는 배치가 그대로다.
 // 날짜 줄: 요일·날짜를 한 줄('수 11')로, 높이는 옆 단추(‹ › [이번 주])와 같은 32px, 400px 미만 접은 폰은 요일 글자만 숨김.

@@ -1,6 +1,6 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials.
 // WEEKLY-내부회의사람별: app_profiles.weekly_hidden_meeting_kinds 기본값 → 빈 목록, 운영자(calls 작업공간 owner) 한 행에만 '*단어*' 여섯을 더함.
-// 운영자 아닌 행 중 옛 기본값 그대로인 행은 빈 목록으로(명진 11/17 "비워"), 직접 바꾼 행·권한·정책은 그대로, 다른 계정은 남의 목록을 읽지도 쓰지도 못한다. 지어낸 계정만.
+// 운영자 아닌 행 중 옛 기본값 그대로인 행은 빈 목록으로(사용자 11/17 "비워"), 직접 바꾼 행·권한·정책은 그대로, 다른 계정은 남의 목록을 읽지도 쓰지도 못한다. 지어낸 계정만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -120,7 +120,7 @@ test('weekly meeting words: dry-run, apply, operator row only, new rows empty, g
    assert.ok(post.filter(r=>/^(예|아니오)$/.test(r.value)).every(r=>r.value==='예'),JSON.stringify(post));
    for(const r of post.filter(r=>!/^(예|아니오)$/.test(r.value)))assert.equal(r.value,pre[r.item],r.item);
    assert.deepEqual(await list(OWNER),[...OLD,'가상운영위',...WORDS]);
-   assert.deepEqual(await list(STRANGER),[],'옛 기본값 그대로인 다른 사람 행은 비운다(명진 결정 "비워")');
+   assert.deepEqual(await list(STRANGER),[],'옛 기본값 그대로인 다른 사람 행은 비운다(사용자 결정 "비워")');
    assert.deepEqual(await list(OUTSIDER),[]);
    assert.deepEqual(await list(CUSTOM),['본부집행위'],'직접 바꾼 목록은 그대로');
    assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version=$1 and name=$2",[version,name])).rows[0].n,1);

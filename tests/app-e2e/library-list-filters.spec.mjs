@@ -36,7 +36,7 @@ async function boot(page,width,{s=state(),expand=true}={}){
 }
 const rows=page=>page.locator('#documentList [data-lu-document]');
 const ids=page=>rows(page).evaluateAll(els=>els.map(el=>el.dataset.luDocument).sort());
-// LIB-위쪽한줄(11/09 명진 B·가안): 분류 칩 줄은 없고 위 줄 [분류: … ▾] 하나. 상태는 단추 글자(늘 보임)로 보고, 바꾸기는 그 창에서 한다.
+// LIB-위쪽한줄(11/09 사용자 B·가안): 분류 칩 줄은 없고 위 줄 [분류: … ▾] 하나. 상태는 단추 글자(늘 보임)로 보고, 바꾸기는 그 창에서 한다.
 const pick=page=>page.locator('#libraryCategoryPick');
 const sheet=page=>page.locator('#libraryCategorySheet');
 const sheetRow=(page,value)=>sheet(page).locator(`[data-sheet-value="${value}"]`);
@@ -71,7 +71,7 @@ for(const width of [1280,390])test(`LIB-목록간격: 자료 줄 여백 절반·
   // 줄 안 단추는 작게 보이지만 누르는 범위는 44px.
   const more=row.locator('.lu-more-trigger');expect((await more.boundingBox()).height).toBeLessThanOrEqual(width>=761?24:32);
   expect(await more.evaluate(e=>parseFloat(getComputedStyle(e,'::after').height))).toBe(44);
-  // ② 폴더 줄: UI-폴더줄크기(S69-99, 명진 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로")가 LIB-목록간격 ②를 대신한다 —
+  // ② 폴더 줄: UI-폴더줄크기(S69-99, 사용자 11/25 08:23 "자료실 파일 폴더크기 위아래 간격 등 다름 파일 기준으로")가 LIB-목록간격 ②를 대신한다 —
   // [파일] 폴더 줄과 같은 글자(폰 14px·넓은 화면 13px)·높이(맨 위 44/36px, 하위 40/32px)·들여쓰기(왼쪽 12px + 단마다 22px). 맨 위 단만 굵게.
   const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
   const ftFont=width>=761?13:14;

@@ -510,7 +510,7 @@ test('call: a call moved from the personal box (old created_at, recent moved_at)
   assert.ok(batchOf(h).sources.some(s=>s.kind==='call'&&s.updated_at==='2026-10-25T03:00:00.000Z'),'stamp is the later of created_at and moved_at');
 });
 
-// CALL-손고치기: 명진이 손으로 고친 제목·핵심내용·조직이 있으면 AI 값 대신 그 값이 재료가 된다. 표가 없거나 읽기가 실패하면 AI 값 그대로.
+// CALL-손고치기: 사용자가 손으로 고친 제목·핵심내용·조직이 있으면 AI 값 대신 그 값이 재료가 된다. 표가 없거나 읽기가 실패하면 AI 값 그대로.
 test('call: user-edited title, points and organization (app_call_edits) replace the AI values in the material; only the owner workspace edits are read; AI row is untouched',async()=>{
   const c=callRow(1,{title:'AI_TITLE 협의',points:['AI_POINT 하나']});
   const edits=[{call_id:id(901),workspace_id:WS,vals:{title:'USER_TITLE 협의',points:['USER_POINT 하나 010-1234-5678'],organization_id:null,counterpart:'USER_NAME_NEVER_SENT'}},
@@ -540,7 +540,7 @@ test('call: malformed user values are ignored and an unreadable edits table fall
 });
 
 
-// CAL-승지명진참고 C-3: 개인 공유 캘린더 일정(참고 일정 표)을 여덟째 재료로. 쓰기로 한(included) 지난 일정의 제목·시각만, 근거 추가 전용(새 기록 금지, 서버 규칙).
+// CAL-가족사용자참고 C-3: 개인 공유 캘린더 일정(참고 일정 표)을 여덟째 재료로. 쓰기로 한(included) 지난 일정의 제목·시각만, 근거 추가 전용(새 기록 금지, 서버 규칙).
 // 모든 이름·제목은 지어낸 값이다. NOW는 2026-10-24 12:00(한국)이므로 "지난 일정"은 10/23까지.
 const REF_UPDATED='2026-10-24T02:00:00.000Z';
 const refRow=(n,over={})=>({id:id(950+n),workspace_id:WS,event_key:String(n).padStart(32,'a'),day:'2026-10-23',start_at:'2026-10-23T05:00:00.000Z',all_day:false,title:'가 지부 간담회',

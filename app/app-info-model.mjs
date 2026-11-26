@@ -1,4 +1,4 @@
-// S69-34 APP-업데이트확인(명진 요청 "앱에 업데이트 확인 버튼 추가 현재 버전 몇인지도 알려주고"): 계정 메뉴 '앱 정보'의 판단(화면 없이 시험).
+// S69-34 APP-업데이트확인(사용자 요청 "앱에 업데이트 확인 버튼 추가 현재 버전 몇인지도 알려주고"): 계정 메뉴 '앱 정보'의 판단(화면 없이 시험).
 // - 화면(웹) 판: Pages 빌드가 app.js에 붙인 ?v=(내용 해시)와 같은 빌드가 내보내는 공개 파일 app/build-info.json의 배포 시각.
 // - 폰 앱 판: 사용자 에이전트 KPTUAndroid/<버전>(phone-push-model.mjs appVersion), 플레이 판은 ' WorkOnPlay' 표시(android-app build.gradle UA_MARK).
 // - 옛 윈도우 앱(보관판): KPTUWindows/<버전>. PC 파일 올리기 도우미: 문(127.0.0.1) hello의 version.

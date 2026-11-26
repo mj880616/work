@@ -1,4 +1,4 @@
-// UI-작은알림 (2026-10-28 명진 요청 08:28·10:52): 브라우저 기본 알림창('desk.bokdoong.com 내용:') 대신 쓰는 공용 부품.
+// UI-작은알림 (2026-10-28 사용자 요청 08:28·10:52): 브라우저 기본 알림창('desk.bokdoong.com 내용:') 대신 쓰는 공용 부품.
 // ① notify(text,{undo,label}) — 화면 위쪽(맨 위 줄 바로 아래, 목록 위) 가운데 작은 알림 한 줄. 폰 하단바·손가락에 가리지 않는다.
 //    2초 뒤 저절로 사라지고, 알림 위에 마우스·손가락이 있거나 키보드 초점이 안에 있는 동안은 사라지지 않는다(오류는 5초).
 //    한 번에 하나만 보인다(새 알림이 앞 알림을 갈아 끼움). 되돌릴 수 있는 일이면 [되돌리기]를 같이 두고, 되돌리기 기록(③)에도 올린다.
@@ -24,7 +24,7 @@ import {placeAnchored,clearAnchored,keepInside,bottomInset,isWide,onViewportChan
 import {isDockedPane} from './open-window.mjs'; // 칸에 붙인 창(role=region) 판단 하나
 
 export const NOTICE_MS=2000,NOTICE_UNDO_MS=2000,NOTICE_ERROR_MS=5000,UNDO_LIMIT=10;
-// 알림이 떠 있는 시간: 2초(명진 결정 10:52). 오류는 읽을 틈을 주려고 조금 길게. 올려 두면(마우스·손가락·초점) 그동안은 멈춘다.
+// 알림이 떠 있는 시간: 2초(사용자 결정 10:52). 오류는 읽을 틈을 주려고 조금 길게. 올려 두면(마우스·손가락·초점) 그동안은 멈춘다.
 export function noticeMs({error=false,undo=false,ms}={}){if(Number.isFinite(ms)&&ms>0)return ms;return error?NOTICE_ERROR_MS:undo?NOTICE_UNDO_MS:NOTICE_MS}
 // 알림 글자는 한 줄로. 줄바꿈·겹친 빈칸은 한 칸으로 줄인다(긴 설명은 note로 따로 작게).
 export function noticeText(text){return String(text??'').replace(/\s+/g,' ').trim()}
@@ -213,7 +213,7 @@ function askPanel(anchor,{doc,none,maxHeight=220,build,history:own=true}){
       if(r.bottom>limit)Object.assign(panel.style,{top:Math.max(8,limit-r.height)+'px',bottom:'auto'});
     };
     // S69-13: 창이 뜬 뒤 화면이 스크롤되면(늦게 그려진 내용·자리 되돌리기) 누른 칸을 따라간다. 칸이 사라지거나 화면 밖이면 그 자리에 둔다(닫지 않음).
-    // S70-12 UI-확인창끌기(11/25 명진 "휴지통으로 옮길까요 경고창도 좌클릭 드래그해서 이동가능하게"): PC(넓은 화면)에서 버튼 옆에 뜬 창은 빈 곳(글·여백)을
+    // S70-12 UI-확인창끌기(11/25 사용자 "휴지통으로 옮길까요 경고창도 좌클릭 드래그해서 이동가능하게"): PC(넓은 화면)에서 버튼 옆에 뜬 창은 빈 곳(글·여백)을
     // 마우스 왼쪽 단추로 잡고 끌어 옮긴다. 단추·입력칸·체크 줄 위는 그 동작 그대로, 손가락은 지금처럼. 옮긴 자리는 이 창이 닫힐 때까지만(clearAnchored가 지움).
     dragByTitle(panel,'.kptu-ask',{mouseOnly:true});
     place();stopView=back instanceof Element?followAnchor(panel,back,{place,lost:()=>keepInside(panel,8,isWide()?0:bottomInset())}):onViewportChange(place);

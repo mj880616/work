@@ -1,4 +1,4 @@
-// NOTE-News밑줄보관보기(명진 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html): 노트 'News에서' 두 줄의 순수 계산.
+// NOTE-News밑줄보관보기(사용자 11/15 '가'·'추천대로', 시안 docs/design/mockups/note-news-marks.html): 노트 'News에서' 두 줄의 순수 계산.
 // 화면·저장소·네트워크 없음(node --test로 시험). 자료는 News와 같은 서버 자료 그대로(밑줄 = app_news_highlights, 보관 = now-saved.js readSavedRows) —
 // 여기서는 거르기·세기·줄 값만 만든다. 복사본·기기 저장 없음.
 import {hlHit, shortDay} from './text-highlights-model.mjs';
@@ -6,7 +6,7 @@ import {titleHit} from './now-model.mjs';
 import {itemView} from './news-clipping-model.mjs';
 import {postView} from './outside-statements-model.mjs';
 
-// S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): 내가 그은 밑줄을 보이는 한 규칙.
+// S69-04 MARK-밑줄한목록(사용자 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): 내가 그은 밑줄을 보이는 한 규칙.
 // 노트 › 밑줄(note-news-marks.js)과 저장한 글 [밑줄] 탭(reading.js)이 같은 원본(text-highlights.js가 들고 있는 app_news_highlights 목록)을
 // 이 함수 하나로 걸러 같은 목록·같은 개수를 보인다(복사본 없음). raw가 아직 없으면 null.
 // - 잠근 노트 폴더에 든 노트의 밑줄은 뺀다(noteHidden(노트 id)).
@@ -22,7 +22,7 @@ export function visibleMarks(raw, {newsOn = true, noteHidden = () => false} = {}
 export const NEWS_HL = 'news-hl';
 export const NEWS_SAVED = 'news-saved';
 export const isNewsAt = v => v === NEWS_HL || v === NEWS_SAVED;
-// NOTE-News에서글자빼기(11/15 20:42 명진): 폴더 목록과 두 줄 사이는 글자 없는 얇은 줄만(밑줄이 노트·텔레그램에서도 오므로 'News에서' 이름표를 뺐다).
+// NOTE-News에서글자빼기(11/15 20:42 사용자): 폴더 목록과 두 줄 사이는 글자 없는 얇은 줄만(밑줄이 노트·텔레그램에서도 오므로 'News에서' 이름표를 뺐다).
 export const NEWS_NAMES = Object.freeze({[NEWS_HL]: '밑줄', [NEWS_SAVED]: '저장한 글'});
 
 // [보관한 글] 거르기: 전체 | 뉴스 | 사회운동 글.

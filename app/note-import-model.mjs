@@ -1,5 +1,5 @@
 // NOTE-주소로 가져오기 2단계(화면, 설계 docs/design/note-import-by-url.md 2절·9절): 화면·서버를 모르는 순수 부품.
-// - 주소 칸에 넣은 글 → 서버에 보낼 주소 하나(https만. http는 막는다 — 2026-11-11 명진 결정).
+// - 주소 칸에 넣은 글 → 서버에 보낼 주소 하나(https만. http는 막는다 — 2026-11-11 사용자 결정).
 // - 서버(Edge note-import)가 준 블록 {t:'p'|'h'|'quote', text} → 편집기 저장 모양(ed1). 글자는 글자 노드로만 넣는다(HTML로 넣지 않음).
 // - 원문 정보: 노트 행의 기존 metadata 칸 안 source = {url, site, author, published_at, fetched_at, state, reason, kept}(DB 변경 없음).
 // - 실패 이유별 안내 한 줄(일상어)과 [다시 시도]를 보일지.

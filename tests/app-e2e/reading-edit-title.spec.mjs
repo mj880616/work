@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
-// S69 READ-제목하나·READ-첨부본문·저장한 글 [수정](명진 11/24 "제목이 점점 힘들어지는.. 이건데 목록에서 이상한 제목이 보임" ·
+// S69 READ-제목하나·READ-첨부본문·저장한 글 [수정](사용자 11/24 "제목이 점점 힘들어지는.. 이건데 목록에서 이상한 제목이 보임" ·
 // "그리고 목록에서 ... 안에 수정 버튼도 있어야"):
 // ① 제목의 주인 하나: News에서 온 줄의 기사를 사람이 고쳤으면(손으로 넣은 기사) 목록도 그 제목 — 사본을 서버에서 맞춘다(글 보기와 같은 제목).
 // ② 목록 ⋯ 맨 앞 [수정]: 직접 넣은 줄은 이 화면 글 보기 안 제목·매체 칸 → 저장 → 목록 갱신. News 뉴스 기사 줄은 그 글 보기의 ⋯ [수정] 창이 바로 열림.

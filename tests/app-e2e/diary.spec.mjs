@@ -968,7 +968,7 @@ for(const width of [412,1280])test(`하루 기록 쓰기: 긴 글을 내려도 �
  expect(f.errors).toEqual([]);
 });
 
-// S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [목록] 보기의 하루 기록 줄은 공용 줄 밀기(row-swipe.js) — 왼쪽으로 밀면 [고정][별표][수정],
+// S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 가안): [목록] 보기의 하루 기록 줄은 공용 줄 밀기(row-swipe.js) — 왼쪽으로 밀면 [고정][별표][수정],
 // 끝까지 밀어도 칸만(누를 때만 저장), [수정] = 그날 창, 오른쪽으로 밀면 그 줄이 골라진 채 여러 개 고르기. 한 일만 있는 날은 밀지 않는다.
 async function lvSwipe(row,dx){
  await row.evaluate((el,dx)=>{const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;

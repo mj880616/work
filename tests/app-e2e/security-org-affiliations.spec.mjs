@@ -77,7 +77,7 @@ test('nonmember cannot access workspace or request membership',async({page})=>{
 
 test('solo workspace does not expose account approval controls',async({page})=>{
   const state={
-    user:{id:'owner-1',email:'owner@example.org',user_metadata:{display_name:'김명진'}},
+    user:{id:'owner-1',email:'owner@example.org',user_metadata:{display_name:'홍길동'}},
     workspace:{id:'workspace-1',slug:'kptu-work',name:'웹2'},membership:{workspace_id:'workspace-1',user_id:'owner-1',role:'owner'},
     requests:[{id:'request-1',workspace_id:'workspace-1',user_id:'new-user',display_name:'신규 팀원',email:'new@example.org',requested_role:'author',status:'pending',requested_at:now()}],
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:'대표자',contact:'010-1234-5678',member_count:100,updated_at:now(),created_by:'owner-1'},
@@ -94,7 +94,7 @@ test('solo workspace does not expose account approval controls',async({page})=>{
 
 test('organization detail shows representative contact, system update time, and multi affiliation tags',async({page})=>{
   const state={
-    user:{id:'owner-1',email:'owner@example.org',user_metadata:{display_name:'김명진'}},
+    user:{id:'owner-1',email:'owner@example.org',user_metadata:{display_name:'홍길동'}},
     workspace:{id:'workspace-1',slug:'kptu-work',name:'웹2'},membership:{workspace_id:'workspace-1',user_id:'owner-1',role:'owner'},requests:[],
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:'대표자',contact:'010-1234-5678',member_count:100,updated_at:now(),created_by:'owner-1'},
     tags:[{id:'tag-1',workspace_id:'workspace-1',name:'운수산업협의회',kind:'council',created_by:'owner-1'},{id:'tag-2',workspace_id:'workspace-1',name:'안전인력사업단',kind:'taskforce',created_by:'owner-1'}],affiliations:['tag-1','tag-2']

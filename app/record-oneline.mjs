@@ -4,7 +4,7 @@
 //   코드 울타리·HTML 태그·엔티티 &#x20;·AI가 붙인 역슬래시)을 그대로 쓰고, 남은 제어문자·보이지 않는 방향 글자는 띄어쓰기로.
 // - 원문이 짧으면(걷어낸 뒤 ONE_LINE_MAX자 안, 줄이 여러 개면 띄어쓰기로 이어서) 그대로.
 // - 길면 첫 줄의 첫 문장(숫자 뒤 마침표 '11.5.'는 문장 끝으로 보지 않음, 너무 짧은 문장은 줄로)을 ONE_LINE_MAX자 안에서 자르고 '…'.
-// 저장된 한 줄(RECORD-한줄 ②·③에서 생길 one_line 칸: AI가 만든 한 줄 또는 명진이 고친 한 줄)이 있으면 그 값이 먼저다(recordOneLine).
+// 저장된 한 줄(RECORD-한줄 ②·③에서 생길 one_line 칸: AI가 만든 한 줄 또는 사용자가 고친 한 줄)이 있으면 그 값이 먼저다(recordOneLine).
 import {plainLines as markLines} from './note-preview.mjs';
 
 export const ONE_LINE_MAX = 60;

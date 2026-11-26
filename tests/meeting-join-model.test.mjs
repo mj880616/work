@@ -130,7 +130,7 @@ test('잇기 문구 표: 서버 글로 실패 코드를 되찾고(서버 표와 
   assert.match(undoFailText('__x__'),/바뀐 것은 없어요/);
 });
 
-// S61-5 REC-전사삭제(명진 11/13): 녹음 정리 결과를 열기 전 물음(ask·join_start {job_id})은 지금은 없다. 보고 합치기(merge)는 그대로.
+// S61-5 REC-전사삭제(사용자 11/13): 녹음 정리 결과를 열기 전 물음(ask·join_start {job_id})은 지금은 없다. 보고 합치기(merge)는 그대로.
 test('화면 연결: 녹음 결과 잇기 물음은 지금은 없음, 합치기만 사람이 고른 뒤 join_start(id만), 할 일은 후보로만', ()=>{
   const rec=read('app/meeting-recorder.js'),join=read('app/meeting-join.js'),loader=read('app/loader-v2.js');
   for(const gone of ['KPTUMeetingJoin','openServerResult'])assert.ok(!rec.includes(gone),gone);

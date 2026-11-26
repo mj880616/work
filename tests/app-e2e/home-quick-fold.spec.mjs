@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-// HOME-입력칸두모양(S61-44, 명진 11/14 12:44 '한 줄·두 줄·세 줄 왔다 갔다' → 12:50 'ㄱ'): 폰 홈 빠른 입력은 모양이 둘뿐이다.
+// HOME-입력칸두모양(S61-44, 사용자 11/14 12:44 '한 줄·두 줄·세 줄 왔다 갔다' → 12:50 'ㄱ'): 폰 홈 빠른 입력은 모양이 둘뿐이다.
 // (가) 평소 한 줄 [종류 ▾][입력칸][잊지 말기 n] (나) [할 일]에서 글이 있거나 포커스일 때만 날짜 줄 한 줄이 입력칸 위에 붙는다.
 // [업데이트 | 할 일] 단추 줄은 폰 홈에 없다. 글을 쓰면 [잊지 말기] 자리에 [추가]가 온다(쓰는 동안 바뀌는 것은 이 한 번뿐).
 // 업데이트는 늘 한 줄. PC·폴드 펼침(761px~)은 그대로. (옛 UI-폰하단고정 접힘 시험을 이 규칙으로 바꿈.)
@@ -67,7 +67,7 @@ test.describe('phone 412',()=>{
     await input.fill('');await page.mouse.click(200,300);await expect(q).toHaveAttribute('data-quick-shape','line');
     expect(await rowH(q)).toBe(rest);
   });
-  // HOME-자판내리면한줄(S61-50, 명진 11/14 18:48): 자판(공용 판정, accessibility-dialog.js)을 흉내 낸다 — 화면 높이를 400으로 줄이면
+  // HOME-자판내리면한줄(S61-50, 사용자 11/14 18:48): 자판(공용 판정, accessibility-dialog.js)을 흉내 낸다 — 화면 높이를 400으로 줄이면
   // 자판이 뜬 것, 원래대로 돌리면 자판이 내려간 것(안드로이드 뒤로 가기). 날짜 줄은 할 일 칸에 쓰는 중이고 자판이 떠 있을 때만.
   test('할 일: 자판을 내리면 글자가 있든 없든 한 줄, 글자·날짜는 그대로, 다시 누르면 날짜 줄',async({page})=>{
     await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]');

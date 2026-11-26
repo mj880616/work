@@ -215,7 +215,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .home-quick button.home-quick-folder .home-quick-folder-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:760px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:center; max-width:7em; } }
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
-/* NOTE-입력창한줄(S70-05, 명진 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
+/* NOTE-입력창한줄(S70-05, 사용자 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
    PC 노트 입력칸은 늘 한 줄 높이([추가]와 같은 --kptu-control-height)로 고정한다. 글이 길어도 늘지 않고(칸 안에서 넘김), 길게 쓸 때는 칸 안 [⤢ 크게].
    여러 줄 붙여넣기는 값에 그대로 담긴다(보이는 높이만 한 줄). 줄 높이 = 칸 안 높이라 넘겨 볼 때도 늘 한 줄만 온전히 보인다(반쪽 줄 없음). 크기 손잡이 없음. [폴더 ▾]·[첨부]·[추가]는 칸과 가운데를 맞춘 한 줄, 감싼 상자 여백도 줄인다.
    폰(760 이하)은 위 ui-standard.css 한 줄 규칙 그대로(이 묶음은 PC만). Enter 동작은 바꾸지 않는다(enter-save.js). */
@@ -228,7 +228,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 }
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
-/* NOTE-본문칸여백(S70-38, 2026-11-25 명진 "노트 본문에 너무 딱 맞아서 답답해 위아래 여백이 필요해"): 읽기 본문 상자와 고치기 글 칸은 같은 최소 높이
+/* NOTE-본문칸여백(S70-38, 2026-11-25 사용자 "노트 본문에 너무 딱 맞아서 답답해 위아래 여백이 필요해"): 읽기 본문 상자와 고치기 글 칸은 같은 최소 높이
    (--note-body-min, 짧은 노트도 몇 줄 높이)라 읽기 ↔ 고치기 전환 때 상자가 흔들리지 않는다. 긴 노트는 글만큼 자란다. */
 #basketView [data-note-detail] { --note-body-min:8.5rem; }
 #basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:var(--note-body-min); }
@@ -286,7 +286,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* 17:45 ③: 노트 줄에 [복사] 아이콘이 없으니 오른쪽은 ⋯ 한 칸만 비운다(PC·폰 같음). */
 #appView #basketView .note-row-item.nx-note > .basket-row { padding-right:48px; }
 
-/* NOTE-보기3가지 (요청함 10/29 15:05, 명진 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
+/* NOTE-보기3가지 (요청함 10/29 15:05, 사용자 15:10 '추천대로'): 검색 칸 오른쪽 작은 3칸 전환 [폴더|목록|포스트잇](옛 '노트 · n' 자리), 목록 보기 폴더 꼬리표,
    포스트잇 보드(같은 크기 네모 칸·살짝 기울어짐·아래 모서리 접힘). 색은 폴더마다 연한 색 여덟 가지(노랑 없음 — 노랑은 '나한테 온 요청' 주목 표시), 폴더 없음은 회색. 작고 낮게, 톤다운. */
 /* 폴더 연한 색(꼬리표·포스트잇 바탕). 글자는 늘 진한 잉크라 어두운 화면에서도 읽힌다(보드는 종이처럼 밝은 채로 둠, 채도는 낮춤). */
 .nb-card, .nx-path[data-tone] { --nb-paper:var(--ds-note-paper-none); }
@@ -397,7 +397,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-card :is(.nb-more,.nb-x) { position:absolute; top:-36px; display:none; width:20px; height:18px; min-width:0; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font-size:12px; line-height:1; cursor:pointer; }
 #appView #basketView .nb-card .nb-more { right:0; }
 #appView #basketView .nb-card .nb-x { right:22px; }
-/* S70-77 NOTE-보드연결점끌기(명진 11/26 "선을 시작하는 위치랑 동그라미가 뜨는 위치가 서로 달라서"): 연결점 동그라미 = 선을 잡는 곳 하나.
+/* S70-77 NOTE-보드연결점끌기(사용자 11/26 "선을 시작하는 위치랑 동그라미가 뜨는 위치가 서로 달라서"): 연결점 동그라미 = 선을 잡는 곳 하나.
    보이는 점 지름 12px, 잡는 범위는 점 가운데 둘레 24px(손가락 화면은 40px). 끌면 선이 이 점 가운데에서 시작한다(note-board.js wire.origin).
    마우스를 올리면 살짝 커지고 진해진다. 점 가운데는 변 바깥 26px(손가락 화면 34px). */
 .nb-h { --nb-h-out:32px; position:absolute; display:none; z-index:3; width:12px; height:12px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:50%; background:var(--kptu-surface); cursor:crosshair; touch-action:none; transition:transform .08s ease-out, background-color .08s ease-out; }
@@ -559,7 +559,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 /* UI-칸폭끌기전수: 노트 목록 | 보드 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 16:84·목록 최소 150px). */
 .nbw-body.nbw-split { --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:8px; align-items:start; }
 .nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; }
-/* NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 보드 왼쪽 '노트 목록'·폰 [+ 노트 붙이기] 고르기 창·
+/* NOTE-폴더디자인통일(S70-82, 사용자 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 보드 왼쪽 '노트 목록'·폰 [+ 노트 붙이기] 고르기 창·
    잊지 말기 노트 고르기 줄은 [파일]·노트 [폴더] 나무와 같은 공용 상자·줄(folder-tree.css .ft-*, note-tree-row.js)이다 — 여기서 줄 높이·글자·간격을 따로 정하지 않는다.
    노트 전용으로 남는 것: 끄는 중 흐림, 보드에 이미 있는 노트 오른쪽 작은 점(글자는 보통 진하기, 누르면 그 카드로), 끌 수 있는 줄의 손 모양. */
 .nbb-side > .ft-box { margin:0; }

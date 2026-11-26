@@ -117,7 +117,7 @@ for (const width of [412, 1280]) {
     await page.locator('#nwMediaPicker [data-lu-move-folder="all"]').click();
     await expect(box.locator('.osq-outside .osq-hit')).toHaveCount(2);
 
-    // PRESS-성명초안삭제(11/09 명진 결정): [초안에 쓰기]·'초안에 쓸 문장' 줄·성명 초안 창이 없다.
+    // PRESS-성명초안삭제(11/09 사용자 결정): [초안에 쓰기]·'초안에 쓸 문장' 줄·성명 초안 창이 없다.
     await expect(box.locator('[data-osq-quote],[data-osq-tray],[data-osq-draft]')).toHaveCount(0);
     await expect(box).not.toContainText('초안에 쓰기');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

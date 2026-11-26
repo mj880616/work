@@ -122,7 +122,7 @@ test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 줄 끝에 정리 
   assert.equal(line.busy, undefined);
 });
 
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]는 지웠다 — 화면에 align 부름·알림 글이 없다.
+// S70-29(2026-11-25 사용자 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]는 지웠다 — 화면에 align 부름·알림 글이 없다.
 test('S70-29 [드라이브 폴더 맞추기] 지움: align 부품·글이 없고 자료실 메뉴에도 없다', async () => {
   const m = await import('../app/library-drive-line.js');
   for (const name of ['alignMessage', 'ALIGN_WAIT_MS', 'ALIGN_ROUNDS']) assert.equal(m[name], undefined, name);

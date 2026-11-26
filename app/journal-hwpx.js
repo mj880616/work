@@ -9,7 +9,7 @@
 //   담당 팀원 칸이 없고 이 파일에만 서식대로 들어간다. 내 줄의 담당 칸은 확정본 그대로(여러 사람이 함께 맡은 줄도 그대로).
 // - 5. 주요 일정 표는 [주간 정리]의 5번 묶음(다음 주 월요일부터 2주, 달력 일정)으로 14일을 한 줄씩 채우고 참석자 칸에 내 이름,
 //   휴가는 표 아래 "※ 날짜 이름 연차" 줄로 쓴다(WEEKLY-주요일정, 2026-10-21 사용자 결정 — 금요일 작성·월요일 보고라 "보고 주 + 그다음 주").
-//   1. 2) 주요 일정(본부 주요 일정)은 [주간 정리] 2) 표 줄(draft.hq) 그대로 — 기준(weekly-major-schedule.mjs)에 맞는 달력 일정은 그 표에 제안으로 뜨고 명진이 넣는다.
+//   1. 2) 주요 일정(본부 주요 일정)은 [주간 정리] 2) 표 줄(draft.hq) 그대로 — 기준(weekly-major-schedule.mjs)에 맞는 달력 일정은 그 표에 제안으로 뜨고 사용자가 넣는다.
 // - ■ 일시·파일 이름·자료 날짜는 상집 보고일(보고 있는 주의 다음 월요일, journal-data.js reportDay)로 한다(2026-10-21 사용자 결정).
 // - 1. 요청사항 표(WEEKLY-임원요청정리, 2026-10-23): 직전 주 확정본을 그대로 옮기지 않는다. 확정본을 읽으면 그 요청 표에서 날짜가
 //   기준일(상집 보고일, 늦게 쓰면 오늘) 이후이고 내가 요청한 줄 — 내 '임원 요청' 기록(업데이트 표시·글)이 가리키거나 내 담당 사업장(이름·별칭)·
@@ -26,7 +26,7 @@
 //   (요약 '사업영역›세부 과제', 조직 이름, 같은 이름이면 몇 번째). 다시 열면 이름이 맞는 칸만 넣고, 바탕이 바뀌어 못 넣은 칸은 접어서
 //   보여 주며 버리지 않는다. 다른 기기가 그사이 저장했으면 칸 단위 3자 비교(마지막으로 같았던 판·이 기기·서버)로 한쪽만 고친 칸은 합치고,
 //   같은 칸을 양쪽이 다르게 고쳤으면 그 칸만 묻는다(고를 때까지 그 칸은 서버 값을 둔다). 칸이 아직 없으면 "임시저장은 준비 중" 한 줄.
-// - 환류(WEEKLY-환류, 설계 3절, 명진 결정 Q3~Q7 추천대로): 5. 주요 일정 줄마다 작은 [빼기](이번 주 파일에서 뺌, 임시저장 dropped).
+// - 환류(WEEKLY-환류, 설계 3절, 사용자 결정 Q3~Q7 추천대로): 5. 주요 일정 줄마다 작은 [빼기](이번 주 파일에서 뺌, 임시저장 dropped).
 //   주간보고 기억(내 프로필 칸, weekly-schedule-memory.js)이 원래 제목 열쇠로 고친 이름을 먼저 넣고(작은 '기억' 표시 + [이번 주만 원래대로]),
 //   기억으로 뺀 일정은 맨 아래 접힌 "기억으로 뺀 일정 N개"에 [이번 주만 넣기](임시저장 kept). 순서: 이번 주 임시저장 > 기억 > 달력.
 //   [확정]이 성공하면 "다음 주에도 쓸까요?" 목록(달력 제목과 다르게 확정한 일정·뺀 일정, 체크된 채, 2자 이하 제목은 풀어 둠)에서
@@ -66,7 +66,7 @@ import {sameIssuedLines} from './weekly-lines.mjs';
 import {fileNameTitle} from './library-file-name.mjs';
 import {findBase, baseCells, proposedOf} from './weekly-base.js'; // WEEKLY-한흐름확정 ①: 바탕 읽기 공용 모듈
 import {engineForm, baseForm, saveBaseForm} from './weekly-engine-form.js';
-import {screenTitles} from './weekly-screen-titles.mjs'; import {groupNames} from './weekly-group-names.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 명진 결정 11/17 '나')
+import {screenTitles} from './weekly-screen-titles.mjs'; import {groupNames} from './weekly-group-names.mjs'; // ⑤-3b: 화면 절 제목 = 같은 profile 제목 // WEEKLY-내양식자유변형 ⑤-2·⑤-3: 엔진 양식은 '내 양식'에서(없으면 바탕 파일에서 읽어 저장 — 사용자 결정 11/17 '나')
 import {teamIsNewer, teamChanges, cellList, feedbackRecord, libraryFeedback, compareTest, TEST_STATUS, readFeedback, readRules, readExtras, withPlace, withAreaChange} from './weekly-feedback.mjs';
 import {areaLayout, outOfReport} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로
 import {reviewCard, readLearnRows, learnPress, learnKeys, devInboxNotice} from './weekly-learn-panel.js';
@@ -172,7 +172,7 @@ async function readContext(rt, week = '') {
   return {stages, statusRows, weekRows, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
 // WEEKLY-메뉴짝짓기 P6: 칸 줄(행 번호 → 줄들)에 그 주 주별 조직보고 줄을 얹는다. rows = Map(조직 id → 그 주 줄들) | null.
-// 4. 1) 산하조직: 넣은 줄이 있는 조직은 그 줄들. 3. 2) 투쟁 사업장: 같은 줄들(쟁의 단계 줄 없음, 명진 11/13). 넣은 줄이 없으면 칸 그대로(바탕·현황 표).
+// 4. 1) 산하조직: 넣은 줄이 있는 조직은 그 줄들. 3. 2) 투쟁 사업장: 같은 줄들(쟁의 단계 줄 없음, 사용자 11/13). 넣은 줄이 없으면 칸 그대로(바탕·현황 표).
 function applyWeekRows(s, cells, rows) {
   const orgs = new Map(cells.orgs), sites = new Map(cells.sites);
   const list = s.context.orgFailed || s.context.orgFallback ? [] : s.context.organizations;
@@ -183,7 +183,7 @@ function applyWeekRows(s, cells, rows) {
   return {orgs, sites};
 }
 // ORG-기록하나로 O-6(설계 docs/design/record-one.md 2-8·4절 '한글 파일'): 전환 주부터 4. 1) 칸 = 그 조직의 조직보고 창 줄(화면에 보이는 그대로,
-// 보이는 일정 줄 포함·'일정' 표시 없이, 줄이 없으면 빈 칸), 3. 2) 칸 = 같은 조직의 투쟁 사업장 창 줄(3~7줄, 쟁의 단계 줄 없음 — 명진 11/13).
+// 보이는 일정 줄 포함·'일정' 표시 없이, 줄이 없으면 빈 칸), 3. 2) 칸 = 같은 조직의 투쟁 사업장 창 줄(3~7줄, 쟁의 단계 줄 없음 — 사용자 11/13).
 // win = {orgs: Map(조직 id → '- 11.2. 글' 줄들), sites: 같은 모양}. 내 담당조직과 이름이 안 맞는 칸은 칸 줄 그대로.
 const isRecordWeek = week => /^\d{4}-\d{2}-\d{2}$/.test(String(week ?? '')) && !isOldWeek(week);
 function applyWindow(s, cells, win) {
@@ -209,7 +209,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // [처음부터] 뒤 바탕을 다시 연 끝에 남길 상태 줄({week, text}). 다시 여는 동안의 '여는 중…' 줄이 지운 결과 안내를 연 뒤 되살린다(한 번만).
   let reopenNote = null;
   let formRetry = null; // ⑤-3: '내 양식'을 읽지 못해 바탕을 열지 않았을 때 상태 줄 [다시 시도]가 부르는 열기(한 번)
-  // WEEKLY-한흐름확정 ②(명진 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
+  // WEEKLY-한흐름확정 ②(사용자 결정 ①: 위 상자 없앰): 이 모듈은 [주간 정리] 안 두 자리를 그린다.
   //   topLine — 맨 위 한 줄 '■ 일시 · 이름 · 바탕 … 임시저장 HH:MM ⋯'(⋯ = 이름 고치기·일시 고치기·바탕 바꾸기(기기 파일)·처음부터)
   //   host    — 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기](이 화면의 유일한 채운 버튼, .hwp) + ⋯(확정 없이 파일만 받기(.hwp)·.hwpx로 받기·글로 복사·학습 시험)
   //             + 상태 한 줄, 그 아래 바탕을 연 뒤에만 보이는 것(다른 기기와 겹친 칸·본문과 일정표가 다른 곳·환류 보고·기억).
@@ -233,7 +233,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const confirmBtn = button('확정하고 한글 파일 받기', 'hwpxConfirm', 'mini primary');
   const confirmState = el('span', 'weekly-flow-confirm-state'); confirmState.dataset.hwpxConfirmState = '';
   // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
-  // WEEKLY-기본HWP(명진 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
+  // WEEKLY-기본HWP(사용자 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
   const more = rowMore(doc, {label:'확정 없이 파일만 받기·.hwpx로 받기·글로 복사·초안 다시 쓰기·배운 것 보기', data:{hwpxMore:''}, items:[
     {text:'확정 없이 파일만 받기', data:{hwpxHwp:''}}, {text:'.hwpx로 받기', data:{hwpxBuild:''}}, {text:'글로 복사', data:{hwpxCopy:''}, aria:'주간 보고 초안 글로 복사'},
     {text:'초안 다시 쓰기', data:{hwpxAiAgain:''}, aria:'초안 다시 쓰기(손대지 않은 칸만)'}, {text:'배운 것 보기', data:{hwpxLearnShow:''}, aria:'주간 보고 기억·규칙 보기'}, {text:'학습 시험', data:{hwpxLearnTest:''}}]});
@@ -540,7 +540,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       const pkg = await draft.openConfirmed(hwpx);
       const form = await formRead;
       if (mine !== run) return;
-      // ⑤-3(명진 결정 11/17 '나'): 쓸 '내 양식'이 없으면(none·broken·missing) 바탕 파일에서 양식을 읽어 그것으로 연다(글자는 파일 그대로).
+      // ⑤-3(사용자 결정 11/17 '나'): 쓸 '내 양식'이 없으면(none·broken·missing) 바탕 파일에서 양식을 읽어 그것으로 연다(글자는 파일 그대로).
       // 읽기 실패는 기본값 대신 한 줄 + [다시 시도]. 바탕에서 양식을 읽지 못하면 추측해 열지 않고 한 줄.
       if (form.status === 'readFailed') { sayRetry(form.note, () => load(bytes, name, format, source, ++run, baseInfo, baseKind)); return; }
       const fromBase = form.profile ? null : baseForm(pkg, draft);
@@ -570,7 +570,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
       if (mine !== run) return;
       carry(week);
       say(reopenNote?.week === week.start ? reopenNote.text : form.note); reopenNote = null;
-      // ⑤-3(명진 결정 11/17 '나'): 자료실 바탕에서 읽은 양식을 '내 양식'에 한 번 저장한다(깨진 양식이면 그 행을 고침).
+      // ⑤-3(사용자 결정 11/17 '나'): 자료실 바탕에서 읽은 양식을 '내 양식'에 한 번 저장한다(깨진 양식이면 그 행을 고침).
       // 기기 파일로만 연 경우·표 준비 전·상자 칸 이름을 알 수 없는 주(savable false)는 저장하지 않는다. 실패해도 화면은 그대로, 상태 줄 한 줄.
       if (fromBase?.savable && baseInfo?.from === 'library' && (form.status === 'none' || form.status === 'broken')) {
         const s = state;
@@ -1253,8 +1253,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // WEEKLY-기본HWP: 받는 파일과 자료실 개인 확정본은 .hwp(주간보고_보고일_이름.hwp). 바꾸지 못하면 둘 다 .hwpx + 한 줄 알림.
   // 같은 주 다시 확정은 옛 판이 .hwpx여도 그 자료의 파일을 .hwp 새 판으로 바꾼다(library-files 교체는 새 파일 이름·형식을 그대로 받음).
   // 환류 기록(recordIssued)은 만든 .hwpx로 읽는다(같은 내용).
-  // [확정하고 한글 파일 받기](설계 4.2): 파일 만들기 → 확인 한 번 → 자료실 개인본(처음 = 새 자료, 같은 주 다시 = 그 자료를 새 판으로 교체, 명진 결정 ②)
-  // → 환류 기록(처음 초안 ↔ 이번 판) → 환류 정리(weekly_review, 명진 결정 ③: 처음 확정 1회, 다시 확정은 새 동작 10건 이상, 주 3회 상한) → 일정 기억 묻기 → 내려받기.
+  // [확정하고 한글 파일 받기](설계 4.2): 파일 만들기 → 확인 한 번 → 자료실 개인본(처음 = 새 자료, 같은 주 다시 = 그 자료를 새 판으로 교체, 사용자 결정 ②)
+  // → 환류 기록(처음 초안 ↔ 이번 판) → 환류 정리(weekly_review, 사용자 결정 ③: 처음 확정 1회, 다시 확정은 새 동작 10건 이상, 주 3회 상한) → 일정 기억 묻기 → 내려받기.
   // 자료실 저장이 안 돼도 파일은 받는다(환류 기록은 저장된 판에만). 교체가 거절되면 새 자료를 만들지 않는다(개인본 두 벌 방지, 설계 7.4).
   async function doConfirm(trigger) {
     if (!await ensure()) return;

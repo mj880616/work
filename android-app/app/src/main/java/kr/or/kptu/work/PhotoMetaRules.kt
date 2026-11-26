@@ -5,7 +5,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * S48-60 PHOTO-정보고치기(요청함 11/03 00:29, 명진 결정 E1·E2): 웹2에서 폰 사진의 찍은 날·시각과 위치를 고친다(카메라·렌즈는 보기만).
+ * S48-60 PHOTO-정보고치기(요청함 11/03 00:29, 사용자 결정 E1·E2): 웹2에서 폰 사진의 찍은 날·시각과 위치를 고친다(카메라·렌즈는 보기만).
  * 안드로이드 API 없이 JVM 단위 시험으로 고정하는 규칙만 둔다(파일 읽기·쓰기는 PhotoMeta, 허락 창은 MainActivity).
  *
  * 다리(KPTUAppShell, 허용 Origin 최상위 화면만):

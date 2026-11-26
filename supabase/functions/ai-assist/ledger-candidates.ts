@@ -1,7 +1,7 @@
 // ai-assist 쓰임 3(kind=ledger_candidates, AI-서버연동 S7-c): 순수 함수만 둔다(입출력은 handler.ts).
 // docs/design/ledger-web2.md 15절. 쓰임 2(todo-radar.ts)와 같은 재료·짧은 참조(r1 …)·믿지 않는 답 검사 방식.
 // - 재료는 Web2 안 기록만(업데이트·노트·일지 한 줄·회의 결과·조직 기록·프로젝트 기록). 일기·AI 내보내기 비허용·보관은 뺀다(재료 읽기는 쓰임 2와 같음).
-// - AI는 원장에 직접 쓰지 않는다. 답을 검사해 원장 후보(app_ledger_candidates, 대기)만 만든다. 확정은 명진이 화면에서.
+// - AI는 원장에 직접 쓰지 않는다. 답을 검사해 원장 후보(app_ledger_candidates, 대기)만 만든다. 확정은 사용자가 화면에서.
 // - 민감 S3(개인 민감)·개인정보 모양(주민번호·휴대전화)은 후보에도 남기지 않고 개수만 센다(L9).
 // - 출처는 서버가 정한다: 원래 Web2 기록의 위치(web2:<종류>:<id>)를 새 출처로(확정 함수가 같은 위치의 출처를 다시 씀).
 import { cleanLine, normalizeTitle, type PackedSource, type SourceKind } from "./todo-radar.ts";

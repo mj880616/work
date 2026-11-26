@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
-// S48-45 FILES-클라우드탐색기 ⑤·⑦ 쓰기(명진 결정 F1 원드라이브 자체 휴지통, F8 클라우드 사이 1개·200MB).
+// S48-45 FILES-클라우드탐색기 ⑤·⑦ 쓰기(사용자 결정 F1 원드라이브 자체 휴지통, F8 클라우드 사이 1개·200MB).
 // 이름 바꾸기·새 폴더·여러 개 고르기·휴지통(확인 창)·잘라 붙이기·끌어 놓기·클라우드 사이 옮기기. 서버는 흉내(파일 이름은 모두 가짜).
 const root = page => page.locator('#filesRoot');
 const row = (page, key) => root(page).locator(`[data-fx-row="${key}"]`);

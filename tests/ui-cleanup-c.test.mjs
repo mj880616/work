@@ -4,7 +4,7 @@ import {readdirSync, readFileSync} from 'node:fs';
 import {join, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-// UI-화면정리 C(2026-10-28 명진 요청 20:03, B단계 남은 일): 편집 도구줄 하나로·추가 버튼 자리·위쪽 빈 띠·사업 보고 중복의 재발 방지.
+// UI-화면정리 C(2026-10-28 사용자 요청 20:03, B단계 남은 일): 편집 도구줄 하나로·추가 버튼 자리·위쪽 빈 띠·사업 보고 중복의 재발 방지.
 // 기록은 docs/design-decisions.md "UI-화면정리 C". ⋯ 점 모양(사업 보고 화면 포함)은 tests/ui-cleanup-b.test.mjs가 본다.
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const SKIP = new Set(['hwp-lab', 'markdown-lib', 'pdf-lib', 'editor-lib', 'node_modules', 'legacy']);

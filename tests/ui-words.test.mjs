@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {scan, compare, countFile, jsStrings} from './ui-words.mjs';
-// UI-용어통일(2026-11-08 명진 결정 '수정 삭제로 맞추자', 기준표 docs/design/ui-words.md). 재발 방지 시험(App smoke check).
+// UI-용어통일(2026-11-08 사용자 결정 '수정 삭제로 맞추자', 기준표 docs/design/ui-words.md). 재발 방지 시험(App smoke check).
 
 test('기준표 문서가 있고 화면 규칙 문서들이 가리킨다', () => {
   const doc = readFileSync('docs/design/ui-words.md', 'utf8');
@@ -24,14 +24,14 @@ test('검사기: 주석·코드 이름은 빼고 화면 글자만 센다', () =>
   const hits = countFile('a.js', src).map(h => `${h.line}:${h.word}`);
   assert.deepEqual(hits, ['3:고치기', '4:지웠', '8:버리기', '8:더보기']);
   assert.deepEqual(countFile('a.html', '<!-- 지우기 -->\n<button>편집</button>').map(h => h.word), ['편집']);
-  // S68-30(11/23 명진 '고르기 → 선택'): 고르거나·고릅니다·골라도도 센다. '고르게 맞춤'·옛 기록의 '골라져'는 다른 뜻이라 뺀다.
+  // S68-30(11/23 사용자 '고르기 → 선택'): 고르거나·고릅니다·골라도도 센다. '고르게 맞춤'·옛 기록의 '골라져'는 다른 뜻이라 뺀다.
   assert.deepEqual(countFile('b.js', "a = '파일을 고르거나'; b = '종류를 고릅니다'; c = '골라도 돼요'; d = '고르게 맞춤'; e = '골라져 있어요';").map(h => h.word), ['고르', '고릅', '골라']);
   assert.ok(jsStrings("a = 1 / 2; b = '골라 주세요'").some(s => s.text === '골라 주세요'), '나눗셈 뒤 따옴표도 읽는다');
-  // S68-34(11/23 명진): 글 저장 단추는 [저장]·[삭제]. 옛 이름(읽을 거리로·읽을 거리에서 빼기·보관 풀기·저장 풀기·저장 취소)은 화면 코드에서 세고, 옛 업데이트 기록에서는 세지 않는다.
+  // S68-34(11/23 사용자): 글 저장 단추는 [저장]·[삭제]. 옛 이름(읽을 거리로·읽을 거리에서 빼기·보관 풀기·저장 풀기·저장 취소)은 화면 코드에서 세고, 옛 업데이트 기록에서는 세지 않는다.
   const old = "a = '읽을 거리로'; b = '읽을 거리에서 빼기'; c = '보관 풀기'; d = '저장 풀기'; e = '저장 취소'; f = '저장한 글에서 삭제';";
   assert.deepEqual(countFile('app/x.js', old).map(h => h.word), ['읽을 거리로', '읽을 거리에서 빼기', '보관 풀기', '저장 풀기', '저장 취소']);
   assert.deepEqual(countFile('app/release-notes/20261123-0230-x.json', '{"changes":["읽을 거리로 보내요"]}'), []);
-  // S70-62(11/26 명진 "보관은 저장으로 통일"): 글 저장 화면 파일에서는 '보관' 자체를 센다. 다른 화면의 다른 뜻 '보관'(사업영역 보관 등)은 세지 않는다.
+  // S70-62(11/26 사용자 "보관은 저장으로 통일"): 글 저장 화면 파일에서는 '보관' 자체를 센다. 다른 화면의 다른 뜻 '보관'(사업영역 보관 등)은 세지 않는다.
   assert.deepEqual(countFile('app/reading.js', "a = '보관한 글'; // 보관 주석").map(h => h.word), ['보관']);
   assert.deepEqual(countFile('app/now-hidden.js', "a = '보관'").map(h => h.word), ['보관']);
   assert.deepEqual(countFile('app/project-system-v3.js', "a = '보관'"), []);

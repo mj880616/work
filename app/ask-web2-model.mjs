@@ -96,7 +96,7 @@ export function sourcesSummary(sources) {
 }
 
 // 근거를 누르면 여는 곳. 검색 결과 줄과 같은 여는 길(openTarget) + 통화·텔레그램.
-// LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 근거는 AI가 읽은 뒤쪽 자료라 여는 화면이 없다(null → 누를 수 없는 근거 줄).
+// LEDGER-화면에서빼기(2026-11-25 사용자 결정): 원장 근거는 AI가 읽은 뒤쪽 자료라 여는 화면이 없다(null → 누를 수 없는 근거 줄).
 export function sourceTarget(src) {
   if (!src) return null;
   if (src.kind === 'call') return {view: 'calls', id: src.id};

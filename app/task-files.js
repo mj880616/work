@@ -152,7 +152,7 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   const lock = s.busy || s.uploading || taskFileLine.going(s.task.id); // 빼기·삭제·이름 고치기는 올리는 동안 잠근다(서버 목록이 엇갈리지 않게). 고르기만 줄 세움.
-  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 명진 '추천대로'): 줄 단추 5개(이름 수정·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
+  // FILE-첨부삭제 ② 뒤 결정 2(2026-11-11 사용자 '추천대로'): 줄 단추 5개(이름 수정·Drive에서 열기·내려받기·빼기·삭제) 때문에 폰 412에서
   // 파일 이름이 잘렸다 → 노트 첨부 줄처럼 줄마다 ⋯ 하나(공용 row-more.js)에 모으고 이름이 줄 너비를 다 쓴다. 이름 누르기(종류별 열기)·
   // 두 번 누르기/꾹 누르기(이름 고치기)는 그대로. 메뉴 항목의 누르기는 원래 처리(file-actions.js data-fa-menu, 아래 빼기·삭제·이름 수정) 그대로.
   list.innerHTML = s.files.length

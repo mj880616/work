@@ -1,4 +1,4 @@
-// NOTE-노션편집 ①(나) (명진 2026-11-24 21:41 "노션의 자유로운 편집", 11-25 03:19 "블록 끌어오기는 켜고 끌 수 있게 / 때로는 블로그 글
+// NOTE-노션편집 ①(나) (사용자 2026-11-24 21:41 "노션의 자유로운 편집", 11-25 03:19 "블록 끌어오기는 켜고 끌 수 있게 / 때로는 블로그 글
 // 쓰기처럼"): the note editor's block parts, mounted by ed-editor.js (createDocEditor blocks·slash options). Nothing here saves.
 //   - Block handle ⋮⋮ (only while 블록 편집 is on): beside the top-level block under the mouse (a phone: the block with the cursor).
 //     Drag it to move the block (a phone: press and hold the handle, then drag); press it for the block menu (복제·지우기

@@ -31,7 +31,7 @@ export async function startGoogleLink(kind, rt = window.KPTURuntime) {
   location.href = data.url;
 }
 
-// 화면 글(명진 11/13: "~하면 ~가 여기 보여요"). 버튼 글은 연결 안내 공용 부품(connect-note.mjs) 규칙 그대로 —
+// 화면 글(사용자 11/13: "~하면 ~가 여기 보여요"). 버튼 글은 연결 안내 공용 부품(connect-note.mjs) 규칙 그대로 —
 // S62-16 TASK-구글할일연결문구: 처음 = '연결', 권한만 빠짐 = '구글 할 일 다시 연결'('다시'만 있는 버튼 없음).
 export const LINK_TEXT = Object.freeze({
   events:{none:{line:'구글 캘린더를 연결하면 그날 일정이 여기 보여요.', button:connectText('calendar', 'none').button}},

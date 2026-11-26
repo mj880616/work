@@ -1,4 +1,4 @@
-// MTG-프로젝트합치기 ①(명진 10/29 시안 승인): [사업영역 관리]는 따로 된 화면이 아니라 사업 보고 위에 뜨는 창이다.
+// MTG-프로젝트합치기 ①(사용자 10/29 시안 승인): [사업영역 관리]는 따로 된 화면이 아니라 사업 보고 위에 뜨는 창이다.
 // - 그릇: index.html의 #areaWindow(공용 .modal·.modal-card·.modal-head). 이 모듈은 창을 여닫기만 한다. 안의 목록·상세·⋯ 메뉴는
 //   지금 사업영역 부품(project-system-v3.js, #projectsView·#projectGrid·#ps3DetailModal)이 그대로 그린다(한 영역 한 그리는 곳).
 // - 열기: KPTUAreaWindow.open({id}) 하나. 사업 보고 ⋯ › 사업영역 관리, 다른 곳의 사업영역 연결(바구니 칩·홈·검색·원장·업무일지·할 일 레이더),

@@ -1,4 +1,4 @@
-// PRESS-성명초안삭제(2026-11-09 명진 결정): 성명·보도자료 초안 기능은 화면·서버 모두 없다.
+// PRESS-성명초안삭제(2026-11-09 사용자 결정): 성명·보도자료 초안 기능은 화면·서버 모두 없다.
 // 서버 ai-assist는 kind=press_draft를 알아보지 않고(unsupported_kind로 거절), 화면에는 초안 창·입구가 없다.
 import test from 'node:test';
 import assert from 'node:assert/strict';

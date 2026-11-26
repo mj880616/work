@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 
 // PERF-첫로딩 P2(docs/design/first-load.md 6절): 홈 [주간 정리]·한글 파일 상자 모듈(journal-weekly-kit.js)은
 // 홈 첫 화면이 보이기 전에는 받지 않는다. 하루 화면이면 보인 뒤 쉬는 틈에 받아 두고, 아직 안 왔을 때 [주간 정리]를 처음 누르면
-// 기다림 표시 → 오면 그 자리에 그린다. 받기에 실패하면 [다시 시도]로 다시 부른다. 명진 결정: 첫 클릭이 0.5초쯤 늦어도 된다.
+// 기다림 표시 → 오면 그 자리에 그린다. 받기에 실패하면 [다시 시도]로 다시 부른다. 사용자 결정: 첫 클릭이 0.5초쯤 늦어도 된다.
 const KIT = /\/app\/journal-weekly-kit\.js(\?|$)/;
 const DEFERRED = /\/app\/(journal-weekly-kit|journal-hwpx|journal-weekly|weekly-flow-cells)\.js(\?|$)/;
 

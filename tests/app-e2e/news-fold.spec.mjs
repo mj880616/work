@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openNews } from './helpers/news-server.mjs';
-// NEWS-도배막기(명진 11/09, 결정 11/10 A + C): News 목록에서
+// NEWS-도배막기(사용자 11/09, 결정 11/10 A + C): News 목록에서
 //  A. 같은 언론 매체가 연달아 나오면 첫 기사 한 줄 + 작게 '○○ 외 N건'(누르면 그 자리에서 펼침·다시 누르면 접힘, 다시 그려도 그대로).
 //     단체 성명·논평 줄은 묶지 않는다.
 //  C. 확정 관심 주제에 걸린 최근 글은 위 칸 '관심 주제'에 먼저(시간순), 나머지는 아래 날짜별 시간순.

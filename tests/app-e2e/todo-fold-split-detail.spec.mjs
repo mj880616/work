@@ -1,4 +1,4 @@
-// S51-13 TODO-폴드목록상세(2026-11-06 명진 'ㅇ', docs/design/mockups/todo-fold-list-detail.html):
+// S51-13 TODO-폴드목록상세(2026-11-06 사용자 'ㅇ', docs/design/mockups/todo-fold-list-detail.html):
 // 폴드 펼침(600~760, 폰 틀)과 PC는 할 일 화면이 '왼쪽 목록 | 오른쪽 상세'. 줄을 누르면 오른쪽에 바로 열리고(고른 줄 표시),
 // 오른쪽에서 고치면 바로 서버 저장(제목·기한·연결·메모·첨부, [저장] 없음, 실패는 그 칸 아래에 표시), ✕·Esc·뒤로 키 = 상세 닫기,
 // 아무것도 안 골랐을 때 오른쪽은 '오늘 할 일' 요약. 접은 폰(412)은 지금처럼 수정 창([저장]).
@@ -42,7 +42,7 @@ for(const width of [690,884,1280]){
     const tasks=[task('late','2026-10-06'),task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-08'),task('soon','2026-10-10')];
     const calls=await open(page,width,tasks);
     const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
-    // TASK-넓게쓰기(2026-11-10 명진 B안): 아무것도 안 골랐을 때는 오른쪽 칸이 없고 목록이 화면 폭 전부(빈 오른쪽 상자 없음).
+    // TASK-넓게쓰기(2026-11-10 사용자 B안): 아무것도 안 골랐을 때는 오른쪽 칸이 없고 목록이 화면 폭 전부(빈 오른쪽 상자 없음).
     await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(1);await expect(pane).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
     {const [sec,list]=[await page.locator('#gtTaskSection').boundingBox(),await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox()];expect(Math.abs(sec.width-list.width)).toBeLessThanOrEqual(1)}
     // ① 줄을 누르면 오른쪽에 바로 열리고 고른 줄 표시. [저장] 버튼은 없다.

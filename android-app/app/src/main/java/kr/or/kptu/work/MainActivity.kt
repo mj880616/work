@@ -664,7 +664,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * S67-38(명진 결정 11/14 ①: 위젯 로그인 없어도 앱 로그인으로 뒤에서 끝까지): 웹이 up:login을 보내면 위젯 자동 로그인(12절)과 같은 길로 세션을 만든다.
+     * S67-38(사용자 결정 11/14 ①: 위젯 로그인 없어도 앱 로그인으로 뒤에서 끝까지): 웹이 up:login을 보내면 위젯 자동 로그인(12절)과 같은 길로 세션을 만든다.
      * 앱이 표시(10분·한 번)를 세우고 로그인된 웹 화면에 widget:mint → 웹이 자기 접근 토큰으로 widget_seal 봉인만 받아 widget:handoff → 앱이 consume.
      * 다리에는 토큰을 싣지 않는다. 실패·시간 초과면 구글 탭을 열지 않고 up:ack login 실패만 알린다(웹은 지금 길, 화면 안 올리기).
      * 이미 위젯 로그인이 있으면 바로 성공. 다른 위젯 로그인이 진행 중이면 기다리지 않고 실패(busy).
@@ -1440,7 +1440,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * FILES-통합 3단계(S49-51, 명진 결정 H-1): [파일] '이 폰' 다리. hello = 지금 상태(켜져 있으면 열쇠), ask = 설정 '모든 파일 접근 허용' 화면.
+     * FILES-통합 3단계(S49-51, 사용자 결정 H-1): [파일] '이 폰' 다리. hello = 지금 상태(켜져 있으면 열쇠), ask = 설정 '모든 파일 접근 허용' 화면.
      * 목록·원본·작은 그림은 __phone/<열쇠>/files/ 가로채기(PhoneFiles.serve)로만 준다. 이 판은 읽기만.
      */
     private fun onPhoneFilesMessage(data: String, reply: JavaScriptReplyProxy) {

@@ -1,4 +1,4 @@
-// UI-폴더줄크기(S69-99, 명진 2026-11-25 08:23): 폴더·항목 줄 크기 단계 계산(app/row-size-model.mjs).
+// UI-폴더줄크기(S69-99, 사용자 2026-11-25 08:23): 폴더·항목 줄 크기 단계 계산(app/row-size-model.mjs).
 // 두 손가락 벌리기 = 한 단계 크게, 오므리기 = 한 단계 작게, 한 번의 손짓(손을 뗄 때)에 한 단계, 임계값 사이는 그대로. Ctrl+휠 한 번도 한 단계.
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -1,4 +1,4 @@
-// LIB-받는폴더 (S59-11, 시안 docs/design/mockups/lib-receive-folder.html, 명진 11/11 "잡동사니 시안 ㄱ"):
+// LIB-받는폴더 (S59-11, 시안 docs/design/mockups/lib-receive-folder.html, 사용자 11/11 "잡동사니 시안 ㄱ"):
 // 폴더 하나를 '받는 폴더'로 켜 두면 폴더를 정하지 않고 자료실에 들어오는 자료가 저절로 그 폴더에 들어간다. 받는 폴더는 하나뿐이다.
 // 저장 위치: 내 프로필 행의 library_receive_folder 칸(app_profiles, migration 20261111181000). 기존 owner RLS로 내 행의 이 칸만 읽고 쓴다.
 //   library_view(보기 기억 JSON)에 넣지 않은 까닭: 그 칸은 묶기·칩을 바꿀 때마다 통째로 다시 쓰므로 다른 기기에서 켠 값을 지울 수 있다.

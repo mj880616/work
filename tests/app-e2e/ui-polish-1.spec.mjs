@@ -76,7 +76,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // S68-36 메뉴 창 정리(명진 11/23 확정): 위에서부터 설정 링크 묶음 → 운영 줄 → 메뉴 칸(맨 아래, 하단바 바로 위). S70-57: 전체 검색 입구는 홈 머리 줄로(메뉴 창에는 없음).
+ // S68-36 메뉴 창 정리(사용자 11/23 확정): 위에서부터 설정 링크 묶음 → 운영 줄 → 메뉴 칸(맨 아래, 하단바 바로 위). S70-57: 전체 검색 입구는 홈 머리 줄로(메뉴 창에는 없음).
  await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
  const tops=await page.evaluate(()=>['.mobile-menu-settings','.mobile-menu-ops','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
@@ -134,7 +134,7 @@ test('메뉴 판(폰): 화면이 낮아 판이 길면 아래 끝(메뉴 칸)에 
  const tab=page.locator('#mobileMenuTab'),panel=page.locator('.mobile-menu-panel');
  await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);
  const m=await panel.evaluate(el=>({over:el.scrollHeight>el.clientHeight+1,top:el.scrollTop}));
- // S68-36(명진 11/23): 메뉴 칸이 먼저 보이게 아래 끝에 맞춰 열린다.
+ // S68-36(사용자 11/23): 메뉴 칸이 먼저 보이게 아래 끝에 맞춰 열린다.
  expect(m.over).toBe(true);expect(await panel.evaluate(el=>Math.abs(el.scrollHeight-el.clientHeight-el.scrollTop)<=1)).toBe(true);
  const p=await rect(panel),nav=await rect(page.locator('#mobileMenu nav')),bar=await rect(page.locator('.mobile-tabs'));
  expect(nav.top).toBeGreaterThanOrEqual(p.top);expect(nav.bottom).toBeLessThanOrEqual(bar.top);
