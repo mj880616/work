@@ -120,6 +120,13 @@
 html[data-screen-find] .app-topline .topline-search{min-width:140px}
 /* 옮겨 온 단추는 공용 6가지(⋯ = icon-btn, 고르기·만들기 = secondary)를 그대로 쓰고, 여기서는 상단 줄 높이에 맞춘 크기·자리만. */
 .sf-tools .sf-chip{max-width:11em;overflow:hidden;text-overflow:ellipsis}
+/* S71-27 NEWS-머리한줄: 첫 줄이 모자라면 읽을 거리 [매체: 전체 ▾]의 앞말 '매체: '를 빼고 [전체 ▾](outside-statements.js fitHead가 실제 폭을 재어 .is-tight). */
+.sf-tools [data-nw-media].is-tight .nw-dd-k{display:none}
+.sf-tools [data-nw-media]{white-space:nowrap;gap:0}
+.sf-tools [data-nw-media] .nw-dd-k{margin-right:.3em}
+.sf-tools [data-nw-media] .nw-dd-c{flex:none;margin-left:.3em}
+.sf-tools [data-nw-media] .nw-dd-v{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sf-tools [data-nw-media].is-tight{max-width:min(11em,var(--nw-dd-max,11em))}
 /* SEARCH-비슷한것찾기(S70-67): 맨 위 칸 찾기에서 맞은 부분(screen-find.js가 CSS Custom Highlight로 칠함 — 글은 그대로, 굵게 보이게만)과
    '비슷한 말로도 찾았어요' 한 줄(맨 위 칸 바로 아래 작은 줄, 누를 것 없음). */
 ::highlight(kptu-find){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 14%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
