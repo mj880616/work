@@ -651,7 +651,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     area.addEventListener('dragstart',e=>{
       const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);pokeDrag();
       try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
-      setDragGhostImage(e.dataTransfer,ghostLabel(d));
+      setDragGhostImage(e.dataTransfer,ghostLabel(d),document,e);
       // 폴더 토글이 없는 묶기에서는 왼쪽에 놓을 곳 목록을 띄운다. 끌기 시작 중에 DOM을 바꾸면 브라우저가 끌기를 취소하므로 한 박자 뒤에.
       if(d.kind==='file'&&!s().treeView)setTimeout(()=>{if(drag===d)showDropPanel(d)},0);
     });

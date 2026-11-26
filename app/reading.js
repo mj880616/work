@@ -177,7 +177,7 @@ function drawList() {
       const bm = el('p', 'rd-line rd-bm');
       bm.dataset.rdBm = '1';
       const a = el('a', 'rd-bm-link', `${APP_NAME} 저장`);
-      a.href = bookmarklet(); a.dataset.rdBmLink = '1'; a.title = '즐겨찾기 막대로 끌어 놓기';
+      a.href = bookmarklet(); a.dataset.rdBmLink = '1';
       bm.append('크롬 버튼: ', a, ' ', btn('mini', '한 줄 복사', {rdBmCopy: '1'}));
       parts.push(bm);
     }

@@ -124,4 +124,4 @@ export function applyStored(host, name, vars) {
   for (const [key, v] of Object.entries(vars)) { if (cols[key] > 0) host.style.setProperty(v, `${cols[key]}px`); else host.style.removeProperty(v); }
 }
 // 머리 칸 안에 넣을 손잡이 글자(화면이 머리를 그릴 때 쓴다). dir=1: 그 칸 오른쪽 금(기본).
-export const gripHtml = (key, label, dir = 1) => `<i class="col-grip" data-col-grip="${key}" data-dir="${dir}" role="separator" aria-orientation="vertical" aria-label="${label} 칸 너비 조절" aria-valuemin="${COL_WIDTH_MIN}" aria-valuemax="${COL_WIDTH_MAX}" tabindex="0" title="끌어서 너비 조절 · 두 번 누르면 글자 길이에 맞춤"></i>`;
+export const gripHtml = (key, label, dir = 1) => `<i class="col-grip" data-col-grip="${key}" data-dir="${dir}" role="separator" aria-orientation="vertical" aria-label="${label} 칸 너비 조절" aria-valuemin="${COL_WIDTH_MIN}" aria-valuemax="${COL_WIDTH_MAX}" tabindex="0"></i>`;

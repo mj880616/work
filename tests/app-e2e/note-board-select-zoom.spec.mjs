@@ -49,7 +49,7 @@ test('PC: 목록 누르기는 붙이지 않음 · 끌어 놓은 자리에 카드
   await side.locator('[data-nbb-folder]', { hasText: '폴더 없음' }).click();
   await expect(side.locator('[data-nbb-note]')).toHaveCount(3);
   // 안내 글: 누르면 붙는다는 말이 없다.
-  await expect(side.locator('[data-nbb-note="n3"]')).toHaveAttribute('title', /끌어다 보드에 놓으면 붙어요 · 누르면 노트 열기/);
+  await expect(side.locator('[data-nbb-note="n3"]')).not.toHaveAttribute('title', /.+/); // S70-79: 줄마다 조작 안내 툴팁 없음
   // 붙은 노트를 누르면 판이 그 카드로(가운데) 가고 그 카드를 고른다. 판을 먼저 멀리 밀어 둔다(휠 = 판 이동).
   await page.mouse.move(700, 500); await page.mouse.wheel(900, 600);
   const sb = await scroll.boundingBox();

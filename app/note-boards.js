@@ -76,7 +76,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   // 보드 칸 줄. 고른 보드는 aria-pressed. 이름 붙은 보드 칸은 우클릭·꾹 누르기로 메뉴(보드 칸 자체가 메뉴를 연다, ⋯ 없음).
   function paintBar() {
     const phoneAdd = named() && (!wide.matches || coarse.matches);
-    bar.innerHTML = `${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·삭제">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
+    bar.innerHTML = `${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
     // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
     fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.getAttribute('aria-pressed') === 'true' });
   }
@@ -104,8 +104,9 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
       }
       const on = onBoard(r.note, current), title = [...noteLineTitle(r.note)].slice(0, 60).join('');
       // 이미 붙은 노트도 폴더로는 끌 수 있다(판에는 놓이지 않는다 — dragstart가 판 끌기 형식을 싣지 않음).
-      const drag = on ? !!moveToFolder : true, tip = on ? (moveToFolder ? '보드에 있음 · 누르면 그 자리로 · 폴더 줄에 끌어 놓으면 그 폴더로 옮겨요' : '보드에 있음 · 누르면 그 자리로') : (moveToFolder ? '끌어다 보드에 놓으면 붙어요 · 누르면 노트 열기 · 폴더 줄에 놓으면 그 폴더로 옮겨요' : '끌어다 보드에 놓으면 붙어요 · 누르면 노트 열기');
-      return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" data-reorder-id="n:${esc(r.note.id)}"${on ? ' data-nbb-on' : ''} draggable="${drag}" style="--nx-indent:${r.indent}" title="${esc(tip)}"><span class="nbb-name">${esc(title)}</span>${on ? '<span class="nbb-dot" aria-hidden="true"></span><span class="a11y-only">보드에 있음</span>' : ''}</button>`;
+      // S70-79 STD-끌기모양: 줄마다 뜨던 조작 안내 툴팁(title '끌어다 보드에 놓으면 붙어요 …')은 지웠다(안내문 넣지 않음, 길게 잘려 화면 밖으로 나감).
+      const drag = on ? !!moveToFolder : true;
+      return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" data-reorder-id="n:${esc(r.note.id)}"${on ? ' data-nbb-on' : ''} draggable="${drag}" style="--nx-indent:${r.indent}"><span class="nbb-name">${esc(title)}</span>${on ? '<span class="nbb-dot" aria-hidden="true"></span><span class="a11y-only">보드에 있음</span>' : ''}</button>`;
     }).join('');
     side.innerHTML = `<div class="nbb-side-head" aria-hidden="true">노트 목록</div><div class="nbb-side-list" role="group" aria-label="붙일 노트">${html || emptyHtml('노트 없음')}</div>`;
   }
@@ -332,7 +333,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
     // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
-    setDragGhostImage(e.dataTransfer, n.querySelector('.nbb-name')?.textContent || '');
+    setDragGhostImage(e.dataTransfer, n.querySelector('.nbb-name')?.textContent || '', document, e);
   });
   side.addEventListener('dragend', () => { dragNote = ''; markDrop(null); });
   side.addEventListener('dragover', e => {
