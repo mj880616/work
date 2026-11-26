@@ -1916,3 +1916,76 @@ for (const [name, open] of T10_SCREENS.slice(0, 3)) test(`T10 ${name} PC 1280: �
   await t10Shown(s, s.A);
   expect(s.errors).toEqual([]);
 });
+
+// ---------- Q3 검색칸은 누른 자리 그대로(S71-07 SEARCH-누른자리그대로) ----------
+// 2026-11-26 13:51 명진 "노트에서처럼 검색창 클릭하고 검색 화면에서 검색창 위치가 같아야 함": 홈 '전체 검색'과 메뉴마다 '<메뉴>에서 찾기' 칸은
+// 누르기 전(폰 600px 미만 메뉴 화면은 돋보기로 편 뒤) · 누른 뒤 · 친 뒤 같은 자리·같은 크기다. 결과·안내만 아래에 뜬다. 폰 390 · 폴드 펼침(폰 틀) 690 · PC 1280.
+// 메뉴 화면 표는 S70-57 표 하나(helpers/menu-find/index.mjs)를 같이 쓴다.
+import MENU_FINDS from './helpers/menu-find/index.mjs';
+const Q3_WIDTHS = [390, 690, 1280];
+const q3Box = async loc => { const b = await loc.boundingBox(); expect(b).not.toBeNull(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
+// 누르기 전 자리: 맨 위 줄이 다 그려질 때까지(PC 위치 줄·단추 상자가 늦게 붙으면 칸 폭이 바뀐다 — 누르기와 상관없음) 두 번 잰 값이 같아질 때를 쓴다.
+const q3Settled = async loc => { let last = null; for (let i = 0; i < 20; i++) { const b = await q3Box(loc); if (last && ['x', 'y', 'w', 'h'].every(k => last[k] === b[k])) return b; last = b; await loc.page().waitForTimeout(150); } return last; };
+const q3Same = (a, b, what) => { for (const k of ['x', 'y', 'w', 'h']) expect(Math.abs(a[k] - b[k]), `${what} ${k}`).toBeLessThanOrEqual(1); };
+for (const width of Q3_WIDTHS) test(`Q3 홈 ${width}: '전체 검색' 칸을 누르면 같은 자리·같은 크기로 입력, 결과만 아래 · 뒤로 = 홈 원래 상태`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  const input = page.locator(width > 760 ? '#gsTopInput' : '#gsHeadInput');
+  await expect(input).toBeVisible();
+  await expect(input).toHaveAttribute('placeholder', '전체 검색');
+  const before = await q3Settled(input);
+  await input.click();
+  await expect(input).toBeFocused();
+  if (width <= 760) {
+    await expect(page.locator('#searchView')).toBeVisible();
+    await expect(page.locator('#homeView')).toBeHidden();
+    // 화면 안 두 번째 칸·'검색' 제목 줄 없음.
+    await expect(page.locator('#searchView input')).toHaveCount(0);
+    await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toBeHidden();
+  }
+  q3Same(before, await q3Box(input), '누른 뒤');
+  await input.pressSequentially('가상', { delay: 20 });
+  await expect(input).toHaveValue('가상');
+  if (width > 760) await expect(page.locator('#gsPanel')).toBeVisible();
+  q3Same(before, await q3Box(input), '친 뒤');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  // 뒤로: 폰 틀은 기기 뒤로가기(전체 검색 화면을 닫음), PC 틀은 Esc(결과 창을 닫음). 홈은 원래 상태.
+  if (width <= 760) {
+    await page.goBack();
+    await expect(page.locator('#homeView')).toBeVisible();
+    await expect(input).toHaveValue('');
+    await expect(input).not.toBeFocused();
+  } else {
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#gsPanel')).toBeHidden();
+    await expect(page.locator('#homeView')).toBeVisible();
+  }
+  q3Same(before, await q3Box(input), '뒤로 뒤');
+  expect(errors).toEqual([]);
+});
+for (const width of Q3_WIDTHS) for (const c of MENU_FINDS) test(`Q3 ${c.name} ${width}: '${c.label}' 칸은 누르고 쳐도 같은 자리·같은 크기`, async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await c.open(page, width);
+  // 화면 그리기가 끝난 뒤(목록·맨 위 줄 단추 상자가 다 그려진 뒤) 잰다.
+  await expect.poll(async () => { if (c.settle) await c.settle(page); return c.rows(page).count(); }).toBe(c.before);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const find = screenFindLocator(page);
+  await expect(find).toHaveAttribute('data-screen-find', /.+/);
+  // 폰(600px 미만)은 노트처럼 머리 줄 돋보기를 누르면 그 줄에 칸이 펼쳐진다 — 펼친 칸이 기준.
+  if (width < 600) { await page.locator('.mobile-shell-header .sf-open').click(); await expect(find).toBeFocused(); }
+  await expect(find).toBeVisible();
+  await expect(find).toHaveAttribute('placeholder', c.label);
+  const before = await q3Settled(find);
+  await find.click();
+  await expect(find).toBeFocused();
+  q3Same(before, await q3Box(find), '누른 뒤');
+  await find.fill(c.query);
+  await expect.poll(async () => { if (c.settle) await c.settle(page); return c.rows(page).count(); }).toBe(c.after);
+  q3Same(before, await q3Box(find), '친 뒤');
+  expect(errors).toEqual([]);
+});

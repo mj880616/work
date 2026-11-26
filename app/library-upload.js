@@ -1948,18 +1948,19 @@ function luSyncPicksNow(){
   const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
   if(cancel)cancel.disabled=luSelBusy;
 }
-// SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 검색칸 오른쪽에 작은 [결과 n개 모두 고르기].
+// SEARCH-선택옮기기 ⑤(10/28 10:44): 자료실 검색칸에 글자가 있고 걸러진 자료가 있으면 작은 [결과 n개 모두 고르기].
 // 폴더·묶음과 상관없이 걸러진 자료 전부를 선택 모드로 고른다(접힌 폴더 안 것 포함). 그 뒤 옮기기·분류 바꾸기·지우기는 같은 선택 모드가 맡는다.
+// S71-07 SEARCH-누른자리그대로(Q3): 단추는 맨 위 검색칸 옆(칸이 그만큼 좁아짐)이 아니라 본문 첫 줄 [폴더 ▾][분류 ▾] 끝에 둔다 — 치는 동안 칸 자리·크기가 그대로.
 let luSearchPickIds=[];
 function luSyncSearchPickAll(q,matches){
-  const row=luTools;
+  const row=document.querySelector('#libraryView .lu-pick-row')||luTools;
   let button=row.querySelector('#luSearchPickAll');
   luSearchPickIds=q?matches.filter(d=>!d.photoset&&!isPhotoSet(d)).map(d=>d.id):[];
   if(!luSearchPickIds.length){button?.remove();return}
   if(!button){
     button=document.createElement('button');button.type='button';button.id='luSearchPickAll';button.className='secondary lu-search-pick-all';
     button.addEventListener('click',()=>{if(luSelBusy||!luSearchPickIds.length)return;luPick.stop();luPick.start([...luSearchPickIds]);luRenderLibrary()});
-    row.prepend(button);
+    row.append(button);
   }
   button.textContent=`결과 ${luSearchPickIds.length}개 모두 선택`;
 }

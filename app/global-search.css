@@ -61,16 +61,17 @@
 }
 @media (max-width:760px){
   #appView #searchView{padding-bottom:calc(var(--kptu-mobile-tab-height,56px) + 16px)}
-  .gs-view-bar{position:sticky;top:var(--kptu-stick-top,0px);z-index:2;margin:0 -12px 8px;padding:6px 12px;background:var(--kptu-bg)}
+  /* S71-07: 폰 틀은 화면 안 검색 줄이 없다 — 칸은 앱 머리 줄 '전체 검색' 칸 그대로(홈에서 누른 자리·크기). */
+  .gs-view-bar{display:none}
   .gs-input{height:40px;font-size:16px}
   .gs-view-body{border-radius:var(--kptu-radius-md)}
   .gs-row-title,.gs-row-snippet,.gs-row-meta{white-space:normal;overflow-wrap:anywhere}
 }
 
-/* 폰 틀(~760px) 홈 앱 머리 줄의 '전체 검색' 입구: 누르면 화면 전체 검색. 자리는 topbar-actions.css(홈에서만 보임, S70-57). */
-.mobile-shell-search .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:36px;min-height:36px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer}
-.mobile-shell-search .gs-menu-entry .gs-field-icon{left:10px}
-.mobile-shell-search .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* 폰 틀(~760px) 앱 머리 줄의 '전체 검색' 칸(#gsHeadInput, S71-07 SEARCH-누른자리그대로): 처음부터 입력 칸. 홈에서 누르면 같은 칸 그대로 전체 검색 화면.
+   자리·보임은 topbar-actions.css(홈·전체 검색 화면에서만, S70-57). 높이는 다른 화면 찾기 칸(.mobile-shell-find)과 같은 36px. */
+.mobile-shell-search .gs-menu-entry{width:100%}
+.mobile-shell-search .gs-input{height:36px;min-height:36px}
 
 /* LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭·꾹 누르기 메뉴. 자료실 줄 메뉴(.lu-more-panel)와 같은 모양(이 화면에서는 그 CSS가 없을 수 있어 같은 값을 둔다). */
 .gs-row-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}

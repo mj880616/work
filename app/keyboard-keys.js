@@ -21,7 +21,7 @@ const shown = el => !!el && el.getClientRects().length > 0 && getComputedStyle(e
 // ---------- 전체 검색 단축키 ----------
 const SEARCH_KEYS = 'Control+K Meta+K /';
 function searchInput() {
-  return [document.getElementById('gsTopInput'), document.getElementById('gsViewInput')].find(shown) || null;
+  return [document.getElementById('gsTopInput'), document.getElementById('gsHeadInput')].find(shown) || null;
 }
 function focusSearch(input) {
   input.setAttribute('aria-keyshortcuts', SEARCH_KEYS);
