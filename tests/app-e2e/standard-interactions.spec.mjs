@@ -2217,7 +2217,7 @@ for (const [name, width, open] of DRAG_SCROLL_SCREENS) test.describe(`D3 ${name}
 });
 
 // ---------- B1 뒤로가기 = 직전 화면(S71-76 NAV-뒤로가기직전화면) ----------
-// 2026-11-26 23:42 사용자 "노트 저장한 글 … 그 글로 가거든 / 여기서 폰 뒤로가기 버튼 누르면 읽을 거리로 가 / … 저장한 글 목록으로 가야 맞지":
+// 2026-11-26 23:42 사용자 보고(노트 › 저장한 글에서 연 글에서 폰 뒤로가기가 읽을 거리로 감 — 직전 화면 규칙 위반):
 // 한 화면 줄이 다른 화면 항목을 열면, 뒤로가기 한 번 = 그 줄이 있던 화면·같은 목록·같은 자리(스크롤). 도착 화면 목록에 멈추지 않는다.
 // 폰 390·PC 1280 모두 history.back(폰 앱·삼성 인터넷 뒤로 키와 같은 길). 길 표는 helpers/back-prev/index.mjs 하나.
 import { BACK_PATHS, backPress } from './helpers/back-prev/index.mjs';
