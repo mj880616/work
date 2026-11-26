@@ -6,6 +6,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {serveBuiltShell} from './helpers/built-shell.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {screenFind,screenFindLocator,screenTools} from './helpers/screen-find.mjs';
 
 const origin=appOrigin;
 const SHOTS=process.env.S62_19_SHOTS?'docs/design/screens/s62-19/':'test-results/';
@@ -94,17 +95,17 @@ test('이용자: 소식이 없으면 한 줄',async({page})=>{
   await expect(page.locator('#whatsnewView [data-wait-empty]')).toHaveText('아직 소식이 없어요',{timeout:15000});
 });
 
-for(const width of [412,880,1280])test(`운영자: 기록 줄 [보내기] → 글 채워진 창(폰에서 볼 것 기본 빼기·묶기) → 서버로 (${width}px)`,async({page})=>{
+for(const width of [390,880,1280])test(`운영자: 기록 줄 [보내기] → 글 채워진 창(폰에서 볼 것 기본 빼기·묶기) → 서버로 (${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const calls=await boot(page,{operator:true,view:'updates'});
   const view=page.locator('#updatesView');
   await expect(view.locator('.rn-note')).toHaveCount(4,{timeout:15000});
-  await expect(view.locator('.un-cut')).toContainText('이용자에게 보이는 시작 날짜 11/20');
-  const sent=view.locator('.un-sent');
-  if(width<900)await sent.locator('summary').click();
-  await expect(sent.locator('.un-item').first()).toContainText('읽음 7/9');
-  await expect(sent.locator('.un-cutline')).toContainText('여기부터 위만 이용자에게 보임');
+  // S71-31: 기록에서 나간 소식(n2·n1)은 기록 줄 버튼이 맡고, 목록 위에는 기록 줄에 없는 소식(직접 쓴 n0)만 줄로.
+  const loose=view.locator('[data-un-admin] .un-item');
+  await expect(loose).toHaveCount(1);
+  await expect(loose.first()).toContainText('시작 날짜 전 소식');
+  await expect(loose.first()).toContainText('읽음 0/9');
   // S67-73: 보낸 기록은 버튼 자체가 [보냄], 안 보낸 기록은 [보내기]. 따로 붙는 '보냄' 꼬리표는 없다.
   // S68-14: [보냄]도 누를 수 있다(누르면 거두기).
   await expect(view.locator('.rn-note').first().locator('[data-rn-send]')).toHaveText('보냄');
@@ -137,26 +138,76 @@ for(const width of [412,880,1280])test(`운영자: 기록 줄 [보내기] → �
   expect(save.body).toEqual({p_id:null,p_title:'사진·파일',p_lines:['사진 화면에 내 구글 드라이브 칸이 생겼어요','메뉴에 [파일]이 생겼어요'],p_sources:['11/15-1','11/15-3']});
 });
 
-test('운영자: 보낸 소식 [수정]·[거두기]·시작 날짜 바꾸기',async({page})=>{
+// S71-31 RELNOTE-머리줄정리(명진 11/26 "이용자에게 보이는 시작날짜랑 바꾸기 삭제 불필요" / "보낸 소식 260 이용자에게 보이는 그대로도 삭제"
+// / "낱말로 찾기랑 직접 쓰기 한줄로 / 낱말로 찾기는 찾기로"): 시작 날짜 줄·[바꾸기]·접히는 '보낸 소식 N' 줄이 없고, 찾기·[+]는 맨 위 줄 하나.
+for(const width of [390,1280])test(`운영자: 위쪽 시작 날짜 줄·'보낸 소식' 줄 없음 · 맨 위 한 줄 [찾기][+] · 찾기로 목록 걸러짐 · [+]로 직접 쓰기 (${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const calls=await boot(page,{operator:true,view:'updates'});
+  const view=page.locator('#updatesView');
+  await expect(view.locator('.rn-note')).toHaveCount(4,{timeout:15000});
+  // (가) 시작 날짜 줄·[바꾸기]·안내 줄 없음, (나) '보낸 소식 N · 이용자에게 보이는 그대로' 줄 없음
+  await expect(view.getByText('이용자에게 보이는 시작 날짜')).toHaveCount(0);
+  await expect(view.getByText('시작 날짜 정하기')).toHaveCount(0);
+  await expect(view.getByText('이용자에게 보이는 그대로')).toHaveCount(0);
+  await expect(view.getByText(/^보낸 소식/)).toHaveCount(0);
+  await expect(view.locator('summary.un-sent-head,[data-un-start],[data-un-notice],.un-cutline')).toHaveCount(0);
+  await expect(view.getByRole('button',{name:'바꾸기'})).toHaveCount(0);
+  // 화면 안 찾기 칸·[+ 직접 쓰기] 글자 단추 없음
+  await expect(view.locator('input')).toHaveCount(0);
+  await expect(view.locator('[data-un-write]')).toHaveCount(0);
+  // 맨 위 줄 하나: 찾기 + [+](맨 오른쪽, 이름 '직접 쓰기')
+  const add=screenTools(page).getByRole('button',{name:'직접 쓰기',exact:true});
+  await expect(add).toBeVisible();
+  await expect(add).toHaveText('');
+  if(width<600)await expect(screenFindLocator(page)).toBeHidden();
+  const find=await screenFind(page);
+  await expect(find).toHaveAttribute('placeholder','업데이트 기록에서 찾기');
+  const line=await page.evaluate(()=>{
+    const f=document.querySelector(innerWidth>760?'#gsTopInput':'#gsScreenInput').getBoundingClientRect(),a=document.querySelector('[data-sf-tools="updates"] [data-un-write]').getBoundingClientRect();
+    const mid=r=>r.top+r.height/2;
+    return {same:Math.abs(mid(f)-mid(a))<=4,right:a.left>=f.right-1,size:[Math.round(a.width),Math.round(a.height)]};
+  });
+  expect(line.same,'찾기 칸과 [+]가 한 줄').toBe(true);
+  expect(line.right,'[+]가 찾기 오른쪽').toBe(true);
+  expect(line.size).toEqual([32,32]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`${SHOTS}s71-31-head-${width}.png`});
+  // 찾기: 글자 넣으면 목록이 걸러진다
+  await find.fill('게시판');
+  await expect(view.locator('.rn-note')).toHaveCount(1);
+  await expect(view.locator('.rn-note .rn-ver')).toHaveText('11/15-1');
+  await expect(view.locator('.rn-count')).toHaveText('찾은 기록 1개');
+  await find.fill('');
+  await expect(view.locator('.rn-note')).toHaveCount(4);
+  // [+] → 직접 쓰기 창(시작 날짜 칸 없음) → 보내면 save만, 시작 날짜는 부르지 않는다
+  await add.click();
+  const modal=page.locator('#updateNewsSend');
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('[data-un-send-start],[data-un-notice]')).toHaveCount(0);
+  await modal.locator('textarea').fill('· 시험 소식');
+  await modal.getByRole('button',{name:'보내기',exact:true}).click();
+  await expect(modal).toHaveCount(0);
+  await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_save'))?.body).toEqual({p_id:null,p_title:null,p_lines:['시험 소식'],p_sources:[]});
+  expect(calls.some(c=>c.path.endsWith('app_update_news_set_start'))).toBe(false);
+});
+
+test('운영자: 기록 줄에 없는 소식(직접 쓴 것) 줄의 [수정]·[거두기]는 그대로',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1280,height:900});
   const calls=await boot(page,{operator:true,view:'updates'});
-  const sent=page.locator('#updatesView .un-sent');
-  await expect(sent.locator('.un-item').first()).toBeVisible({timeout:15000});
-  await sent.locator('[data-un-edit="n2"]').click();
+  const box=page.locator('#updatesView [data-un-admin]');
+  await expect(box.locator('.un-item').first()).toBeVisible({timeout:15000});
+  await box.locator('[data-un-edit="n0"]').click();
   const modal=page.locator('#updateNewsSend');
-  await expect(modal.getByLabel('제목(선택)')).toHaveValue('구글 드라이브 사진·파일');
+  await expect(modal.locator('textarea')).toHaveValue('· 시작 날짜 전 소식');
   await modal.getByRole('button',{name:'수정',exact:true}).click();
   await expect(modal).toHaveCount(0);
-  expect(calls.find(c=>c.path.endsWith('app_update_news_save')).body.p_id).toBe('n2');
-  await sent.locator('[data-un-withdraw="n1"]').click();
+  expect(calls.find(c=>c.path.endsWith('app_update_news_save')).body.p_id).toBe('n0');
+  await box.locator('[data-un-withdraw="n0"]').click();
   await page.getByRole('button',{name:'거두기',exact:true}).last().click();
-  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_withdraw')&&c.body.p_id==='n1')).toBe(true);
-  await page.locator('#updatesView .un-cut [data-un-start]').click();
-  const start=page.locator('#updateNewsStart');
-  await start.getByLabel('시작 날짜').fill('2026-11-25');
-  await start.getByRole('button',{name:'바꾸기',exact:true}).click();
-  await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:'2026-11-25'});
+  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_withdraw')&&c.body.p_id==='n0')).toBe(true);
+  await expect(box.locator('.un-item.is-withdrawn [data-un-resend="n0"]')).toBeVisible();
 });
 
 // S68-14(명진 11/22 "업데이트 기록 보낸 후 거둬들일 수가 없음"): 기록 줄 [보냄]을 누르면 확인 → 그 기록이 든 소식을 거두고 [보내기]로 돌아간다.
@@ -184,7 +235,8 @@ for(const width of [412,1280])test(`운영자: 기록 줄 [보냄] → 확인 �
   // S68-46: 거둔 기록은 [다시 보내기](새로 쓰는 [보내기]가 아님).
   await expect(btn).toHaveText('다시 보내기');
   await expect(btn).toHaveAttribute('aria-label','11/15-2 거둔 소식 다시 보내기');
-  await expect(view.locator('.un-sent .un-item.is-withdrawn')).toHaveCount(1);
+  // 기록에서 나간 소식은 목록 위 줄로 따로 나오지 않는다(기록 줄 버튼 하나가 맡음).
+  await expect(view.locator('[data-un-admin] [data-un-resend="n1"]')).toHaveCount(0);
 });
 
 test('운영자: 여러 기록을 묶어 보낸 소식은 [보냄] 확인 창에 같이 거둬지는 기록 수',async({page})=>{
@@ -202,71 +254,8 @@ test('운영자: 여러 기록을 묶어 보낸 소식은 [보냄] 확인 창에
   await expect(view.locator('.rn-note').nth(1).locator('[data-rn-send]')).toHaveText('보냄');
 });
 
-// UPDATE-소식안보임(요청함 11/16): 시작 날짜가 없으면 아무 소식도 이용자에게 안 보인다(서버 규칙). 운영자 화면이 한 줄로 알리고, 보낼 때 오늘로 같이 정한다.
-for(const width of [412,880,1280])test(`운영자: 시작 날짜 없음 → 안내 줄·[시작 날짜 정하기], 보내기 창에서 오늘로 같이 정하기 (${width}px)`,async({page})=>{
-  test.setTimeout(90000);
-  await page.setViewportSize({width,height:900});
-  const calls=await boot(page,{operator:true,view:'updates',startOn:null});
-  const view=page.locator('#updatesView');
-  await expect(view.locator('.rn-note')).toHaveCount(4,{timeout:15000});
-  await expect(view.locator('.un-cut')).toContainText('이용자에게 보이는 시작 날짜 정하지 않음');
-  const notice=view.locator('[data-un-notice]');
-  await expect(notice).toBeVisible();
-  await expect(notice).toContainText('시작 날짜가 없어 이용자에게 아직 안 보여요');
-  await expect(notice.getByRole('button',{name:'시작 날짜 정하기'})).toBeVisible();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-  await page.screenshot({path:`${SHOTS}operator-no-start-${width}.png`});
-  // [시작 날짜 정하기] → 오늘이 채워진 창, 버튼 '정하기'
-  const today=await page.evaluate(()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10));
-  await notice.getByRole('button',{name:'시작 날짜 정하기'}).click();
-  const start=page.locator('#updateNewsStart');
-  await expect(start.getByLabel('시작 날짜')).toHaveValue(today);
-  await start.getByRole('button',{name:'취소'}).click();
-  await expect(start).toHaveCount(0);
-  // 기록 줄 [보내기] → 창에 안내 줄 + '오늘부터 보이게 시작 날짜도 정하기'(기본 켬) → 보내면 save 다음 set_start(오늘)
-  await view.locator('.rn-note').nth(2).locator('[data-rn-send]').click();
-  const modal=page.locator('#updateNewsSend');
-  await expect(modal.locator('[data-un-notice="send"]')).toHaveText('시작 날짜가 없어 이용자에게 아직 안 보여요');
-  const box=modal.locator('[data-un-send-start]');
-  await expect(box).toBeChecked();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-  await page.screenshot({path:`${SHOTS}operator-send-no-start-${width}.png`});
-  await modal.getByRole('button',{name:'보내기',exact:true}).click();
-  await expect(modal).toHaveCount(0);
-  await expect.poll(()=>calls.find(c=>c.path.endsWith('app_update_news_set_start'))?.body).toEqual({p_start:today});
-  const order=calls.map(c=>c.path.split('/').pop());
-  expect(order.indexOf('app_update_news_save')).toBeLessThan(order.indexOf('app_update_news_set_start'));
-});
-
-test('운영자: 시작 날짜 없음에서 칸을 끄고 보내면 시작 날짜는 그대로',async({page})=>{
-  test.setTimeout(60000);
-  await page.setViewportSize({width:1280,height:900});
-  const calls=await boot(page,{operator:true,view:'updates',startOn:null});
-  await page.locator('#updatesView [data-un-write]').click();
-  const modal=page.locator('#updateNewsSend');
-  await modal.locator('textarea').fill('· 시험 소식');
-  await modal.locator('[data-un-send-start]').uncheck();
-  await modal.getByRole('button',{name:'보내기',exact:true}).click();
-  await expect(modal).toHaveCount(0);
-  await expect.poll(()=>calls.some(c=>c.path.endsWith('app_update_news_save'))).toBe(true);
-  expect(calls.some(c=>c.path.endsWith('app_update_news_set_start'))).toBe(false);
-});
-
-test('운영자: 시작 날짜 앞 소식이 있으면 개수 안내, 수정 창에는 시작 날짜 칸 없음',async({page})=>{
-  test.setTimeout(60000);
-  await page.setViewportSize({width:412,height:900});
-  await boot(page,{operator:true,view:'updates'});
-  const notice=page.locator('#updatesView [data-un-notice]');
-  await expect(notice).toContainText('보낸 소식 1개는 시작 날짜 앞이라 이용자에게 안 보여요',{timeout:15000});
-  await page.locator('#updatesView .un-sent summary').click();
-  await page.locator('#updatesView [data-un-edit="n2"]').click();
-  const modal=page.locator('#updateNewsSend');
-  await expect(modal).toBeVisible();
-  await expect(modal.locator('[data-un-send-start]')).toHaveCount(0);
-});
-
 // S68-46 UPDATE-소식자동(명진 11/23 12:37 "업데이트 기록 기본 자동으로 보내고 수동으로는 회수 가능하게"):
-// 새 기록은 서버가 자동으로 보낸다(운영자 화면은 누르지 않아도 [보냄]). 보낸 소식 목록에 '자동' 표시, 거둔 것은 '거둠' + [다시 보내기].
+// 새 기록은 서버가 자동으로 보낸다(운영자 화면은 누르지 않아도 [보냄]). 거두기·다시 보내기는 기록 줄 버튼 하나(S71-31부터 따로 '보낸 소식' 목록 없음).
 // 자동 소식은 기록 파일 이름으로 맞춘다 — 같은 날 기록이 늦게 들어와 순번이 밀려도 맞는 줄이 [보냄].
 const AUTO_NOTES={schema:1,current:'11/23-3',notes:[
   {...note('11/23-3','2026-11-23',['새 기록 줄 하나']),file:'20261123-1300-new'},
@@ -274,7 +263,7 @@ const AUTO_NOTES={schema:1,current:'11/23-3',notes:[
   {...note('11/23-1','2026-11-23',['옛 기록']),file:'20261123-1000-old'}
 ]};
 const AUTO_ITEM={id:'a1',title:null,lines:['새 기록 줄 하나'],sources:['11/23-2'],source_files:['20261123-1300-new'],auto:true,sent_at:'2026-11-23T05:00:00Z',edited_at:null,reads:1,withdrawn_at:null};
-for(const width of [412,1280])test(`운영자: 자동으로 나간 기록은 처음부터 [보냄]·'자동' 표시, 목록에서 거두기 → [다시 보내기] (${width}px)`,async({page})=>{
+for(const width of [412,1280])test(`운영자: 자동으로 나간 기록은 처음부터 [보냄], 기록 줄에서 거두기 → [다시 보내기] → [보냄] (${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const calls=await boot(page,{operator:true,view:'updates',notes:AUTO_NOTES,sources:[[],[]],extra:[AUTO_ITEM]});
@@ -284,25 +273,19 @@ for(const width of [412,1280])test(`운영자: 자동으로 나간 기록은 처
   await expect(first).toHaveText('보냄');
   await expect(second).toHaveText('보내기','순번(11/23-2)이 같아도 다른 파일이면 안 나간 기록');
   await expect(view.locator('.rn-note').nth(2).locator('[data-rn-send]')).toHaveText('보내기');
-  const sent=view.locator('.un-sent');
-  if(width<900)await sent.locator('summary').click();
-  const row=sent.locator('.un-item').filter({hasText:'새 기록 줄 하나'});
-  await expect(row.locator('.un-date',{hasText:'자동'})).toHaveCount(1);
+  // 자동 소식은 기록 줄이 맡으므로 목록 위 줄로 나오지 않는다(직접 쓴 n0만).
+  await expect(view.locator('[data-un-admin] .un-item').filter({hasText:'새 기록 줄 하나'})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   await page.screenshot({path:`${SHOTS}operator-auto-${width}.png`});
-  await row.locator('[data-un-withdraw="a1"]').click();
+  await first.click();
   await page.getByRole('button',{name:'거두기',exact:true}).last().click();
   await expect.poll(()=>calls.filter(c=>c.path.endsWith('app_update_news_withdraw')).map(c=>c.body.p_id)).toEqual(['a1']);
-  const pulled=sent.locator('.un-item.is-withdrawn').filter({hasText:'새 기록 줄 하나'});
-  await expect(pulled.locator('.un-date',{hasText:'거둠'})).toHaveCount(1);
   await expect(first).toHaveText('다시 보내기');
-  // 목록의 [다시 보내기] → 확인 → 서버 resend → 다시 보낸 상태([보냄]·거두기 버튼).
-  await pulled.locator('[data-un-resend="a1"]').click();
+  await first.click();
   await expect(page.locator('.kptu-ask-text')).toHaveText('이 소식을 다시 보낼까요? 이용자 화면에 다시 보여요.');
   await page.getByRole('button',{name:'다시 보내기',exact:true}).last().click();
   await expect.poll(()=>calls.filter(c=>c.path.endsWith('app_update_news_resend')).map(c=>c.body)).toEqual([{p_id:'a1'}]);
   await expect(first).toHaveText('보냄');
-  await expect(sent.locator('[data-un-withdraw="a1"]')).toBeVisible();
   expect(calls.some(c=>c.path.endsWith('app_update_news_save')),'자동 기록은 운영자가 따로 보내지 않는다').toBe(false);
 });
 

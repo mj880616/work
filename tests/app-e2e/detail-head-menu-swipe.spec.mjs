@@ -7,7 +7,7 @@ import { noteTrash } from './helpers/note-trash.mjs';
 // [1] 위에 다른 칸(공유 받기 칸 등)이 떠 있어도 업데이트·노트 상세의 '‹ 잊지 말기 … ⋯' 줄이 그 위에 포개지지 않는다(폰 412·폴드 884).
 // [2] 정리함 업데이트 줄 ⋯ 메뉴가 [삭제]까지 안쪽 스크롤 없이 다 보이고, [삭제]는 맨 끝에 선으로 나뉜다(412·884).
 // [3] 폰 목록 줄 밀기(S68-26 Raindrop식): 왼쪽으로 밀기 = 칸 여러 개(업데이트 [보류로][삭제], 노트 [고정][옮기기][삭제] — 삭제는 휴지통 + '지웠어요 [되돌리기]'),
-//     오른쪽으로 밀기 = [고르기]. 조금 밀면 칸만 보이고 멈추고, 끝까지 밀면 맨 끝 칸을 바로 실행한다(삭제면 칸만 열림). 폴드 펼친 폭(884)은 ⋯·우클릭 메뉴만(밀기 없음).
+//     오른쪽으로 밀기 = [고르기]. 밀면 칸만 보이고 멈춘다 — 끝까지 밀어도 바로 실행하지 않는다(S70-60). 폴드 펼친 폭(884)은 ⋯·우클릭 메뉴만(밀기 없음).
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co', stamp = '2026-10-06T01:00:00Z';
 const A = '10000000-0000-4000-8000-0000000000a1', B = '10000000-0000-4000-8000-0000000000b2';
@@ -142,7 +142,7 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator(`[data-basket-row="${B}"]`), -320);
   const cells = page.locator('#basketRows [data-row-swipe-act="end"]');
-  await expect(cells).toHaveText(['보류로', '삭제']);
+  await expect(cells).toHaveText(['보류로', '수정', '삭제']); // S70-65 가안
   await expect(page.locator(`[data-basket-row="${B}"]`)).toBeVisible();
   expect(f.writes.filter(w => w.method === 'DELETE')).toHaveLength(0); // 끝까지 밀어도 바로 지우지 않는다
   await page.locator('#basketRows [data-row-swipe-key="delete"]').tap();
@@ -167,36 +167,39 @@ test('[3] 폰 업데이트 줄(Raindrop식): 왼쪽으로 끝까지 밀어도 �
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 줄을 눌러 더 고르고 한 번에 [보류로]', async ({ page }) => {
+test('[3] 폰 업데이트 줄: 오른쪽으로 밀면 [고르기] → 다른 줄을 눌러 더 고르고 한 번에 [삭제](휴지통)', async ({ page }) => {
   const f = await updates(page, 412);
+  // S70-64(W3): 오른쪽으로 반 칸 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄이 골라진다.
   await swipe(page.locator(`[data-basket-row="${A}"]`), 50);
-  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveText('선택');
-  await page.locator('#basketRows [data-row-swipe-key="select"]').tap();
+  await expect(page.locator('#basketRows [data-row-swipe-act="start"]')).toHaveCount(0);
   const bar = page.locator('#basketView .row-swipe-pickbar');
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
-  await expect(bar.locator('button')).toHaveText(['보류로', '삭제', '모두 선택', '그만']);
+  await expect(bar.locator('[data-row-pick-all]')).toHaveAttribute('aria-checked', 'false');
+  // S70-64b: 막대 = [전체 선택][삭제] 두 칸(보류는 줄 밀기·⋯로).
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['삭제']);
   await page.locator(`[data-basket-row="${B}"]`).tap();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(page.locator('[data-basket-detail]')).toBeHidden(); // 고르는 동안 줄을 눌러도 열리지 않는다
-  await bar.locator('[data-row-pick-act="hold"]').tap();
-  await expect.poll(() => f.writes.filter(w => w.method === 'PATCH').length).toBe(2);
-  expect(f.writes.filter(w => w.method === 'PATCH').every(w => w.body.archived_at)).toBe(true);
+  await bar.locator('[data-row-pick-act="delete"]').tap();
+  await expect.poll(() => f.writes.length).toBeGreaterThanOrEqual(2);
   await expect(bar).toBeHidden();
-  expect(f.writes.filter(w => w.method === 'DELETE')).toHaveLength(0);
+  await expect(page.locator(`[data-basket-row="${A}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-basket-row="${B}"]`)).toHaveCount(0);
   expect(f.errors).toEqual([]);
 });
 
-test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제], 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
+test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [옮기기][수정][삭제](S70-65, 고정은 ⋯), 오른쪽 끝까지 밀면 노트 선택 모드(그 줄이 골라짐)', async ({ page }) => {
   const f = await notesList(page, 412);
+  // 휴지통에서 되돌리면 서버 목록에도 다시 있다(업데이트 줄 시험과 같음) — 되돌린 뒤 다시 읽어도 두 줄 그대로.
+  f.trash.onRestore = row => { const { link_count, deleted_at, ...back } = row; f.rows.push(back); };
   page.on('dialog', d => { throw new Error('묻지 않아야 함: ' + d.message()); });
   await swipe(page.locator('[data-note-row="n-two"]'), -50);
   const cells = page.locator('[data-note-list] [data-row-swipe-act="end"]');
   await expect(cells).toHaveCount(3);
   await expect(cells.last()).toHaveText('삭제');
-  await expect(cells.first()).toHaveText('고정');
-  await cells.first().tap();
-  await expect.poll(() => f.writes.filter(w => w.method === 'PATCH').length).toBe(1);
-  expect(f.writes.find(w => w.method === 'PATCH').body.metadata?.pinned_at).toBeTruthy();
+  await expect(cells).toHaveText(['옮기기', '수정', '삭제']);
+  await swipe(page.locator('[data-note-row="n-two"]'), 50); // 열린 칸은 반대로 조금 밀어 닫는다(S68-50)
+  await expect(cells).toHaveCount(0);
   // 노트 보기 전환(좌우 밀기)은 일어나지 않는다: 목록 보기 그대로.
   await expect(page.locator('[data-note-row]')).toHaveCount(2);
   await swipe(page.locator('[data-note-row="n-one"]'), -50);
@@ -208,9 +211,18 @@ test('[3] 폰 노트 줄: 왼쪽으로 조금 밀면 [고정][옮기기][삭제]
   await expect(undo).toBeVisible();
   await undo.click();
   await expect.poll(() => f.trash.restored).toEqual(['n-one']);
-  // 오른쪽 끝까지: 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음).
-  await swipe(page.locator('[data-note-row="n-two"]'), 320);
-  await expect(page.locator('[data-nx-select-bar]')).toBeVisible();
+  // 오른쪽 끝까지: 바로 그 줄 선택(S70-64 W3). 노트에 이미 있는 선택 모드가 그 줄을 고른 채로 열린다(새 고르기 줄을 만들지 않음), [선택] 칸은 남지 않는다.
+  // 되돌린 뒤 목록이 다시 읽혀 그려지면 손동작이 빠질 수 있으므로 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 두 번 골라지지 않음).
+  const pick = page.locator('[data-note-list] [data-row-swipe-key="select"]');
+  const bar = page.locator('[data-nx-select-bar]');
+  await expect(page.locator('[data-note-row="n-one"]')).toHaveCount(1);
+  await expect(page.locator('[data-note-row]')).toHaveCount(2);
+  await expect(async () => {
+    if (await bar.isVisible()) return;
+    await swipe(page.locator('[data-note-row="n-two"]'), 320);
+    await expect(bar).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
+  await expect(pick).toHaveCount(0);
   await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
   await expect(page.locator('[data-note-list] .row-swipe-pickbar')).toHaveCount(0);
   expect(f.errors).toEqual([]);

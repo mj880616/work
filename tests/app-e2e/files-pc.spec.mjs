@@ -178,15 +178,21 @@ test.describe('윈도우 PC 1440', () => {
     await expect(prev).toContainText('미리보기 없이 이름·크기만');
     await expect(prev).toContainText('내 PC › C: › 문서');
     await expect(prev.locator('[data-fx-star-one], [data-fx-copy-one], [data-fx-down]')).toHaveCount(0);
+    // S70-72 FILES-상세칸정리: PC 넓은 폭 상세 칸에는 동작 줄이 없다 — [이 PC에서 열기]·[탐색기에서 위치]·[휴지통]은 줄 우클릭 메뉴에.
+    await expect(prev.locator('.fx-pv-acts')).toHaveCount(0);
+    const rowMenu = page.locator('#rowMenu');
+    const menuDo = async name => { await file.click({ button: 'right' }); await rowMenu.getByRole('button', { name, exact: true }).click({ force: true }); };
     // S53-12: [휴지통]은 숨기지 않고 흐리게(보기·열기만 되는 판) — 누르면 이유 한 줄만.
-    await expect(prev.locator('[data-fx-trash-one]')).toHaveAttribute('data-fx-off', 'pc');
-    // 흐린 단추(aria-disabled)는 Playwright가 '못 누름'으로 보고 기다리므로 force로 누른다(실제 화면에서는 눌리고 이유 한 줄).
-    await prev.locator('[data-fx-trash-one]').click({ force: true });
+    await file.click({ button: 'right' });
+    await expect(rowMenu.locator('[data-row-item="trash"]')).toHaveAttribute('aria-disabled', 'true');
+    await page.keyboard.press('Escape');
+    // 흐린 항목(aria-disabled)은 Playwright가 '못 누름'으로 보고 기다리므로 force로 누른다(실제 화면에서는 눌리고 이유 한 줄).
+    await menuDo('휴지통');
     await expect(page.getByText(/새 판\(0\.4\.0\)으로 올리면/).filter({ visible: true }).first()).toBeVisible(); // 우클릭 메뉴(들어가기)의 숨은 안내 글은 빼고 본다
     await shot(page, 'files-pc-1440');
-    await prev.locator('[data-fx-open]').click();
+    await menuDo('이 PC에서 열기');
     await expect.poll(() => st.calls.filter(c => c.path === '/v1/open').map(c => JSON.parse(c.body).path)).toEqual(['C:\\문서\\가짜 회의자료_연습.hwpx']);
-    await prev.locator('[data-fx-pc-reveal]').click();
+    await menuDo('탐색기에서 위치');
     await expect.poll(() => st.calls.filter(c => c.path === '/v1/reveal').length).toBe(1);
     // 고르면 '보기·열기만' 막대, Delete·Ctrl+C는 안내만(서버로 가지 않음).
     await file.click({ modifiers: ['Control'] });
@@ -498,7 +504,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('미리보기: 글은 앞부분만 문에서 읽어 보기 칸에, 아래 줄 [이 PC에서 열기][탐색기에서 위치][복사][옮기기][이름][휴지통]. 0.4.0 문은 이름·휴지통 없음', async ({ page }) => {
+  test('미리보기: 글은 앞부분만 문에서 읽어 보기 칸에, 동작은 줄 우클릭 [이 PC에서 열기][탐색기에서 위치][복사][옮기기][이름 바꾸기][휴지통]. 0.4.0 문은 이름·휴지통 없음', async ({ page }) => {
     test.setTimeout(90000);
     const { errors, st } = await begin(page, { edit: true });
     await openDocs(page);
@@ -507,14 +513,21 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     await expect(prev.locator('.fx-pv-text')).toHaveText('AAAAAAAAAAAA');
     const read = st.calls.find(c => c.path === '/v1/read');
     expect(read.q).toBe('C:\\문서\\가짜 메모_연습.txt');
-    await expect(prev.locator('.fx-pv-acts button')).toHaveText(['이 PC에서 열기', '탐색기에서 위치', '복사', '옮기기', '자료실로 보내기', '이름', '휴지통']); // S53-8: 내 PC 파일도 자료실로
+    // S70-72: PC 넓은 폭 상세 칸에는 동작 줄이 없다 — 예전 아래 줄 [이 PC에서 열기][탐색기에서 위치][복사][옮기기][자료실로 보내기][이름][휴지통]은 줄 우클릭 메뉴에 모두 있다(S53-8: 내 PC 파일도 자료실로).
+    await expect(prev.locator('.fx-pv-acts')).toHaveCount(0);
+    const txt = list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
+    await txt.click({ button: 'right' });
+    const names = await page.locator('#rowMenu button').allTextContents();
+    for (const n of ['열기', '이 PC에서 열기', '탐색기에서 위치', '자료실로 보내기', '복사', '옮기기', '이름 바꾸기', '휴지통']) expect(names, n).toContain(n);
+    await page.keyboard.press('Escape');
     await shot(page, 'files-pc-preview-text-1440');
     // 한글 문서(S52-44 ③부터 한글 미리보기 — 문에서 화면 메모리로 읽어 한글 엔진에 넘김). 흉내 문의 글자는 한글 파일이 아니라 엔진이 못 읽는다 = 한 줄 안내.
     await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx')).click();
     await expect.poll(() => st.calls.some(c => c.path === '/v1/read' && c.q === 'C:\\문서\\가짜 회의자료_연습.hwpx')).toBe(true);
     await expect(prev.locator('.fx-pv-note')).toBeVisible({ timeout: 60000 });
-    // 미리보기 [이름]도 같은 길.
-    await prev.locator('[data-fx-rename-one]').click();
+    // 줄 우클릭 [이름 바꾸기]도 같은 길(S70-72: 예전 미리보기 [이름]).
+    await list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_연습.hwpx')).click({ button: 'right' });
+    await page.locator('#rowMenu').getByRole('button', { name: '이름 바꾸기', exact: true }).click();
     await ask(page).locator('.kptu-ask-field').fill('가짜 회의자료_고침');
     await ask(page).getByRole('button', { name: '바꾸기' }).click();
     await expect(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 회의자료_고침.hwpx'))).toBeVisible();

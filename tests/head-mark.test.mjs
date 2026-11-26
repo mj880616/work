@@ -11,11 +11,12 @@ test('the mark is the app icon and goes home through the shared router path',()=
   assert.match(HEAD_MARK_HTML,/^<a class="head-mark" href="\.\/\?view=home" data-goto="home" aria-label="홈"><img src="\.\/app-icon\.svg" width="20" height="20" alt=""><\/a>$/);
   assert.match(readFileSync('app/app-router.js','utf8'),/closest\?\.\('\[data-view\],\[data-goto\]'\)/);
 });
-test('index.html carries the same mark at the start of the phone head and of the 사업 관리 first line',()=>{
-  assert.equal(html.split(HEAD_MARK_HTML).length-1,2);
+// S70-57: 사업 관리도 앱 머리 줄(아이콘·이름·찾기 돋보기)을 쓰므로 index.html의 아이콘은 앱 머리 줄 한 곳이다.
+test('index.html carries the same mark at the start of the phone head (사업 관리 first line has none)',()=>{
+  assert.equal(html.split(HEAD_MARK_HTML).length-1,1);
   assert.ok(html.includes('<header class="mobile-shell-header" hidden>'+HEAD_MARK_HTML+'<span data-mobile-view-name>'));
-  assert.ok(html.includes('<div class="toolbar report-top-line">'+HEAD_MARK_HTML+'<h2 class="report-top-title">'));
-  assert.equal((html.match(/class="head-mark"/g)||[]).length,2,'no hand-written copies');
+  assert.ok(html.includes('<div class="toolbar report-top-line"><span class="report-filter-slot">'));
+  assert.equal((html.match(/class="head-mark"/g)||[]).length,1,'no hand-written copies');
 });
 test('home head puts the shared mark first',()=>{
   assert.match(journal,/import \{HEAD_MARK_HTML\} from '\.\/head-mark\.mjs'/);
@@ -32,7 +33,7 @@ test('one style block: phone only, 20px picture, 44px press area, head name 15px
   assert.match(readFileSync('app/theme-tokens.css','utf8'),/--ds-text-head:15px;/);
   // 사업 관리: 같은 요소를 한 줄로 놓을 뿐, 숨기거나 덮어쓰지 않는다.
   assert.match(block,/#appView #meetingsView \.report-top > \.report-top-line\{ display:contents; \}/);
-  assert.match(block,/#appView #meetingsView \.report-top > \.report-kind-bar\{ order:2; flex:1 1 0; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; \}/);
+  assert.match(block,/#appView #meetingsView \.report-top > \.report-kind-bar\{ order:1; flex:0 1 auto; min-width:0; margin:0; flex-wrap:nowrap; overflow:hidden; \}/);
   // S67-75 UI-걸러보기칩하나(명진 A안): 상자 네 개가 줄에 다 안 들어갈 때 그 줄 자리를 비우는 규칙 하나만 예외다 — 상자는 칩이 여는 작은 창(.is-filter-panel)으로
   // 같은 요소 그대로 옮겨 보이므로 숨김이 아니라 자리 바꿈이다. 그 밖의 폰 규칙에는 숨김이 없다.
   const ONE_CHIP='#appView #meetingsView .report-top.is-filter-one > .report-kind-bar:not(.is-filter-panel){ display:none; }';

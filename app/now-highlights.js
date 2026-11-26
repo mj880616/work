@@ -1,6 +1,7 @@
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {loadHighlights, highlightsNow, onHighlights, openMarkMenu, noteWithNotice} from './text-highlights.js';
 import {hlHit, shortDay} from './text-highlights-model.mjs';
+import {lockedLineHtml} from './locked-line.mjs';
 // S53-5 NEWS-밑줄모으기 ③(시안 docs/design/mockups/news-highlights.html ③): News [밑줄] 탭. 이 칸(box)의 유일한 그리기 주인.
 // - 새 것이 위. 줄 = 고른 글(노란 띠) · 메모 · 매체 · 날짜 · 제목. 줄을 누르면 그 글의 그 자리로(onOpen), ⋯ = 메모·노트로·복사·지우기(밑줄 메뉴와 같은 부품).
 // - [여러 개 고르기] → 줄마다 고르기 칸 + 위쪽 고르기 줄 'n개 고름 [노트로] [모두 고르기] ✕'(공용 고르기 줄 .kptu-actbar-text) → 고른 밑줄을 노트 하나로.
@@ -41,7 +42,7 @@ export function createNowHighlights({box, query = () => '', onOpen} = {}) {
     const tgLocked = !!window.KPTUFeatureLock?.hides?.('telegram') && !!window.KPTUFeatureLock?.settings?.();
     const all = raw && (tgLocked ? raw.filter(h => h.source_type !== 'telegram') : raw);
     const hidden = raw && tgLocked ? raw.length - all.length : 0;
-    const lockedLine = hidden ? `<p class="nbx-faint forget-locked" data-nh-locked data-lock-here="telegram">텔레그램 밑줄 ${hidden}줄 · 잠김 <button type="button" class="row-act lk-open">풀기</button></p>` : '';
+    const lockedLine = hidden ? lockedLineHtml({features: ['telegram'], label: '텔레그램 밑줄', count: hidden, cls: 'nbx-faint forget-locked', attrs: 'data-nh-locked'}) : '';
     if (!all) { box.innerHTML = failed ? failHtml({retry: 'data-nh-retry'}) : waitHtml({rows: 4, h: 56}); return; }
     for (const id of [...picked]) if (!all.some(h => h.id === id)) picked.delete(id);
     const list = all.filter(h => hlHit(h, query()));

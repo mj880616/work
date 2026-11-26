@@ -124,7 +124,7 @@ const find = createFind({
 });
 const found = () => (find.active() && Array.isArray(find.get().result) ? find.get().result : []);
 // 목록 줄: 제목 중심(껍데기 rowOf). 마우스 단추 [보관][숨기기]는 PC·중간 폭에서만(폰은 줄 밀기).
-const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at, canDelete: canDeleteNews(it)})}) || '';
+const itemHtml = it => now()?.rowOf?.('news', it, {openAttr: 'data-nc-open', rowAttr: 'data-nc-item', acts: hoverActsHtml({isSaved: !!it.starred_at, canDelete: canDeleteNews(it), canEdit: true})}) || '';
 // 별표 폴더 칸의 줄: 같은 줄 + ☆(별표 빼기)·[폴더] 단추.
 function treeItemHtml(it) {
   const starred = !!it.starred_at, fid = itemFolderId(it, state.folders), note = state.notes.get(it.id);
@@ -519,6 +519,8 @@ bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemO
   enabled: () => state.mode === 'list',
   isSaved: item => !!itemById(item.id)?.starred_at,
   canDelete: item => canDeleteNews(itemById(item.id)),
+  // S70-62: 줄 [수정] = 그 기사 글 보기 + 기존 ⋯ [수정] 창(껍데기 KPTUNow.edit — 다른 탭과 같은 길).
+  canEdit: item => !!itemById(item.id), onEdit: item => { const it = itemById(item.id); if (it) window.KPTUNow?.edit?.(item, window.KPTUNow.describe('news', it)); },
   changed: rowChanged});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;

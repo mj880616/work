@@ -85,6 +85,9 @@
 .ft-main { container:ft-main / inline-size; }
 @container ft-main (max-width:14em) { .ft-tag { display:none; } }
 @container ft-main (max-width:5.5em) { .ft-num, .ft-offtag { display:none; } }
+/* TREE-탐색기꺾쇠(T10): 넓은 화면 나무 줄(.ft-has-tog)은 폴더 아이콘이 이름 단추 안(아이콘 + 간격 ≈ 2em)이라 기준 폭을 그만큼 넓힌다. */
+@container ft-main (max-width:16em) { .ft-has-tog > .ft-main .ft-tag { display:none; } }
+@container ft-main (max-width:7.5em) { .ft-has-tog > .ft-main :is(.ft-num, .ft-offtag) { display:none; } }
 .ft-ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:var(--ft-ico); height:var(--ft-ico); color:var(--fl-ico,var(--ds-folder-0-ico)); }
 .ft-ico svg { display:block; width:var(--ft-ico-svg); height:var(--ft-ico-svg); fill:currentColor; }
 .ft-ico.ft-ico-trash { color:var(--kptu-faint); }
@@ -113,6 +116,11 @@
 .ft-wait-row > .wait { padding:4px 0; }
 /* 폴더 안 파일(노트·사진·자료) 줄: 화면의 줄 모양은 그대로 두고 들여쓰기만 이 규칙(폴더 그림 자리만큼 더). */
 .ft-item { --ft-item-pad:calc(12px + var(--ft-depth,0) * var(--ft-indent)); }
+/* NOTE-폴더디자인통일(S70-82): 공용 항목 줄(folder-tree-ui.mjs ftItemRowHtml — 노트 보드 왼쪽 목록·노트 고르기 창). 높이는 하위 폴더 줄과 같은 단계 값,
+   이름은 폴더 그림 자리만큼 들여(빈 폴더·n개 더 보기 줄과 같은 자리) 폴더 이름과 세로로 맞는다. 고르기 창의 고른 줄은 [파일]과 같은 표시(.ft-picked). */
+.ft-leaf > .ft-main { min-height:var(--ft-sub-h); padding-left:calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); }
+.ft-leaf > .ft-main[aria-pressed="true"] { background:var(--kptu-primary-soft); box-shadow:var(--kptu-shadow-select); }
+.ft-leaf.ft-off > .ft-main { cursor:default; }
 /* 두 손가락 손짓을 받는 칸: 브라우저 확대 대신 이 칸의 손짓(folder-pinch.js = 줄 크기 단계, S69-99). 한 손가락 위아래·옆 밀기는 그대로. */
 .ft-pinch { touch-action:pan-x pan-y; }
 /* [‹] 나무로 돌아가기 단추(사진 위치 줄). '그 폴더만' 상자 위치 줄 안에서는 아래 .ft-focus-anc 모양. */
@@ -136,15 +144,18 @@
 .ft-focus-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:700; color:var(--kptu-ink); }
 .ft-focus-head + .ft-box-body > :first-child { border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
 .ft-focus .ft-box-body > .wait-empty, .ft-focus .ft-box-body > .wait { margin:0; padding:8px 12px; }
-/* S51-25 FOLDER-PC나무: 아이콘이 따로인 단추(줄 = 그 폴더 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음 — 열린 폴더 = 펼침, 닫힌 폴더 = 접힘.
-   들여쓰기는 아이콘 단추 앞 같은 폭(단계마다 22px), 이름 단추는 아이콘 바로 뒤에서 시작한다. 아이콘에 마우스를 올리면 옅은 보라 테두리·손가락. */
-.ft-has-tog { padding-left:calc(6px + var(--ft-depth,0) * var(--ft-indent)); }
-.ft-has-tog > .ft-main { padding-left:5px; }
-.ft-tog { position:relative; flex:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:28px; height:28px; min-height:0; margin:0; padding:0; border:1px solid transparent; border-radius:var(--kptu-radius-sm,6px); background:none; color:inherit; font:inherit; }
+/* S51-25 FOLDER-PC나무 → TREE-탐색기꺾쇠(S70-81b, T10 — 윈도 탐색기처럼): 폴더 아이콘 왼쪽 작은 회색 꺾쇠 단추(접힘 › / 펼침 ⌄) = 펼치기·접기만.
+   하위가 없는 폴더는 같은 폭 빈 자리(.ft-tog-none). 아이콘·이름은 이름 단추 안(누르면 오른쪽에 그 폴더). 꺾쇠 모양은 ui-standard.css UI-접기꺾쇠 한 곳(.kptu-chev)을 돌려 쓴다.
+   들여쓰기는 꺾쇠 앞 같은 폭(단계마다 --ft-indent). 보이는 크기는 작게, 누르는 자리는 위아래 44px(::after). */
+.ft-has-tog { padding-left:calc(2px + var(--ft-depth,0) * var(--ft-indent)); }
+.ft-has-tog > .ft-main { padding-left:3px; }
+.ft-tog { position:relative; flex:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:24px; height:24px; min-height:0; margin:0 -2px 0 0; padding:0; border:0; border-radius:var(--kptu-radius-sm,6px); background:none; color:var(--kptu-muted); font:inherit; font-size:12px; }
 button.ft-tog { cursor:pointer; }
-button.ft-tog::after { content:""; position:absolute; inset:calc((28px - var(--kptu-touch-target,44px)) / 2) -4px; }
-button.ft-tog:hover { border-color:color-mix(in srgb, var(--kptu-primary) 40%, transparent); background:color-mix(in srgb, var(--kptu-primary) 7%, transparent); }
+button.ft-tog::after { content:""; position:absolute; inset:calc((24px - var(--kptu-touch-target,44px)) / 2) 0; }
+button.ft-tog:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
 button.ft-tog:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
+.ft-tog > .ft-chev { transform:rotate(-90deg); }
+.ft-tog[aria-expanded="true"] > .ft-chev { transform:none; }
 .ft-current > .ft-tog { background:none; }
 .ft-has-tog.ft-current { background:var(--kptu-primary-soft); }
 .ft-has-tog.ft-current > .ft-main { background:none; }

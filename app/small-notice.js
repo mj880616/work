@@ -307,6 +307,26 @@ export function askDate(anchor,{text='',value='',note='',ok='확인',cancel='취
     return yes;
   }});
 }
+// S69-97 노트 알림: 날짜(달력)와 시각을 함께 고르는 작은 창(askDate와 같은 자리·같은 닫기). 반환: {day:'YYYY-MM-DD', time:'HH:MM'} 또는 null(취소).
+export function askDateTime(anchor,{text='',day='',time='09:00',note='',ok='확인',cancel='취소',doc=globalThis.document}={}){
+  return askPanel(anchor,{doc,none:null,build:(panel,finish)=>{
+    panel.classList.add('kptu-ask-input');
+    const msg=doc.createElement('label');msg.className='kptu-ask-text';msg.id='kptuAskText';msg.textContent=String(text??'').trim();panel.setAttribute('aria-labelledby',msg.id);
+    const line=doc.createElement('div');line.className='kptu-ask-two';
+    const d=doc.createElement('input');d.type='date';d.className='kptu-ask-field';d.value=String(day??'');d.required=true;d.setAttribute('data-enter-field','off');d.setAttribute('aria-label','날짜');
+    const t=doc.createElement('input');t.type='time';t.className='kptu-ask-field';t.value=String(time??'');t.required=true;t.step='60';t.setAttribute('data-enter-field','off');t.setAttribute('aria-label','시각');
+    msg.htmlFor=d.id='kptuAskField';line.append(d,t);panel.append(msg,line);
+    if(note){const n=doc.createElement('small');n.className='kptu-ask-note';n.textContent=noticeText(note);panel.append(n)}
+    const row=doc.createElement('div');row.className='kptu-ask-actions';
+    const no=doc.createElement('button');no.type='button';no.className='secondary';no.textContent=cancel;
+    const yes=doc.createElement('button');yes.type='button';yes.className='primary';yes.textContent=ok;
+    row.append(no,yes);panel.append(row);
+    const done=()=>{const v=String(d.value||''),w=String(t.value||'').slice(0,5);if(!/^\d{4}-\d{2}-\d{2}$/.test(v))d.focus?.();else if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(w))t.focus?.();else finish({day:v,time:w})};
+    no.addEventListener('click',()=>finish(null));yes.addEventListener('click',done);
+    for(const f of [d,t])f.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();done()}});
+    return yes;
+  }});
+}
 // S48-17 작은 고르기창: 줄마다 [아이콘 + 굵은 글 + 작은 설명] 버튼, 맨 아래 흐린 글자 한 줄. 고른 값(value) 또는 null(닫음).
 // choices = [{value, label, note, icon(SVG 글), danger, disabled}]. 아이콘은 이 파일을 부르는 쪽이 만든 고정 SVG만 넣는다(사용자 글은 textContent).
 // S52-06: check = {label, checked} 체크 한 줄(맨 아래 글 다음). 줄마다 labelChecked(체크했을 때 글)·needCheck(체크해야 누를 수 있음).

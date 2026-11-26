@@ -147,6 +147,8 @@ function recordMenu(host){
   return linkMenu;
 }
 
+// S70-65 UI-밀기메뉴통일: 줄 밀기 칸(담당조직 기록 창의 연결 줄 [수정][삭제])이 ⋯ 메뉴와 같은 길을 부른다 — name은 ⋯ 항목 이름(summary·note-delete …).
+export function linkRowAction(host,name,id){mountedHosts.get(host)?.(name,id);}
 // MENU-자리나머지: 기록 줄을 그리는 쪽(업무 기록 창 workplace-detail.js 등)이 줄을 다시 그린 뒤 열린 기록 메뉴를 새 ⋯에 붙인다(anchored-menu keepMenus에 넘김).
 export const linkMenuFollower={get active(){return linkMenu?.active||null},follow(find){linkMenu?.follow(find)}};
 
