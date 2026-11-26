@@ -25,7 +25,7 @@ const slot = view => (window.matchMedia(PC).matches ? lineSlot(view) : head());
 // 사업 관리는 첫 줄(#reportTop)이 원래 화면 안이라 표에 없다({wide:false} — 본보기).
 const LINES = {
   // 노트·잊지 말기는 한 화면 칸(#basketView)을 같이 쓴다. line이 여럿이면 지금 보이는 첫 줄(없으면 맨 앞 것):
-  //   노트 = 보기 탭 줄(폴더·목록·보드·태그·메모·달력), 잊지 말기 = 화면 머리 줄(.basket-head — [처리 전 ▾]·↻, S71-29 둘째 줄 없앤 뒤 첫 줄).
+  //   노트 = 보기 탭 줄(폴더·목록·보드·태그·메모·달력), 잊지 말기 = 화면 머리 줄(.basket-head — ↻ 등, S71-29 둘째 줄 없앤 뒤 첫 줄. [처리 전 ▾]는 S71-58에서 없앰).
   basket: {line: ['[data-note-list] > .note-list-head', ':scope > .basket-head']},
   library: {line: '.library-filter-toolbar > .lu-search-row'}, // 자료실: 고르기 줄(폴더·분류)
   // 예외 — 찾기 칸 옆 ＋ 하나만 있고 사용자가 그 자리를 정한 화면은 맨 위 줄 찾기 칸 오른쪽 그대로(⋯ 메뉴는 없음):

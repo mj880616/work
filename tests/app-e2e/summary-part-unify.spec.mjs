@@ -1,5 +1,5 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UPD-요약부품통일 C: 사진·파일 업데이트에는 [요약해서 기록으로]. (A: 참고 묶음 [요약 만들기]는 ORG-참고묶음삭제 S71-22에서 [참고 ▾]와 함께 지움 — 아래 A는 그 버튼이 없음을 본다.)
@@ -37,8 +37,8 @@ async function fixture(page,{note:over={},docs=[],brief=[]}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const box=await locator.boundingBox();await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);}else await locator.click();}
 async function openLink(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ 
  const detail=page.locator('[data-basket-detail]');
  await tap(page,detail.getByRole('button',{name:/연결하기|자료로 넣기/}).first(),width);
  return detail;

@@ -152,9 +152,9 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
  const basketTabsTop=(await page.locator('.mobile-tabs').boundingBox()).y;
  const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(quick.y+quick.height).toBeLessThanOrEqual(basketTabsTop+1);
- // S52-20 → S71-29: 앱 머리 줄 [처리 전 ▾]·최신화(↻, 보이는 32px·누르는 44px), 그 아래 한 목록.
+ // S52-20 → S71-29 → S71-58: 앱 머리 줄 최신화(↻, 보이는 32px·누르는 44px), 그 아래 한 목록([처리 전 ▾]는 없앰).
  const find=await measure(page.locator('[data-sf-tools="forget"] [data-inbox-find]'));expect(find.h).toBeLessThanOrEqual(32);expect(find.hit).toBe(44);
- const head=await page.locator('[data-sf-tools="forget"] [data-forget-view-open]').boundingBox(),listBox=await page.locator('#basketView [data-forget-section]').boundingBox();
+ const head=await page.locator('[data-sf-tools="forget"] [data-inbox-find]').boundingBox(),listBox=await page.locator('#basketView [data-forget-section]').boundingBox();
  expect(head.y).toBeLessThan(listBox.y);
  await openKindMenu(page,'note');await basketKindButton(page,'note').tap();
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
@@ -245,7 +245,7 @@ test('③ PC 1280: 정리함 화면 위에 [업데이트|노트] 전환 없음([
  await go(page,'basket');
  const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toHaveCount(0);
  const sub=page.locator('#appView > .app-nav :is([data-view="basket"],[data-basket-kind-nav])');await expect(sub).toHaveText(['잊지 말기','노트']);
- const filter=await page.locator('[data-forget-view-open]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
+ const filter=await page.locator('[data-sf-tools="forget"] [data-inbox-find]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
  expect(filter.y+filter.height).toBeLessThanOrEqual(rows.y);
  await sub.nth(1).click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  await sub.nth(0).click();await expect(page.locator('#basketView [data-basket-list]')).toBeVisible();

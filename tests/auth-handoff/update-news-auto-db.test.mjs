@@ -31,7 +31,7 @@ const BEFORE=['20261024140000_call_tg_feed','20261024210000_feed_item_guard_publ
  '20261027030000_tg_sender_names_read','20261027200000_tg_summary_edit','20261028030000_tg_room_day_context','20261029090000_operator_features'];
 const SHA='0123456789abcdef0123456789abcdef01234567';
 // 가상 기록. file이 있으면 이 변경 뒤 빌드가 만든 묶음, 없으면 옛 빌드 묶음.
-const note=(v,file,changes=[`${v} 바뀐 점`],checks=['폰에서 볼 것'])=>({v,...(file?{file}:{}),date:'2026-11-23',changes,checks});
+const note=(v,file,changes=[`${v} 바뀐 점`],checks=['확인할 것'])=>({v,...(file?{file}:{}),date:'2026-11-23',changes,checks});
 const bundle=notes=>({schema:1,current:notes[0]?.v??null,notes});
 
 test('update news auto: new release notes become news once, old ones stay, operator withdraws and resends, rollback',{timeout:300000},async t=>{
@@ -121,7 +121,7 @@ test('update news auto: new release notes become news once, old ones stay, opera
    const rows=await autoRows();
    assert.deepEqual(rows.map(x=>x.source_files),[['20261123-1300-d'],['20261123-1400-e']]);
    assert.deepEqual(rows.map(x=>x.sources),[['11/23-4'],['11/23-5']]);
-   assert.deepEqual(rows[1].lines,['다섯째 줄 하나','다섯째 줄 둘'],"'폰에서 볼 것' is left out");
+   assert.deepEqual(rows[1].lines,['다섯째 줄 하나','다섯째 줄 둘'],"'확인할 것' is left out");
    assert.ok(rows.every(x=>x.sent_by===OWNER&&x.title===null&&x.withdrawn_at===null));
    const seen=await list(stranger);
    assert.equal(seen.length,3);
