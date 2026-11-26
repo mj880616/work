@@ -1,5 +1,5 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
@@ -59,8 +59,8 @@ async function fixture(page,{note:over={}}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 async function openLink(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  const detail=page.locator('[data-basket-detail]');
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
  await tap(page,detail.locator('[data-manual-pick="organization"]'),width);
@@ -146,7 +146,7 @@ test('a late AI answer for a removed pick or a cancelled panel changes nothing',
 
 test('an AI-excluded update never opens the link panel, so there is no [요약 만들기]',async({page})=>{
  const f=await fixture(page,{note:{ai_export_allowed:false}});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);await page.locator(`[data-basket-row="${n}"]`).click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n);
  const detail=page.locator('[data-basket-detail]');await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  await detail.getByRole('button',{name:'연결하기'}).click();await expect(detail.locator('[data-basket-status]')).toContainText('AI 제외로 표시된 업데이트');
  await expect(detail.locator('[data-manual-link]')).toHaveCount(0);await expect(page.locator('[data-manual-ai-run]')).toHaveCount(0);expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);

@@ -15,9 +15,9 @@ export async function openKindMenu(page, kind) {
   await page.locator('#mobileMenuTab:visible').first().click();
   await page.locator(`#mobileMenu:not([hidden]) ${sel}`).waitFor();
 }
-// BASKET-정리함한화면 → S52-20: the 정리함 is one screen with one list (no '챙길 것'·'업데이트' boxes). Both old box titles now point at the
-// list's one view button [처리 전 ▾] (PC and phone).
-export const basketPaneButton = (page, pane) => page.locator('[data-sf-tools="forget"] [data-forget-view-open]');
+// BASKET-정리함한화면 → S52-20 → S71-58 FORGET-처리전만: the 정리함 is one screen with one list and no view button. Both old box titles
+// now point at the list's top-row tools box (최신화 ↻), which shows only while the list is on screen (PC and phone).
+export const basketPaneButton = (page, pane) => page.locator('[data-sf-tools="forget"] [data-inbox-find]');
 // STAB-노트핀시험: 누른 뒤 앱이 그 쪽(노트/잊지 말기)을 화면 주인으로 정한 것(#basketView data-kind)을 기다린다. 폰 [메뉴] 창 줄은
 // 창을 닫는 뒤로가기가 끝난 뒤에 다시 눌리므로(topbar-actions.js) 누르기가 끝나도 아직 바뀌지 않았을 수 있다. 바뀌지 않으면 여기서
 // 깨져, '목록 줄이 0개'와 '화면이 노트로 가지 않음'이 구별된다.

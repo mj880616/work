@@ -43,7 +43,8 @@ test('PC 1440 두 칸: 자료를 오른쪽 칸 아래 가장자리로 끌면 그
   expect(await scrollTop(page)).toBe(0);
   // 오른쪽 칸 아래 가장자리 안(6px)에 들고 있으면 그 칸 목록이 끝까지 굴러간다(전에는 칸 바깥만 굴러 칸 목록은 그대로였다). 칸이 끝이면 화면이 이어 굴러간다.
   await holdAt(page,box.left+box.width/2,box.bottom-6);
-  await expect.poll(()=>scrollTop(page),{timeout:8000}).toBeGreaterThan(box.sh-box.ch-4);
+  // UI-두칸높이(S71-60): 칸 높이 = 창 남은 높이라 화면이 이어 굴러가면 칸이 커진다 — 끝은 그때그때 칸 크기로 잰다.
+  await expect.poll(()=>page.locator(list).evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop),{timeout:8000}).toBeLessThan(4);
   // 칸 안으로 들어온 폴더 위에 놓는다.
   const to=await center(page,target);
   expect(to.y).toBeLessThan(box.bottom);expect(to.y).toBeGreaterThan(box.top);

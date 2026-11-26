@@ -68,6 +68,8 @@ for(const width of [412,1280]){
 test('파일 줄 ✎로 바꾸면 띠 이름만 새 이름, 사람이 쓴 줄 글은 그대로(요약 쓰기 없음) · ✎는 이름과 떨어진 테두리 없는 흐린 연필',async({page})=>{
  const f=await fixture(page,1280),row=f.row(2);
  const name=row.locator('[data-record-file="drvF"]'),pen=row.locator('.record-file .fr-edit');
+ // UI-기록줄균일(S70-85): 접힌 기록 줄에는 파일 이름 띠 대신 클립·개수만 — 꺾쇠로 펴서 이름 띠를 본다.
+ await expect(row.locator('[data-record-files-count]')).toBeVisible();await row.locator('[data-rec-fold]').click();
  await expect(name).toContainText('scan_0001.pdf');
  const [a,b]=[await name.boundingBox(),await pen.boundingBox()];
  expect(b.x-(a.x+a.width)).toBeGreaterThanOrEqual(5);

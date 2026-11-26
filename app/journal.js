@@ -31,7 +31,7 @@ import {HEAD_MARK_HTML} from './head-mark.mjs'; // S67-64 UI-윗줄한줄: 폰 �
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
 import {rowMore} from './row-more.js';
-import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
+import {fitAll, fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -107,7 +107,7 @@ root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-d
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <div class="journal-day-right" data-journal-day-right>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
-<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-autogrow data-keep-breaks data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-done-tasks" data-journal-done-tasks></div>
 </section>
@@ -269,7 +269,7 @@ function renderList() {
     item.className = 'journal-line-item'; item.dataset.journalItem = String(index);
     if (edit?.index === index) {
       item.dataset.editing = ''; item.dataset.enterSave = '';
-      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 수정" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
+      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-autogrow data-keep-breaks data-enter-field="single" aria-label="${index + 1}번째 줄 수정" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
       const box = item.querySelector('[data-journal-edit-input]');
       box.value = edit.value; box.disabled = saving;
       item.querySelectorAll('button').forEach(button => { button.disabled = saving; });
@@ -296,11 +296,13 @@ function renderList() {
 function editCount(item = root.querySelector('[data-journal-item][data-editing]')) {
   const box = item?.querySelector('[data-journal-edit-input]'), counter = item?.querySelector('[data-journal-edit-count]');
   if (!box || !counter) return;
+  fitHeight(box); // UI-입력칸자동높이
   const n = length(box.value.trim());
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(box.value));
 }
 function count() {
+  fitHeight(input); // UI-입력칸자동높이: 글만큼 아래로(처음 두 줄, 화면 절반에서 칸 안 스크롤) — 공용 auto-grow.js
   const n = length(input.value.trim());
   const counter = $('[data-journal-count]');
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
