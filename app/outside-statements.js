@@ -926,6 +926,7 @@ root?.addEventListener('toggle', event => {
 let findText = '';
 registerScreenFind('outside', {
   label: '읽을 거리에서 찾기',
+  foot: () => mainBox, // '전체에서 「…」 찾기 →' 줄은 목록 칸(#nowMain) 맨 아래
   meaning: false, // 문장은 이 화면의 Enter 문장 찾기(서버)가 이미 맡는다 — AI 찾기 풀이를 겹쳐 부르지 않는다
   active: () => window.KPTURouter?.current === 'outside' && state.mode === 'list' && !(NARROW.matches && root?.dataset.detail === 'open')
     && !(state.tab === 'media' && document.getElementById('newsRoot')?.dataset.mode && document.getElementById('newsRoot').dataset.mode !== 'list'),

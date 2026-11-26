@@ -63,17 +63,21 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     const calls = await open(page);
     await goBrief(page);
     const list = page.locator('#briefView [data-br-list]');
-    await expect(list.locator('.br-row').nth(0)).toContainText('공공기관 인력 운영 계획(예시)');
-    await expect(list.locator('.br-row').nth(0).locator('[data-br-start]')).toHaveText('브리핑 받기');
-    await expect(list.locator('.br-row').nth(1)).toContainText('만드는 중 7/12');
-    await expect(list.locator('.br-row').nth(2)).toContainText('평가 지표 중 인건비 항목 배점이 늘고');
-    // S68-44(사용자 11/23): 다 된 줄 날짜는 진행 칸 수 'n/m'과 헷갈리지 않는 노트 목록 표기('10.05', 다른 해 '26.10.05'), 진행 줄은 '만드는 중 7/12' 그대로.
-    await expect(list.locator('.br-row').nth(1).locator('.br-st')).toHaveText('만드는 중 7/12');
-    await expect(list.locator('.br-row').nth(2).locator('.br-st')).toHaveText(/^(\d{2}\.)?10\.05$/);
-    await expect(list.locator('.br-row').nth(3)).toContainText('글자를 읽을 수 없는 파일이에요');
+    const row = n => list.locator(`.br-row[data-br-open="${D(n)}"]`);
+    // S70-84 BRIEF-두칸폴더: 줄은 이름 순(기본 정렬, [파일]과 같은 자연 정렬) — 공공… · 예시 경영… · 예시 스캔… · 예시 연구…. 한 줄 요지는 없다.
+    await expect(list.locator('.br-row .fx-name')).toHaveText(['공공기관 인력 운영 계획(예시)', '예시 경영평가 편람 개정안', '예시 스캔 공문', '예시 연구 용역 최종 보고서']);
+    await expect(row(1).locator('[data-br-start]')).toHaveText('브리핑 받기');
+    await expect(row(2)).toContainText('만드는 중 7/12');
+    await expect(row(3)).not.toContainText('평가 지표 중 인건비 항목 배점이 늘고');
+    await expect(list.locator('.br-one')).toHaveCount(0);
+    // S68-44: 진행 줄은 '만드는 중 7/12' 그대로. S70-84: 다 된 줄의 상태 칸은 비우고 브리핑 날짜는 title('10.05 브리핑', 다른 해 '26.10.05 브리핑').
+    await expect(row(2).locator('.br-st')).toHaveText('만드는 중 7/12');
+    await expect(row(3).locator('.br-st')).toHaveText('');
+    await expect(row(3).locator('.br-st')).toHaveAttribute('title', /^(\d{2}\.)?10\.05 브리핑$/);
+    await expect(row(4)).toContainText('글자를 읽을 수 없는 파일이에요');
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-list.png`, fullPage: false });
     // 보기(S68-56): 옛 형식(v1) 브리핑은 같은 모양으로 — 요지 띠 → 옛 칸 이름 그대로의 소제목 묶음 → 원문 인용(접힘). S70-29: 위 '예전 방식 브리핑 · [다시 만들기]' 띠는 지움 — 없어야 한다.
-    await list.locator('.br-row').nth(2).click();
+    await row(3).click();
     const detail = page.locator('#briefView [data-br-detail]');
     await expect(detail).toBeVisible();
     await expect(detail.locator('.br-legacy, [data-br-redo]')).toHaveCount(0);
@@ -88,7 +92,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
     await expect(detail.locator('p.br-meta').first()).toContainText(/(^|· )(\d{2}\.)?10\.05 브리핑$/);
     await expect(detail.locator('.br-q')).toContainText(QUOTE);
     await expect(detail.locator('.br-pg a')).toHaveAttribute('href', 'https://drive.google.com/file/d/FILE_cccccccccc/view#page=31');
-    if (width > 760) await expect(list).toBeVisible(); else await expect(list).toBeHidden();
+    if (width >= 600) await expect(list).toBeVisible(); else await expect(list).toBeHidden();
     await page.screenshot({ path: `docs/design/screens/s61-45/${label}-brief.png`, fullPage: false });
     // [브리핑 받기]는 누를 때만 서버를 부른다(넣기만 해서는 부르지 않음).
     expect(calls.filter(c => c.action === 'brief-start')).toHaveLength(0);
@@ -108,7 +112,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-760', 760,
   });
 }
 
-// S68-56(사용자 11/23 15:06·15:12 "미리 정한 칸에 우겨넣지 말고 걍 요약"): 새 형식(v3) — 요지 띠, AI가 정한 소제목(앞 3개 펼침·나머지 접힘),
+// S68-56(명진 11/23 15:06·15:12 "미리 정한 칸에 우겨넣지 말고 걍 요약"): 새 형식(v3) — 요지 띠, AI가 정한 소제목(앞 3개 펼침·나머지 접힘),
 // 발언자는 문장 안, 항목 옆 쪽 링크·'우리 관련' 작은 표시, 원문 인용(접힘, 발언자·쪽). [할 일로]·챙길 일·대응할 것 없음.
 const brief3 = {
   v: 3, lead: '국토교통부 철도국장이 연내 운영 기준 마련을 약속함.',
@@ -127,7 +131,7 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['fold-760', 760,
   // 나중에 건 route가 먼저 걸린다: 다 된 브리핑(b3)을 새 형식으로 덮는다(화면은 브리핑 룸을 열 때 읽는다).
   await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: rows().map(x => (x.id === 'b3' ? { ...x, brief: brief3 } : x)) }));
   await goBrief(page);
-  await page.locator('#briefView [data-br-list] .br-row').nth(2).click();
+  await page.locator(`#briefView [data-br-list] .br-row[data-br-open="${D(3)}"]`).click();
   const detail = page.locator('#briefView [data-br-detail]');
   await expect(detail.locator('.br-gist p')).toHaveText(brief3.gist);
   await expect(detail.locator('.br-legacy')).toHaveCount(0);

@@ -3,6 +3,7 @@
 // 다른 폴더에 든 자료는 옮기지 않고 목록에만 보인다. 자료 이름·문장은 모두 예시. 서버는 흉내(owner RLS REST).
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { briefAdd, briefAddMenu } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`;
@@ -57,9 +58,10 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['fold-880', 880,
     await page.evaluate(() => window.KPTURouter.go('brief'));
     const list = page.locator('#briefView [data-br-list]');
     await expect(list.locator('.br-row')).toHaveCount(1);
-    const opener = list.locator('[data-br-pick-lib]');
-    await expect(opener).toHaveText('자료실에서 선택');
-    await opener.click();
+    // S71-30: [자료실에서 선택]은 머리 [+] 작은 메뉴 첫 줄.
+    await briefAdd(page).click();
+    await expect(briefAddMenu(page).getByRole('button')).toHaveText(['자료실에서 선택', '파일 업로드']);
+    await briefAddMenu(page).locator('[data-br-add-act="lib"]').click();
     const picker = page.locator('#brLibPicker');
     await expect(picker).toBeVisible();
     await expect(picker.locator('.lu-move-sec')).toHaveText('최근 자료');

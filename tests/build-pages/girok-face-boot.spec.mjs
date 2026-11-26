@@ -159,7 +159,7 @@ test('girok 빌드 + 고친 이름 없음: 메뉴·화면 이름이 WORK ON+ 기
   await noUnionWords(page, 'PC team (고친 이름 없음)');
 });
 
-// S67-62 바탕 낱말 묶음: 서버 허용 표 'nojo_words'인 사람(사용자, docs/ops/nojo-words-operator.apply.sql)은 girok 운영 빌드에서도
+// S67-62 바탕 낱말 묶음: 서버 허용 표 'nojo_words'인 사람(명진, docs/ops/nojo-words-operator.apply.sql)은 girok 운영 빌드에서도
 // 노동조합+ 낱말 전체가 바탕이고 그 위에 고친 이름 15칸이 얹힌다 → 화면 글자가 nojo 빌드(바뀌기 전 운영)와 한 글자도 다르지 않아야 한다.
 // 같은 흉내 서버·같은 시각으로 두 빌드를 띄워 화면마다 보이는 글자 전부와, JS word() 고정 글자 전부를 견준다.
 const nojoOrigin = process.env.PAGES_BUILD_ORIGIN || 'http://127.0.0.1:8125';
@@ -204,7 +204,7 @@ async function screenTexts(page) {
   return seen;
 }
 
-test('girok 빌드 + 바탕 nojo + 사용자 15칸 = nojo 빌드 화면 글자(앱 바탕·화면 12개·word() 고정 글자 전부)', async ({ browser }) => {
+test('girok 빌드 + 바탕 nojo + 명진 15칸 = nojo 빌드 화면 글자(앱 바탕·화면 12개·word() 고정 글자 전부)', async ({ browser }) => {
   test.setTimeout(240000);
   const literals = [...RISK_SAMPLES, ...wordLiterals()];
   expect(literals.length).toBeGreaterThan(200);
@@ -227,7 +227,7 @@ test('girok 빌드 + 바탕 nojo + 사용자 15칸 = nojo 빌드 화면 글자(�
   expect(girok.shell.faced, 'girok 빌드는 얼굴 단어가 구워진 바탕').toBe(true);
   expect(nojo.shell.faced).toBe(false);
   expect(girok.words.customized, '바탕 nojo → 앱 바탕을 원래 글자로 다시 입힘').toBe(true);
-  expect(nojo.words.customized, 'nojo 빌드에서 사용자 값은 아무것도 바꾸지 않음').toBe(false);
+  expect(nojo.words.customized, 'nojo 빌드에서 명진 값은 아무것도 바꾸지 않음').toBe(false);
   for (let i = 0; i < literals.length; i += 1) expect(girok.words.out[i], literals[i].join('#')).toBe(nojo.words.out[i]);
   for (const [text] of RISK_SAMPLES.filter(([, slot]) => !slot)) expect(girok.words.out[literals.findIndex(l => l[0] === text)], text).toBe(text);
   for (const key of Object.keys(nojo.texts)) expect(girok.texts[key], `${key} 화면 글자`).toBe(nojo.texts[key]);
@@ -252,17 +252,30 @@ test('girok 빌드 + 바탕 없음(기본 사용자) + 고친 이름 없음: 화
   expect(bad).toEqual({});
 });
 
-// S67-57: 내 프로필의 기본 정보·담당 칸·내 묶음(사용자 캡처의 칸들). 칸이 모두 그려질 때까지 기다린다(S71-34: 주간 캘린더 칸은 없앴다).
-const PROFILE_PANELS = '#profileView .ps-panel:first-child, #psWorkplacePanel, #psCollabPanel';
+// S67-57: 내 프로필의 기본 정보 칸(사용자 캡처의 칸들). S71-34: 주간 캘린더 칸은 없앴다.
+// S71-35 ORG-조직관리로모으기: '담당조직 현황'·'내 묶음' 칸은 내 프로필에서 없앴다 — 내 묶음은 조직 관리 목록 아래 접힌 칸, 만들기는 조직 관리 ⋯ 안.
+const PROFILE_PANELS = '#profileView .ps-panel:first-child';
 async function openProfile(page) {
   await page.evaluate(() => window.KPTURouter.go('profile'));
   await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toBeVisible();
-  await expect(page.locator('#psWorkplacePanel h3')).toBeVisible();
+  await expect(page.locator('#psName')).toBeVisible();
   await page.waitForLoadState('networkidle');
 }
+const COLLAB = '#soOrganizationList details.so-collab';
+async function openCollab(page) {
+  await page.evaluate(() => window.KPTURouter.go('team'));
+  await expect(page.locator(COLLAB)).toHaveCount(1);
+  await page.waitForLoadState('networkidle');
+}
+async function menuCreate(page, kindText) {
+  await page.locator('#soTeamMore').click();
+  const menu = page.locator('#soTeamMenu');
+  await expect(menu).toBeVisible();
+  await menu.getByRole('button', { name: kindText, exact: true }).click();
+  await expect(page.locator(`${COLLAB}[open] .cg-form-title`)).toBeVisible();
+}
 
-test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 칸·주간 캘린더·내 묶음에 노조 색 글자가 없다', async ({ page }, testInfo) => {
+test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·조직 관리 내 묶음에 노조 색 글자가 없다', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 412, height: 915 });
@@ -270,21 +283,21 @@ test('girok 빌드 + 고친 이름 없음: 내 프로필 기본 정보·담당 �
   await openProfile(page);
   await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
   await expect(page.locator('#psName')).toHaveAttribute('placeholder', '이름 (닉네임 써도 돼요)');
-  await expect(page.locator('#psReportPanel')).toHaveCount(0);
-  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 소속 묶음 만들기');
+  await expect(page.locator('#psReportPanel, #psWorkplacePanel, #psCollabPanel')).toHaveCount(0);
   const bad = (await shownTexts(page, PROFILE_PANELS)).filter(t => FORBIDDEN.test(t));
   expect(bad, '내 프로필: 기록+ 화면에 노조 색 글자').toEqual([]);
-  await page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]').click();
-  await expect(page.locator('#psCollabPanel .cg-form-title')).toHaveText('소속 묶음 만들기');
-  await expect(page.locator('#psCollabPanel .cg-field span').first()).toHaveText('소속명');
-  const badForm = (await shownTexts(page, '#psCollabPanel')).filter(t => FORBIDDEN.test(t));
-  expect(badForm, '묶음 만들기 창').toEqual([]);
-  await page.screenshot({ path: testInfo.outputPath('girok-phone-profile.png'), fullPage: true });
+  await openCollab(page);
+  await menuCreate(page, '소속 묶음 만들기');
+  await expect(page.locator(`${COLLAB} .cg-form-title`)).toHaveText('소속 묶음 만들기');
+  await expect(page.locator(`${COLLAB} .cg-field span`).first()).toHaveText('소속명');
+  const badForm = (await shownTexts(page, COLLAB)).filter(t => FORBIDDEN.test(t));
+  expect(badForm, '묶음 만들기 칸').toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('girok-phone-team-collab.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
 
-// 사용자(바탕 nojo + 15칸): 소속·주간 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
-test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필 글자가 지금 화면 그대로다', async ({ page }) => {
+// 사용자(바탕 nojo + 15칸): 소속 칸 이름은 이름 바꾸기 칸이 아니라 바탕 낱말 묶음으로 지금 글자 그대로다(DB 변경 없음).
+test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필·내 묶음 글자가 지금 화면 그대로다', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -292,14 +305,17 @@ test('girok 빌드 + 사용자(바탕 nojo + 15칸): 내 프로필 글자가 지
   await openProfile(page);
   await expect(page.locator('#profileView .ps-fields input')).toHaveCount(1);
   await expect(page.locator('#psName')).toHaveAttribute('aria-label', '이름');
-  await expect(page.locator('#psReportPanel')).toHaveCount(0);
-  await expect(page.locator('#psWorkplacePanel h3')).toHaveText('담당조직 현황');
-  await expect(page.locator('#psCollabPanel .cg-muted').first()).toHaveText('같은 부서·같은 노조 사람과 일정·자료·조직·사업을 선택해서 나눠 볼 수 있어요. 나누는 건 항목마다 직접 켜요.');
-  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="dept"]')).toHaveText('+ 부서 묶음 만들기');
-  await expect(page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]')).toHaveText('+ 노조 묶음 만들기');
-  await page.locator('#psCollabPanel [data-cg="new"][data-kind="union"]').click();
-  await expect(page.locator('#psCollabPanel .cg-form-title')).toHaveText('노조 묶음 만들기');
-  await expect(page.locator('#psCollabPanel .cg-field span').first()).toHaveText('노조명');
-  await expect(page.locator('#psCollabPanel [data-cg-in="union"]')).toHaveAttribute('placeholder', '노조명');
+  await expect(page.locator('#psReportPanel, #psWorkplacePanel, #psCollabPanel')).toHaveCount(0);
+  await openCollab(page);
+  await page.locator(`${COLLAB} > summary`).click();
+  await expect(page.locator(`${COLLAB} .cg-muted`).first()).toHaveText('같은 부서·노조 사람과 나눠 봐요. ⋯에서 만들거나 받은 초대 링크를 눌러요.');
+  await page.locator('#soTeamMore').click();
+  await expect(page.locator('#soTeamMenu').getByRole('button', { name: '부서 묶음 만들기', exact: true })).toBeVisible();
+  await expect(page.locator('#soTeamMenu').getByRole('button', { name: '노조 묶음 만들기', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await menuCreate(page, '노조 묶음 만들기');
+  await expect(page.locator(`${COLLAB} .cg-form-title`)).toHaveText('노조 묶음 만들기');
+  await expect(page.locator(`${COLLAB} .cg-field span`).first()).toHaveText('노조명');
+  await expect(page.locator(`${COLLAB} [data-cg-in="union"]`)).toHaveAttribute('placeholder', '노조명');
   expect(errors).toEqual([]);
 });

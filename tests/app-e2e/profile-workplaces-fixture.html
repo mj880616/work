@@ -39,8 +39,8 @@ window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},se
  const method=opts.method||'GET';
  // UI-앱안알림 4·5: 내 프로필 '폰 알림' 칸의 최근 알림 7일(phone-push recent)은 POST로 묻는 읽기라 calls(쓰기 검사 대상)에 넣지 않는다.
  if(/^\/functions\/v1\/phone-push\?action=(recent|notices)$/.test(path))return {ok:true,items:[]};
- // COLLAB-묶인사람끼리공유 1단계: '내 묶음' 칸이 여는 내 묶음 목록(app_collab_my_groups)도 POST로 묻는 읽기라 calls에 넣지 않는다(묶음 없음).
- if(path==='/rest/v1/rpc/app_collab_my_groups')return [];
+ // S71-35: '내 묶음' 칸은 조직 관리로 옮겨 갔다 — 내 프로필은 묶음 함수를 부르지 않아야 한다(부르면 state.collabCalls에 남김).
+ if(path.startsWith('/rest/v1/rpc/app_collab')){(state.collabCalls||=[]).push(path);return []}
  // S69-41: '구글 드라이브' 칸이 여는 세기(gather-folders dry_run)도 POST로 묻는 읽기라 calls에 넣지 않는다(state.drive가 없으면 연결 없음처럼 실패).
  if(path==='/functions/v1/workspace-drive?action=gather-folders'&&opts.body?.dry_run===true){(state.driveAsks||=[]).push(clone(opts.body));if(!state.drive)throw new Error('drive not connected');return clone(state.drive.plan)}
  if(path==='/functions/v1/workspace-drive?action=gather-folders'){(state.driveAsks||=[]).push(clone(opts.body));const r=state.drive.run.shift();state.drive.plan=clone(state.drive.after);return clone(r)}

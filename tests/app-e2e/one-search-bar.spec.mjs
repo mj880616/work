@@ -101,7 +101,7 @@ for(const width of WIDTHS)test.describe(`검색 칸 하나 ${width}`,()=>{
     expect(errors).toEqual([]);
   });
 
-  test('조직 관리: 머리 줄 없음 · 맨 위 칸으로 담당조직 이름 거르기 · [+ 담당조직]·⋯ 맨 위 줄 · 전체에서 찾기 줄 없음',async({page})=>{
+  test('조직 관리: 머리 줄 없음 · 맨 위 칸으로 담당조직 이름 거르기 · ⋯ 맨 위 줄([+ 담당조직] 없음, S71-35) · 전체에서 찾기 줄 없음',async({page})=>{
     test.setTimeout(90000);
     await page.setViewportSize({width,height:900});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -113,7 +113,7 @@ for(const width of WIDTHS)test.describe(`검색 칸 하나 ${width}`,()=>{
     await page.evaluate(()=>window.KPTURouter.go('team'));
     const cards=page.locator('#soOrganizationList [data-so-org]');
     await expect(cards).toHaveCount(2);
-    await expect(screenTools(page).locator('#soAddOrg')).toBeVisible();await expect(screenTools(page).locator('#soTeamMore')).toBeVisible();
+    await expect(page.locator('#soAddOrg')).toHaveCount(0);await expect(screenTools(page).locator('#soTeamMore')).toBeVisible();
     const find=await screenFind(page);
     await expect(find).toHaveAttribute('placeholder','조직 관리에서 찾기');
     await find.fill('철도');

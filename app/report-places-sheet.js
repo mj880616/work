@@ -29,7 +29,7 @@ export function targetName(places,target,fallbackNames=new Map()){
 function ensurePlacesSheet(){
   placesSheet||=createChoiceSheet({id:'reportPlacesSheet',titleId:'reportPlacesSheetTitle',historyKey:'kptuReportPlaces',
     canOpen:()=>!!placesActive,choices:()=>loadReportPlaces().then(p=>{if(placesActive)placesActive.places=p}),
-    render:()=>{if(placesActive){placesActive.pending=placeList(placesActive.chosen);placesActive.writeIn=placeWriteIn(placesActive.places)}return {title:'연결할 곳 선택',search:word('조직·사업영역 이름 검색'),searchAlways:true,split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,references:false,writeIn:placesActive?.writeIn})}},
+    render:()=>{if(placesActive){placesActive.pending=placeList(placesActive.chosen);placesActive.writeIn=placeWriteIn(placesActive.places)}return {title:'연결할 곳 선택',search:word('조직·사업영역 이름 검색'),searchAlways:true,split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,writeIn:placesActive?.writeIn})}},
     multi:()=>placesActive?{pressed:value=>placesActive.pending.some(p=>placeValue(p)===value),label:choiceCountText(placesActive.pending).replace('잊지 말기(미분류) 선택됨','연결 안 함')}:null,
     onSelect:(kind,value)=>{if(!placesActive)return;const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`)},
     onCommit:()=>{if(placesActive)placesActive.onCommit(placeList(placesActive.pending))},

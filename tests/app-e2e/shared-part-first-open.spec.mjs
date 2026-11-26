@@ -4,6 +4,7 @@
 // 이 시험은 새 세션에서 그 화면을 첫 화면으로 열고, 첫 열기에서 계산된 모양과 고르기·넣기가 바로 되는지 본다. 자료 이름은 모두 예시.
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { openBriefLibPick } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`;
@@ -44,8 +45,7 @@ for (const [label, width, height] of [['phone-412', 412, 915], ['pc-1280', 1280,
     await openHome(page, { query: '?view=brief', beforeLoad: () => routes(page, posted) });
     await expect(page.locator('#briefView')).toBeVisible();
     // 첫 화면이 브리핑 룸이면 자료실 모양 파일은 다른 화면에서 미리 불리지 않는다.
-    const opener = page.locator('#briefView [data-br-pick-lib]');
-    await opener.click();
+    await openBriefLibPick(page); // S71-30: 머리 [+] → [자료실에서 선택]
     const picker = page.locator('#brLibPicker');
     await expect(picker).toBeVisible();
     const look = await styled(picker);

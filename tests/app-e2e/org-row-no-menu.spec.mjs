@@ -20,7 +20,8 @@ for(const width of [412,1280])test(`C9 조직 관리 목록 줄에는 ⋯가 없
   const id=await rowOf(page,'서해선지부').locator('[data-so-org]').getAttribute('data-so-org');
   // 목록 줄: ⋯ 단추가 없다(숨김이 아니라 없음 — 줄 안 단추는 끌기 손잡이뿐). 묶음 머리줄 ⋯는 그대로.
   expect(await page.locator('#soOrganizationList .so-row').count()).toBeGreaterThan(5);
-  await expect(page.locator('#soOrganizationList .so-row button:not(.so-grip),#soOrganizationList .so-row .more-dots,[data-so-row-more]')).toHaveCount(0);
+  // S71-35: 보관한 조직 줄 끝 [꺼내기](.so-unarchive)는 ⋯가 아니라 그 줄의 되돌리기 단추라 뺀다.
+  await expect(page.locator('#soOrganizationList .so-row button:not(.so-grip):not(.so-unarchive),#soOrganizationList .so-row .more-dots,[data-so-row-more]')).toHaveCount(0);
   expect(await page.locator('#soOrganizationList .so-group-more').count()).toBeGreaterThan(0);
   // 줄을 누르면 상세(그대로).
   await rowOf(page,'서해선지부').locator('[data-so-org]').click();
@@ -32,18 +33,18 @@ for(const width of [412,1280])test(`C9 조직 관리 목록 줄에는 ⋯가 없
   expect(place.top).toBeLessThanOrEqual(8);expect(place.afterStage).toBe(true);expect(place.right).toBeLessThanOrEqual(40);
   // 이름 바꾸기 → 상세 제목·목록 줄이 새 이름.
   let menu=await openDetailMenu(page,'서해선지부');
-  expect(await menuLabels(page)).toEqual(['이름 바꾸기','담당 조직에서 제외','삭제']);
+  expect(await menuLabels(page)).toEqual(['이름 바꾸기','보관','삭제']);
   await menu.getByRole('button',{name:'이름 바꾸기'}).click();
   const edit=page.locator('#soEditModal');await expect(edit).toBeVisible();await expect(page.locator('#soEditName')).toHaveValue('서해선지부');
   await page.locator('#soEditName').fill('서해선지부(새)');await page.locator('#soSaveOrg').click();await expect(edit).toBeHidden();
   expect((await page.evaluate(()=>window.__patches)).at(-1).body.name).toBe('서해선지부(새)');
   await expect(rowOf(page,'서해선지부(새)')).toHaveCount(1);await expect(page.locator('#wdTitle')).toHaveText('서해선지부(새)');
-  // 담당 조직에서 제외 → 목록 맨 아래 '제외한 조직'에 흐리게, 상세 메뉴는 [담당 조직으로 추가]로.
-  menu=await openDetailMenu(page,'서해선지부(새)');await menu.getByRole('button',{name:'담당 조직에서 제외'}).click();
+  // [보관](옛 담당 조직에서 제외) → 목록 맨 아래 접힌 '보관한 조직'에 흐리게, 상세 메뉴는 [꺼내기]로.
+  menu=await openDetailMenu(page,'서해선지부(새)');await menu.getByRole('button',{name:'보관'}).click();
   await expect(rowOf(page,'서해선지부(새)')).toHaveClass(/is-excluded/);
   expect((await page.evaluate(()=>window.__orgOrderPrefs.org_order)).hidden).toContain('서해선지부(새)');
   menu=await openDetailMenu(page,'서해선지부(새)');
-  expect(await menuLabels(page)).toEqual(['이름 바꾸기','담당 조직으로 추가','삭제']);
+  expect(await menuLabels(page)).toEqual(['이름 바꾸기','꺼내기','삭제']);
   // 삭제 → 한 번 확인 → 휴지통, 지운 조직의 상세는 닫힌다(PC는 목록 첫 조직이 오른쪽에).
   await menu.getByRole('button',{name:'삭제'}).click();
   await page.getByRole('button',{name:'휴지통으로'}).click();

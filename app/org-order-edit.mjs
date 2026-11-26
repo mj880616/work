@@ -37,13 +37,13 @@ export function setExcluded(order, name, exclude) {
   if (!key) return {changed: false, value: out};
   const has = out.hidden.includes(key);
   if (exclude && has || !exclude && !has) return {changed: false, value: out};
-  if (exclude && out.hidden.length >= ORG_HIDDEN_MAX) return {changed: false, value: out, error: word`제외한 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
+  if (exclude && out.hidden.length >= ORG_HIDDEN_MAX) return {changed: false, value: out, error: word`보관한 조직은 ${ORG_HIDDEN_MAX}곳까지예요.`};
   out.hidden = exclude ? [...out.hidden, key] : out.hidden.filter(v => v !== key);
   return {changed: true, value: out};
 }
 
 // 조직 보고 목록: 제외한 조직은 원래 묶음에서 빼서 맨 아래 '제외한 조직' 묶음으로(흐리게). 나머지는 그대로.
-export const EXCLUDED_GROUP = word('제외한 조직');
+export const EXCLUDED_GROUP = word('보관한 조직'); // S71-35: 옛 '제외한 조직'(화면 묶음 이름과 같게)
 export function splitExcluded(list, order) {
   const hidden = new Set(clean(order).hidden), shown = [], excluded = [];
   for (const o of list || []) (hidden.has(String(o?.name ?? '')) ? excluded : shown).push(o);

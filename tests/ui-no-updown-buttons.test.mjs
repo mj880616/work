@@ -20,7 +20,6 @@ export const NOT_ORDER = {
 export const TODO = {
   'app/files.js': 2,
   'app/files-tree-menu.mjs': 2,
-  'app/reference-bundles.js': 2,
   'app/meeting-name-panel.js': 2,
   'app/quick-links.js': 2,
   'app/weekly-own-form-edit.js': 2,
