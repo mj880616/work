@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {rectOf, overlaps, hitKeys, mergePick, passed, THRESHOLD} from '../app/marquee-select.js';
+import {rectOf, overlaps, hitKeys, mergePick, passed, THRESHOLD, inBoxes, clipBox} from '../app/marquee-select.js';
 // S69-17 UI-끌어고르기: 빈 곳 끌기 사각형 계산(화면 없이). 고른 상태 주인은 부르는 화면의 선택 모드.
 test('두 점 → 사각형(어느 쪽으로 끌어도 같은 사각형)', () => {
   assert.deepEqual(rectOf({x: 10, y: 50}, {x: 30, y: 20}), {left: 10, top: 20, right: 30, bottom: 50});
@@ -37,4 +37,20 @@ test('사각형은 창 기준(시작 칸 경계에 갇히지 않음) · 빈 곳 
   assert.match(src, /const c = \{left: 0, top: 0, right: win\.innerWidth, bottom: win\.innerHeight\};/);
   assert.doesNotMatch(src, /clip:/);
   assert.match(src, /focused\.blur\(\)/);
+});
+
+// S71-45 STD-끌기시작: 줄의 잡는 곳(아이콘 + 이름 글자) 판정 계산.
+test('잡는 곳: 아이콘·이름 글자 상자 안(넓힘 포함)만 참, 같은 줄 다른 칸은 거짓', () => {
+  const icon = {left: 10, top: 0, right: 30, bottom: 20}, name = {left: 36, top: 2, right: 90, bottom: 18};
+  assert.equal(inBoxes(20, 10, [icon, name]), true);
+  assert.equal(inBoxes(60, 10, [icon, name]), true);
+  assert.equal(inBoxes(91, 10, [icon, name]), true); // 2px 넓힘
+  assert.equal(inBoxes(120, 10, [icon, name]), false); // 이름 오른쪽 빈 곳
+  assert.equal(inBoxes(4, 10, [icon, name]), false); // 아이콘 왼쪽 띠
+  assert.equal(inBoxes(20, 10, [{left: 10, top: 0, right: 10, bottom: 20}]), false); // 크기 0
+  assert.equal(inBoxes(20, 10, []), false);
+});
+test('잘린 이름: 글자 상자는 보이는 칸 안까지만', () => {
+  assert.deepEqual(clipBox({left: 36, top: 2, right: 400, bottom: 18}, {left: 36, top: 0, right: 200, bottom: 20}), {left: 36, top: 2, right: 200, bottom: 18});
+  assert.equal(clipBox({left: 0, top: 0, right: 10, bottom: 10}, {left: 20, top: 0, right: 30, bottom: 10}), null);
 });

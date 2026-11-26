@@ -69,6 +69,19 @@ export function bindSelectKeys(el, acts, {active = null, blocked = null, capture
   return () => el.removeEventListener('keydown', on, capture);
 }
 
+// STD-Esc풀기(S71-45, 2026-11-26 사용자 "드래그 해서 선택한 후에 또는 하나 눌러서 선택한 후에 ESC 하면 선택취소"): Esc = 고른 것 모두 풀기를 문서 전체에서 받는다.
+// 원인(사실): [파일]은 Esc를 화면 칸(#filesRoot) 안 keydown에서만 받아, 사각형으로 고른 뒤처럼 커서(초점)가 칸 밖이면 Esc가 닿지 않았다
+// (사각형 시작은 글자 고르기를 막느라 누를 때 초점을 옮기지 않는다). 입력칸·열린 메뉴·창이 먼저: 메뉴는 공용 anchored-menu가 먼저 받아 전파를 멈추고,
+// 창(boxOpen)·글 쓰는 칸·defaultPrevented면 건드리지 않는다. 끄는 중 Esc(사각형 취소)는 marquee-select.js가 창 단계에서 먼저 받는다.
+// clear(e): 일을 했으면 true. active(e): 이 화면이 지금 받을 때만. blocked(e): 화면의 열린 것(이름 칸 등). 반환: 떼기.
+export function bindEscClear(clear, {active = null, blocked = null, doc = globalThis.document} = {}) {
+  if (!doc || typeof clear !== 'function') return () => {};
+  const {handle} = createSelectKeys({clear}, {active, blocked});
+  const on = e => { if (e.key === 'Escape') handle(e, ['clear']); };
+  doc.addEventListener('keydown', on);
+  return () => doc.removeEventListener('keydown', on);
+}
+
 // F2 대상(N4): 고른 것이 정확히 하나면 그것, 하나도 없으면 커서(초점) 줄, 여럿이면 없음(이름은 하나씩 바꾼다).
 export function renameTarget(picked = [], cursor = null) {
   const list = [...(picked || [])];

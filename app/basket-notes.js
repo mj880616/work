@@ -33,6 +33,7 @@ import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, 
 import { mountReorder } from './reorder-drag.js';
 import { folderIconHtml, colorChoiceHtml, colorFromButton } from './folder-look.js';
 import { colorOf, sortNotesManual, placeAt, stepPlan, noteOrderOf, isSamePlace, NOTE_SORT_NAMES, isNoteSort, folderDropPlan } from './folder-look-model.mjs';
+import { blankRootAt } from './drop-open-folder.mjs'; // STD-빈곳놓기(S71-45)
 import { noteFolderId, noteFolderIdLegacy, foldersFromNames, noteLineTitle, noteLineDate, treeRows, paneRows, paneHead, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE, OUTSIDE_NAME, RECENT, RECENT_NAME, recentRows } from './note-tree.mjs';
 import { FOLDER_DEPTH_LIMIT } from './folder-limits.mjs';
 import { folderSiblings, nextSortOrder, cleanFolderName } from './library-tree.js';
@@ -40,7 +41,7 @@ import { openFolderSheet, closeFolderSheet, folderSheetOpen } from './folder-des
 import { sheetTitle } from './folder-dest-sheet.mjs';
 import { folderPathHtml } from './folder-path.mjs';
 import { createSelectMode } from './select-mode.js';
-import { bindSelectKeys, renameTarget, confirmDelete, deleteNeedsConfirm } from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
+import { bindSelectKeys, bindEscClear, renameTarget, confirmDelete, deleteNeedsConfirm } from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import { notify, askConfirm, askText } from './small-notice.js';
 import { requestNewsItem } from './news-request.mjs';
 import { createNoteNewsMarks, isNewsAt } from './note-news-marks.js';
@@ -1953,7 +1954,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === items.notes[0]);
     return note ? ghostText(pinLock.noteHidden(note) ? LOCKED : noteLineTitle(note)) : '';
   };
-  mountReorder(host, {whole:true, altStep:true, onStep:(key, dir) => stepKey(key, dir), zones:{resolve:resolveOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, ghost:(el, key) => dragLabel(key),
+  // STD-빈곳놓기(S71-45, 2026-11-26 사용자 "그 외에 위 아래 여백쪽에 두면 그 최상위 폴더에 드롭가능하게"): 넓은 화면 왼쪽 폴더 나무의 줄 밖 빈 곳(맨 아래 줄 밑·칸 위아래 여백)은
+  // '폴더 없음'(맨 위) — 그 줄이 놓을 곳으로 밝게. 폴더 줄 위는 지금처럼. 판정은 공용 blankRootAt 하나(자료실·[파일]과 같음).
+  const blankOver = hit => (wideList.matches && blankRootAt(hit, {zone:'[data-nx-tree]', rows:'.ft-row,[data-reorder-id],[data-nx-box="recent"],[data-nx-box="more"]'}) && keyEls('o').length ? 'o' : null);
+  mountReorder(host, {whole:true, altStep:true, onStep:(key, dir) => stepKey(key, dir), zones:{resolve:resolveOver, blank:blankOver}, onHover:showHover, onDrop:handleDrop, onHold:handleHold, ghost:(el, key) => dragLabel(key),
     canDrag:key => (key.startsWith('n:') || key.startsWith('f:')) && canReorder() && !busy, canHold:key => holdKey(key) && !busy});
   host.addEventListener('contextmenu', e => { if (Date.now() < suppressUntil) e.preventDefault(); }, true);
   host.addEventListener('click', e => { if (Date.now() < suppressUntil && e.target.closest?.('[data-nx-note],[data-nx-folder]') && !e.target.closest('.basket-row-more,.nx-more')) { e.preventDefault(); e.stopPropagation(); } }, true);
@@ -2395,12 +2399,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   host.addEventListener('keydown', onListKey);
   tools.addEventListener('keydown', onListKey);
   // S70-64b: 막대에 [✕]가 없으니, 누른 곳(커서)이 노트 칸 밖(문서 바탕 등)이어도 노트 화면이 보이는 동안 Esc = 고르기 끝(자료실·줄 고르기와 같음).
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || e.defaultPrevented || !pick.active || selected || menu || busy) return;
-    if (host.contains(e.target) || tools.contains(e.target) || !host.isConnected || !host.offsetParent) return;
-    if (e.target instanceof Element && e.target.closest('input,textarea,select,[contenteditable],[role="dialog"],.modal')) return;
-    e.preventDefault(); endSelect();
-  });
+  // STD-Esc풀기(S71-45): 자료실·[파일]과 같은 공용 bindEscClear 하나(글 쓰는 칸·창·열린 메뉴가 먼저).
+  bindEscClear(() => { if (!pick.active) return false; endSelect(); return true; }, {
+    active:e => pick.active && !selected && !busy && host.isConnected && !!host.offsetParent && !host.contains(e.target) && !tools.contains(e.target),
+    blocked:e => !!menu || (e.target instanceof Element && !!e.target.closest('[role="dialog"],.modal'))});
   // NOTE-보기3가지 ①: 폰은 좌우로 밀어 보기 전환(왼쪽으로 밀면 폴더 → 목록 → 보드). 보드 판 위는 판 이동이라 빼고(판이 먼저, data-nb-scroll),
   // 보드에서는 위쪽 줄(검색 칸 줄·보드 칸 줄)에서 밀거나 전환 단추를 누른다. 꾹 눌러 잡은 줄·선택 모드·열린 노트·글 칸에서는 밀기를 보지 않는다.
   // UI-칩줄두줄: 보드 칸 줄(data-nbb)은 이제 옆으로 밀지 않으므로(두 줄 + [더보기]) 밀기 예외에서 뺐다.

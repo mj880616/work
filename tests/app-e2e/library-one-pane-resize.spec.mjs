@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
 // S69-29 LIB-한칸크기끌기(명진 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를 · 드래그로 늘릴 수 있게",
@@ -120,11 +121,11 @@ test('PC 1280 ③ 오른쪽 자료 여러 개를 왼쪽 나무 폴더에 끌어 
   await page.locator('#documentList [data-lu-document="d1"] .lu-row-title').click({modifiers:['Control']});
   await page.locator('#documentList [data-lu-document="d2"] .lu-row-title').click({modifiers:['Control']});
   await expect(page.locator('#librarySelectCount')).toHaveText('2개 선택됨');
-  await page.locator('#documentList [data-lu-document="d1"]').dragTo(page.locator(nav('t3')));
+  await dragByName(page.locator('#documentList [data-lu-document="d1"]'), page.locator(nav('t3')));
   await expect.poll(()=>[folderOf(s,'d1'),folderOf(s,'d2'),folderOf(s,'d3')]).toEqual(['t3','t3','t1']);
   expect(await page.evaluate(()=>window.__ghost)).toEqual(['자료 2개']);
   // 하나만 끌면 그 제목.
-  await page.locator('#documentList [data-lu-document="d3"]').dragTo(page.locator(nav('t2')));
+  await dragByName(page.locator('#documentList [data-lu-document="d3"]'), page.locator(nav('t2')));
   await expect.poll(()=>folderOf(s,'d3')).toBe('t2');
   expect(await page.evaluate(()=>window.__ghost)).toEqual(['자료 2개','가상 자료 3']);
   expect(errors).toEqual([]);

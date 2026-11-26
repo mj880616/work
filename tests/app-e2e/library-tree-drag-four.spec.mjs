@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder} from './helpers/library-folder-server.mjs';
 import {treeEnter} from './helpers/tree-enter.mjs';
 // S55-08 LIB-나무로끌기안됨 + LIB-폴더이름칸닫힘 (2026-11-09 명진 요청).
@@ -29,22 +30,22 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸 폴더 �
     await expect(page.locator(nav('fn'))).toHaveAttribute('draggable','true');
     // ⓐ
     await openNode(page,'x:out');
-    await page.locator(row('a-2')).dragTo(page.locator(nav('fn')));
+    await dragByName(page.locator(row('a-2')), page.locator(nav('fn')));
     await expect.poll(()=>folderOf(s,'a-2')).toBe('fn');
     await expect(line(page)).toContainText('가상 N 폴더');await expect(line(page).locator('.lu-undo')).toHaveText('되돌리기');
     // ⓒ
     await openNode(page,'x:out');
-    await page.locator(row('a1-1')).dragTo(page.locator(head('f:fz')));
+    await dragByName(page.locator(row('a1-1')), page.locator(head('f:fz')));
     await expect.poll(()=>folderOf(s,'a1-1')).toBe('fz');
     await expect(line(page)).toContainText('가상 Z 폴더');
     // 폴더 안 자료를 나무 '자료실 전체'에 놓으면 폴더 밖으로.
     await openNode(page,'f:fn');
-    await page.locator(row('a-2')).dragTo(page.locator(nav('')));
+    await dragByName(page.locator(row('a-2')), page.locator(nav('')));
     await expect.poll(()=>folderOf(s,'a-2')).toBeNull();
     await expect(line(page)).toContainText('폴더 밖');
     // 이미 든 폴더(나무 줄)에는 놓을 수 없다: 쓰기 없음.
     await openNode(page,'f:fz');const n=s.writes.length;
-    await page.locator(row('a1-1')).dragTo(page.locator(nav('fz')));
+    await dragByName(page.locator(row('a1-1')), page.locator(nav('fz')));
     await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);
     expect(errors).toEqual([]);
   });

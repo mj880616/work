@@ -37,7 +37,7 @@ import {mountLibraryFolders} from './library-folders.js';
 import {createReceiveSort,sortButtonHtml,createTidySuggest,TIDY_LABEL} from './library-sort.js'; // LIB-받는폴더나누기(S60-18)·LIB-정돈제안(S61-13)
 import {readLibraryFolders,readLibraryFolderItems,createLibraryFolder} from './library-folder-data.js';
 import {createSelectMode} from './select-mode.js';
-import {bindMarquee} from './marquee-select.js';
+import {bindMarquee,onGrip} from './marquee-select.js';
 import {bindRowSwipe,PICK,RENAME,DELETE} from './row-swipe.js';
 import {announceUploaded,openInLibrary} from './upload-done.js';
 import {folderTrail,folderPathHtml,collapseSteps,moreStepHtml} from './folder-path.mjs';import './folder-path-more.js';
@@ -79,7 +79,7 @@ import {memosNow,loadMemos} from './memo-store.js';
 import {readDroppedEntries,readPickedFiles,planFolderUpload,isBigFolder,skippedCount,skippedText,takenRoots,buildFolders,folderIdOf} from './library-folder-upload.mjs'; // S69-23 폴더째 올리기
 import {bindLibraryDrop,groupDropTarget,paneDropAt,placeDropTarget,runDropUpload,resultText as luDropResultText,DROP_HINT} from './library-drop.js';
 import {word} from './brand/brand.mjs';
-import {bindSelectKeys,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
+import {bindSelectKeys,bindEscClear,renameTarget,confirmDelete} from './select-keys.js'; // UI-목록공용키(S70-18)·K1 지우기 한 규칙(I-6)
 import {fitSelectBar, paintSelectAll} from './select-bar.js'; // UI-고르기막대(S69-85): 선택 막대 한 줄 맞추기
 import {createDriveAuto,changedLine as luAutoChangedLine} from './library-drive-auto.mjs'; // S70-73 LIB-드라이브자동등록
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -1436,7 +1436,7 @@ function luDragRowHtml0(d,node){const html=luAddSuggest(luRowHtml(d,node),d,node
 let luRename=null,luRenameBusy=false,luRenameNoticeToken=0,luKeepFocus=null;
 // UI-목록공용키(S70-18, N2·N3·N4): 목록 칸 Ctrl+A·Delete·F2는 공용 키 부품(select-keys.js)이 정하고, 할 일은 이 화면 길 그대로 —
 // Ctrl+A = [전체]와 같은 보이는 자료 모두(선택 모드가 아니면 켜면서), Delete = 고른 것이 있으면 선택 막대 [삭제], 없으면 커서 줄 ⋯ [삭제] — 둘 다 바로 빠지고 [되돌리기](K1 한 규칙, 묻지 않음),
-// F2 = 고른 자료 하나, 없으면 커서 줄 이름 바꾸기(폴더 머리 줄 F2는 폴더 부품 bindKeys). Esc = 고르기 풀기는 luOnSelEscape(문서 전체)가 맡는다.
+// F2 = 고른 자료 하나, 없으면 커서 줄 이름 바꾸기(폴더 머리 줄 F2는 폴더 부품 bindKeys). Esc = 고르기 풀기는 luBindSelEscape(문서 전체, 공용 bindEscClear)가 맡는다.
 const luDocIdOf=e=>{const id=e.target.closest?.('[data-lu-document]')?.dataset.luDocument||null;return id&&luDocuments.some(d=>d.id===id)?id:null};
 function luBindRename(list){bindSelectKeys(list,{
   all:()=>{if(luSelBusy||luRenameBusy)return false;const ids=luTwinIds(luVisibleIds());if(!ids.length)return false;const was=!!luPick.items;luPick.start(ids);if(was)luSyncPicks();else luRenderLibrary();return true},
@@ -2060,12 +2060,11 @@ function luSelStop(){if(!luPick.active||luSelBusy)return;const wait=luMenuBackPe
 // 메뉴 맨 위 [선택]: 선택 모드를 켜고 그 자료를 고른 채로(최근 올린 파일 칸에서 눌러도 아래 목록과 한 선택 모드).
 function luSelStartWith(id){if(luSelBusy||!luDocuments.some(d=>d.id===id))return;luPick.start([id],id);luRenderLibrary()}
 // Esc = 선택 모드 풀기(열린 메뉴·창이 Esc를 먼저 가져가면 그쪽이 닫힌다).
-function luOnSelEscape(e){
-  if(e.key!=='Escape'||e.defaultPrevented||!luPick.items||luSelBusy||window.KPTURouter?.current!=='library')return;
-  if(luActiveMenu||luFolderUi?.moveOpen||luBulkUi?.active||[...document.querySelectorAll('.modal,[role="dialog"]')].some(el=>!el.classList.contains('hidden')&&el.checkVisibility?.()))return;
-  if(e.target?.closest?.('input:not([type=checkbox]),textarea,select,[contenteditable]'))return;
-  e.preventDefault();luSelStop();
-}
+// STD-Esc풀기(S71-45): 문서 전체 Esc = 고른 것 모두 풀기 — [파일]·노트와 같은 공용 bindEscClear 하나(글 쓰는 칸·창·열린 메뉴가 먼저).
+let luSelEscBound=false;
+function luBindSelEscape(){if(luSelEscBound)return;luSelEscBound=true;bindEscClear(()=>{if(!luPick.items)return false;luSelStop();return true},{
+  active:()=>!!luPick.items&&!luSelBusy&&window.KPTURouter?.current==='library',
+  blocked:()=>!!(luActiveMenu||luFolderUi?.moveOpen||luBulkUi?.active)||[...document.querySelectorAll('.modal,[role="dialog"]')].some(el=>!el.classList.contains('hidden')&&el.checkVisibility?.())})}
 function luPickToggle(ids){luPick.toggle(luTwinIds(ids),{anchor:false});luSyncPicks()}
 // S69(명진 11/24 "선택된거 클릭하면 선택해제돼야지"): 폴더 칸·폴더 줄 누르기 — 안의 자료가 하나라도 골라져 있으면(✓ 또는 '−' 일부) 그 폴더 안 것을 모두 풀고,
 // 하나도 없으면 모두 고른다(윈도우·구글 드라이브처럼 '일부' → 해제). 고른 수·'접힌 n개 포함'은 같은 상태(luPick.items)에서 luSyncPicks가 다시 센다.
@@ -2280,18 +2279,21 @@ const LU_MQ_SKIP='input,textarea,select,button,a,label,[contenteditable],summary
 // ② 자료실 화면 바깥의 맨 바탕(화면 아래·옆 빈 띠 — 앱 바탕 상자 자신만. 사이드 메뉴·위 검색줄 같은 다른 부분은 아님).
 const luMqView=()=>document.querySelector('#libraryView');
 const luMqArea=()=>{const v=luMqView();return v?.closest('.shell')||v?.closest('main')||v};
-function luMqBlank(t,x){
+function luMqBlank(t,x,y){
   const area=luMqArea(),view=luMqView();
   if(!area||!view||!area.contains(t))return false;
   if(!view.contains(t)){let e=view.parentElement;while(e&&e!==area.parentElement){if(e===t)return true;e=e.parentElement}return false}
+  // STD-끌기시작(S71-45, 2026-11-26 사용자 "파일 이름 바로 위 아니고 나머지에서는 드래그 가능하게" · "폴더 모양, 폴더명 위에서만 드래그가 안돼"):
+  // 자료 줄·한 칸 목록 폴더 머리 줄은 아이콘 + 이름 글자 위만 '잡아 폴더로 옮기기', 같은 줄의 나머지(이름 오른쪽 빈칸·분류·날짜·줄 왼쪽 띠·오른쪽 여백)는 빈 곳 = 사각형.
+  // 판정은 공용 onGrip 하나([파일]과 같음). 전에는 자료 줄 위 어디든 옮기기였다(들여 쓴 왼쪽 여백만 빈 곳). 단추(⋯·이름 펼치기)·사진 칸은 그대로.
+  const head=t.closest('#documentList details[data-lu-node^="f:"] > summary.lu-node-head');
+  if(head&&!t.closest('button,input,textarea,select,a,[contenteditable],.lu-renaming'))return !onGrip(head,x,y,LU_HEAD_GRIP);
   if(t.closest(LU_MQ_SKIP))return false;
   const row=t.closest('[data-lu-document]');if(!row)return true;
-  // 자료 줄 위는 어디든(가운데 빈칸 포함) 지금처럼 '잡아 폴더로 옮기기'다(줄 가운데를 잡아 끄는 사람이 많고 그 동작을 지킨다).
-  // 다만 폴더 안으로 들여 쓴 줄의 왼쪽 들여쓰기 여백(첫 칸보다 왼쪽)은 빈 곳으로 본다. 사진 칸은 늘 줄 위.
-  if(t!==row||!row.matches('.lu-row'))return false;
-  const first=[...row.children].find(c=>c.getClientRects().length&&!c.matches('.lu-pick'));
-  return !!first&&x<first.getBoundingClientRect().left-4&&x>row.getBoundingClientRect().left+2;
+  if(!row.matches('.lu-row')||t.closest('.lu-thumb,.lu-row-photos,[data-lu-photos]'))return false;
+  return !onGrip(row,x,y,LU_ROW_GRIP);
 }
+const LU_ROW_GRIP={icon:'.lu-file-kind,.lu-thumb',name:'.lu-row-title'},LU_HEAD_GRIP={icon:'.lu-folder-shape',name:'.lu-node-name'};
 // 고르는 동안 선택 모드가 켜지면 목록이 다시 그려진다: 누른 요소가 문서에서 빠져도 그 칸 번호(두 칸)로 지금 칸을 다시 찾는다.
 const luMqPane=el=>{const i=el?.closest?.('[data-lu-pane-i]')?.dataset.luPaneI;return i==null?null:document.querySelector(`#documentList [data-lu-pane-i="${i}"]`)};
 // 고를 수 있는 줄: 자료 줄 + 폴더 줄(탐색기 칸의 하위 폴더 줄·두 칸 칸의 폴더 줄, 폴더째). 두 칸 안에서 시작하면 그 칸만.
@@ -2339,7 +2341,7 @@ function luBindSelect(){
     if(folder&&luPick.items&&!luSelBusy&&luPick.items.size){const ui=luFolders();if(ui.moveOpen)void ui.closeMove();else ui.openMove(luSelectedDocs(),folder,{place:'below',history:true,folders:luPickedFolderIds(),done:ok=>{if(ok&&luPick.items&&!luSelBusy){luPick.items=null;luRenderLibrary()}}})}
   });
   list.addEventListener('mousedown',e=>{if(e.shiftKey&&LU_FINE?.matches&&e.target.closest?.('[data-lu-document]'))e.preventDefault()});
-  document.addEventListener('keydown',luOnSelEscape);
+  luBindSelEscape();
   // Shift+클릭으로 여러 줄을 고를 때 화면 글자가 파랗게 칠해지지 않게(선택 모드 중 목록 칸 전체).
   document.querySelector('#libraryListCard')?.addEventListener('mousedown',e=>{if(e.shiftKey&&luPick.items&&LU_FINE?.matches&&!e.target.closest?.('input:not([type=checkbox]),textarea,[contenteditable]'))e.preventDefault()});
   window.addEventListener('kptu:view-changed',event=>{if(luPick?.items&&!luSelBusy&&event.detail?.view!=='library'){luPick.items=null;luSyncPicks()}});

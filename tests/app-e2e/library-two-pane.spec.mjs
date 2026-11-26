@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {libraryTopMenu} from './helpers/library-tree.mjs';
 import {pinch} from './helpers/pinch.mjs';
@@ -81,22 +82,22 @@ for(const width of [1440,884])test.describe(`자료실 ${width} 두 칸`,()=>{
     await expect(page.locator(`${pane(1)} .lu-pane-here`)).toHaveText('가상 A');
     // 왼쪽(맨 위) 자료 → 오른쪽 칸 빈 자리 = 가상 A.
     await openOut(page,0);
-    await page.locator(docIn(0,'a-2')).dragTo(page.locator(`${pane(1)} .lu-pane-head`));
+    await dragByName(page.locator(docIn(0,'a-2')), page.locator(`${pane(1)} .lu-pane-head`));
     await expect.poll(()=>folderOf(s,'a-2')).toBe('fa');
     await expect(line(page)).toContainText('가상 A 폴더');await expect(line(page).locator('.lu-undo')).toHaveText('되돌리기');
     await expect(page.locator(docIn(1,'a-2'))).toBeVisible();
     // 같은 칸 폴더 줄: 왼쪽 자료 a1-1 → 왼쪽 가상 Z.
-    await page.locator(docIn(0,'a1-1')).dragTo(page.locator(folderIn(0,'fz')));
+    await dragByName(page.locator(docIn(0,'a1-1')), page.locator(folderIn(0,'fz')));
     await expect.poll(()=>folderOf(s,'a1-1')).toBe('fz');
     // 옮기기가 끝나 목록을 다시 읽은 뒤에 안내가 뜬다(그 전에 다음 끌기를 놓으면 폴더 부품이 바쁜 동안이라 받지 않는다).
     await expect(line(page)).toContainText('가상 Z 폴더');
     // 폴더 → 반대 칸 폴더 줄: 왼쪽 가상 N → 오른쪽 가상 C.
-    await page.locator(folderIn(0,'fn')).dragTo(page.locator(folderIn(1,'fc')));
+    await dragByName(page.locator(folderIn(0,'fn')), page.locator(folderIn(1,'fc')));
     await expect.poll(()=>parentOf(s,'fn')).toBe('fc');
     await expect(line(page)).toContainText('폴더를 옮겼어요 → 가상 C 폴더');
     // 자기 안 막음: 왼쪽 가상 A → 오른쪽 칸(가상 A 안) 빈 자리 — 쓰기 없음.
     await page.waitForLoadState('networkidle');const n=s.writes.length;
-    await page.locator(folderIn(0,'fa')).dragTo(page.locator(`${pane(1)} .lu-pane-head`));
+    await dragByName(page.locator(folderIn(0,'fa')), page.locator(`${pane(1)} .lu-pane-head`));
     await page.waitForLoadState('networkidle');expect(s.writes.length).toBe(n);
     expect(parentOf(s,'fa')).toBeNull();
     expect(errors).toEqual([]);
@@ -146,7 +147,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 왼쪽 자료를
   await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');
   await expect.poll(()=>folderOf(s,'a-2')).toBeNull();
   // 실제 마우스 끌기(명진이 하는 그대로)로 한 번 더: 같은 자리 → 가상 A.
-  await page.locator(docIn(0,'a1-1')).dragTo(page.locator(subDoc(1,'fa','n-1')));
+  await dragByName(page.locator(docIn(0,'a1-1')), page.locator(subDoc(1,'fa','n-1')));
   await expect.poll(()=>folderOf(s,'a1-1')).toBe('fa');
   await expect(line(page)).toContainText('가상 A 폴더');
   expect(errors).toEqual([]);
@@ -197,7 +198,7 @@ test('PC 1440 두 칸: 여러 개 골라 끌기·폴더 끌기도 펼친 폴더 
   await expect(line(page)).toContainText('옮겼어요 2개 → 가상 A 폴더');
   await page.keyboard.press('Escape');
   // 폴더 끌기: 왼쪽 가상 N(실제 마우스 끌기) → 오른쪽 가상 A 안 자료 줄 = 가상 A 안으로.
-  await page.locator(folderIn(0,'fn')).dragTo(page.locator(subDoc(1,'fa','n-1')));
+  await dragByName(page.locator(folderIn(0,'fn')), page.locator(subDoc(1,'fa','n-1')));
   await expect.poll(()=>parentOf(s,'fn')).toBe('fa');
   await expect(line(page)).toContainText('폴더를 옮겼어요 → 가상 A 폴더');
   // 자기 안 막음: 가상 A를 자기 묶음 안 자료 줄에 — 쓰기 없음.

@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {start,openFiles,treeGo} from './helpers/files-server.mjs';
@@ -47,7 +48,7 @@ for(const two of [false,true])test(`자료실 PC 1280 ${two?'두 칸':'한 칸'}
   await line(page).locator('.lu-undo').click();await expect.poll(()=>folderOf(s,'b1')).toBe('fb');
   // #2448 뒤 묶음 끝 [사진 n] 위에 놓아도 그 폴더(한 칸 목록은 전에 아무 일도 없었다).
   await expect(doc('b2')).toBeVisible();
-  await doc('b2').dragTo(page.locator(`${root} .lu-photo-fold`).first());
+  await dragByName(doc('b2'), page.locator(`${root} .lu-photo-fold`).first());
   await expect.poll(()=>folderOf(s,'b2')).toBe('fa');
   expect(errors).toEqual([]);
 });
@@ -66,7 +67,7 @@ test('자료실 PC 1280 두 칸: 아래 여백 — 두 칸 높이 같음, 마지
   // 오른쪽 칸(가상 A) 아래 빈 자리에 왼쪽 맨 위 자료(폴더 밖 o1 — '폴더 밖' 줄을 펼쳐서)를 놓으면 가상 A.
   await page.locator('#documentList [data-lu-pane-i="0"] [data-lu-nav="x:out"]').click();
   const list=pane(1).locator('.lu-pane-list'),b=await list.boundingBox();
-  await page.locator('#documentList [data-lu-pane-i="0"] [data-lu-document="o1"]').dragTo(list,{targetPosition:{x:b.width/2,y:b.height-20}});
+  await dragByName(page.locator('#documentList [data-lu-pane-i="0"] [data-lu-document="o1"]'), list,{targetPosition:{x:b.width/2,y:b.height-20}});
   await expect.poll(()=>folderOf(s,'o1')).toBe('fa');
   expect(errors).toEqual([]);
 });
@@ -93,7 +94,7 @@ for(const width of [1280,884])test(`파일 ${width} 두 칸 목록: 명진 예 �
   await expect(page.locator('#filesRoot .fx-drop-on,#filesRoot .fx-drop-group')).toHaveCount(0);
   // 사진함 묶음 끝 [사진 1] 위에 문서함 '안내문'을 놓으면 사진함.
   const fold=list.locator('[data-fx-photos="od:OD!2"]');await expect(fold).toBeVisible();
-  await row('od:OD!11').dragTo(fold);
+  await dragByName(row('od:OD!11'), fold);
   await expect.poll(()=>server.items.find(i=>i.item_id==='OD!11').parent_id).toBe('OD!2');
   expect(errors).toEqual([]);
 });

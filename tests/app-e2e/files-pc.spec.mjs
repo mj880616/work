@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -288,7 +289,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.4.0 문(내 PC ↔ 클라우드)
     await twoPanes(page);
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await expect(memo).toHaveAttribute('draggable', 'true');
-    await memo.dragTo(pane(page, 1).locator('[data-fx-list]'));
+    await dragByName(memo, pane(page, 1).locator('[data-fx-list]'));
     const ask = root(page).locator('[data-fx-dropask]');
     await expect(ask).toBeVisible();
     await shot(page, 'files-pc-xfer-drop-1440');
@@ -549,7 +550,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     // 왼쪽 내 PC 파일 → 오른쪽 내 PC D: 끌어 놓기 → [옮기기].
     const memo = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 메모_연습.txt'));
     await expect(memo).toHaveAttribute('draggable', 'true');
-    await memo.dragTo(pane(page, 1).locator('[data-fx-list]'));
+    await dragByName(memo, pane(page, 1).locator('[data-fx-list]'));
     const drop = root(page).locator('[data-fx-dropask]');
     await expect(drop).toBeVisible();
     await drop.locator('[data-fx-drop-go="move"]').click();
@@ -558,7 +559,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
     expect(JSON.parse(st.calls.find(c => c.path === '/v1/move').body)).toEqual({ path: 'C:\\문서\\가짜 메모_연습.txt', dir: 'D:\\' });
     // 같은 칸 안 폴더에 놓기 = 묻지 않고 옮기기(클라우드 안과 같게).
     const pdf = pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\가짜 안내문.pdf'));
-    await pdf.dragTo(pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await dragByName(pdf, pane(page, 0).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
     await expect(pdf).toHaveCount(0);
     expect(st.pc['C:\\문서\\하위_예시'].map(e => e.name)).toEqual(['가짜 안내문.pdf']);
     // Ctrl+C(오른쪽 D: 파일) → 같은 칸 Ctrl+V = 같은 이름 → [그래도 하기] → '이름 (2)'.
@@ -591,7 +592,7 @@ test.describe('윈도우 PC 1440 · 바구니 0.5.0 문(내 PC 쓰기)', () => {
       { path: 'C:\\문서\\가짜 메모_연습.txt', name: '가짜 메모_잠깐.txt' }, { path: 'C:\\문서\\가짜 메모_잠깐.txt', name: '가짜 메모_연습.txt' }]);
     await expect(page.getByText(/되돌렸어요/).first()).toBeVisible();
     // 같은 칸 폴더로 끌어 옮긴 뒤 [되돌리기] = 원래 폴더로.
-    await memo.dragTo(list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
+    await dragByName(memo, list(page).locator(at('data-fx-row', 'pc:C:\\문서\\하위_예시')));
     await expect(memo).toHaveCount(0);
     await page.locator('.kptu-notice-undo').click();
     await expect(memo).toBeVisible();

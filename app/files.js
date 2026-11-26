@@ -27,7 +27,7 @@ import {walkTo, walkUp, walkUpLabel} from './folder-walk.mjs';
 import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {bindTouchDrag} from './touch-drag.js';
 import {holdPick, createBackLayer} from './select-mode.js';
-import {bindMarquee} from './marquee-select.js';
+import {bindMarquee, onGrip} from './marquee-select.js';
 import {appShare, docMimeOf, OUT_FILE_MAX} from './app-share.js';
 import {mountSplitResize} from './split-resize.js';
 import {twoPaneFrame} from './two-pane.js';
@@ -60,7 +60,7 @@ import {brandIconSvg} from './brand-icons.js';
 import {treeIconHtml, iconSvg} from './tree-icons.js';
 import {photoToggleHtml, bindPhotoTileMenus} from './photo-fold.js';
 import {recentSplit} from './photo-fold-model.mjs';
-import {openFolderAt, paintDropGroup} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
+import {openFolderAt, paintDropGroup, blankRootAt} from './drop-open-folder.mjs'; // UI-펼친폴더안놓기전체: 놓일 묶음 표시(공용) // LIB-사진숨김: 폴더 안 사진은 줄에서 빼고 끝에 '사진 n'
 import {odLinkButtonHtml, paintOdLink} from './od-link.js';
 import {cloudNoneHtml, connectNoteFor} from './connect-note.mjs'; // S62-16: 연결 안내 공용 부품(글 한 줄 → 아래 버튼, 처음 = 연결 · 권한 빠짐 = 다시 연결)
 import {gdriveLinkMode} from './photo-sources-model.mjs'; // S62-16: 사진 칩과 같은 구글 드라이브 연결 규칙
@@ -77,7 +77,7 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 import {within, isLoadTimeout} from './load-deadline.js';
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
-import {createSelectKeys, renameTarget, confirmDelete} from './select-keys.js';
+import {createSelectKeys, bindEscClear, renameTarget, confirmDelete} from './select-keys.js';
 import {uploadLabelHtml} from './upload-label.mjs';
 import {bindRowSwipe, PICK, RENAME, DELETE} from './row-swipe.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
@@ -4333,6 +4333,9 @@ const fxKeys = createSelectKeys({
   all: () => { const p = P(), rows = [...(paneEl(p)?.querySelectorAll('[data-fx-row]') || [])]; if (!rows.length) return false; for (const b of rows) p.picked.add(b.dataset.fxRow); paintPicks(p); return true; },
   clear: () => { const p = P(); if (!(p.picked.size || state.clip)) return false; if (state.clip) uncut(); else unpick(); return true; },
 });
+// STD-Esc풀기(S71-45): 커서가 [파일] 칸 밖(사각형으로 고른 뒤 등)이어도 Esc = 고른 것 모두 풀기·고르기 막대 닫기. 칸 안 Esc는 아래 칸 처리 차례 그대로(열린 창·고르기 창 먼저).
+bindEscClear(e => { const p = P(); if (!(p.picked.size || state.clip)) return false; if (state.clip) uncut(); else unpick(); return true; },
+  {active: e => visible() && !!root && !root.contains(e.target) && !state.busy && !state.ask && !state.xfer && !state.jobsOpen && !state.dropAsk && !state.panes.some(q => q.srcOpen)});
 // PC 단축키: ↑↓ 고르기 · Enter 열기(폴더는 들어가기) · Backspace 위 폴더 · / 찾기.
 root?.addEventListener('keydown', event => {
   if (event.target.matches('input,select,textarea')) return;
@@ -4412,24 +4415,23 @@ const MQ_SKIP = 'input,textarea,select,button,a,label,[contenteditable],summary,
 // + 목록 줄의 마지막 칸 오른쪽 빈 자리(탐색기처럼). 줄 글자·칸 위는 지금처럼 줄 끌어 옮기기. 다른 화면에서는 enabled가 막는다.
 const mqView = () => root.closest('.view-panel') || root;
 const mqArea = () => { const v = mqView(); return v.closest('.shell') || v.closest('main') || v; };
-const rowTail = (row, x) => {
-  if (!row.matches('.fx-row') || row.closest('.fx-grid')) return false;
-  const cells = [...row.children].filter(c => c.getClientRects().length);
-  if (!cells.length) return false;
-  return x > Math.max(...cells.map(c => c.getBoundingClientRect().right)) + 4;
-};
-function mqBlank(t, x) {
+// STD-끌기시작(S71-45, 2026-11-26 사용자 "이런 네모 영역에서도 드래그가 가능해져야한다는 거야" · "폴더 모양, 폴더명 위에서만 드래그가 안돼"):
+// 목록 표 줄은 아이콘 + 이름 글자 위만 '줄 끌어 옮기기', 같은 줄의 나머지(이름 오른쪽 빈 곳·바뀐 날·크기·종류 칸·아이콘 왼쪽 띠·줄 오른쪽 여백)는 빈 곳 = 사각형.
+// 판정은 공용 onGrip 하나(자료실과 같음). 사진 격자 칸(.fx-grid)은 칸째 그림이라 지금처럼 칸 어디든 옮기기.
+const FX_GRIP = {icon: '.fx-ico, .fx-dot', name: '.fx-name'};
+const rowBlank = (row, x, y) => row.matches('.fx-row') && !row.closest('.fx-grid') && !onGrip(row, x, y, FX_GRIP);
+function mqBlank(t, x, y) {
   const view = mqView();
   if (!root.contains(t)) return t.contains(view) && mqArea().contains(t); // 화면을 감싼 바탕(화면 밖 여백)만, 옆 메뉴·위 줄은 아님
-  const row = t.matches('[data-fx-row]') ? t : null;
-  if (row) return rowTail(row, x);
+  const row = t.closest('[data-fx-list] [data-fx-row]');
+  if (row) return rowBlank(row, x, y);
   return !t.closest(MQ_SKIP);
 }
 let mqPane = 0;
 const mqPaneOf = el => { const i = el?.isConnected ? paneOfEl(el) : -1; return i >= 0 ? i : mqPane; };
 if (root) bindMarquee(mqArea(), {
   enabled: () => !PHONE.matches && !TOUCH.matches && window.KPTURouter?.current === 'files' && !state.busy && !state.ask && !state.run && !drag,
-  blank: (t, x) => mqBlank(t, x),
+  blank: (t, x, y) => mqBlank(t, x, y),
   items: start => [...(paneEl(state.panes[mqPaneOf(start)])?.querySelectorAll('[data-fx-list] [data-fx-row]') || [])],
   keyOf: el => el.dataset.fxRow,
   anchor: start => paneEl(state.panes[mqPaneOf(start)]) || root,
@@ -4473,10 +4475,18 @@ root?.addEventListener('dragstart', event => {
   setDragGhostImage(event.dataTransfer, drag.rows.length > 1 ? `${drag.rows.length}개` : (drag.rows[0]?.name || ''), document, event);
 });
 // 놓을 곳: 폴더 줄·칸·나무 폴더(data-fx-drop), 두 칸이면 반대 칸(그 칸의 지금 폴더). any = 꾹 눌러 끌기(놓으면 늘 복사·옮기기를 고름).
-const dropAt = (target, {any = false} = {}) => {
+// STD-빈곳놓기(S71-45, 2026-11-26 사용자 "그 외에 위 아래 여백쪽에 두면 그 최상위 폴더에 드롭가능하게"): 왼쪽 나무의 상자 밖 빈 곳(상자 사이·맨 아래 상자 밑·칸 위아래 여백)은
+// 그 자리 위쪽(없으면 아래쪽) 저장소 상자 = 그 드라이브 맨 위. 상자 안 빈 곳은 원래부터 상자(data-fx-drop = 맨 위)다. 판정은 공용 blankRootAt 하나.
+const treeBlankBox = (target, y) => {
+  const tree = target.closest?.('[data-fx-tree]');
+  if (!tree || !root.contains(tree) || !Number.isFinite(y) || !blankRootAt(target, {zone: tree, rows: '.ft-row,[data-fx-box]'})) return null;
+  const boxes = [...tree.querySelectorAll('[data-fx-box][data-fx-drop]')].filter(b => b.getClientRects().length);
+  return boxes.filter(b => b.getBoundingClientRect().top <= y).at(-1) || boxes[0] || null;
+};
+const dropAt = (target, {any = false, y = NaN} = {}) => {
   if (!drag || !target?.closest) return null;
   const {i, box, cross} = frame.dropPane(target, drag.pane);
-  const t = openFolderAt(target, {group: '[data-fx-drop]', keyOf: g => g.dataset.fxDrop})?.el || (cross ? box : null); // 공용 규칙: 가장 가까운 묶음 = 그 폴더
+  const t = openFolderAt(target, {group: '[data-fx-drop]', keyOf: g => g.dataset.fxDrop})?.el || treeBlankBox(target, y) || (cross ? box : null); // 공용 규칙: 가장 가까운 묶음 = 그 폴더
   if (!t || !root.contains(t)) return null;
   const dest = t.dataset.fxDrop ? destOf(t.dataset.fxDrop) : paneDest(state.panes[i]);
   if (!dest || pcWhy(drag.rows, dest)) return null;
@@ -4524,7 +4534,7 @@ root?.addEventListener('dragover', event => {
     upHit.t.dataset.fxUptext = upDropText(destNameOf(upHit.dest));
     return;
   }
-  const hit = dropAt(event.target);
+  const hit = dropAt(event.target, {y: event.clientY});
   markHit(hit);
   hoverTree(hit ? event.target : null);
   if (!hit) return;
@@ -4545,7 +4555,7 @@ root?.addEventListener('drop', event => {
     void (async () => { if (files.length) await uploadNewFiles(files, upHit.dest); if (folders.length) await treeUp('copy', folders, upHit.dest); })();
     return;
   }
-  const hit = dropAt(event.target);
+  const hit = dropAt(event.target, {y: event.clientY});
   dropOff(null);
   drag = null; treeHover.stop();
   if (!hit) return;

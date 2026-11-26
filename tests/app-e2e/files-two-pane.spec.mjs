@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -130,7 +131,7 @@ test('PC 1440: 기본은 한 칸 → [두 칸] 켜기(서버 기억) · 나무�
   await expect(prow(page, 0, 'od:OD!12')).toHaveCount(0);
   await expect(prow(page, 1, 'od:OD!12')).toBeVisible();
   // 칸 사이 끌어 놓기: 오른쪽 줄을 왼쪽 칸에 놓으면 '복사 · 옮기기' 작은 고르기.
-  await prow(page, 1, 'od:OD!14').dragTo(prow(page, 0, 'od:OD!11'));
+  await dragByName(prow(page, 1, 'od:OD!14'), prow(page, 0, 'od:OD!11'));
   const ask = root(page).locator('[data-fx-dropask]');
   await expect(ask).toBeVisible();
   await expect(ask).toContainText('여기에 놓으면 → 가짜 문서함');

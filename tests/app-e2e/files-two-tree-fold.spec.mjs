@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { dragByName } from './helpers/grab-name.mjs';
 import { mkdirSync } from 'node:fs';
 import { start, openFiles } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
@@ -68,7 +69,7 @@ test('PC 1440 두 칸: 칸 위 [출처 ▾] 맨 위에 별표·큰 파일 → �
   await tree(page).locator('[data-fx-go="gd"][data-fx-id=""]').click();
   const row = tree(page).locator('[data-fx-fold="od:OD!2"]');
   await expect(row).toHaveAttribute('draggable', 'true');
-  await row.dragTo(pane(page, 1).locator('[data-fx-list]'));
+  await dragByName(row, pane(page, 1).locator('[data-fx-list]'));
   const ask = root(page).locator('[data-fx-dropask]');
   await expect(ask).toBeVisible();
   await expect(ask.locator('[data-fx-drop-go]')).toHaveText(['복사', '옮기기']);

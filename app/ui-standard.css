@@ -1461,6 +1461,10 @@ html .doc-kind-pick > select.cc-kind-select.is-on{ color:var(--kptu-ink); font-w
   transition:scale var(--ds-press-ms) ease-out,box-shadow var(--ds-press-ms) ease-out;
 }
 [data-pressing][data-press-wide]{ scale:var(--ds-press-scale-wide); }
+/* S71-45 STD-끌기시작: 줄 위 빈 곳(날짜 칸·아이콘 왼쪽 띠 등)에서 시작한 사각형 고르기(marquee-select.js가 html.marquee-on)를 그리는 동안은 누른 줄의 눌림(작아짐)을 끈다 —
+   작아진 줄은 자리가 바뀌어 사각형이 시작한 줄에 닿지 않은 것처럼 보였다. 눌림 규칙은 이 한 곳이라 여기서 끈다. */
+html.marquee-on :active,html.marquee-on [data-pressing]{
+  scale:none !important; }
 @media (prefers-reduced-motion:reduce){
   :is(button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input:is([type="button"],[type="submit"],[type="reset"])):active:not(:disabled,[aria-disabled="true"],[data-press="off"]),
   [data-pressing]{ scale:none; transition:none; }
