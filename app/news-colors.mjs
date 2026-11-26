@@ -34,6 +34,8 @@ export const FIXED_NEWS = Object.freeze([
   // S58-5: NEWS-못넣은곳대안으로 카탈로그에 더해진 매체(카탈로그 순서). S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳
   //   (미디어오늘·부산일보·뉴스1·이데일리·국제신문·경기일보·경인일보·영남일보)은 이 표와 토큰에서도 뺐다 — 값은 docs/design/news-identity-colors.md 표에 남긴다.
   'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt',
+  // S71-70: 참세상·미디어오늘(미디어오늘은 S59-1에 뺀 값을 docs 표에서 그대로 되살림).
+  'news-newscham', 'news-mediatoday',
 ]);
 // S69 NEWS-사설칼럼: 신문 사설·칼럼 피드 키('news-<신문>-opinion')는 그 신문 고유색을 함께 쓴다(표에 키를 따로 두지 않음). 고유색이 없는 신문은 묶음 돌려쓰기.
 export const baseKey = key => (typeof key === 'string' && key.endsWith('-opinion') && FIXED_NEWS.includes(key.slice(0, -8)) ? key.slice(0, -8) : key);
