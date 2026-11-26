@@ -38,8 +38,8 @@ for(const width of [1280,760,412]){
     await expect(modal).toBeVisible();
     const rows=await modal.locator('[data-reorder-id]').evaluateAll(r=>r.map(x=>x.dataset.reorderId));
     expect(rows.filter(v=>OP.includes(v)||v==='ledger')).toEqual([]);
-    await expect(modal.locator('[data-menu-edit-preview]')).not.toContainText('통화');
-    await expect(modal.locator('[data-menu-edit-preview]')).not.toContainText('원장');
+    await expect(modal).not.toContainText('통화');
+    await expect(modal).not.toContainText('원장');
     await page.screenshot({path:`docs/design/screens/s61-41/menu-new-${width}.png`});
     expect(errors).toEqual([]);
   });

@@ -58,10 +58,14 @@ async function boot(page, {settings = 'row', row = ROW, logs = LOGS, monthCount 
   return state;
 }
 
-async function openProfile(page) {
+// S71-36 PROFILE-설정화면: 내 프로필 첫 화면의 'Claude 읽기 연결 ›' 줄을 눌러 그 장으로 들어간다(설정 행이 있을 때만 줄이 있다).
+async function openProfile(page, {enter = true} = {}) {
   await page.goto(appOrigin + '/app/login/?return=' + encodeURIComponent(appOrigin + '/app/?view=profile'));
   await signInWithSession(page, user.email);
   await expect(page.locator('#profileView')).toBeVisible({timeout: 15000});
+  if (!enter) return;
+  await page.locator('#psRoot [data-ps-open="mcp"]').click({timeout: 15000});
+  await expect(page.locator('#profileView [data-ps-page="mcp"]')).toBeVisible();
 }
 const panel = page => page.locator('#psMcpReadPanel');
 
@@ -71,13 +75,14 @@ for (const width of [412, 884, 1280]) test(`칸: 꺼짐·최근 기록·이번 �
   await openProfile(page);
   const p = panel(page);
   await expect(p).toBeVisible({timeout: 15000});
-  await expect(p.locator('h3')).toHaveText('Claude 읽기 연결');
+  await expect(page.locator('#profileView [data-ps-page="mcp"] .sl-page-title')).toHaveText('Claude 읽기 연결');
   await expect(p.locator('[data-mr-enabled]')).not.toBeChecked();
-  await expect(p.locator('.mr-month')).toHaveText('이번 달 42번');
+  await expect(p.locator('[data-mr-month]')).toHaveText('42번');
   await expect(p.locator('.mr-log li')).toHaveCount(3);
+  await p.locator('[data-mr-log] > summary').click(); // 최근 읽은 기록 ›(접힌 줄)
   await expect(p.locator('.mr-log li').first()).toContainText('조직 현황');
   await expect(p.locator('.mr-log li').nth(2)).toContainText('잠깐 멈춤');
-  await expect(p.locator('[data-mr-revoke]')).toHaveText('모든 연결 끊기');
+  await expect(p.locator('[data-mr-revoke] .sl-label')).toHaveText('모든 연결 끊기');
   expect(state.patches).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await p.scrollIntoViewIfNeeded();
@@ -90,10 +95,11 @@ test('칸: 스위치는 enabled만, [모든 연결 끊기]는 revoked_before만 
   await openProfile(page);
   const p = panel(page);
   await p.locator('[data-mr-enabled]').check();
-  await expect(p.locator('.mr-row .mr-r')).toHaveText('켜짐');
+  await expect.poll(() => state.patches.length).toBe(1);
+  await expect(p.locator('[data-mr-enabled]')).toBeChecked();
   await p.locator('[data-mr-revoke]').click();
   await page.locator('.kptu-ask-actions button', {hasText: '끊기'}).click();
-  await expect(p.locator('.mr-foot .mr-s')).toContainText('마지막으로 모두 끊은 때');
+  await expect(p.locator('[data-mr-revoke] .sl-desc')).toContainText('마지막으로 모두 끊은 때');
   expect(state.patches.length).toBe(2);
   expect(state.patches[0]).toEqual({enabled: true});
   expect(Object.keys(state.patches[1])).toEqual(['revoked_before']);
@@ -103,10 +109,11 @@ test('칸: 스위치는 enabled만, [모든 연결 끊기]는 revoked_before만 
 
 for (const [name, opts] of [['표가 아직 없을 때(DB 적용 전)', {settings: 'missing'}], ['설정 행이 없을 때(다른 사용자)', {row: null}]]) test(`칸: ${name} 칸 없음, 화면 그대로`, async ({page}) => {
   const state = await boot(page, opts);
-  await openProfile(page);
+  await openProfile(page, {enter: false});
   await expect(page.locator('#psPushPanel')).toBeAttached({timeout: 15000});
   await page.waitForTimeout(300);
   await expect(panel(page)).toBeHidden();
+  await expect(page.locator('#psRoot [data-ps-open="mcp"]')).toHaveCount(0); // 첫 화면 줄도 없다
   expect(state.patches).toEqual([]);
   expect(state.errors).toEqual([]);
 });

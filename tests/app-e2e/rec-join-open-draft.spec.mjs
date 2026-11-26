@@ -9,6 +9,7 @@ import {test,expect} from '@playwright/test';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {appOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
+import {startRecord,readRecItem,recMenuItem} from './helpers/report-rec.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -96,7 +97,7 @@ const recCalls=(calls,action)=>calls.filter(c=>c.action===action);
 // [녹음] → 조각 하나 → 띠가 '녹음 중'일 때까지.
 async function startRecording(page,calls){
   const band=page.locator('#recBand'),before=recCalls(calls,'rec_piece').length;
-  await page.locator('#reportRecordBtn').click();
+  await startRecord(page);
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await page.evaluate(()=>window.__fakeRec.emit());
   await expect.poll(()=>recCalls(calls,'rec_piece').length).toBe(before+1);

@@ -70,7 +70,7 @@ async function photosServer(page, width) {
     return r.fulfill({ status: 400, json: { error: 'action_invalid' } });
   });
   await clickView(page, 'photos');
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   return errors;
 }
 async function photos(page, width) {

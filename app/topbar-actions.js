@@ -292,7 +292,7 @@ window.addEventListener('kptu:view-changed',event=>{
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
   // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈은 머리줄을 두지 않는다 — '전체 검색' 입구는
   // 본문 날짜 줄 끝 돋보기(journal.js). 전체 검색 화면은 이름('검색')이 있어 머리줄(그 칸)이 보인다(이름 글자는 topbar-actions.css가 뺀다).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -560,9 +560,9 @@ window.addEventListener('kptu:view-changed',event=>{
 paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
-const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',reference:'team',projects:'reports'};
+const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',projects:'reports'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:word('조직 관리'),view:'team'},reports:{name:word('사업 관리'),view:'meetings'}};
-const VIEW_NAMES={home:'홈',basket:'잊지 말기',reading:'저장한 글',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','title'),team:word('조직 관리','title'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리'};
+const VIEW_NAMES={home:'홈',basket:'잊지 말기',reading:'저장한 글',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','title'),team:word('조직 관리','title'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리'};
 const whereList=topline?.querySelector('[data-topline-where]');
 // APP-올인원다이어리 단계 2: 앱 이름·노조 색 화면 이름은 얼굴(app/brand/brand.mjs)에서. WORK ON+ 얼굴은 글자 그대로.
 const APP_TITLE=APP_NAME;
@@ -637,16 +637,16 @@ window.KPTUQuickWrite={open(kind){
   if(kind==='task')return openEventWindow(true);
   return Promise.resolve();
 }};
-async function openScreenNewButton(view,selector){
+async function openScreenNewButton(view,selector,press=b=>b.click()){
   try{
     await window.KPTURouter?.go(view,{source:'delegated'});
     let button=null;
     for(let i=0;i<80&&!button;i++){
-      const found=document.querySelector(`#${view}View ${selector}`);
+      const found=document.querySelector(`#${view}View ${selector}`)||document.querySelector(`[data-screen-tools-for="${view}View"] ${selector}`); // 이름 줄로 옮긴 단추(screen-tools.js, 폰 사업 관리 [+])도 그 화면 것
       if(found&&!found.disabled&&!found.hidden&&found.getClientRects().length)button=found;else await new Promise(resolve=>setTimeout(resolve,100));
     }
     if(!button)throw new Error('missing');
-    button.click();
+    press(button);
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
 if(addButton){
@@ -658,7 +658,8 @@ if(addButton){
         const kind=button.dataset.toplineAdd;
         if(kind==='update'||kind==='note')void openWriter(kind);
         else if(kind==='diary')void openScreenNewButton('diary','[data-diary-new]');
-        else if(kind==='report')void openScreenNewButton('meetings','#newMeetingBtn');
+        // BIZ-머리한줄(S71-23): 사업 관리 [+]는 메뉴([새 사업 보고][녹음]/[사업영역 관리])라, 여기서는 그 [새 사업 보고]와 같은 길(칸 고르기 → 쓰기 창)을 [+] 자리에서 연다.
+        else if(kind==='report')void openScreenNewButton('meetings','#newMeetingBtn',b=>{if(window.KPTUReportEntry?.pick)window.KPTUReportEntry.pick(b);else b.click()});
         else void openEventWindow(kind==='task');
       }});
     addButton.addEventListener('click',()=>menu.open(addButton));

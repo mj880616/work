@@ -10,6 +10,7 @@ import {mkdirSync} from 'node:fs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {startRecord,readRecItem,recMenuItem} from './helpers/report-rec.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-13T01:00:00Z';
@@ -84,7 +85,7 @@ test('PC 1280: 상세 [녹음] → 다른 메뉴로 옮겨도 녹음 계속 → 
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const calls=await open(page);
   const detail=await openReport(page,'합성 상집',MA);
-  const rec=detail.locator('#mrdRecordBtn'),top=page.locator('#reportRecordBtn');
+  const rec=detail.locator('#mrdRecordBtn'),topItem=()=>page.evaluate(()=>window.KPTUMeetingRecorder.recordItem()); // BIZ-머리한줄: 위쪽 [녹음]은 [+] 메뉴 줄(모양은 녹음기 recordItem)
   await expect(rec).toBeVisible();await expect(rec).toHaveText('녹음');await expect(rec).toBeEnabled();
   // 작은 낮은 버튼(32px), ⋯ 왼쪽.
   const box=await rec.boundingBox();expect(box.height).toBeLessThanOrEqual(33);
@@ -94,11 +95,11 @@ test('PC 1280: 상세 [녹음] → 다른 메뉴로 옮겨도 녹음 계속 → 
   const band=page.locator('#recBand');
   await expect(band.locator('.rec-label')).toHaveText('녹음 중');
   await expect.poll(()=>of(calls,'rec_start')).toEqual([{workspace_id:expect.any(String),mime:'audio/webm',meeting_id:MA}]);
-  // 녹음 중: 상세 단추는 '녹음 중'(눌림)·꺼짐, 위쪽 [녹음]도 꺼짐 → 두 번 시작하지 않는다.
+  // 녹음 중: 상세 단추는 '녹음 중'(눌림)·꺼짐, 위쪽 [+] 메뉴 [녹음]도 꺼짐 → 두 번 시작하지 않는다.
   await expect(rec).toHaveText('녹음 중');await expect(rec).toHaveAttribute('aria-pressed','true');await expect(rec).toBeDisabled();
-  await expect(top).toBeDisabled();
+  expect(await topItem()).toEqual({shown:true,disabled:true,label:'녹음 중',pressed:true});
   await shot(page,'pc-1280-recording');
-  await rec.click({force:true});await top.click({force:true});
+  await rec.click({force:true});await page.evaluate(()=>window.KPTUMeetingRecorder.startRecord());
   expect(of(calls,'rec_start').length).toBe(1);
   // 다른 보고를 열면 그 보고의 단추는 꺼진 '녹음'(지금 녹음은 앞 보고 것).
   await openReport(page,'합성 집행위',MB);
@@ -153,7 +154,7 @@ test('폰 412: 상세에 [녹음]이 보이지 않는다(위쪽 [녹음]과 같�
   await expect(detail).toBeVisible();
   await expect(detail).toHaveAttribute('data-meeting-id',MA);
   await expect(detail.locator('#mrdRecordBtn')).toBeHidden();
-  await expect(page.locator('#reportRecordBtn')).toBeHidden();
+  expect(await page.evaluate(()=>window.KPTUMeetingRecorder.recordItem().shown)).toBe(false); // 폰은 [+] 메뉴에도 노트북 [녹음] 줄이 없다
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await shot(page,'phone-412-detail');
   expect(of(calls,'rec_start')).toEqual([]);

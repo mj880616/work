@@ -26,6 +26,11 @@ export const SIGNUP_KIND = Object.freeze(['signup', '새 가입']);
 // DB 변경 전에도 저장 모양이 그대로 통과한다).
 export const NOTE_KIND = Object.freeze(['note', '노트 알림']);
 export const SIGNUP_FEATURE = 'dev_inbox';
+// S71-36 PROFILE-설정화면: '알림 설정' 장의 종류 줄 아래 회색 설명 한 줄(사용자 확정 시안 글자). 운영자만 받는 종류는 '운영자만 · '로 시작.
+export const KIND_DESC = Object.freeze({
+  task_due: '기한이 다가오면', meeting_done: '회의 요약이 다 되면', collect_stall: '운영자만 · 수집이 멈추면',
+  morning: '아침에 오늘 할 일 모아서', evening: '저녁에 하루 정리', note: '노트에 단 알림 시각', family: '정해 둔 때', signup: '운영자만 · 새 사람이 가입하면',
+});
 export const DEFAULT_QUIET = Object.freeze({from: '22:00', to: '07:00'});
 export const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 export const TOKEN = /^[A-Za-z0-9_:-]{20,4096}$/;

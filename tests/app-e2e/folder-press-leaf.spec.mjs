@@ -365,7 +365,7 @@ async function photos(page, width) {
   });
   await clickView(page, 'photos');
   await expect(page.locator('#photosView')).toBeVisible();
-  await page.locator('#photosRoot [data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   return state;
 }
 const ph = page => page.locator('#photosRoot');
