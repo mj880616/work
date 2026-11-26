@@ -172,7 +172,7 @@ test('PC: 주제 → Tab 하위·Enter 형제, 가로 글·자동 배치(양쪽�
   expect(errors).toEqual([]);
 });
 
-test('PC: 선택한 상자 막대로 색·모양·글자 크기, 다시 눌러 수정(가로로 늘어남), 손잡이 잇기(가까이 놓아도 붙음·빈 곳 = 새 상자 + 선), 새로고침 뒤 유지, 아래 가지 있는 상자 삭제 확인 (1440)', async ({ page }) => {
+test('PC: 선택한 상자 막대로 색·모양·글자 크기, 다시 눌러 수정(가로로 늘어남), 손잡이 잇기(가까이 놓아도 붙음·빈 곳 = 새 상자 + 선), 새로고침 뒤 유지, 아래 가지 있는 상자 바로 삭제·[되돌리기] (1440)', async ({ page }) => {
   const { errors, linkRows, textCalls, textRows } = await fixture(page, 1440, { seed: [{ id: 'r', board_id: BID, body: '가운데 주제', x: 600, y: 520, font: 3 }, { id: 'g1', board_id: BID, body: '가지 하나', parent_id: 'r', ord: 0, side: 1 },
     { id: 'lg', board_id: BID, body: '긴 가지', parent_id: 'r', ord: 1, side: -1 }, { id: 'g2', board_id: BID, body: '가지 둘', x: 300, y: 900 }, { id: 'low', board_id: BID, body: '더 아래', parent_id: 'g2', ord: 0 }] });
   await expect(nodes(page)).toHaveCount(5);
@@ -230,12 +230,11 @@ test('PC: 선택한 상자 막대로 색·모양·글자 크기, 다시 눌러 �
   await expect(nodes(page)).toHaveCount(6);
   await expect(node(page, '가지 하나 더하기')).toHaveAttribute('data-shape', 'pill');
   await expect(page.locator('[data-nb-lines] [data-nb-line]')).toHaveCount(2);
-  // 지우기: 아래 가지가 있는 뿌리 → Delete → 확인 → 뿌리와 아래 가지(가지 하나·더 아래 제외: '가지 둘'은 떼어 냄).
+  // 지우기: 아래 가지가 있는 뿌리 → Delete → 확인 창 없이 바로(K1 한 규칙 I-6: [되돌리기]가 있으니) → 뿌리와 아래 가지(가지 하나·더 아래 제외: '가지 둘'은 떼어 냄).
   await node(page, '가운데 주제').locator('.nb-tx').click();
   await page.keyboard.press('Delete');
-  const ask = page.locator('.kptu-ask');
-  await expect(ask).toBeVisible();
-  await ask.getByRole('button', { name: '삭제' }).click();
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '되돌리기' })).toBeVisible();
   await expect(node(page, '가운데 주제')).toHaveCount(0);
   await expect(node(page, '가지 하나 더하기')).toHaveCount(0);
   await expect(node(page, '가지 둘')).toHaveCount(1);
