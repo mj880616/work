@@ -62,11 +62,11 @@ test.describe('폰 412',()=>{
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 
-  test('C2 사업 보고: 맨 위는 한 줄 [종류 ▾] … [⋯](S52-22 TEAM-맨위한줄, 칩 줄·[거르기] 없음)',async({page})=>{
+  test('C2 사업 보고: 맨 위는 한 줄 [종류 ▾] … [+](S52-22 TEAM-맨위한줄, 칩 줄·[거르기] 없음)',async({page})=>{
     await openApp(page,'meetings');
     // S67-75 UI-걸러보기칩하나(명진 A안): 412는 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 고르기 자리다.
     const inChip=await reportBoxesInChip(page);
-    const bar=page.locator(inChip?'#reportFilterChip':'#meetingsView .report-kind-bar'),kind=page.locator(inChip?'#reportFilterChip':'#reportKindSelect'),more=page.locator('#reportMore');
+    const bar=page.locator(inChip?'#reportFilterChip':'#reportFilterBar'),kind=page.locator(inChip?'#reportFilterChip':'#reportKindSelect'),more=page.locator('#newMeetingBtn'); // BIZ-머리한줄(S71-23): 줄 끝은 [+]
     await expect(page.locator('#reportKindFilter')).toBeHidden();await expect(page.locator('#reportFilterBtn')).toHaveCount(0);await expect(kind).toBeVisible();
     const b=await bar.boundingBox(),k=await kind.boundingBox(),m=await more.boundingBox();
     // BIZ-위쪽정돈(11/09 01:22 확정안): [⋯]는 맨 윗줄(제목 줄) 오른쪽 끝으로 올라갔다 — 둘째 줄은 종류·사업영역·[주 ▾]뿐이고 그 위에 ⋯ 줄이 있다.

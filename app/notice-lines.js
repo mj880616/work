@@ -70,8 +70,7 @@ export function startNoticeLines({rt = window.KPTURuntime} = {}) {
     if (!collectLine) {
       collectLine = makeLine('collect', '수집 멈춤 안내', '보기');
       collectLine.querySelector('[data-notice-act]').onclick = () => {
-        go('profile');
-        requestAnimationFrame(() => document.getElementById('psStatusPanel')?.scrollIntoView({block:'start'}));
+        go('profile', {sub:'status'}); // S71-36: 내 프로필 '사용 현황' 장으로 바로
       };
       collectLine.querySelector('[data-notice-close]').onclick = () => { hideCollectToday(); run++; dropCollect(); };
     }

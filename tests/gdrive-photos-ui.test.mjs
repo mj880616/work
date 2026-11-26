@@ -64,7 +64,8 @@ test('사진 화면: 칩은 모두에게(S62-11, 연결 상태는 서버 status)
   assert.match(s, /try \{ next = \{allowed:true, \.\.\.gdriveState\(await gdStatus\(rt\)\), checked:true\}; \}/);
   // S62-16: 연결 전·권한 빠짐 안내는 공용 부품(connect-note.mjs) — 처음 = [구글 드라이브 연결], 권한 빠짐 = [구글 드라이브 다시 연결].
   assert.match(s, /if \(mode\) return connectNoteFor\('gdrive', mode, \{attrs:\{'data-photos-gd-reconnect':''\}/);
-  assert.match(s, /data-photos-src="gdrive" data-src-chip aria-pressed="false" aria-label="구글 드라이브" title="구글 드라이브" hidden>/);
+  // S71-25 PHOTO-머리한줄: 구글 드라이브 줄은 [가져올 곳] 고르기 메뉴 안(줄 목록은 sourceButtons 그대로 — 운영자 기능·권한 문제 점).
+  assert.match(s, /data-photos-src="\$\{b\.name\}" aria-pressed="\$\{b\.on\}"/);
   assert.match(s, /sourceButtons\(sources, \{phone:phone\.available\(\), gdrive:gd\.allowed, gdriveProblem:gd\.problem\}\)/);
   const trash = s.slice(s.indexOf('async function gdTrashPicked'), s.indexOf('const gdName'));
   assert.ok(trash.indexOf('askConfirm') >= 0 && trash.indexOf('askConfirm') < trash.indexOf('gdTrash(rt'), '사진 지우기는 확인 뒤에만');

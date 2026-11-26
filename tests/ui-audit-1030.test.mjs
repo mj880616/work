@@ -14,21 +14,23 @@ const noComments = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 test('C2 사업 보고 위쪽: 종류 칩 줄 없음, PC(761px~)는 위쪽 한 줄(BIZ-위쪽정돈PC)', () => {
   const html = read('index.html'), css = noComments(read('meeting-ui.css'));
   assert.doesNotMatch(html, /id="reportKindFilter"|id="reportNameSelect"/);
-  assert.match(html, /<div class="report-top"><div class="toolbar report-top-line">/);
+  assert.match(html, /<div class="report-top"><div id="reportTop" class="toolbar report-top-line">/);
   assert.doesNotMatch(css, /#reportKindFilter|#reportNameSelect/);
-  assert.match(css, /@media\(min-width:761px\)\{\s*#appView #meetingsView \.report-top\{display:flex;flex-wrap:nowrap;/);  // S71-10: 폭이 모자라도 줄을 넘기지 않음(주 줄 한 줄)
+  assert.match(css, /#appView #reportTop\{display:flex;flex-direction:row;flex-wrap:nowrap;/);  // BIZ-머리한줄(S71-23): 모든 폭에서 첫 줄 한 줄(넘치지 않고 칩 글자 말줄임)
 });
 
+// S71-35: 내 프로필 '담당조직 현황' 체크 줄(.ps-org-pick)은 없앴다 — 남은 내 프로필 체크 줄은 .ps-calref-check.
 test('C4 체크칸 줄(내 프로필·원장)은 줄 전체 + 위아래 44px이 누르는 곳', () => {
   const css = noComments(read('ui-standard.css'));
-  assert.ok(css.includes('#profileView :is(.ps-org-pick,.ps-calref-check)::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute;'));
+  assert.ok(css.includes('#profileView .ps-calref-check::after,#appView #ledgerView .lb-check::after{ content:""; position:absolute;'));
   assert.match(css, /top:calc\(50% - var\(--kptu-touch-target,44px\) \/ 2\); height:var\(--kptu-touch-target,44px\); \}/);
 });
 
-test('C5 정리함 [다시 찾기]는 거르기 칩과 다른 글자 버튼(테두리·바탕 없음)', () => {
+// S71-29 FORGET-머리한줄: 최신화는 맨 위 줄 단추 상자의 ↻ 아이콘 단추(다른 머리 줄 아이콘 단추와 같은 흐린 색·바탕 없음).
+test('C5 정리함 최신화는 거르기 칩과 다른 아이콘 단추(테두리·바탕 없음)', () => {
   const css = noComments(read('basket.css'));
-  const find = css.match(/#appView #basketView \.inbox-find \{([^}]*)\}/)?.[1] || '';
-  assert.match(find, /border:0;/); assert.match(find, /background:transparent;/); assert.match(find, /color:var\(--kptu-primary-ink\)/);
+  const find = css.match(/\.forget-tools \.inbox-find \{([^}]*)\}/)?.[1] || '';
+  assert.match(find, /border:0;/); assert.match(find, /background:transparent;/); assert.match(find, /color:var\(--kptu-muted\)/);
   assert.doesNotMatch(css, /\.inbox-find,#appView #basketView \.inbox-chip \{/);
 });
 

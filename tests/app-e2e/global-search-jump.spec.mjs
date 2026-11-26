@@ -31,7 +31,7 @@ const found=page=>page.evaluate(()=>{const h=CSS.highlights?.get('kptu-found');r
 const inView=loc=>loc.evaluate(el=>{const b=el.getBoundingClientRect();return b.top>=0&&b.bottom<=innerHeight&&b.height>0});
 async function search(page,width,text){
   if(width>760){const top=page.locator('[data-search-slot] input[type="search"]');await top.click();await top.fill(text);return page.locator('#gsPanel')}
-  await page.locator('#appView > .mobile-shell-header .gs-menu-entry').click();
+  await page.locator('#homeView [data-journal-find]').click(); // S71-41: 폰 틀 홈 입구는 날짜 줄 끝 돋보기
   await page.locator('#gsHeadInput').fill(text);
   return page.locator('#searchView .gs-view-body');
 }

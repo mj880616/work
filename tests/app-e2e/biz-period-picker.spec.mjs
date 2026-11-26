@@ -1,7 +1,7 @@
 // S54-34 ② BIZ-기간정하기 + BIZ-주차고르기(요청함 11/09 07:53~07:58, 시안 docs/design/mockups/period-picker.html·week-number-picker.html).
 // - 기간 메뉴 = 이번 주 · 주차 선택 · 전체 기간 · 기간 정하기.
 // - [기간 정하기]: 고르기 상자 바로 아래 작은 창 하나 — ① 칩 한 줄(이번 주·이번 달·지난 달·최근 3달·전체, 누르면 날짜를 채움) ② 시작~끝 날짜 칸 반씩(잘리지 않음, '시작'·'끝' 글자 칸 없음) ③ 오른쪽 [닫기][적용].
-// - [주차 선택]: [2026년 ▾] [46주차 (11.09~11.15) · 이번 주 ▾] + [닫기][적용]. 국제 표준 주차(월~일). 고른 뒤 '‹ n주차 · 11.9(월)~11.15(일) ›', 상자 글자 'n주차'.
+// - [주차 선택]: [2026년 ▾] [46주차 (11.09~11.15) · 이번 주 ▾] + [닫기][적용]. 국제 표준 주차(월~일). 고른 뒤 '‹ n주차 · 11.9~11.15 ›', 상자 글자 'n주차'.
 // 서버는 가짜, 이름·글은 모두 합성 값. 시계 2026-11-09(월) 09:30(서울).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -25,8 +25,10 @@ async function open(page,width){
   await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingsView #bizWeekBox')).toBeVisible();
 }
-const nav=page=>page.locator('#reportWeekFilter .report-week-nav');
-const label=page=>page.locator('#reportWeekFilter .report-week-label');
+// BIZ-머리한줄(S71-23): 기간 창은 첫 줄 아래 칸, 그 아래 '주간 보고' 상자(‹ ›). 정한 기간 글자·×와 건수는 첫 줄 #reportCount.
+const nav=page=>page.locator('#bizWeekBox');
+const count=page=>page.locator('#reportCount .report-week-count'),rangeLabel=page=>page.locator('#reportCount .report-week-label');
+const label=page=>page.locator('#bizWeekBox .biz-week-nav .report-week-label');
 const box=el=>el.boundingBox();
 
 for(const width of [390,884,1280])test(`${width}: 기간 정하기 — 칩 한 줄·날짜 두 칸 반씩·[닫기][적용] 세 줄, 칩은 날짜를 채우고 [적용]으로 정함`,async({page})=>{
@@ -68,18 +70,18 @@ for(const width of [390,884,1280])test(`${width}: 기간 정하기 — 칩 한 �
   await expect(panel).toBeVisible();
   await apply.click();
   await expect(panel).toHaveCount(0);
-  await expect(label(page)).toHaveText('10.1~10.31');
+  await expect(rangeLabel(page)).toHaveText('10.1~10.31');await expect(label(page)).toHaveCount(0);
   await expect(pick.locator('option:checked')).toHaveText('정한 기간');
   // [전체] 칩 그대로 [적용]하면 전체 기간.
   await openReportBoxes(page);await pick.selectOption('range');
   await page.locator('[data-report-period-panel] [data-report-quick="all"]').click();
   await expect(page.locator('[data-report-period-panel] [data-report-from]')).toHaveValue('2025-01-07');
   await page.locator('[data-report-period-panel] [data-report-week="apply"]').click();
-  await expect(pick).toHaveValue('all');await expect(label(page)).toHaveText('전체');
+  await expect(pick).toHaveValue('all');await expect(rangeLabel(page)).toHaveCount(0);await expect(label(page)).toHaveCount(0);
   // [닫기]는 아무것도 바꾸지 않고 닫는다.
   await openReportBoxes(page);await pick.selectOption('range');
   await page.locator('[data-report-period-panel] [data-report-week="cancel"]').click();
-  await expect(page.locator('[data-report-period-panel]')).toHaveCount(0);await expect(label(page)).toHaveText('전체');
+  await expect(page.locator('[data-report-period-panel]')).toHaveCount(0);await expect(pick).toHaveValue('all');await expect(label(page)).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -107,28 +109,28 @@ for(const width of [390,884,1280])test(`${width}: 주차 선택 — 연도·주�
   await expect(panel.locator('[data-report-iso-week] option:checked')).toHaveText('1주차 (12.30~01.05)');
   await panel.locator('[data-report-week="iso-apply"]').click();
   await expect(panel).toHaveCount(0);
-  await expect(label(page)).toHaveText('1주차 · 12.30(월)~1.5(일)');
+  await expect(label(page)).toHaveText('1주차 · 12.30~1.5');
   await expect(pick.locator('option:checked')).toHaveText('1주차');
-  await expect(nav(page).locator('.report-week-count')).toHaveText('· 0건');
+  await expect(count(page)).toHaveText('0건');
   // ‹ ›로 한 주씩, 번호도 같이.
-  await page.locator('#reportWeekFilter [data-report-week="next"]').click();
-  await expect(label(page)).toHaveText('2주차 · 1.6(월)~1.12(일)');await expect(pick.locator('option:checked')).toHaveText('2주차');
-  await expect(nav(page).locator('.report-week-count')).toHaveText('· 1건');
+  await page.locator('#bizWeekBox [data-report-week="next"]').click();
+  await expect(label(page)).toHaveText('2주차 · 1.6~1.12');await expect(pick.locator('option:checked')).toHaveText('2주차');
+  await expect(count(page)).toHaveText('1건');
   // 이번 해로 돌아가 45주차: 이번 주 주간보고 칸도 그 주를 따른다.
   await openReportBoxes(page);await pick.selectOption('isoweek');
   await page.locator('[data-report-period-panel] [data-report-iso-year]').selectOption('2026');
   await expect(page.locator('[data-report-period-panel] [data-report-iso-week]')).toHaveValue('46');
   await page.locator('[data-report-period-panel] [data-report-iso-week]').selectOption('45');
   await page.locator('[data-report-period-panel] [data-report-week="iso-apply"]').click();
-  await expect(label(page)).toHaveText('45주차 · 11.2(월)~11.8(일)');
-  await expect(page.locator('#bizWeekBox .biz-week-title')).toHaveText('11.2~11.8 주간 보고');
+  await expect(label(page)).toHaveText('45주차 · 11.2~11.8');
+  await expect(page.locator('#bizWeekBox .biz-week-title [data-bw-fold]')).toHaveText('주간 보고');
   // [이번 주]를 고르면 번호 없이 이번 주.
   await openReportBoxes(page);await pick.selectOption('week');
-  await expect(label(page)).toHaveText('11.9(월)~11.15(일)');await expect(pick).toHaveValue('week');
+  await expect(label(page)).toHaveText('11.9~11.15');await expect(pick).toHaveValue('week');
   // [닫기]는 그대로.
   await openReportBoxes(page);await pick.selectOption('isoweek');
   await page.locator('[data-report-period-panel] [data-report-week="cancel"]').click();
-  await expect(page.locator('[data-report-period-panel]')).toHaveCount(0);await expect(label(page)).toHaveText('11.9(월)~11.15(일)');
+  await expect(page.locator('[data-report-period-panel]')).toHaveCount(0);await expect(label(page)).toHaveText('11.9~11.15');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth<=1)).toBe(true);
   expect(errors).toEqual([]);
   if(process.env.SHOT_DIR){await openReportBoxes(page);await pick.selectOption('isoweek');await page.screenshot({path:`${process.env.SHOT_DIR}/week-number-${width}.png`})}
