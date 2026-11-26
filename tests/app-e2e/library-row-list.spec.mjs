@@ -158,7 +158,7 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']);expect(await page.locator('.sf-tools[data-sf-tools="library"] button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);// LIB-위쪽한줄 → S70-54: 본문 첫 줄 [분류 ▾], [+]·⋯는 맨 위 줄 단추 자리, 분류 수정은 [분류 ▾] 창 안.
+    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);expect(await page.locator('#libraryView .lu-search-row .lu-pick-row button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['libraryCategoryPick']);expect(await page.locator('.sf-tools[data-sf-tools="library"] button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn','libraryTopMenuBtn']);// LIB-위쪽한줄 → S70-54: 본문 첫 줄 [분류 ▾], [+]·⋯는 단추 자리(폰 머리 줄, PC는 S71-59부터 같은 첫 줄 오른쪽 끝), 분류 수정은 [분류 ▾] 창 안.
     await expect(page.locator('#manageLibraryBtn')).toHaveCount(0);
     await openLibraryCategoryEditor(page);await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
