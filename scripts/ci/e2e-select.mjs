@@ -48,15 +48,36 @@ export const IGNORE_PATTERNS = [
 // 화면 파일 → 이름으로는 찾지 못하는 그 화면의 공용 동작 시험(STAB-파일끌기회귀 S70-80, 명진 11/26 "잘 되던게 자꾸 안됨").
 // standard-interactions.spec.mjs(목록·나무·고르기·끌기 기준표)와 자료실 사각형 고르기 시험은 화면 파일 이름을 부르지 않아(가짜 서버 helper로 화면을 연다)
 // 자동 계산으로는 [파일]·자료실·노트·사진 화면 파일을 고친 PR에서 빠졌다. 그 화면을 고치면 이 시험들을 꼭 함께 돌린다. 새 화면을 기준표에 더하면 여기에도 한 줄.
+// TEST-시험고르기보강(S71-79): 기준표 화면 표(SCREENS·…·DRAG_SCROLL_SCREENS)의 화면을 모두 적는다. 노트 화면 본체(basket-notes.js)가 빠져 있었다(#3232).
+// 화면 파일이 바로 부르는 파일도 그 화면 시험을 함께 돌린다(아래 select의 names). 화면 모양 파일은 SCREEN_VIEWS, 조직 묶음 화면은 시험이 여는
+// fixture HTML이 부르는 파일로 찾는다(specTexts).
 export const SCREEN_SPECS = [
   [/^app\/files[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
   [/^app\/(library-[^/]+\.(m?js|css)|marquee-select\.(js|css))$/, ['standard-interactions.spec.mjs', 'library-marquee-anywhere.spec.mjs', 'library-marquee-select.spec.mjs']],
-  [/^app\/(note|notes)[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+  [/^app\/(notes?|basket-notes)[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']], // 노트·노트 보드
   [/^app\/photos?[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+  [/^app\/brief-[^/]+\.(m?js|css)$/, ['standard-interactions.spec.mjs']], // 브리핑 룸
+  [/^app\/reading[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']], // 저장한 글
+  [/^app\/(outside-statements|news-clipping)[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']], // 읽을 거리
+  [/^app\/google-tasks[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']], // 할 일
 ];
-export function screenSpecsFor(file, testFiles) {
+// 기준표 화면의 주소(?view=). 그 화면이 여는 모양 파일(app/view-loader.js routeStyles의 그 화면 줄 — 노트 모양 basket.css·나무 folder-tree.css 등)을
+// 고쳐도 기준표 시험을 돌린다(모양 파일은 화면 파일이 import로 부르지 않아 위 표·부르는 관계로는 찾지 못한다).
+export const SCREEN_VIEWS = new Map([
+  ['standard-interactions.spec.mjs', ['basket', 'library', 'files', 'photos', 'brief', 'reading', 'outside', 'tasks']],
+]);
+// app/view-loader.js의 routeStyles 표에서 화면 이름 → 그 화면 모양 파일들.
+export function routeStylesOf(text = '') {
+  const block = text.match(/const routeStyles\s*=\s*\{([\s\S]*?)\n\};/)?.[1] || '';
+  const out = new Map();
+  for (const m of block.matchAll(/^\s*(\w+)\s*:\s*\[([^\]]*)\]/gm)) out.set(m[1], [...m[2].matchAll(/'\.\/([^']+\.css)'/g)].map(x => 'app/' + x[1]));
+  return out;
+}
+export function screenSpecsFor(file, testFiles, routeStyles = new Map()) {
   const out = new Set();
-  for (const [re, names] of SCREEN_SPECS) if (re.test(file)) for (const n of names) if (testFiles.has(`${SPEC_DIR}/${n}`)) out.add(`${SPEC_DIR}/${n}`);
+  const add = n => { if (testFiles.has(`${SPEC_DIR}/${n}`)) out.add(`${SPEC_DIR}/${n}`); };
+  for (const [re, names] of SCREEN_SPECS) if (re.test(file)) names.forEach(add);
+  for (const [n, views] of SCREEN_VIEWS) if (views.some(v => routeStyles.get(v)?.includes(file))) add(n);
   return out;
 }
 // 이 파일이 부르는 쪽을 따라 올라갈 때 멈추는 첫 화면 사슬(모든 화면을 부르므로 따라가면 늘 전체가 된다).
@@ -122,6 +143,14 @@ export function specTexts(testFiles) {
         stack.push(target);
         all += '\n' + testFiles.get(target);
       }
+      // 시험이 주소로 여는 fixture 화면(`${appOrigin}/tests/app-e2e/x-fixture.html`)도 그 시험이 부르는 파일이다(TEST-시험고르기보강).
+      for (const m of (testFiles.get(cur) || '').matchAll(/\/(tests\/app-e2e\/[\w.\-/]+\.html)/g)) {
+        const target = posix.normalize(m[1]);
+        if (!testFiles.has(target) || seen.has(target)) continue;
+        seen.add(target);
+        stack.push(target);
+        all += '\n' + testFiles.get(target);
+      }
     }
     out.set(file, all);
   }
@@ -164,6 +193,7 @@ export function select(changed, appFiles, testFiles) {
   };
   const importers = buildImporters(appFiles);
   const specs = specTexts(testFiles);
+  const routeStyles = routeStylesOf(appFiles.get('app/view-loader.js'));
   const indexRefs = new Set([...importers].filter(([, by]) => by.has('app/index.html')).map(([f]) => f));
   // 첫 화면 사슬·첫 화면이 바로 부르는 파일·공용 부품(FULL 목록)에서는 위로 따라가지 않는다
   // (그 파일들은 모든 화면을 부르므로, 따라가면 무엇을 고쳐도 전체가 된다. 그 파일 자체를 고치면 전체).
@@ -196,7 +226,7 @@ export function select(changed, appFiles, testFiles) {
     const hits = specsFor(names, specs);
     const dir = file.split('/').length > 2 ? file.split('/')[1] + '/' : '';
     if (dir) for (const [s, text] of specs) if (text.includes(dir)) hits.add(s);
-    for (const s of screenSpecsFor(file, testFiles)) hits.add(s);
+    for (const name of names) for (const s of screenSpecsFor(name, testFiles, routeStyles)) hits.add(s);
     if (!hits.size) return full(`${file}: 관련 시험을 못 찾음`);
     hits.forEach(s => picked.add(s));
     reasons.push(`${file}: 시험 ${hits.size}개`);
