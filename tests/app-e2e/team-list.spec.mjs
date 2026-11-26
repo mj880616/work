@@ -30,10 +30,10 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   const layout=await rail.evaluate(el=>({height:el.getBoundingClientRect().height,padding:getComputedStyle(el).paddingLeft}));
   // MULTI-다른담당자맞춤 ②: 묶음이 있으면 줄 맨 앞에 끌기 손잡이 ⋮⋮ 자리(36px)가 생긴다(줄 높이는 그대로).
   expect(layout.height).toBe(44);expect(layout.padding).toBe('36px');
-  // ORG-목록단계칩위치: 묶음 머리줄 [N곳 ·8· ⋯]과 줄 [› ·8· ⋯]은 같은 세로줄(⋯ 폭·오른쪽 끝 같음, 'N곳' 끝 = › 끝).
+  // ORG-목록단계칩위치: 묶음 머리줄 [N곳 ·8· ⋯]과 줄 [›]은 같은 세로줄('N곳' 끝 = › 끝). ORG-목록줄메뉴없음(S71-08): 줄에는 ⋯가 없다.
   const ends=await page.evaluate(()=>{const r=el=>el.getBoundingClientRect(),g=document.querySelector('[data-so-group]:has(.so-group-more)'),head=g.querySelector('.so-group-heading'),row=g.querySelector('.so-row');
-   return {more:[r(head.querySelector('.so-group-more')).left-r(row.querySelector('.so-row-more')).left,r(head.querySelector('.so-group-more')).right-r(row.querySelector('.so-row-more')).right],count:r(head.querySelector('.so-group-count')).right-r(row.querySelector('.kptu-list-chevron')).right,end:r(row).right-r(row.querySelector('.so-row-more')).right}});
-  expect(Math.abs(ends.more[0])).toBeLessThanOrEqual(1);expect(Math.abs(ends.more[1])).toBeLessThanOrEqual(1);expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.end).toBeLessThanOrEqual(8.5);
+   return {count:r(head.querySelector('.so-group-count')).right-r(row.querySelector('.kptu-list-chevron')).right,rowMenus:document.querySelectorAll('#soOrganizationList .so-row .more-dots').length}});
+  expect(Math.abs(ends.count)).toBeLessThanOrEqual(1);expect(ends.rowMenus).toBe(0);
   await expect(page.locator('[data-so-row] [data-so-grip="org"]')).toHaveCount(15);
   // MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정, UI-조직추가숨김을 바꿈): 맨 위 [+ 담당조직] 하나가 모든 폭에 보인다(옛 폰 글자 링크는 없음).
   await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrg')).toHaveText('+ 담당조직');await expect(page.locator('#soAddOrgLink,.so-add-link')).toHaveCount(0);
