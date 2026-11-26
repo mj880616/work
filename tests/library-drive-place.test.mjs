@@ -66,8 +66,9 @@ test('② 새 사용자 맨 위 폴더 이름은 WORK ON+ — 노조·팀 이름
   }
 });
 
-test('화면 한 줄(app/library-drive-line.js): 드라이브 폴더 주소만, 글자는 막아서', async () => {
-  const { cleanPlace, driveLineHtml, mountLibraryDriveLine } = await import('../app/library-drive-line.js');
+// S71-46 LIB-위치줄삭제: 저장 위치 줄은 없앴다. 저장 위치는 ⋯ [드라이브에서 열기] 주소(openUrl)로만 쓰고, 맨 위 줄은 못 옮겼을 때만.
+test('화면(app/library-drive-line.js): 드라이브 폴더 주소만 열고, 평소엔 맨 위 줄 없음', async () => {
+  const { cleanPlace, noteLineHtml, mountLibraryDriveLine } = await import('../app/library-drive-line.js');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const url = 'https://drive.google.com/drive/folders/libraryFolder0001';
   assert.deepEqual(cleanPlace({ url, path: [' 웹2 ', '자료실', ''] }), { url, path: ['웹2', '자료실'], pairs: {} });
@@ -75,10 +76,8 @@ test('화면 한 줄(app/library-drive-line.js): 드라이브 폴더 주소만, 
   assert.equal(cleanPlace({ url: 'javascript:alert(1)', path: ['a'] }), null);
   assert.equal(cleanPlace({ url, path: [] }), null);
   assert.equal(cleanPlace(null), null);
-  const html = driveLineHtml({ url, path: ['<b>웹2</b>', '자료실'] }, esc);
-  assert.match(html, /구글 드라이브 · &lt;b&gt;웹2&lt;\/b&gt; › 자료실/);
-  assert.match(html, /href="https:\/\/drive\.google\.com\/drive\/folders\/libraryFolder0001" target="_blank" rel="noopener noreferrer"/);
-  assert.equal(driveLineHtml(null, esc), '');
+  assert.equal(noteLineHtml('', esc), '');
+  assert.equal(noteLineHtml('<b>x</b>', esc), '<span class="lu-drive-note">&lt;b&gt;x&lt;/b&gt;</span>', '글자는 막고, [다시]는 못 옮겼을 때만');
   // 겹친 요청은 마지막 답만 그린다.
   const box = { innerHTML: '', hidden: true };
   const answers = [];
@@ -89,12 +88,13 @@ test('화면 한 줄(app/library-drive-line.js): 드라이브 폴더 주소만, 
   await second;
   answers[0]({ ok: true, place: null });
   await first;
-  assert.equal(box.hidden, false);
-  assert.match(box.innerHTML, /웹2 › 자료실/);
+  assert.equal(line.openUrl(), url, '겹친 요청은 마지막 답');
+  assert.equal(box.hidden, true, '저장 위치를 알아도 맨 위 줄은 그리지 않음');
+  assert.equal(box.innerHTML, '');
 });
 
-test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 드라이브 쪽이 밀리면 줄 끝에 \'드라이브에 못 옮겼어요 [다시]\'(S70-76)', async () => {
-  const { placeAt, mirrorNote, driveLineHtml, pathLinkHtml, mountLibraryDriveLine, FOLLOW_FAILED_NOTE } = await import('../app/library-drive-line.js');
+test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 드라이브 쪽이 밀릴 때만 맨 위 한 줄 \'드라이브에 못 옮겼어요 [다시]\'(S70-76·S71-46)', async () => {
+  const { placeAt, mirrorNote, noteLineHtml, mountLibraryDriveLine, FOLLOW_FAILED_NOTE } = await import('../app/library-drive-line.js');
   const esc = s => String(s);
   const url = 'https://drive.google.com/drive/folders/libraryFolder0001';
   const place = { url, path: ['웹2', '자료실'], pairs: { F1: 'pairFolder000001', F2: 'bad id' } };
@@ -109,30 +109,38 @@ test('③ 폴더 안이면 짝 드라이브 폴더로 열고, 드라이브 쪽�
   assert.equal(mirrorNote({ ok: false, code: 'drive_not_connected' }), '', '드라이브 연결이 없으면 조용히');
   assert.equal(mirrorNote({ ok: false, code: 'mirror_failed' }), FOLLOW_FAILED_NOTE);
   assert.equal(mirrorNote({ ok: false, code: 'unreachable' }), FOLLOW_FAILED_NOTE, '서버에 닿지 못해도');
-  assert.match(driveLineHtml(place, esc, {}, FOLLOW_FAILED_NOTE), /드라이브에 못 옮겼어요<\/span><button type="button" class="row-act lu-drive-retry" data-lu-drive-retry>다시<\/button>/);
-  assert.match(pathLinkHtml(place, esc, { folderId: 'F1', trail: ['교섭'] }, FOLLOW_FAILED_NOTE), /class="row-act lu-drive-retry lu-drive-here"/);
-  assert.doesNotMatch(driveLineHtml(place, esc, {}, ''), /다시/);
+  assert.equal(noteLineHtml(FOLLOW_FAILED_NOTE, esc), '<span class="lu-drive-note">드라이브에 못 옮겼어요</span><button type="button" class="row-act lu-drive-retry" data-lu-drive-retry>다시</button>');
+  assert.equal(noteLineHtml('', esc), '');
 
   // 들어오면 한 번 부탁(저장 위치를 안 뒤), 결과를 듣고 줄 끝 글, [다시]는 그 자리에서 다시.
   const box = { innerHTML: '', hidden: true }, asks = [];
   let hear = null;
   const follow = async () => { asks.push('auto'); return null; };
-  const line = mountLibraryDriveLine({ api: async () => ({ ok: true, place }), esc, el: () => box, wait: 1, follow, listen: fn => { hear = fn; } });
+  let here = {};
+  const line = mountLibraryDriveLine({ api: async () => ({ ok: true, place }), esc, el: () => box, at: () => here, wait: 1, follow, listen: fn => { hear = fn; } });
   line.entered(); // 아직 저장 위치를 모름 → 기억해 두었다가
   await line.refresh();
   await new Promise(r => setTimeout(r, 20));
   assert.deepEqual(asks, ['auto'], '저장 위치를 안 뒤 한 번 부탁');
+  assert.equal(box.hidden, true, '평소엔 줄 없음');
+  assert.equal(line.openUrl(), url);
+  here = { folderId: 'F1', trail: ['교섭'] };
+  assert.equal(line.openUrl(), 'https://drive.google.com/drive/folders/pairFolder000001', '폴더 안이면 짝 드라이브 폴더');
+  here = {};
   line.changed('sign-1');
   await new Promise(r => setTimeout(r, 20));
   assert.deepEqual(asks, ['auto'], '폴더를 다시 읽을 때는 부탁하지 않음(저장 직후 drive-follow.mjs가 함)');
   hear({ ok: true, pending: 1, more: false });
   assert.match(box.innerHTML, /드라이브에 못 옮겼어요/);
   assert.match(box.innerHTML, /data-lu-drive-retry/);
+  assert.equal(box.hidden, false);
+  assert.doesNotMatch(box.innerHTML, /구글 드라이브|href=/, '못 옮겼을 때도 위치·주소는 없음');
   await line.retry();
   assert.deepEqual(asks, ['auto', 'auto']);
   assert.doesNotMatch(box.innerHTML, /못 옮겼어요/, '다시 하는 동안은 지움');
   hear({ ok: true, pending: 0, more: false });
   assert.doesNotMatch(box.innerHTML, /못 옮겼어요/);
+  assert.equal(box.hidden, true);
   assert.equal(typeof line.align, 'undefined', '[드라이브 폴더 맞추기]는 지웠다');
 });
 

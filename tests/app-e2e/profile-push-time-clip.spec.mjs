@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 // NOTE-큰창잘림 ③ 같은 종류 전수(입력칸 옆 잘림): 내 프로필 '폰 알림' 조용한 시간 칸이 7.2em 고정 폭이라 시각 글자 끝이 잘렸다('07:00 A').
-// 이제 칸은 글자만큼 넓어지고(최소 7.2em), 옆 [시험 알림]도 줄 안에 남는다. PC 1280 · 폰 412 · 360.
+// 이제 칸은 글자만큼 넓어지고(최소 7.2em), 두 칸 모두 줄 안에 남는다(S71-36: '조용한 시간 ›'을 펴면 나오는 줄). PC 1280 · 폰 412 · 360.
 for (const width of [1280, 412, 360]) test(`프로필 조용한 시간 칸은 시각 글자가 잘리지 않는다 ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await openHome(page);
-  await page.evaluate(() => window.KPTURouter.go('profile'));
+  // S71-36 PROFILE-설정화면: '알림 설정' 장 → '조용한 시간 ›'을 펴면 시각 두 칸.
+  await page.evaluate(() => window.KPTURouter.go('profile', {sub: 'push'}));
+  await page.locator('#psPushPanel [data-ps-push-fold="quiet"] > summary').click();
   const times = page.locator('#profileView .ps-push-time');
   await expect(times).toHaveCount(2);
   for (const t of await times.all()) {
@@ -14,8 +16,8 @@ for (const width of [1280, 412, 360]) test(`프로필 조용한 시간 칸은 �
       n.style.setProperty('width', 'max-content', 'important'); n.style.setProperty('min-width', '0', 'important');
       const need = n.getBoundingClientRect().width; if (keep == null) n.removeAttribute('style'); else n.setAttribute('style', keep); return w + 0.5 >= need; })).toBe(true);
   }
-  const test = page.locator('#profileView [data-ps-push-test]');
-  expect(await test.evaluate(b => b.getBoundingClientRect().right <= b.closest('.ps-calref-row').getBoundingClientRect().right + 0.5)).toBe(true);
-  if (width !== 360) { await test.scrollIntoViewIfNeeded(); const row = await times.first().locator('xpath=..').boundingBox();
+  // 두 칸 모두 줄 안에 남는다(넘쳐 잘리지 않음).
+  for (const t of await times.all()) expect(await t.evaluate(n => n.getBoundingClientRect().right <= n.closest('.sl-row').getBoundingClientRect().right + 0.5)).toBe(true);
+  if (width !== 360) { await times.first().scrollIntoViewIfNeeded(); const row = await times.first().locator('xpath=..').boundingBox();
     await page.screenshot({ path: `docs/design/screens/s61-30/profile-quiet-time-${width}.png`, clip: { x: 0, y: Math.max(0, row.y - 120), width, height: 220 } }); }
 });

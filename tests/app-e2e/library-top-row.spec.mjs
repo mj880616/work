@@ -3,7 +3,7 @@ import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs'
 import {screenFind} from './helpers/screen-find.mjs';
 // LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html):
 // 폰·PC 경계는 사업 보고 위쪽과 같은 760px.
-// - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸] + 오른쪽 끝 [+][⋯] 작은 아이콘.
+// - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾] + 오른쪽 끝 [⋯][+] 작은 아이콘(S71-59 자리, [+] 맨 오른쪽은 S71-28, 찾기는 상단 줄 칸).
 // - 폰(~760px): S71-28 FILES-머리한줄(명진 11/26 "자료실도") — 앱 머리 줄 한 줄 = 제목 '자료실' · [폴더 ▾] · [분류 ▾](고른 값만) …… ⋯ · ⌕ · [+]. 둘째 줄 없음.
 // 분류 칩 줄·'✎ 분류 수정' 줄 끝 버튼·묶기 칩 탭·아래 알약·떠 있는 동그란 [+]는 없다. 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A'}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -25,7 +25,7 @@ const measure=page=>page.evaluate(sels=>{
   return out;
 },TOP);
 
-for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 칸 하나, [+]·⋯는 맨 위 줄, 본문 첫 줄은 [사업영역 ▾][분류 ▾] · 칩 줄·알약·떠 있는 [+] 없음`,async({page})=>{
+for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 칸 하나, [+]·⋯는 폰 머리 줄·PC 본문 첫 줄 끝, 본문 첫 줄은 [사업영역 ▾][분류 ▾] · 칩 줄·알약·떠 있는 [+] 없음`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS});
   await expect(pick(page)).toHaveText('분류: 회의 빼고');await expect(pick(page)).toHaveAccessibleName('분류: 회의 빼고');
@@ -78,10 +78,12 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
     await find.press('Escape');await expect(find).toBeHidden();
     {const gb=await page.locator('#libraryGroupBy').boundingBox(),nb=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();expect(Math.abs((gb.y+gb.height/2)-(nb.y+nb.height/2))).toBeLessThan(3)}
   }else{
-    // PC·펼친 폴드: 상단 줄 [자료실에서 찾기 ……][⋯][+] 같은 줄([+] 맨 오른쪽, S71-28).
+    // PC 틀(S71-59 UI-화면메뉴안으로): 찾기는 상단 줄 칸, ⋯·[+]는 맨 위 줄이 아니라 본문 첫 줄 [사업영역 ▾][분류 ▾] …… [⋯][+] 오른쪽 끝([+] 맨 오른쪽, S71-28).
     const find=await screenFind(page);await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');
-    for(const sel of ['#newDocumentBtn','#libraryTopMenuBtn'])same('#gsTopInput',sel);
-    expect(m['#gsTopInput'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);expect(m['#libraryTopMenuBtn'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);
+    for(const sel of ['#newDocumentBtn','#libraryTopMenuBtn'])same('#libraryGroupBy',sel);
+    await expect(page.locator('#appView>.app-topline :is(#newDocumentBtn,#libraryTopMenuBtn)')).toHaveCount(0);
+    expect(m['#libraryCategoryPick'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);expect(m['#libraryTopMenuBtn'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);
+    expect(m.bar.right-m['#newDocumentBtn'].right).toBeLessThanOrEqual(2);
     expect(m['#libraryGroupBy'].mid).toBeGreaterThan(m['#gsTopInput'].mid+16);
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);await find.fill('');
   }

@@ -193,6 +193,7 @@ test('이 칸 끄기: 칸을 그리지 않고 기록 제안을 부탁하지 않�
   await expect(suggests).toBeHidden();
   // 내 프로필 '홈 칸'에서 다시 켠다.
   await page.evaluate(() => window.KPTURouter.go('profile'));
+  await page.locator('#psRoot [data-ps-open="home"]').click(); // S71-36: 내 프로필 첫 화면 '홈 칸 ›' → 그 장
   const sw = page.locator('#psHomeOffPanel [data-home-off-switch="suggests"]');
   await expect(sw).toBeVisible({ timeout: 15000 });
   await expect(sw).not.toBeChecked();

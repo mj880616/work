@@ -38,14 +38,14 @@ test('create form: empty defaults (S71-34 프로필은 소속·부서를 받지 
   assert.match(CREATED_TEXT.dept, /같은 이름 묶음이 이미 있으면/);
 });
 
-test('invite link: profile view + join param only for a 64-hex token; read once and removed from the address', () => {
+test('invite link: team view (S71-35) + join param only for a 64-hex token; read once and removed from the address', () => {
   const url = inviteUrl('https://example.test/app/', TOKEN);
-  assert.equal(url, `https://example.test/app/?view=profile&join=${TOKEN}`);
+  assert.equal(url, `https://example.test/app/?view=team&join=${TOKEN}`);
   assert.equal(inviteUrl('https://example.test/app/', 'short'), '');
   assert.equal(tokenFromUrl(url), TOKEN);
   assert.equal(tokenFromUrl('https://example.test/app/?view=profile&join=xyz'), 'bad');
   assert.equal(tokenFromUrl('https://example.test/app/?view=profile'), '');
-  assert.equal(urlWithoutToken(url + '#x'), '/app/?view=profile#x');
+  assert.equal(urlWithoutToken(url + '#x'), '/app/?view=team#x');
   assert.equal(inviteSummary({kind: 'dept', union_name: '가상노조', dept_name: '정책실', admin_name: '가상 관리자', admin_title: '부장', member_count: 3}), '가상노조 정책실 부서 · 가상 관리자 부장 외 2명');
 });
 

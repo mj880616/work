@@ -8,7 +8,8 @@ import {innerScrollers,docScroll} from './helpers/one-scroll.mjs';
 // 상세의 기록 → 업데이트 화면에서 머리 줄 "‹ (조직)"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
-const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
+// S71-57: 잊지 말기에서 온 기록 줄은 이제 아무 데도 가지 않으므로, 기록 → 원문 → '‹ (조직)' 돌아가기는 노트에서 이은 기록 줄로 본다.
+const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'note',title:'합성 조직 노트',metadata:{},occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
 // The first two are in the 철도 group order (organization-order.js); the rest fall in "그 외" by name.
 const orgs=[
  {id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},
@@ -25,7 +26,8 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
   updates:Array.from({length:24},(_,i)=>({id:'u-'+i,organization_id:'oa',raw_text:'합성 기록 '+i,detail_text:null,occurred_at:day(i)})),
   links:[{id:'l-o',workspace_id:'w',note_id:note.id,project_id:null,organization_id:'oa',status:'confirmed',summary:'합성 조직 연결 요약'}]};
  const list=(route,rows)=>{const q=new URL(route.request().url()).searchParams;const o=Number(q.get('offset')||0);return route.fulfill({json:rows.slice(o,o+Number(q.get('limit')||rows.length||1))})};
- page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method()))state.writes.push(req.method()+' '+new URL(req.url()).pathname)});
+ // S71-35: 조직 관리 '내 묶음' 칸의 내 묶음 목록(app_collab_my_groups)은 POST로 묻는 읽기라 쓰기에서 뺀다.
+ page.on('request',req=>{if(req.url().startsWith(SB+'/rest/')&&!['GET','HEAD','OPTIONS'].includes(req.method())&&!req.url().includes('/rpc/app_collab_my_groups'))state.writes.push(req.method()+' '+new URL(req.url()).pathname)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return route.fulfill({json:id?orgs.filter(o=>'eq.'+o.id===id):orgs})});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return route.fulfill({json:q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner}))})});
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('organization_id')||'';return list(route,state.updates.filter(u=>id==='eq.'+u.organization_id||id.startsWith('in.(')&&id.slice(4,-1).split(',').includes(u.organization_id)))});
@@ -113,7 +115,7 @@ test('PC 1280: a blocked browser storage still opens the first organization',asy
  await clickView(page,'home');await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');expect(errors).toEqual([]);
 });
 
-test('PC 1280: a record opens the update with "‹ (organization)" in the head; the button and back return to the same organization and scroll',async({page})=>{
+test('PC 1280: a note record opens the note with "‹ (organization)" in the head; the button and back return to the same organization and scroll',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
@@ -124,7 +126,7 @@ test('PC 1280: a record opens the update with "‹ (organization)" in the head; 
  const before=await scrollToRecord(page,line);/* UI-상세칸고정: 긴 상세는 그 칸만 스크롤한다 */expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  for(const how of ['button','back','browser']){
   await line.click();
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText(note.title);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('‹ 합성 가 지부');
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(title(page)).toHaveText('합성 가 지부');
@@ -194,7 +196,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  // 2) The 요약 box of a linked record.
  await modal.locator('[data-wd-log-older]:not([open]) > summary').click(); // ORG-기록하나로 O-5: 오래된 연결 기록은 '지난 기록 n' 안
  const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
- await link.getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+ await link.getByRole('button',{name:'기록 메뉴',exact:true}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
  const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
  // 요약 keeps letters only (결정 E): the window says so, and its [저장] hands the letters to the box; the box's own [저장] is the only save.

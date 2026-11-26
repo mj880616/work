@@ -201,9 +201,11 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 위 한 줄·담당
   expect(await page.evaluate(()=>!!(document.querySelector('#libraryView .lu-search-row').compareDocumentPosition(document.querySelector('#libraryRecent'))&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   // 빠짐9: [모두 펴기/접기]·[여러 개 고르기]·[새 폴더]는 위 줄 오른쪽 끝 ⋯ 하나(32px 아이콘, 누르는 범위 44px). 따로 뜬 글자 버튼은 없다.
   await expect(page.locator('#libraryExpandAll,#librarySelectBtn')).toHaveCount(0);
-  // S70-54: ⋯는 맨 위 줄 단추 자리(검색 칸 오른쪽).
-  const more=page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn'),m=await box(more),top=await box(page.locator('#gsTopInput'));
-  expect(m.x).toBeGreaterThanOrEqual(top.x+top.width);expect(Math.abs((m.y+m.height/2)-(top.y+top.height/2))).toBeLessThan(2);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
+  // S71-59 UI-화면메뉴안으로: ⋯·[+]는 맨 위 줄이 아니라 화면 안 첫 줄(폴더·분류 고르기 줄) 오른쪽 끝 — 차례는 ⋯ 다음 [+]가 맨 오른쪽(S71-28).
+  const more=page.locator('.sf-tools:not([hidden]) #libraryTopMenuBtn'),m=await box(more),view=await box(page.locator('#libraryView')),add=await box(page.locator('.sf-tools:not([hidden]) #newDocumentBtn'));
+  await expect(page.locator('#appView>.app-topline #libraryTopMenuBtn')).toHaveCount(0);
+  await expect(page.locator('#libraryView .lu-search-row [data-screen-tools="line"] #libraryTopMenuBtn')).toBeVisible();
+  expect(m.x).toBeGreaterThan(cat.x+cat.width);expect(m.x+m.width).toBeLessThanOrEqual(add.x+0.5);expect(view.x+view.width-(add.x+add.width)).toBeLessThanOrEqual(12);expect(Math.abs((m.y+m.height/2)-(search.y+search.height/2))).toBeLessThan(3);expect(Math.round(m.height)).toBe(32);expect(await more.evaluate(n=>Math.round(parseFloat(getComputedStyle(n,'::after').height)))).toBe(44);
   await expect(group).toHaveAttribute('aria-label','묶기');await expect(group).toHaveAttribute('aria-controls','documentList');
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄(이름표 + 칩)이 위 줄 아래에 낀다.
@@ -237,8 +239,8 @@ for(const width of [1440,884,390])test(`'✎ 분류 수정'은 [분류 ▾] 창 
   const {errors}=await boot(page,width);
   await expect(page.getByRole('button',{name:'분류 수정',exact:true})).toHaveCount(0);
   expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual([]);
-  // S71-28: 폰은 [분류 ▾]도 머리 줄 단추 상자 안, [+]는 맨 오른쪽(⋯ 다음).
-  expect(await page.locator('#libraryView .lu-search-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?[]:['libraryCategoryPick']);
+  // S71-28: 폰은 [분류 ▾]도 머리 줄 단추 상자 안, [+]는 맨 오른쪽(⋯ 다음). S71-59: PC는 단추 자리(⋯·+)가 본문 첫 줄 끝(.lu-search-row 안 .sf-tools).
+  expect(await page.locator('#libraryView .lu-search-row .lu-pick-row button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?[]:['libraryCategoryPick']);
   expect(await page.locator('.sf-tools:not([hidden]) button:visible').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(width<=760?['libraryCategoryPick','libraryTopMenuBtn','newDocumentBtn']:['libraryTopMenuBtn','newDocumentBtn']);
   await libraryCategoriesReady(page);await pick(page).click();
   const edit=sheet(page).getByRole('button',{name:'분류 수정',exact:true});

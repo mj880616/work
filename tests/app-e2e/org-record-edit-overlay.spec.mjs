@@ -3,12 +3,15 @@
 //    (Enter = new line, Ctrl+Enter or [저장] saves with an owner-RLS PATCH limited to the row and organization), [삭제] asks once more.
 // B: on a phone a tapped linked record comes up as a card over project/organization detail; ✕, swipe down and back close it,
 //    and the detail stays open where it was. A wide screen keeps the full open (basket view).
+//    S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 기록 줄은 이제 아무 데도 가지 않으므로(record-no-basket-origin.spec.mjs),
+//    여기 B 시험은 노트에서 이은 기록 줄(같은 기록 창, [노트 열기])로 본다.
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {answerAsk} from './helpers/small-notice.mjs';
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const shots=process.env.KPTU_SHOT_DIR||'';
 async function ready(page,query=''){await page.goto(fixture+query);await expect.poll(()=>page.evaluate(()=>window.__detailReady===true)).toBe(true);await page.evaluate(()=>{window.__went=[];window.KPTURouter.go=(view,o)=>window.__went.push(view)})}
+const asNotes=page=>page.evaluate(()=>{for(const n of window.__detailState.notes)n.kind='note'});
 async function openOrg(page){await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.org));await expect(page.locator('#wdUpdates [data-wd-up]')).toHaveCount(1)}
 async function openProject(page){await page.evaluate(()=>{const s=window.__detailState;for(const row of s.links){row.project_id=s.ids.project;row.organization_id=null}return window.KPTUProjects.open(s.ids.project)});await expect(page.locator('#ps3-progress [data-basket-link]')).toHaveCount(2)}
 const menu=page=>page.locator('#wdUpMenu');
@@ -74,14 +77,14 @@ test('organization record delete asks once more and only deletes after yes',asyn
 });
 
 test('phone: organization linked record opens as a card over the detail; ✕, back and swipe close it in place',async({page})=>{
- await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await openOrg(page);
+ await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await asNotes(page);await openOrg(page);
  await expect(page.locator('#wdModal')).toHaveAttribute('data-kptu-history-open','1');
  const modal=page.locator('#wdModal');await modal.evaluate(el=>{el.scrollTop=Math.min(120,el.scrollHeight)});const before=await modal.evaluate(el=>el.scrollTop);
  const line=page.locator('#wdUpdates [data-basket-link] a[data-basket-link-open]').first();
  const sheet=page.locator('#kptuRecordSheet');
  await line.click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();
  await expect(sheet.locator('[data-record-sheet-text]')).toHaveText('보관 원문 <script> 합성 내용');
- await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'잊지 말기에서 열기'})).toBeVisible();
+ await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'노트 열기'})).toBeVisible();
  expect(await page.evaluate(()=>window.__went)).toEqual([]);
  const box=await sheet.locator('[data-record-sheet-card]').boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(844+1);expect(box.width).toBeGreaterThan(380);
  await shot(page,'org-record-sheet-phone');
@@ -101,13 +104,13 @@ test('phone: organization linked record opens as a card over the detail; ✕, ba
  await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('wdModal');
  expect(await page.evaluate(()=>window.__went)).toEqual([]);
- // [바구니에서 열기] hands over to the existing full open once the card is gone.
- await line.click();await sheet.getByRole('button',{name:'잊지 말기에서 열기'}).click();
+ // [노트 열기] hands over to the existing full open once the card is gone.
+ await line.click();await sheet.getByRole('button',{name:'노트 열기'}).click();
  await expect(sheet).toBeHidden();await expect(modal).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);
 });
 
 test('phone: project linked record opens as a card over project detail and Esc closes it',async({page})=>{
- await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await openProject(page);
+ await page.setViewportSize({width:390,height:844});await ready(page,'?history=1');await asNotes(page);await openProject(page);
  const modal=page.locator('#ps3DetailModal'),sheet=page.locator('#kptuRecordSheet');
  const line=page.locator('#ps3-progress [data-ps3-basket-note]').first();
  await line.click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();await expect(sheet).toContainText('합성 프로젝트');
@@ -116,13 +119,13 @@ test('phone: project linked record opens as a card over project detail and Esc c
  await shot(page,'project-record-sheet-phone');
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(modal).toBeVisible();await expect(line).toBeFocused();
  await line.click();await expect(sheet).toBeVisible();await page.evaluate(()=>history.back());await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
- await line.click();await sheet.getByRole('button',{name:'잊지 말기에서 열기'}).click();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
+ await line.click();await sheet.getByRole('button',{name:'노트 열기'}).click();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
 });
 
 test('wide screen keeps the full open for a linked record (no card)',async({page})=>{
- await page.setViewportSize({width:1280,height:900});await ready(page);await openOrg(page);
+ await page.setViewportSize({width:1280,height:900});await ready(page);await asNotes(page);await openOrg(page);
  await page.locator('#wdUpdates [data-basket-link] a[data-basket-link-open]').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
- await ready(page);await openProject(page);await page.locator('#ps3-progress [data-ps3-basket-note]').first().click();
+ await ready(page);await asNotes(page);await openProject(page);await page.locator('#ps3-progress [data-ps3-basket-note]').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(page.locator('#kptuRecordSheet')).toHaveCount(0);
 });
