@@ -152,9 +152,10 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     const { prefs } = await open(page);
     await page.evaluate(() => window.KPTURouter.go('brief'));
     await expect(page.locator('#briefView .br-row')).toHaveCount(1);
-    // 목록만 보일 때: 목록 머리 줄 끝에 하나.
+    // 목록만 보일 때(폰): 목록 머리 줄 끝에 하나. S70-84: 두 칸 폭(600px~)은 맨 위 다 된 브리핑이 오른쪽에 바로 열려 보기 머리 줄에 하나.
     const listCtl = page.locator('#briefView [data-br-list] .br-head [data-text-size-ctl]');
-    await expect(listCtl).toBeVisible();
+    if (width < 600) await expect(listCtl).toBeVisible();
+    else await expect(listCtl).toHaveCount(0);
     await page.locator('#briefView .br-row').first().click();
     await expect(body(page).locator('.br-items li').first()).toContainText(LINE1);
     // 보기가 열리면 글자 크기 단추는 보기 머리 줄 하나뿐.
