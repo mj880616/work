@@ -5,6 +5,7 @@
 // - 색은 번호(서버 smallint)로만 저장하고 화면은 테마 변수로 칠한다(하드코딩 색 없음): 0~7 노트 색, 8 바탕색, 9 진한 색, -1 없음.
 // - 겹침 순서 z: 같은 보드 글 상자·글자·도형 안에서만(노트 카드는 그 위 칸, 선은 그 아래 칸).
 // - 기기 저장 없음. 범위는 서버 check와 같다(migration 20261125040000_note_board_decor, 20261125040100_note_board_free_lines).
+import { clampCoord } from './note-board-coord.mjs';
 export const FREE_KINDS = Object.freeze(['label', 'shape']);
 export const isFree = t => !!t && FREE_KINDS.includes(t.kind);
 export const SHAPE_KINDS = Object.freeze(['rect', 'round', 'ellipse', 'diamond', 'triangle', 'arrow']);
@@ -80,15 +81,15 @@ export function zIndexes(list) {
 }
 // 복제: 같은 꾸미기·크기, 조금 옆(16px)에, 맨 앞. 가지는 혼자 선 칸으로 복제한다(가지 관계는 복제하지 않음).
 export function duplicateSpec(t, list) {
-  const keys = ['kind', 'color', 'shape', 'font', 'w', 'h', 'stroke', 'stroke_w', 'dash', 'alpha', 'bold', 'align', 'ink'];
-  const spec = {board_id:t.board_id, body:t.body, x:Math.min(100000, (t.x || 0) + 16), y:Math.min(100000, (t.y || 0) + 16), parent_id:null};
+  const keys = ['kind', 'color', 'shape', 'font', 'w', 'h', 'stroke', 'stroke_w', 'dash', 'alpha', 'bold', 'align', 'ink', 'cells', 'file_doc', 'file_note', 'file_drive']; // S71-56: 표 글·파일이 가리키는 곳도 그대로
+  const spec = {board_id:t.board_id, body:t.body, x:clampCoord((t.x || 0) + 16), y:clampCoord((t.y || 0) + 16), parent_id:null};
   for (const k of keys) if (t[k] !== undefined && t[k] !== null && t[k] !== false) spec[k] = t[k];
   const z = zFront([...list, {...t, id:'__copy', z:t.z}], '__copy'); if (z !== null) spec.z = z;
   return spec;
 }
 // 새 도형 칸(판 가운데 at = 도형 가운데).
 export const newShapeSpec = (board_id, shape, at, z = 0) => ({board_id, kind:'shape', shape:SHAPE_KINDS.includes(shape) ? shape : 'rect', body:'',
-  x:Math.max(0, Math.round(at.x - SHAPE_W / 2)), y:Math.max(0, Math.round(at.y - SHAPE_H / 2)), w:SHAPE_W, h:SHAPE_H, z});
+  x:clampCoord(at.x - SHAPE_W / 2), y:clampCoord(at.y - SHAPE_H / 2), w:SHAPE_W, h:SHAPE_H, z});
 
 // ---- 선 넣기(도구 줄 [선▾]) ----
 export const LINE_KINDS = Object.freeze(['line', 'arrow', 'elbow', 'curve']);
@@ -96,10 +97,11 @@ export const LINE_KIND_NAMES = Object.freeze({line:'직선', arrow:'화살표 �
 export const LINE_LEN = 160; // 새 선 길이(판 px)
 // 판 가운데에 가로로 놓는 새 선(양 끝 = 판 위 점). 곡선은 위로 살짝 휜 곡선(지나는 점).
 export function newLineSpec(board_id, kind, at) {
-  const y = Math.max(0, Math.round(at.y)), x0 = Math.max(0, Math.round(at.x - LINE_LEN / 2));
+  const y = clampCoord(at.y), x0 = clampCoord(at.x - LINE_LEN / 2);
   const base = {board_id, from_note:null, to_note:null, from_text:null, to_text:null, from_x:x0, from_y:y, to_x:x0 + LINE_LEN, to_y:y, dash:'solid'};
   if (kind === 'arrow') return {...base, shape:'line', ends:'end'};
   if (kind === 'elbow') return {...base, shape:'elbow', ends:'end', to_y:y + 60};
   if (kind === 'curve') return {...base, shape:'curve', ends:'none', bend_x:0.5, bend_y:-0.25};
   return {...base, shape:'line', ends:'none'};
 }
+

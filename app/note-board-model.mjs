@@ -10,11 +10,12 @@
 // - S69-88(명진 11/25 02:46~02:48 "크기 조절 … 높이 폭 모두", "노트 내용, 링크는 유지하더라도 텍스트는 다르게"): 카드 자리 값에 손으로 정한 크기(w·h, 비면 CARD_W×CARD_H)와
 //   그 보드에서만 보일 글자(label, 비면 노트 제목)를 함께 둔다 — {x, y, r, z, w?, h?, label?}. 노트 제목·내용·연결은 그대로(누르면 그 노트가 열림).
 // - 칸 기본 크기는 모두 같다(CARD_W×CARD_H). 색은 폴더마다 다른 연한 색(tone 0~7, 노랑 없음 — 색 값은 basket.css), 폴더 없음은 'none'.
+import { clampCoord, okCoord, COORD_LIMIT } from './note-board-coord.mjs';
 export const CARD_W = 128, CARD_H = 34, GAP = 22, SLOT_W = CARD_W + GAP, SLOT_H = CARD_H + GAP, PAD = 24;
-export const BOARD_MAX = 20000, Z_MAX = 1e9, TILT_MAX = 6;
+export const BOARD_MAX = 20000, Z_MAX = 1e9, TILT_MAX = 6; // S71-52: BOARD_MAX는 자리 없는 새 노트를 처음 늘어놓는 범위만(판 끝이 아님 — 판 범위는 note-board-coord.mjs)
 export const MIN_W = 1200, MIN_H = 900, ROOM = 360; // 보드는 화면보다 넓게: 놓인 칸 바깥으로 ROOM만큼 더 둔다
 export const TONES = 8;
-export const ZOOM_MIN = 0.2, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25;
+export const ZOOM_MIN = 0.04, ZOOM_MAX = 2.5, ZOOM_STEP = 1.25; // S71-52 ②: 큰 생각지도를 한눈에 — 0.2 → 0.04(멀리 보기는 note-board-view-model.mjs FAR_Z 아래)
 export const CLUSTER_WRAP = 1500; // 처음 배치에서 폴더 묶음을 한 줄에 늘어놓는 너비
 
 export const CARD_W_MIN = 60, CARD_W_MAX = 600, CARD_H_MIN = 30, CARD_H_MAX = 1200, CARD_LABEL_MAX = 100;
@@ -31,7 +32,7 @@ const jitter = (id, salt, span) => (hash(salt + id) % (span * 2 + 1)) - span;
 // 자리 값 하나의 모양 검사(맞으면 {x, y, r, z}, 틀리면 null). [전체]의 metadata.board와 보드별 metadata.boards[id]가 같은 모양이다.
 export function placeShape(b) {
   if (!plain(b) || !num(b.x) || !num(b.y) || !num(b.r) || !Number.isInteger(b.z)) return null;
-  if (b.x < 0 || b.y < 0 || b.x > BOARD_MAX || b.y > BOARD_MAX || Math.abs(b.r) > TILT_MAX || b.z < 0 || b.z > Z_MAX) return null;
+  if (!okCoord(b.x) || !okCoord(b.y) || Math.abs(b.r) > TILT_MAX || b.z < 0 || b.z > Z_MAX) return null; // S71-52: 판은 음수 쪽으로도 뻗는다
   const out = {x:b.x, y:b.y, r:b.r, z:b.z};
   if (Number.isInteger(b.w) && b.w >= CARD_W_MIN && b.w <= CARD_W_MAX) out.w = b.w;
   if (Number.isInteger(b.h) && b.h >= CARD_H_MIN && b.h <= CARD_H_MAX) out.h = b.h;
@@ -63,8 +64,8 @@ export function placeFields(p) {
 }
 // 저장된 자리(모양이 틀리면 null = 자리 없음으로 보고 다시 놓는다). [전체] 보드.
 export const boardOf = note => placeShape(plain(note?.metadata) ? note.metadata.board : null);
-// size: 그 축의 칸 크기(가로 CARD_W, 세로 CARD_H) — 칸 전체가 판 안에 들게.
-export const clampPos = (v, size = CARD_W) => Math.round(Math.max(0, Math.min(BOARD_MAX - size, v)));
+// S71-52 NOTE-큰생각지도: 판은 끝이 없다 — 자리는 저장 범위(note-board-coord.mjs ±COORD_LIMIT) 안으로만 맞춘다(음수 포함). size는 옛 부르는 쪽 호환용.
+export const clampPos = (v, size = CARD_W) => clampCoord(Math.min(COORD_LIMIT - size, v));
 const clampX = v => clampPos(v, CARD_W), clampY = v => clampPos(v, CARD_H);
 const overlaps = (a, b) => a.x < b.x + CARD_W && b.x < a.x + CARD_W && a.y < b.y + CARD_H && b.y < a.y + CARD_H;
 const time = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };

@@ -100,7 +100,7 @@ test('PC: 상자 우클릭 [노트로 만들기] = 상자 글로 새 노트, 상
   await page.mouse.click(sc.x, sc.y, { button: 'right' });
   await expect(menu(page)).toBeVisible();
   const names = (await menu(page).locator('button').allInnerTexts()).map(t => t.trim());
-  expect(names.slice(-2)).toEqual(['노트로 만들기', '삭제']);
+  expect(names.slice(-4)).toEqual(['노트로 만들기', '관계 잇기', '재료 잇기', '삭제']); // S71-53: 관계선 칸이 있는 서버면 [관계 잇기] · S71-54: 재료 칸이 있으면 [재료 잇기]
   await menu(page).locator('button').filter({ hasText: /^노트로 만들기$/ }).click();
   await expect.poll(() => made.length).toBe(1);
   expect(made[0]).toMatchObject({ kind: 'note', title: '시작 주제' });

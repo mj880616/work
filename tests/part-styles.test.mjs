@@ -88,6 +88,7 @@ const KNOWN = {
     'library-drive-line.js': {routes: ['library'], why: '자료실 위 드라이브 저장 위치 한 줄(S69-20)·[앱 폴더 모으기](S69-22) — library-upload.js가 자료실에서만 붙임'},
     // S69-62: 폴더 고르기가 folder-dest-sheet.js로 옮겨 library-move-picker.js(부품)를 더는 import하지 않는 자료실 화면 모듈들.
     'library-folders.js': {routes: ['library']}, 'library-sort.js': {routes: ['library']}, 'library-upload.js': {routes: ['library']},
+    'library-board-topics.js': {routes: ['library'], why: "S71-54 자료 ⋯ 메뉴의 '이어진 생각지도 주제' 줄 — library-upload.js가 자료실 메뉴 안에만 붙임"},
   },
   'folder-dest-sheet.css': {
     'files.js': {routes: ['files'], why: "S69-62 [파일] '옮길 곳' 창(그리기는 files.js 상태 주인, 모양은 공용 folder-dest-sheet.css)"},

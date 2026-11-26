@@ -30,6 +30,7 @@ const exempt=[
  ['.basket-photo-view','전체 화면 보기'],['.fx-prev','파일 미리보기 칸(폰·폴드 전체 화면 보기, 뒤로가기 = 닫힘)'],['.fx-dim','파일 받을 곳 창 바탕'],['.fx-dest','파일 받을 곳 고르기 창(쓰는 칸 없음, 뒤로가기 = 닫힘)'],['.fx-askbox','파일 같은 이름·큰 파일 묻는 칸(쓰는 칸 없음)'],['.task-inline-menu','메뉴'],['.task-due-popup','달력 팝업'],['.basket-link-menu','메뉴'],
  ['#lockView[data-lk-full]','잠금 숫자 판 전체 화면(쓰는 칸 없음, 자판 안 열림 — S67-76)'],
  ['#appView #basketView .nbw.nbw-full','노트 보드 전체 화면 보기(S69-33, Esc·뒤로가기 = 끝냄)'],
+ ['.nbm-view.nbm-view-sheet','노트 보드 재료 열어 보기 판(S71-54, 읽기만·쓰는 칸 없음 — 자판이 열리지 않음, ✕·Esc·뒤로가기 = 닫힘)'],
 ];
 function bottomRules(){
  const out=[];

@@ -9,8 +9,10 @@
 //   bend_x = 시작→끝 방향 비율, bend_y = 그 수직 방향 비율(선 길이 단위). 카드·상자를 옮겨도 곡선이 따라온다. 둘 다 null = 지나는 점 없음
 //   (shape=curve면 옛 자동 곡선, line이면 직선). 점이 있으면 shape는 curve.
 //   label: 선 위 짧은 글자(1~40자, 없어도 됨). 같은 보드·같은 방향·같은 두 끝은 한 줄(서버 unique와 같은 규칙).
+//   kind(S71-53, migration 20261127020000): 'line'(지금 선) · 'relation'(관계선 — note-board-relation-model.mjs). 칸이 없는 옛 서버 줄은 'line'.
 // - 글 상자(S68-38c, 서버 표 app_note_board_texts): {id, board_id, body, x, y}. 그 보드에만 있는 짧은 글(노트가 아님). 크기는 화면이 글에 맞춘다.
 // - 기기 저장 없음.
+import { clampCoord, okCoord } from './note-board-coord.mjs';
 import { CARD_W, CARD_H } from './note-board-model.mjs';
 
 export const SIDES = Object.freeze(['top', 'right', 'bottom', 'left']);
@@ -18,9 +20,9 @@ export const SHAPES = Object.freeze(['line', 'curve', 'elbow']);
 export const DASHES = Object.freeze(['solid', 'dashed']);
 export const ENDS = Object.freeze(['end', 'both', 'none']);
 export const LABEL_MAX = 40;
-export const LINK_LIMIT = 1000; // 보드 하나의 선 개수(화면에서만 막음, 수백 개까지 버벅이지 않게 그린다)
+export const LINK_LIMIT = 5000; // 보드 하나의 선 개수(화면에서만 막음). S71-52: 큰 생각지도 — 보이는 것만 그리므로 1,000 → 5,000
 export const TEXT_MAX = 300; // 글 상자 글자 수(서버 check와 같음)
-export const TEXT_LIMIT = 500; // 보드 하나의 글 상자 개수(화면에서만 막음)
+export const TEXT_LIMIT = 5000; // 보드 하나의 글 상자 개수(화면에서만 막음). S71-52: 큰 생각지도 — 보이는 것만 그리므로 500 → 5,000(작업공간 전체 읽기 한도 10,000줄은 그대로)
 export const BEND_LIMIT = 5; // 곡선 지나는 점 상대 위치 범위(서버 check와 같음, -5~5)
 export const BEND_SNAP = 10; // 지나는 점이 두 끝을 잇는 직선에서 이만큼(판 px) 안이면 직선으로 되돌린다
 const BOARD_RE = /^(all|b[0-9a-z]{6,12})$/;
@@ -38,11 +40,11 @@ export function endPatch(side, kind, idOrAt, toSide = null) {
   if (kind === 'point') return {...none, [`${side}_x`]:clampAt(idOrAt.x), [`${side}_y`]:clampAt(idOrAt.y), [`${side}_side`]:null};
   return {...none, [`${side}_${kind}`]:idOrAt, [`${side}_side`]:toSide};
 }
-const clampAt = v => Math.max(0, Math.min(100000, Math.round(v)));
+const clampAt = clampCoord; // S71-52: 판은 음수 쪽으로도 뻗는다(note-board-coord.mjs)
 export const LINE_COLORS_MAX = 9, WIDTH_MIN = 1, WIDTH_MAX = 8;
 const uuidish = v => typeof v === 'string' && v.length > 0;
 const num = v => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= BEND_LIMIT ? v : null);
-const coord = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100000 ? v : null);
+const coord = v => (okCoord(v) ? v : null);
 // 서버 줄 → 화면 값(모양이 틀리면 null). 옛 표 모양(글 상자·곡선 칸 없음)도 받는다.
 export function parseLink(row) {
   if (!row || typeof row !== 'object') return null;
@@ -62,7 +64,7 @@ export function parseLink(row) {
   if (bx === null || by === null) bx = by = null;
   const shape = bx === null ? pick(row.shape, SHAPES, 'line') : 'curve';
   return {id, board_id, ...ends, from_side:pick(row.from_side, SIDES, null), to_side:pick(row.to_side, SIDES, null),
-    shape, dash:pick(row.dash, DASHES, 'solid'), ends:pick(row.ends, ENDS, 'end'), label, bend_x:bx, bend_y:by,
+    kind:row.kind === 'relation' ? 'relation' : 'line', shape, dash:pick(row.dash, DASHES, 'solid'), ends:pick(row.ends, ENDS, 'end'), label, bend_x:bx, bend_y:by,
     color:Number.isInteger(row.color) && row.color >= 0 && row.color <= LINE_COLORS_MAX ? row.color : null,
     width:Number.isInteger(row.width) && row.width >= WIDTH_MIN && row.width <= WIDTH_MAX ? row.width : null};
 }
@@ -76,9 +78,9 @@ export const endFields = (side, kind, id) => (kind === 'text' ? {[`${side}_note`
 export function parseText(row) {
   if (!row || typeof row !== 'object') return null;
   const {id, board_id, body} = row;
-  // S69-91: 도형(kind shape)만 빈 글을 받는다(글 없는 도형 — 서버 check와 같음).
-  if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id) || typeof body !== 'string' || (!body.trim() && !(row.kind === 'shape' && body === ''))) return null;
-  const at = v => (Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0);
+  // S69-91: 도형(kind shape)만 빈 글을 받는다(글 없는 도형 — 서버 check와 같음). S71-56: 표·파일 칸도(서버 check와 같음).
+  if (typeof id !== 'string' || !id || typeof board_id !== 'string' || !BOARD_RE.test(board_id) || typeof body !== 'string' || (!body.trim() && !(['shape', 'table', 'file'].includes(row.kind) && body === ''))) return null; // S71-56: 표·파일 칸도 빈 글
+  const at = clampCoord;
   return {id, board_id, body:[...body].slice(0, TEXT_MAX).join(''), x:at(row.x), y:at(row.y)};
 }
 // 글 상자 글: 앞뒤 빈칸·빈 줄 지움, 줄바꿈은 그대로(다른 제어 문자는 안 됨). 비면 null.

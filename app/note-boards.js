@@ -18,11 +18,12 @@
 //   서버 화면 기억에 옛 값 'all'이 남아 있어도 pickBoard가 무시한다. 노트의 옛 metadata.board 값은 지우지 않는다.
 import { viewPrefs } from './view-prefs.js';
 import { mountSplitResize } from './split-resize.js';
-import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
+import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace, BOARD_BGS, BOARD_BG_NAMES, parseBoardBgs, boardBgOf, withBoardBg, boardBgsToPrefs } from './note-boards-model.mjs';
+import { swatchHtml } from './color-swatch.mjs';
 import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX, clampPos, Z_MAX } from './note-board-model.mjs';
 import { treeRows, noteLineTitle, OUTSIDE } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
-import { NOTE_DRAG } from './note-board.js';
+import { NOTE_DRAG, NOTE_REF_DRAG } from './note-board.js';
 import * as pinLock from './feature-lock.js';
 import { noteTreeRowHtml, lockedFolderRowHtml } from './note-tree-row.js';
 import { ftBoxHtml } from './folder-tree-ui.mjs';
@@ -46,7 +47,7 @@ const shownFolders = list => pinLock.notesHidden() ? list.filter(f => !pinLock.f
 const shownNotes = list => pinLock.notesHidden() ? list.filter(n => !pinLock.noteHidden(n)) : list;
 // 잠긴 폴더 줄은 공용 노트 나무 줄(note-tree-row.js lockedFolderRowHtml): 누르면 다른 화면의 '잠김' 줄과 같은 그 자리 PIN 창. 풀리면 kptu:feature-lock-changed로 다시 그린다.
 
-export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}, onExport = null}) {
+export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}, onExport = null, onBg = () => {}}) {
   const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)') : {matches:false};
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
@@ -63,6 +64,28 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     toast('보드는 아직 서버에 저장할 수 없어요(준비 중). 잠시 뒤 다시 해 주세요.'); rerender();
   });
   const saveBoards = () => { viewPrefs.set('note_boards', boardsToPrefs(boards), {rejectable:true}); void viewPrefs.flush?.(); };
+  // S71-50 NOTE-보드배경색: 보드마다 바탕색(서버 view_prefs.note_board_bg, 기기 저장 없음). 적용 전 서버는 쓰기를 거절 → 되돌려 '기본' 바탕 + 한 줄 알림.
+  let bgs = parseBoardBgs(viewPrefs.get('note_board_bg')), bgTouched = false;
+  window.addEventListener('kptu:view-prefs-ready', () => { if (!bgTouched) { bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); onBg(); } });
+  window.addEventListener('kptu:view-prefs-rejected', e => {
+    if (!(e.detail?.paths || []).includes('note_board_bg')) return;
+    bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); onBg();
+    toast('배경색은 아직 서버에 저장할 수 없어요(준비 중). 기본 바탕으로 보여요.');
+  });
+  const bgOf = id => boardBgOf(bgs, id);
+  function setBg(id, bg) {
+    if (!boards.some(b => b.id === id)) return;
+    try { bgs = withBoardBg(bgs, id, bg); } catch (e) { toast(e.message); return; }
+    bgTouched = true; onBg();
+    viewPrefs.set('note_board_bg', boardBgsToPrefs(bgs), {rejectable:true}); void viewPrefs.flush?.();
+  }
+  // 색 고르기 칸(공용 color-swatch.mjs): '기본' + 여덟 가지, 지금 색에 ✓. 메뉴 안 한 묶음(보드 칸 메뉴·빈 판 우클릭 메뉴가 같이 쓴다).
+  const bgSwatchesHtml = id => {
+    const now = bgOf(id);
+    return `<div class="nbb-bg" role="radiogroup" aria-label="배경색"><span class="nbb-bg-label" aria-hidden="true">배경색</span><span class="ui-swatches">${
+      swatchHtml({color:'var(--kptu-surface-subtle)', label:'기본', role:'radio', on:!now, attrs:{'data-nbb-bg':'', title:'기본'}})}${
+      BOARD_BGS.map(c => swatchHtml({color:`var(--ds-board-bg-${c})`, label:BOARD_BG_NAMES[c], role:'radio', on:now === c, attrs:{'data-nbb-bg':c, title:BOARD_BG_NAMES[c]}})).join('')}</span></div>`;
+  };
   function select(id) {
     if (!boards.some(b => b.id === id)) return;
     const next = id;
@@ -102,7 +125,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
       if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, {lockAttr:'nbb-locked'});
       if (r.type !== 'note') return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true});
       const on = onBoard(r.note, current);
-      return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true, on, draggable:on ? !!moveToFolder : true});
+      return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true, on, draggable:true}); // S71-54: 보드에 있는 노트도 끌어 주제 위에 놓으면 재료
     }).join('');
     side.innerHTML = ftBoxHtml({head:'노트 목록', body:html || emptyHtml('노트 없음'), label:'붙일 노트', attrs:{'data-nbb-list':''}});
   }
@@ -229,6 +252,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const name = boardName(id), on = notesOnBoard(notes.get(), id);
     if (!await askConfirm(trigger || bar, {text:`'${name}' 보드를 삭제할까요?`, note:`붙은 노트 ${on.length}개는 삭제하지 않아요(보드에서만 빠져요).`, ok:'삭제', danger:true})) return;
     boards = removeBoard(boards, id); saveBoards();
+    // S71-50: 지운 보드의 바탕색도 지운다.
+    if (bgOf(id)) { bgs = withBoardBg(bgs, id, null); viewPrefs.set('note_board_bg', boardBgsToPrefs(bgs), {rejectable:true}); void viewPrefs.flush?.(); }
     // 보던 보드를 지우면 남은 보드 중 가장 최근에 만든 보드로(없으면 빈 안내). 남은 보드가 없으면 화면 기억은 그대로 두고 읽을 때 무시한다.
     if (current === id) { current = pickBoard(null, boards); if (current) viewPrefs.set('note_board', current, {rejectable:true}); }
     for (const n of on) localPlace(n.id, id, null);
@@ -250,9 +275,11 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const el = menuEl();
     // S70-32 ③: 지금 연 보드면 [PDF로 내보내기]·[HTML로 내보내기](보드 전체를 이 기기로 내려받기).
     const items = [['data-nbb-rename', '이름 바꾸기'], ...(onExport && id === current ? [['data-nbb-export="pdf"', 'PDF로 내보내기'], ['data-nbb-export="html"', 'HTML로 내보내기']] : []), ['data-nbb-delete', '보드 삭제', 'basket-menu-danger']];
-    el.innerHTML = items.map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    const html = ([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
+    // S71-50: [이름 바꾸기] 아래 배경색 고르기 한 묶음(폰은 보드 칸 꾹 누르기 메뉴, PC는 우클릭).
+    el.innerHTML = html(items[0]) + bgSwatchesHtml(id) + items.slice(1).map(html).join('');
     el.hidden = false;
-    const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:260});
+    const place = () => placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
     place();
     menu = {id, chip, stop:followAnchor(el, chip, {place, lost:() => closeMenu()})};
     chip.setAttribute('aria-expanded', 'true');
@@ -267,7 +294,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
-    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
+    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-bg')) setBg(m.id, b.dataset.nbbBg || null); else if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
     if (b.dataset.nbbBoard) select(b.dataset.nbbBoard);
@@ -323,9 +350,11 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   side.addEventListener('dragstart', e => {
     const n = e.target.closest?.('[data-nbb-note]'), on = !!n?.hasAttribute('data-nbb-on');
     // 손가락으로 이미 잡은 끌기(아래 reorder-drag)가 있으면 브라우저 끌기는 시작하지 않는다(둘이 겹치지 않게).
-    if (!n || (on && !moveToFolder) || side.classList.contains('re-active')) { e.preventDefault(); return; }
+    if (!n || side.classList.contains('re-active')) { e.preventDefault(); return; }
     // 판 놓기 형식(NOTE_DRAG)은 아직 안 붙은 노트만 싣는다. 폴더 놓기 형식은 언제나.
+    // S71-54: 재료 형식(NOTE_REF_DRAG)은 늘 — 주제 위에 놓으면 그 주제의 재료(보드에 있는 노트도). 빈 곳에 놓으면 지금처럼.
     if (!on) e.dataTransfer.setData(NOTE_DRAG, n.dataset.nbbNote);
+    e.dataTransfer.setData(NOTE_REF_DRAG, n.dataset.nbbNote);
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
     // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
@@ -403,7 +432,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
 
   return {
     paint, boardView, attach, attachSized, detach, restore, move, relabel, autosize, isSized,
-    current:() => current, isNamed:named, name:boardName,
-    reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
+    current:() => current, isNamed:named, name:boardName, select, // S71-54: 이어진 주제로 가기
+    bgOf, setBg, bgSwatchesHtml,
+    reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); bgTouched = false; },
   };
 }
