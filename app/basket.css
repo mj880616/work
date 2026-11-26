@@ -136,7 +136,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
 #forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
-/* S71-29 FORGET-머리한줄(명진 11/26 "잊지말기도"): [처리 전 ▾]·최신화(↻)는 맨 위 줄 단추 상자(.sf-tools.forget-tools, basket.js)에 산다 — 따로 된 둘째 줄 없음.
+/* S71-29 FORGET-머리한줄(사용자 결정 11/26, 다른 화면처럼 한 줄로): [처리 전 ▾]·최신화(↻)는 맨 위 줄 단추 상자(.sf-tools.forget-tools, basket.js)에 산다 — 따로 된 둘째 줄 없음.
    폰·폴드 앱 머리 줄 = [W] 잊지 말기 · [처리 전 ▾] ……… ↻ · 찾기: 고르기는 이름 바로 뒤, 동작(↻)은 찾기 바로 앞(머리줄 규칙 '… · 찾기 · [+]'), 가운데는 빈 칸.
    그래서 이 상자가 보일 때만 찾기 칸을 줄 끝으로 보내고(order), 상자가 남은 폭을 쓰며 ↻를 상자 오른쪽 끝에 붙인다. 폰에서 찾기 칸을 펼치면(.sf-open) 칸이 남은 폭을 쓴다.
    PC 틀(761px~)은 다른 화면과 같이 맨 위 줄 찾기 칸 오른쪽([+ 추가] 앞). */
