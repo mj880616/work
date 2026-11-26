@@ -59,10 +59,12 @@ for (const width of [390, 1280]) test(`자료실 ${width}: 맨 위·폴더 안 �
   };
   await none();
   if (width >= 600) await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));
-  else await page.evaluate(() => { const u = new URL(location.href); u.searchParams.set('folder', 'fa'); history.replaceState(history.state, '', u); }).then(() => page.reload());
+  else { // 폰: 폴더 줄 ⋯ 첫 줄 [이 폴더로 들어가기]
+    await page.locator('#documentList details[data-lu-node="f:fa"] > summary [data-lu-node-menu]').click();
+    await page.locator('#luFolderMenu [data-lu-folder-action="enter"]').click();
+  }
   const path = page.locator('#libraryPath');
-  if (width >= 600) await expect(path).toBeVisible();
-  await expect(page.locator('#documentList [data-lu-document="d-1"]').first()).toBeVisible();
+  await expect(path).toContainText('가상 사업');
   await none();
   await page.locator('#libraryTopMenuBtn').click();
   const open = page.locator('#luTopMenu [data-lu-top="drive-open"]');
