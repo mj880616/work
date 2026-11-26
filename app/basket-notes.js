@@ -26,7 +26,7 @@ import { formatSeoulTime, seoulDateKey } from './meeting-time.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
+import { createNoteDoc, readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, setNoteFolderRef, setNoteOrder, noteBlockEdit, setNoteBlockEdit } from './basket-data.js';
 // NOTE-탐색기(2026-10-28 09:24·10:34·11:01): 폴더 안 폴더(app_note_folders, 100단), 한 줄 노트, 끌어 옮기기·선택 모드·되돌리기.
 import { readNoteFolders, createNoteFolder, updateNoteFolder, deleteNoteFolder, setNoteFolderColor } from './note-folders-data.js';
 // FOLDER-순서·색 ②(S49-38): 폴더 색·끌기 순서 공용 부품(folder-look-model.mjs 계산, folder-look.js 그림, reorder-drag.js 끌기).
@@ -126,7 +126,7 @@ import {word} from './brand/brand.mjs';
 import {sbActHtml, sbCloseHtml} from './select-bar-model.mjs';
 import {fitSelectBar} from './select-bar.js';
 // UI-검색창하나로(S70-54): 노트 찾기는 맨 위 칸(화면 찾기 등록), 목록 머리 ⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
-import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, toolsBox, findFor} from './screen-find.js';
 // UI-고르기막대(S69-85): 노트 고르기 막대도 공용 모양 — 왼쪽 [✕] 'N개 선택됨', 오른쪽 [전체 선택][폴더로 옮기기][삭제](좁으면 아이콘만 → ⋯).
 //   kptu-act는 정리함 기본 단추 모양(ui-standard.css)에서 빼는 표시로 그대로 둔다.
 const NX_SEL_BAR = sbCloseHtml('data-nx-sel-close', '선택 끝내기').replace('kptu-sb-close"', 'kptu-sb-close kptu-act nx-sel-close"')
@@ -212,10 +212,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let findText = '';
   registerScreenFind('notes', {
     label: '노트에서 찾기',
-    foot: () => list, // '전체에서 「…」 찾기 →' 줄은 노트 목록 칸 맨 아래
     active: () => window.KPTURouter?.current === 'basket' && host.closest('#basketView')?.dataset.kind === 'note' && !host.hidden && !list.hidden,
+    // S70-67 SEARCH-비슷한것찾기: 맞추기는 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 제목에서 맞은 부분 굵게.
+    marks: '#noteRows .basket-title-text, [data-nx-tree] .basket-title-text',
     value: () => (query ? findText : ''),
-    apply: raw => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === query) return; query = next; renderList(); },
+    apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === query && !again) return; query = next; renderList(); },
   });
   // NOTE-News밑줄보관보기: [폴더] 보기 맨 아래 'News에서' 밑줄·보관한 글(News와 같은 서버 자료 그대로, 그리기 주인은 note-news-marks.js).
   // STAB-노트폴더끌기시험: 목록을 읽는 동안(marksRun = 그 읽기 번호) 'News에서' 수가 먼저 와도 다시 그리지 않는다 — refresh가 노트·폴더·메모와
@@ -311,7 +312,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }).join('');
   // 검색은 제목·본문(해시태그 포함)과 그 노트 메모까지.
   // 잠겨 가려진 노트는 찾기에 걸리지 않는다(내용으로 찾아지면 그 글자가 들어 있다는 것이 드러남).
-  const matches = note => !query || !pinLock.noteHidden(note) && `${note.title || ''}\n${note.raw_text || ''}\n${memoText(memosNow(), 'note', note.id)}`.toLowerCase().includes(query);
+  // S70-67: 공용 판정(screen-find.js findFor)으로 — 그리기마다 renderList 맨 앞에서 새로 받는다(noteFind). 비슷한 말로 맞은 노트는 기간(있으면) 안의 것만.
+  let noteFind = null;
+  const findNow = () => noteFind || (noteFind = findFor('notes', findText));
+  const noteTexts = note => [note.title || '', note.raw_text || '', memoText(memosNow(), 'note', note.id)];
+  const matches = note => !query || !pinLock.noteHidden(note) && !!findNow().hitAt(String(note.updated_at || '').slice(0, 10), ...noteTexts(note));
   const folderOf = note => foldersReady ? noteFolderId(note, folders) : noteFolderIdLegacy(note, folders);
   const folderById = id => folders.find(f => f.id === id) || null;
   const folderName = id => folderById(id)?.name || null;
@@ -321,7 +326,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const folderAt = () => at && at !== OUTSIDE && folderById(at) ? at : null;
   // S51-18: 폴더 나무 | 목록 두 칸은 공용 판정(600px~ = 펼친 폴드·PC). 앱 틀(위 줄 제목·하단바)의 761px은 따로(toplineWide).
   const wideList = window.matchMedia(SPLIT_QUERY);
-  const sortList = list => (noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
+  // 찾는 중이면 맞은 정도 순(같으면 원래 순서), 아니면 고른 정렬.
+  // (줄을 빼지는 않는다 — 걸러 내기는 matches 몫, 찾는 중에도 나무에 쓰이는 목록이 있다.)
+  const byScore = list => { const f = findNow(), score = new Map(list.map(n => [n, f.best(...noteTexts(n))?.score ?? -1])); return [...list].sort((a, b) => score.get(b) - score.get(a)); };
+  const sortList = list => (query ? byScore(sortNotes(list)) : noteSort === 'manual' ? sortNotesManual(list, notePinnedAt) : sortNotes(list));
   const isPicked = key => !!pick.has(key);
   // UI-폴더목록한모양(S69-90, 명진 11/25 "모든 폴더 쓰는 ui를 통일"): 고른 줄은 [파일]처럼 바탕 + 왼쪽 세로줄만(줄 앞 체크칸 없음).
   // 고르기 중 줄 어디를 눌러도 고르기·풀기(S10), 화면 읽기는 줄 단추의 aria-pressed로 안다.
@@ -588,6 +596,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
           return back && ok ? true : {status:'failed', message:'일부는 되돌리지 못했어요.'};
         };
       },
+      // S70-77 상자 [노트로 만들기]: 상자 글(첫 줄 = 제목, 나머지 = 본문)로 새 노트 → 상자 자리에 그 노트 카드 → 상자에 붙은 선은 카드로 옮겨 붙이고
+      // (가지였으면 위 상자 → 카드 선 하나) → 상자 지우기. 모두 owner 길 그대로(노트 만들기·보드 자리·선 고치기·상자 지우기), 새 표·권한 없음.
+      onTextToNote:async ({id, body, at, parent}) => {
+        if (pick.active || busy) return;
+        const boardId = boards.current(); if (!boardId) return;
+        const lines = String(body || '').split(/\r?\n/), first = lines.findIndex(l => l.trim());
+        if (first < 0) return;
+        const title = [...lines[first].trim()].slice(0, 200).join(''), rest = lines.slice(first + 1).join('\n').trim();
+        let row;
+        try { row = await createNoteDoc({title, raw_text:rest}, rt); } catch (e) { showToast(e?.message || '노트를 만들지 못했어요.'); return; }
+        notes = [...notes.filter(n => n.id !== row.id), row];
+        if (boards.current() !== boardId) { showToast('노트를 만들었어요.'); return; }
+        boards.attach([row.id], at);
+        const touching = boardLinks.forBoard(boardId).filter(l => !l.pending && (l.from_text === id || l.to_text === id));
+        await Promise.all(touching.map(l => boardLinks.update(l.id, l.from_text === id ? {from_note:row.id, from_text:null} : {to_note:row.id, to_text:null})));
+        if (parent) await boardLinks.add({board_id:boardId, from_text:parent, to_note:row.id, shape:'line'});
+        await boardLinks.removeMany({textIds:[id], boardId});
+        showToast('노트로 만들었어요.');
+      },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
@@ -640,6 +667,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!wideList.matches) syncFolderLayer();
     quick.setFolder(folderName(addTarget()));
     const wide = wideList.matches, tree = host.querySelector('[data-nx-tree]'), rowsBox = host.querySelector('[data-note-rows]'), recentBox = host.querySelector('[data-nx-recent]');
+    noteFind = query ? findFor('notes', findText) : null;
     const m = query ? matches : null;
     list.classList.toggle('nx-wide', wide);
     paintViewSwitch();

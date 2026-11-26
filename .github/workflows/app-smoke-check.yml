@@ -206,6 +206,7 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/find-match-model.test.mjs'
       - 'tests/ask-web2-model.test.mjs'
       - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
@@ -316,6 +317,8 @@ on:
       - 'supabase/functions/public-policy-drive/index.ts'
       - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
+      - 'scripts/cc/**'
+      - 'tests/cc-merge-check.test.mjs'
   pull_request:
     branches: [main]
     paths:
@@ -510,6 +513,7 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/find-match-model.test.mjs'
       - 'tests/ask-web2-model.test.mjs'
       - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
@@ -620,6 +624,8 @@ on:
       - 'supabase/functions/public-policy-drive/index.ts'
       - 'supabase/functions/gdrive-photos/handler.ts'
       - '.github/workflows/app-smoke-check.yml'
+      - 'scripts/cc/**'
+      - 'tests/cc-merge-check.test.mjs'
   workflow_dispatch:
 
 # 같은 PR에 다시 push하면 옛 시험 실행을 취소한다(PR 밖 이벤트는 취소하지 않음).
@@ -640,6 +646,9 @@ jobs:
         run: |
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check merge gate judgments for CC (OPS-넣기점검)
+        run: node --test tests/cc-merge-check.test.mjs
 
       - name: Check public privacy page matches requested Google scopes (MULTI D4)
         run: node --test tests/about-privacy-page.test.mjs
@@ -1061,6 +1070,9 @@ jobs:
 
       - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
         run: node --test tests/global-search-model.test.mjs
+
+      - name: Find-alike model (SEARCH-비슷한것찾기 spaces, typos, initials, jamo boundary, prefix, ranking)
+        run: node --test tests/find-match-model.test.mjs
 
       - name: Ask Web2 answer box rules (FEAT-1029묶음 ① question detection, evidence refs, open targets)
         run: node --test tests/ask-web2-model.test.mjs

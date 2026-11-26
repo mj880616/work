@@ -1,5 +1,6 @@
 /* SEARCH-전체검색: 검색칸·결과 창·검색 결과 화면. 그리는 곳은 global-search.js 하나. 값은 theme-tokens.css의 --ds-*·--kptu-*만 쓴다. */
 .gs-field{position:relative;display:flex;align-items:center;min-width:0}
+.gs-field[hidden]{display:none}
 .gs-field-icon{position:absolute;left:10px;width:16px;height:16px;fill:none;stroke:var(--kptu-muted);stroke-width:1.8;stroke-linecap:round;pointer-events:none}
 .gs-input{box-sizing:border-box;width:100%;min-width:0;height:var(--ds-compact-height,32px);padding:0 10px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
 .gs-input::placeholder{color:var(--kptu-muted)}
@@ -66,16 +67,10 @@
   .gs-row-title,.gs-row-snippet,.gs-row-meta{white-space:normal;overflow-wrap:anywhere}
 }
 
-/* 폰 메뉴 창 맨 위 검색칸(입구): 누르면 화면 전체 검색. 메뉴 판의 공용 버튼 규칙보다 앞서도록 .mobile-menu-panel로 한정. */
-.mobile-menu-search{padding:0 0 8px}
-.mobile-menu-search:empty{display:none}
-:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:40px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left}
-:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry .gs-field-icon{left:10px}
-:is(.mobile-menu-panel,.mobile-shell-search) .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-/* FOLD-넓은화면 A(S57-21): 폴드 펼침(600~760px) 앱 머리 한 줄 안의 같은 입구는 그 줄 높이(36px)에 맞춘다. 자리는 topbar-actions.css. */
-.mobile-shell-search .gs-menu-entry{height:36px;min-height:36px;cursor:pointer}
-/* 폰 메뉴 창 맨 위 입구. PC(761px~)는 상단 줄 검색칸. */
-@media (min-width:761px){.mobile-menu-search{display:none}}
+/* 폰 틀(~760px) 홈 앱 머리 줄의 '전체 검색' 입구: 누르면 화면 전체 검색. 자리는 topbar-actions.css(홈에서만 보임, S70-57). */
+.mobile-shell-search .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:36px;min-height:36px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer}
+.mobile-shell-search .gs-menu-entry .gs-field-icon{left:10px}
+.mobile-shell-search .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 
 /* LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭·꾹 누르기 메뉴. 자료실 줄 메뉴(.lu-more-panel)와 같은 모양(이 화면에서는 그 CSS가 없을 수 있어 같은 값을 둔다). */
 .gs-row-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
@@ -117,12 +112,6 @@
 /* S67-25 그 자리 풀기: 잠긴 결과 줄 끝 '풀기' 표시(줄 전체가 누름 — 그 자리 PIN 창). 작은 흐린 밑줄 글자. */
 .gs-row .lk-open,.gs-ask-src-row .lk-open{flex:none;margin-left:.4em;color:var(--kptu-primary-ink,var(--kptu-ink));font-size:var(--ds-text-meta);text-decoration:underline}
 
-/* UI-검색창하나로(S70-54, 설계 docs/design/one-search-bar.md): 맨 위 칸이 지금 화면 찾기일 때 걸러진 목록 아래 끝 '전체에서 「…」 찾기 →' 한 줄.
-   그리는 곳은 global-search.js(#gsAllLine), 자리는 그 화면이 정한다(screen-find spec.foot). 글자 링크 모양, 크고 굵은 버튼 없음. */
-.gs-all-line{display:flex;align-items:center;width:100%;max-width:100%;min-height:var(--kptu-touch-target,44px);box-sizing:border-box;margin:4px 0 0;padding:0 12px;border:0;border-top:var(--ds-line-width,.5px) dashed var(--ds-line);background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gs-all-line[hidden]{display:none}
-.gs-all-line:hover{background:var(--kptu-primary-soft)}
-.gs-all-line:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* 옮겨 온 단추 자리(screen-find.js 상자 .sf-tools): 화면 안 검색 줄에 있던 고르기·⋯·만들기 단추. 작은 칩 크기(상단 줄 단추 높이). */
 .sf-tools{display:flex;align-items:center;gap:4px;flex:none;min-width:0}
 .sf-tools[hidden]{display:none}
@@ -130,3 +119,8 @@
 html[data-screen-find] .app-topline .topline-search{min-width:140px}
 /* 옮겨 온 단추는 공용 6가지(⋯ = icon-btn, 고르기·만들기 = secondary)를 그대로 쓰고, 여기서는 상단 줄 높이에 맞춘 크기·자리만. */
 .sf-tools .sf-chip{max-width:11em;overflow:hidden;text-overflow:ellipsis}
+/* SEARCH-비슷한것찾기(S70-67): 맨 위 칸 찾기에서 맞은 부분(screen-find.js가 CSS Custom Highlight로 칠함 — 글은 그대로, 굵게 보이게만)과
+   '비슷한 말로도 찾았어요' 한 줄(맨 위 칸 바로 아래 작은 줄, 누를 것 없음). */
+::highlight(kptu-find){color:var(--kptu-ink);background-color:color-mix(in srgb,var(--kptu-primary-ink) 14%,transparent);text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
+.sf-also{position:fixed;z-index:55;box-sizing:border-box;margin:0;padding:2px 8px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
+.sf-also[hidden]{display:none}

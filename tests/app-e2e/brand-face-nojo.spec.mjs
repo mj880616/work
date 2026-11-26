@@ -20,7 +20,7 @@ test('WORK ON+ PC 1280: 메뉴 이름·상단 줄·탭 제목이 그대로다',a
     await expect(page).toHaveTitle(title);
     await expect(page.locator('[data-topline-where] li').first()).toHaveText(where[0]);
   }
-  await expect(page.locator('#meetingsView .report-top-title')).toHaveText('사업 관리');
+  await expect(page.locator('#meetingsListCard .add-list-head h2')).toHaveText('사업 관리'); // S70-57: 화면 첫 줄 제목은 없앰(앱 머리 줄) — 읽기용 제목
   expect(errors).toEqual([]);
 });
 
