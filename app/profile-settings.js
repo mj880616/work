@@ -109,7 +109,6 @@ async function load(){
   void loadDriveFolders();
   void loadMcpRead();
   void loadHomeOff();
-  void loadCustomWords();
   return true;
 }
 // MULTI ②-3(D5) → MULTI-다른담당자맞춤 ②: '주간보고 일정 캘린더' 칸(묶음·제외는 조직 보고 화면으로 옮김)은 따로 바로 저장한다(report-settings.js). 칸 자리는 담당 사업장 칸 바로 뒤, 한 번만 붙인다.
@@ -175,16 +174,6 @@ async function loadHomeOff(){
     if(!homeOffPanel||homeOffPanel.host!==host){const ready=import('./home-off.js').then(m=>m.mountHomeOffSettings(host));homeOffPanel={host,ready};ready.catch(()=>{if(homeOffPanel?.ready===ready)homeOffPanel=null})}
     (await homeOffPanel.ready).load();
   }catch(e){console.error('home off settings',e?.name||'Error')}
-}
-// APP-기록+이름바꾸기(S67-44): '이름 바꾸기' 칸(custom-words-panel.js가 그린다, 내 프로필 custom_words에 바로 저장). 자리는 '기본 정보' 칸 바로 뒤(담당 사업장 칸 앞), 한 번만 붙인다.
-let customWordsPanel=null;
-async function loadCustomWords(){
-  try{
-    let host=$('#psCustomWordsPanel');
-    if(!host){const before=$('#psWorkplacePanel');if(!before)return;before.insertAdjacentHTML('beforebegin','<article class="panel ps-panel" id="psCustomWordsPanel" aria-label="이름 바꾸기"></article>');host=$('#psCustomWordsPanel')}
-    if(!customWordsPanel||customWordsPanel.host!==host){const ready=import('./custom-words-panel.js').then(m=>m.mountCustomWords(host,{rt}));customWordsPanel={host,ready};ready.catch(()=>{if(customWordsPanel?.ready===ready)customWordsPanel=null})}
-    await (await customWordsPanel.ready).load();
-  }catch(e){console.error('custom words',e?.name||'Error')}
 }
 async function loadPush(){
   try{
