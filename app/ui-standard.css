@@ -1959,6 +1959,8 @@ button.ds-chip[data-dot-toggle][aria-pressed="false"] > .ui-color-dot{ backgroun
   color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-row); line-height:1; text-decoration:none; cursor:pointer; }
 .ds-doc-icons > .ds-doc-icon:is(:hover,:focus-visible){ background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
 .ds-doc-icons > .ds-doc-icon::after{ content:""; position:absolute; inset:min(0px,calc((100% - var(--kptu-touch-target,44px)) / 2)); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); }
+/* UI-두칸높이(2026-11-26): 맨 끝 아이콘의 누르는 범위는 머리 줄 오른쪽 끝을 넘지 않게 안쪽으로(넓이 그대로) — 넘으면 글 칸(스크롤 틀)에 가로 막대가 생겼다. */
+.ds-doc-icons > .ds-doc-icon:last-child::after{ left:auto; right:0; }
 .ds-doc-title{ margin:0; font-size:var(--ds-text-title); line-height:1.4; font-weight:var(--ds-weight-medium); color:var(--kptu-ink); overflow-wrap:anywhere; white-space:normal; outline:none; }
 .ds-doc-fail{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 

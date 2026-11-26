@@ -38,6 +38,16 @@ export function stickTop() {
 export function followMax({ view, top = GAP, rectTop }) {
   return Math.max(160, Math.floor(view - Math.max(top, rectTop) - GAP));
 }
+// UI-두칸높이(2026-11-26 사용자 결정, S71-60): PC 칸 높이는 고정 숫자로 묶지 않고 창 남은 높이를 다 쓴다.
+//  · 칸은 적어도 '지금 자리에서 창 아래 끝까지'(--follow-max, 위 followMax)를 차지한다 — 내용이 짧아도 칸 아래 빈 화면이 남지 않는다.
+//  · 내용이 그보다 길면 칸은 '붙었을 때 창 높이'(--follow-full, 아래 followFull)까지 자라고, 그 위쪽 줄(주간 보고 상자 등)은 화면 스크롤로 올라간다.
+//    전에는 칸 최대 높이를 지금 자리 기준(--follow-max)으로만 묶어, 위쪽 줄이 길면 칸이 작게 묶인 채 칸 안 스크롤이 생기고
+//    문서는 그 작은 칸만큼만 길어 화면 스크롤로 위쪽 줄을 올릴 수도 없었다(화면을 다 쓰지 못한 채 칸 안 스크롤).
+//  · 칸 안 스크롤은 내용이 붙은 칸 높이(창 높이 - 위 자리)보다도 길 때만 생긴다. 폴드 펼침(narrow)은 그대로 --follow-max까지.
+/** 순수 계산(tests/follow-pane-math.test.mjs): 칸이 위 자리(top)에 붙었을 때 창 안에 다 들어오는 높이(칸 자리와 상관없음). */
+export function followFull({ view, top = GAP }) {
+  return Math.max(160, Math.floor(view - top - GAP));
+}
 function paint(el, at) {
   const below = typeof at.bottom === 'function' ? Math.max(0, Number(at.bottom()) || 0) : 0;
   const top = Math.round(at.top + stickTop());
@@ -47,7 +57,24 @@ function paint(el, at) {
   at.lastTop = rectTop;
   const v = `${followMax({ view: window.innerHeight - below, top, rectTop })}px`;
   if (el.style.getPropertyValue('--follow-max') !== v) el.style.setProperty('--follow-max', v);
+  // 윗선 맞춤(under): 칸 위끝을 왼쪽 칸 머리 줄 아래(그 줄의 아래 끝)에 둔다. 두 요소가 같은 틀 안에서 함께 내려가므로 틀 위끝과의 차이만 잰다(붙은 상태와 상관없음).
+  if (at.under) {
+    const u = at.under(), box = el.parentElement;
+    let off = 0;
+    if (u && box && u.getClientRects().length) {
+      const b = box.getBoundingClientRect(), cs = getComputedStyle(box);
+      off = underOffset({ underBottom: u.getBoundingClientRect().bottom, boxTop: b.top + (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.paddingTop) || 0) });
+    }
+    const o = `${off}px`;
+    if (el.style.getPropertyValue('--follow-offset') !== o) el.style.setProperty('--follow-offset', o);
+  }
+  const f = `${followFull({ view: window.innerHeight - below, top })}px`;
+  if (el.style.getPropertyValue('--follow-full') !== f) el.style.setProperty('--follow-full', f);
   return top;
+}
+/** 순수 계산(tests/follow-pane-math.test.mjs): 윗선 맞춤 — 칸을 틀 위끝(boxTop)에서 왼쪽 머리 줄 아래 끝(underBottom)까지 내릴 거리(px, 0 이상). */
+export function underOffset({ underBottom, boxTop }) {
+  return Math.max(0, Math.round(underBottom - boxTop));
 }
 /** 순수 계산(tests/follow-pane-math.test.mjs): 크기 변화로 깨어났을 때 이 칸을 다시 잴지. 그려져 있고 위쪽 위치가 1px 넘게 바뀐 때만. */
 export function moved({ shown, lastTop, rectTop }) {
@@ -101,13 +128,16 @@ function unwatch(el, at) {
 }
 function forget(el) { unwatch(el, panes.get(el)); panes.delete(el); }
 
-/** 칸 하나를 화면(위에서 top px)에 붙인다. 같은 칸을 다시 부르면 reset일 때 칸 안 스크롤을 맨 위로. */
-export function followPane(el, { top = GAP, reset = true, narrow = false, bottom = null } = {}) {
+/** 칸 하나를 화면(위에서 top px)에 붙인다. 같은 칸을 다시 부르면 reset일 때 칸 안 스크롤을 맨 위로.
+ *  under(요소를 돌려주는 함수, 선택): 칸 위끝을 그 요소(왼쪽 목록 머리 줄)의 아래 끝에 맞춘다(UI-두칸높이 윗선 맞춤, PC만). */
+export function followPane(el, { top = GAP, reset = true, narrow = false, bottom = null, under = null } = {}) {
   if (!el) return;
   el.classList.add('kptu-follow-pane');
   el.classList.toggle('kptu-follow-narrow', !!narrow);
   const at = panes.get(el) || { node: null, lastTop: null };
-  at.top = top; at.bottom = narrow ? (bottom || dockBottom) : null;
+  at.top = top; at.bottom = narrow ? (bottom || dockBottom) : null; at.under = narrow ? null : under;
+  el.toggleAttribute('data-follow-under', !!at.under);
+  if (!at.under) el.style.removeProperty('--follow-offset');
   panes.set(el, at); listen(); watch(el, at); paint(el, at);
   const stuck = Math.round(top + stickTop());
   if (reset) {
