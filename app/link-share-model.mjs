@@ -6,7 +6,7 @@
 export const WIDE_SHARE_QUERY = '(min-width:761px)';
 export const wideShare = (mm = globalThis.matchMedia) => !!(typeof mm === 'function' && mm(WIDE_SHARE_QUERY)?.matches);
 export const SHARE_LABEL = '공유';
-export const SHARE_NOTE = Object.freeze({copied: '복사했어요', copyFail: '복사하지 못했어요. 다시 눌러 주세요.', openFail: '공유 창을 열지 못했어요', none: '공유할 주소가 없어요'});
+export const SHARE_NOTE = Object.freeze({copied: '복사했어요', copyFail: '복사하지 못했어요. 다시 눌러 주세요.', openFail: '공유 창을 열지 못했어요', noUrl: '공유할 주소가 없어요'});
 const TITLE_MAX = 300, URL_MAX = 2000;
 const oneLine = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
 // http·https 주소만(호스트가 있어야 함). 아니면 ''.
