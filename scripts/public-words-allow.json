@@ -1,0 +1,22 @@
+{
+  "_설명": "scripts/check-public-words.mjs 예외 경로. 낱말 원문은 여기 적지 않는다. 새로 더한 줄 중 이 경로의 줄은 검사하지 않는다. 공개 단체 이름을 기능상 그대로 써야 하는 곳(바깥 소식 출처 목록 등)만 이유와 함께 둔다.",
+  "entries": [
+    {
+      "paths": [
+        "supabase/functions/_shared/outside-catalog.ts",
+        "supabase/functions/outside-feed/",
+        "supabase/functions/_shared/org-name-match.mjs",
+        "app/org-name-match.mjs",
+        "app/outside-statements-model.mjs",
+        "app/news-colors.mjs"
+      ],
+      "reason": "바깥 소식 출처·공개 단체 이름 맞추기 코드. 단체 이름이 기능 값이라 바꾸면 동작이 달라진다(SEC-공개저장소청소 ② 조사: 그대로 둠)."
+    },
+    {
+      "paths": [
+        "tests/org-order-fixture.mjs"
+      ],
+      "reason": "운영에 이미 적용된 migration(담당조직 묶음 기본값)과 같은 값인지 tests/org-order-setting.test.mjs가 본다. migration을 바꿀 수 없어 그대로 둠."
+    }
+  ]
+}
