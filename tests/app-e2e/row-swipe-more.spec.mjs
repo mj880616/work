@@ -46,7 +46,7 @@ async function touchTap(locator) {
 }
 const ends = (root) => root.locator('[data-row-swipe-act="end"]');
 const cell = (root, key) => root.locator(`[data-row-swipe-key="${key}"]`);
-// S70-64 W1(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
+// S70-64 W3(결정 장부 W3): 오른쪽 밀기는 선택만 — 손을 떼면 [선택] 칸을 열어 두지 않고 바로 그 줄이 선택된다(막대가 뜬다).
 // 민 뒤 목록이 다시 그려져 손동작이 빠졌으면 막대가 뜰 때까지 다시 민다(선택 중에는 줄 밀기가 꺼져 있어 두 번 골라지지 않음).
 async function swipePick(page, locator, how = swipe) {
   await expect(async () => {

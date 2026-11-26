@@ -1597,7 +1597,7 @@ for (const [name, open] of CONFIRM_DRAG_SCREENS) test(`D7 ${name} PC 1280: 확�
 // [전체 선택] 켜기(체크 표시·전체 개수)·끄기(0개 → 고르기 끝) · 뒤로가기 = 고르기만 끝(화면 그대로) · [삭제] 일괄.
 // [삭제]는 그 목록 길(되돌리기가 있으면 확인 없이 바로 + [되돌리기], 없으면 확인 한 번) — 화면마다 del()이 확인한다. 새 밀기 목록은 이 표에 한 줄 더한다.
 import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
-async function swipeOnly(locator, dx = 60) {
+async function swipeRight(locator, dx = 60) {
   await expect(async () => {
     await expect(locator).toBeVisible();
     const sent = await locator.evaluate((el, { dx }) => {
@@ -1609,13 +1609,6 @@ async function swipeOnly(locator, dx = 60) {
     }, { dx });
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
-}
-// S70-60(줄 밀기 = 칸만, 누를 때 실행): 오른쪽으로 밀면 [선택] 칸이 열리고, 그 칸을 손가락으로 누르면 그 줄이 골라진다.
-async function swipeRight(locator, dx = 60) {
-  const page = locator.page(), cell = page.locator('[data-row-swipe-key="select"]');
-  await expect(async () => { await swipeOnly(locator, dx); await expect(cell).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
-  await cell.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-  await cell.dispatchEvent('click');
 }
 const swipeTick = async page => { try { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); } catch { /* 시계를 멈추지 않은 화면 */ } };
 async function tasksSwipe(page) {
@@ -1689,7 +1682,7 @@ for (const [name, open] of SWIPE_PICK_SCREENS) test(`W3 ${name} 폰 390: 오른�
   const count = bar.locator('.row-swipe-pick-count'), all = bar.locator('[data-row-pick-all]');
   const here = () => page.evaluate(() => [location.href, window.KPTURouter?.current]);
   const at = await here();
-  // ① 오른쪽으로 밀어 [선택] 칸을 누르면 그 줄이 골라진다 — 칸이 열린 채 남지 않는다(S70-60).
+  // ① 오른쪽으로 조금(반 칸 넘게) 밀고 떼면 그 줄이 골라진다 — [선택] 칸이 열린 채 남지 않는다.
   await swipeRight(s.first, 60);
   await expect(bar).toBeVisible();
   await expect(count).toHaveText('1개 선택됨');
