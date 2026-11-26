@@ -4,12 +4,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {widgetStatus, mountWidgetLine} from '../app/phone-widget-line.js';
 
+// S71-36: 줄은 공용 설정 줄 글자(innerHTML)로 그린다. 누르기는 host 한 곳에서 받는다.
 class El {
-  constructor(tag, doc) { this.tag = tag; this.ownerDocument = doc; this.children = []; this.listeners = {}; this.className = ''; this.textContent = ''; this.disabled = false;
-    const self = this; this.classList = {toggle(name, on) { const set = new Set(self.className.split(' ').filter(Boolean)); if (on) set.add(name); else set.delete(name); self.className = [...set].join(' '); }, contains(name) { return self.className.split(' ').includes(name); }}; }
-  append(...kids) { this.children.push(...kids); }
+  constructor(tag, doc) { this.tag = tag; this.ownerDocument = doc; this.innerHTML = ''; this.listeners = {}; }
   addEventListener(type, fn) { this.listeners[type] = fn; }
-  querySelector(sel) { const name = sel.slice(1); const walk = el => { for (const c of el.children) { if (c.className?.split(' ').includes(name)) return c; const f = walk(c); if (f) return f; } return null; }; return walk(this); }
+  querySelector(sel) { const m = /^\[([a-z-]+)\]$/.exec(sel); return m && this.innerHTML.includes(m[1]) ? {sel} : null; }
 }
 
 function setup(ua) {
@@ -20,6 +19,7 @@ function setup(ua) {
   const host = new El('div', doc);
   return {doc, win, host, sent, message: data => onMessage({data})};
 }
+const click = (s, attr) => s.host.listeners.click({target: {closest: sel => (sel === `[${attr}]` && s.host.innerHTML.includes(attr) ? {} : null)}});
 
 test('widgetStatus는 앱이 보낸 두 글만 읽는다', () => {
   assert.equal(widgetStatus('widget:status:on'), true);
@@ -31,24 +31,26 @@ test('widgetStatus는 앱이 보낸 두 글만 읽는다', () => {
 test('웹 브라우저에서는 줄을 붙이지 않는다', () => {
   const s = setup('Mozilla/5.0 Chrome');
   assert.equal(mountWidgetLine(s.host, s.win), null);
-  assert.equal(s.host.children.length, 0);
+  assert.equal(s.host.innerHTML, '');
   assert.deepEqual(s.sent, []);
 });
 
-test('앱에서는 상태를 묻고, 켜짐일 때만 보이며, 누르면 widget:logout만 보낸다', () => {
+test('앱에서는 상태를 묻고, 폰 위젯 줄(로그인됨/안 됨)을 보이며, 로그인됐을 때만 [위젯 로그아웃] 줄 — 누르면 widget:logout만 보낸다', () => {
   const s = setup('Mozilla/5.0 KPTUAndroid/0.3.0');
-  const line = mountWidgetLine(s.host, s.win);
-  assert.ok(line);
+  assert.ok(mountWidgetLine(s.host, s.win));
   assert.deepEqual(s.sent, ['widget:status']);
-  const button = line.children[1];
-  assert.ok(line.classList.contains('hidden') && button.classList.contains('hidden'));
+  assert.equal(s.host.innerHTML, '', '답이 오기 전에는 아무 줄도 없다');
   s.message('widget:status:on');
-  assert.ok(!line.classList.contains('hidden') && !button.classList.contains('hidden'));
-  button.listeners.click();
-  assert.equal(button.disabled, true);
+  assert.match(s.host.innerHTML, /폰 위젯.*로그인됨/);
+  assert.match(s.host.innerHTML, /data-ps-widget-logout[^>]*>.*위젯 로그아웃/);
+  click(s, 'data-ps-widget-logout');
+  assert.match(s.host.innerHTML, /data-ps-widget-logout disabled/);
   assert.deepEqual(s.sent, ['widget:status', 'widget:logout']);
+  click(s, 'data-ps-widget-logout');
+  assert.deepEqual(s.sent, ['widget:status', 'widget:logout'], '보내는 중에는 다시 보내지 않는다');
   s.message('widget:status:off');
-  assert.ok(line.classList.contains('hidden') && button.classList.contains('hidden'));
+  assert.match(s.host.innerHTML, /로그인 안 됨/);
+  assert.doesNotMatch(s.host.innerHTML, /위젯 로그아웃/);
   s.doc.listeners.visibilitychange();
   assert.equal(s.sent.at(-1), 'widget:status');
   assert.equal(mountWidgetLine(s.host, s.win), null, '두 번 붙이지 않는다');
