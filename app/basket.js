@@ -40,6 +40,7 @@ import { createUploadBatch, uploadBatch, readNewPhotos, updateFileLine, mountBas
 import { mountUploadRows, setUploadRetry, announceDock } from './upload-progress.js';
 import { announceUploaded } from './upload-done.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78)
 import { bindRowSwipe, PICK } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
 import { followPane } from './follow-pane.js';
@@ -131,7 +132,7 @@ function dropRowLayer(){const l=rowLayer;rowLayer=null;return Promise.resolve(l?
 function closeRowMenu({focus=false,keepLayer=false}={}){
   if(!keepLayer&&!rowMenu)dropRowLayer();
   if(!rowMenu)return null;
-  const closed=rowMenu;rowMenu=null;closed.stop();
+  const closed=rowMenu;rowMenu=null;closed.stop();closed.release?.();
   closed.released=keepLayer?Promise.resolve():dropRowLayer();
   rowMenuEl.hidden=true;clearAnchored(rowMenuEl);
   closed.trigger.setAttribute('aria-expanded','false');
@@ -158,6 +159,7 @@ function attachRowMenu(note,trigger){
   const place=()=>placeAnchored(rowMenuEl,trigger,{maxWidth:220,maxHeight:window.innerHeight});
   place();
   rowMenu={noteId:note.id,trigger,stop:followAnchor(rowMenuEl,trigger,{place,lost:()=>closeRowMenu()})};
+  rowMenu.release=holdMenu(rowMenuEl,{close:reason=>closeRowMenu({focus:reason==='esc'}),keep:t=>!!t&&trigger.contains(t)});
   trigger.setAttribute('aria-expanded','true');
 }
 // STAB-E2E(10/30): a list redraw that arrives while a row's ⋯ menu is open (the screen's own re-read finishing late, links or
@@ -182,7 +184,6 @@ bindRowSwipe(root.querySelector('[data-basket-rows]'),{row:'[data-basket-row-ite
     run:async(key,ids)=>{for(const id of ids){if(!notes.some(n=>n.id===id))continue;if(selected&&!isSplit())break;if(key==='delete')await deleteFromList(id,{confirmed:true});else{const n=notes.find(x=>x.id===id);if(!n?.archived_at)await holdFromList(id,true);}}}}});
 root.addEventListener('keydown',e=>{if(e.key==='Escape'&&rowMenu){e.preventDefault();e.stopPropagation();closeRowMenu({focus:true});}});
 root.addEventListener('focusout',e=>{if(rowMenu&&e.relatedTarget&&!rowMenuEl.contains(e.relatedTarget)&&e.relatedTarget!==rowMenu.trigger)closeRowMenu();});
-document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&&!rowMenu.trigger.contains(e.target))closeRowMenu();});
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 // FOLD-넓은화면 ④(S57-21, 요청함 11/06 01:18 ④ · 11/11 결정 '시안 없이 바로 개발'): 폴드 펼침(600~1199px, 홈 두 단과 같은 폭)의 잊지 말기는 '왼쪽 목록 | 오른쪽 상세'.
 // 업데이트 줄을 누르면 목록은 그대로 두고 오른쪽 칸에 바로 열리고(고른 줄 표시), 다른 줄을 누르면 같은 칸에서 바뀐다(뒤로가기 한 걸음 그대로). ✕·Esc·뒤로 = 상세 닫기.

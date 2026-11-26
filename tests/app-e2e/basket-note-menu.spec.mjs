@@ -6,7 +6,6 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
-import {screenFind} from './helpers/screen-find.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 풀기 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -94,11 +93,11 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Escape');
     await expect(menu(page)).toBeHidden(); await expect(more).toBeFocused(); await expect(more).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator('[data-note-detail]')).toBeHidden();
-    // Outside press closes it without opening anything.
+    // Outside press closes it without opening anything (STD-메뉴바깥닫기 C8: 다른 노트 줄을 눌러도 메뉴만 닫히고 그 노트는 열리지 않는다).
     await press(page, more, width); await expect(menu(page)).toBeVisible();
-    // NOTE-보기3가지: the head's count is read-aloud only now (the view switch sits in its place); press the search box instead.
-    await (await screenFind(page)).click();
+    await press(page, page.locator('[data-note-row="n-md"]'), width);
     await expect(menu(page)).toBeHidden(); await expect(page.locator('[data-note-detail]')).toBeHidden();
+    await page.waitForTimeout(500); await expect(page.locator('[data-note-detail]')).toBeHidden();
     // A second ⋯ moves the menu; the first one is closed.
     await press(page, more, width); await press(page, rowMore(page, 'n-md'), width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'false');

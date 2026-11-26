@@ -158,3 +158,19 @@
 | C5 | Shift+F10·메뉴 키 = 마우스 우클릭과 같은 메뉴(초점 있는 줄 자리에). | 같은 시험 `keyboardMenu` | `context-menu.js` |
 | C6 | 폰·손가락 꾹 누르기는 우클릭 메뉴가 아니라 고르기(P4) 그대로. | `standard-interactions.spec.mjs` P4 | `select-mode.js` |
 | C7 | 읽는 글 칸(줄마다 ⋯가 없는 글 — 브리핑 요약 등)도 PC 오른쪽 클릭 = 앱 메뉴(공용 줄 메뉴 `row-menu.js`, 누른 자리). 항목은 그 화면 일([수정] 등) + 고른 글 막대와 같은 항목(`text-select-bar.js` `selectBarActs` — 막대에 단추가 더해지면 메뉴에도). 글을 골라 두었으면 고른 글에, 아니면 누른 줄 글에. Shift+F10·메뉴 키(포커스 받은 줄, ↑↓로 줄 옮김)도 같은 메뉴. 입력 칸·고치는 칸·폰 폭·손가락·Shift+클릭은 브라우저 기본 메뉴 그대로. | PC 1280에서 글 줄을 오른쪽 클릭해 앱 메뉴가 뜨고 브라우저 메뉴가 막혔는지(contextmenu defaultPrevented), 고치는 칸 오른쪽 클릭은 막히지 않는지 본다(`standard-interactions.spec.mjs` C7 CTX_SCREENS: 브리핑 룸, `brief-room-edit.spec.mjs`). | 2026-11-25 11:14 명진 "여기 우클릭 안먹네"(S70-27). 카드·줄 ⋯가 있는 화면은 공용 `context-menu.js`(⋯ 메뉴를 누른 자리에) 그대로 |
+| C8 | 우클릭 메뉴·⋯ 메뉴·떠 있는 작은 창(팝오버)은 ① 바깥 아무 곳을 누르면(마우스 왼쪽·오른쪽, 폰 터치) 닫히고, 그 누름은 다른 동작을 일으키지 않는다(보드 빈 곳 = 새 상자·사각형 고르기 없음, 상자 위 = 고르기·메뉴 없음, 바로 이은 두 번 누르기도 삼킴). 다른 메뉴 단추(⋯·펼침 표시가 있는 메뉴 단추)를 누르면 앞 메뉴를 닫고 그 메뉴가 바로 열린다 ② Esc·폰 뒤로가기 = 닫기(화면·주소 그대로) ③ 바깥 스크롤·휠·창 크기 바뀜·화면 이동 = 닫기 ④ 한 번에 하나(새 메뉴가 열리면 앞 메뉴 닫힘). 메뉴 안을 누르는 것·그 메뉴를 연 ⋯를 다시 누르는 것(닫기 토글)은 그대로. | `standard-interactions.spec.mjs` C8 MENU_SCREENS(노트 보드 빈 곳 우클릭 메뉴·상자 우클릭 메뉴 PC 1280, ⋯ 메뉴·선 작은 창 폰 390·PC 1280): 열고 빈 곳 누름 → 닫힘·쓰기 요청·새 상자·새로 고른 것·다른 메뉴 없음, 빈 곳 두 번 누르기·상자 오른쪽 누르기도 닫기만, Esc·뒤로가기 → 닫힘·주소 그대로, 선 창 → ⋯ 메뉴·상자 메뉴 → ⋯ 메뉴에서 앞 메뉴 닫힘. 화면 표는 아래 'C8 메뉴 화면 표'. | 공용 지킴이 `menu-dismiss.js` `holdMenu`(창 단계 capture라 판이 누름을 막아도 받음). 쓰는 부품: `anchored-menu.js`(→ `row-menu.js`), `details-menu-back.js`(KPTUMenuLayer), 노트 `#noteDocMenu`, 업데이트 줄 메뉴, 보드 칩 메뉴, 보드 선 창. S70-78(2026-11-26 09:00 명진 "우클릭해서 이 메뉴온 다음에 빈 공간에 좌클릭하면 메뉴 없어져야해"). 전의 '바깥 누름 = 닫고 그 누름을 다시 보내기'(anchored-menu·details-menu-back)는 없앴다 |
+
+### C8 메뉴 화면 표 (S70-78 전수)
+
+메뉴를 열고 닫는 부품과 그 부품을 쓰는 화면. '지킴이'가 ○면 C8 규칙(바깥 누름 닫기만·Esc·뒤로가기·스크롤·한 번에 하나)을 공용 `menu-dismiss.js`가 맡는다.
+
+| 부품 | 쓰는 화면 | 지킴이 | 시험 |
+| --- | --- | --- | --- |
+| `anchored-menu.js` `createAnchoredMenu` · 공용 줄 메뉴 `row-menu.js`(`#rowMenu`) | 파일·자료실·노트 나무 줄·달력(일정·날짜 우클릭)·할 일·사진·조직 관리·사업 관리(사업영역·담당조직)·회의·읽을 거리·저장한 글·뉴스·텔레그램·통화·브리핑 룸·홈·바로가기·검색·공유 메뉴 등 41개 파일 | ○ | C8 보드 상자 우클릭 메뉴, 기존 `context-menu-*.spec.mjs`·`menu-follow-*.spec.mjs` |
+| `details-menu-back.js` `<details>` ⋯ 메뉴(KPTUMenuLayer) | 사업영역·담당조직·회의 파일·업무일지·주간 정리·한글 파일 판·공유 페이지·사진 보기, 일기 쓰기 창 ⋯·구글 일정 창 ⋯ | ○ | 기존 `project-*.spec.mjs`·`context-menu.spec.mjs` |
+| 노트 `#noteDocMenu`(`basket-notes.js`) | 노트 목록·폴더 줄 ⋯, 노트 보드 카드 ⋯·빈 곳 우클릭 판 메뉴([새 노트 쓰기][PDF로 내보내기][HTML로 내보내기]) | ○ | C8 보드 빈 곳 우클릭 메뉴·⋯ 메뉴 |
+| 업데이트 줄 메뉴(`basket.js`) | 업데이트 목록 줄 ⋯ | ○ | 기존 `basket-row-menu.spec.mjs` |
+| 보드 칩 메뉴(`note-boards.js`) | 노트 보드 이름 칩 우클릭·꾹 누르기 | ○ | 기존 `note-boards.spec.mjs` |
+| 보드 선 작은 창(`note-board.js`) | 노트 보드 선 누르기 | ○ | C8 보드 선 작은 창 |
+| 따로 닫는 작은 창(남음) | 고르기 상자 `select-menu.js`, 검색 `global-search.js`, 바로가기 `quick-links.js`, 할 일 날짜 `task-inline.js`, 계정 `topbar-actions.js`, 보고 거르기 `report-filter-chip.js`, 고른 글 막대 `text-select-bar.js`, 고르기 창 `choice-sheet.js`·`note-pick.js`·`note-quick.js`·`library-move-picker.js`·`meeting-name-panel.js`·`home-quick.js`, 보드 비율·넣기 칸(`note-board.js` insert·zoom) | — | 다음 단계: 같은 `holdMenu`로 옮긴다(화면마다 닫기 코드 지우기) |
+
