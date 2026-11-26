@@ -109,6 +109,10 @@ for (const width of [390, 1440]) {
     await view.locator('.basket-photo-more-btn').click();
     await expect(view.locator('.basket-photo-more-panel')).toContainText('삭제');
     await expect(view.locator('.basket-photo-more-panel')).toContainText('Drive에서 열기');
+    // STD-메뉴바깥닫기 C8: Esc 한 번 = 맨 위 ⋯ 메뉴만 닫기, 한 번 더 = 크게 보기 닫기.
+    await page.keyboard.press('Escape');
+    await expect(view.locator('.basket-photo-more-panel')).toBeHidden();
+    await expect(view).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(view).toHaveCount(0);
   });
