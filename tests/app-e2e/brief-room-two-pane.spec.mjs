@@ -149,9 +149,9 @@ for (const [label, width, height] of [['phone-390', 390, 844]]) {
     await page.locator('.kptu-ask input').fill('예시 회의');
     await page.locator('.kptu-ask .kptu-ask-actions button', { hasText: '만들기' }).click();
     await pickInSheet(page, [], { go: true });
-    // 옮긴 뒤에도 고르기 막대는 남는다(표준: 끝내기는 폰 뒤로가기·PC Esc) — 끝낸 뒤 다음 단계로.
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#briefView .row-swipe-pickbar')).toHaveCount(0);
+    // 막대 [옮기기]를 누르면 일이 끝난 뒤 고르기가 저절로 끝난다(막대는 지우지 않고 숨김) — 끝난 것(숨김 + 고르기 뒤로가기 정리)을 보고 다음 단계로.
+    await expect(page.locator('#briefView .row-swipe-pickbar')).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.querySelector('#briefView [data-row-picking]') === null)).toBe(true);
     // 폴더는 '브리핑 요청함' 아래 자료실 폴더로 만들어지고, 자료 연결 줄 하나가 그 폴더로 바뀐다.
     await expect.poll(() => db.folders.find(f => f.name === '예시 회의')?.parent_id).toBe('f-brief');
     const made = db.folders.find(f => f.name === '예시 회의');
