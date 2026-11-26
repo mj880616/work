@@ -149,6 +149,7 @@ for (const [label, width, height] of [['phone-390', 390, 844]]) {
     await page.locator('.kptu-ask input').fill('예시 회의');
     await page.locator('.kptu-ask .kptu-ask-actions button', { hasText: '만들기' }).click();
     await pickInSheet(page, [], { go: true });
+    await expect(page.locator('#briefView .row-swipe-pickbar')).toHaveCount(0); // 오른쪽 밀기 고르기가 끝난 뒤(뒤로가기 정리)에 다음 단계로
     // 폴더는 '브리핑 요청함' 아래 자료실 폴더로 만들어지고, 자료 연결 줄 하나가 그 폴더로 바뀐다.
     await expect.poll(() => db.folders.find(f => f.name === '예시 회의')?.parent_id).toBe('f-brief');
     const made = db.folders.find(f => f.name === '예시 회의');

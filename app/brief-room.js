@@ -164,7 +164,7 @@ function stateNode(row){
   // 줄 ⋯를 없앤 뒤에도 못 만든 줄은 줄 안 단추로 다시 만든다(전에는 ⋯ [다시 만들기]).
   const bad=el('span','br-st br-st-bad',s.text);
   if(!canRetry(state.briefs.get(row.doc.id)))return bad;
-  const box=el('span','br-st-retry');box.append(bad,btn('br-start mini',RETRY_LABEL,{brStart:row.doc.id}));return box;
+  const box=el('span','br-st-retry');box.append(bad,btn('br-start br-retry mini',RETRY_LABEL,{brRetry:row.doc.id}));return box;
 }
 
 // S70-84: 자료 한 줄 = [파일] 목록 줄 칸(files.css .fx-row — 그림 · 이름 · 넣은 날 · 크기 · 종류)에 브리핑 상태 칸과 ⋯. 폰은 [파일] 폰 줄처럼 이름 / 날짜·크기·종류 두 줄.
@@ -699,6 +699,7 @@ function bind(){
     if(t.closest?.('[data-br-edit-cancel]')){stopEdit();return}
     const sv=t.closest?.('[data-br-edit-save]');if(sv){void saveEdit(sv);return}
     const rv=t.closest?.('[data-br-revert]');if(rv){e.stopPropagation();void revertEdit(rv.dataset.brRevert,rv);return}
+    const rt2=t.closest?.('[data-br-retry]');if(rt2){e.stopPropagation();void start(rt2.dataset.brRetry,rt2);return}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
     if(t.closest?.('[data-fu-action="brief"]')){void add();return}
     if(t.closest?.('[data-br-retry]')){void refresh();return}

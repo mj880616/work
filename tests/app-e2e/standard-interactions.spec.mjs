@@ -1684,7 +1684,8 @@ async function readingSwipe(page) {
 async function briefSwipe(page) {
   await page.setViewportSize({ width: 390, height: 844 });
   const ids = [1, 2, 3].map(n => `d0000000-0000-4000-8000-00000000003${n}`);
-  const s = { folder: new Set(ids), briefs: new Set(ids), deletes: [] };
+  // 자료실에 있던 자료(브리핑 요청함 폴더 밖)라 [삭제]는 브리핑만 지운다(BRIEF-밀기메뉴).
+  const s = { folder: new Set(), briefs: new Set(ids), deletes: [] };
   const brief = { v: 3, lead: '가상 요지', gist: ['가상 요지'], sections: [{ title: '가상 소제목', items: [{ text: '가상 줄', page: 1 }] }], quotes: [] };
   await openHome(page, { beforeLoad: async () => {
     await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: ids.filter(id => s.briefs.has(id)).map((id, i) => ({ id: 'b' + i, document_id: id, status: 'done', stage: 'done', step_no: 1, step_total: 1, page_count: 2, brief, edited: null, edited_at: null, error_code: null, created_at: '2026-11-24T00:00:00Z', updated_at: '2026-11-24T00:00:00Z', finished_at: '2026-11-24T00:00:00Z' })) }));

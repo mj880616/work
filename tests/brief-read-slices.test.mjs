@@ -365,5 +365,5 @@ test('S67-37 화면 모델: 못 만든 줄만 줄 안 [다시 만들기](같은 
   for (let i = 0; i < 20 && (await x.runner.run(again.row.id, x.doc)) === 'paused'; i++);
   assert.equal(x.f.rows.find(r0 => r0.id === again.row.id).status, 'done');
   const ui = readFileSync(new URL('../app/brief-room.js', import.meta.url), 'utf8');
-  assert.match(ui, /canRetry\(state\.briefs\.get\(row\.doc\.id\)\)/); assert.match(ui, /btn\('br-start mini',RETRY_LABEL,\{brStart:row\.doc\.id\}\)/);
+  assert.match(ui, /canRetry\(state\.briefs\.get\(row\.doc\.id\)\)/); assert.match(ui, /btn\('br-start br-retry mini',RETRY_LABEL,\{brRetry:row\.doc\.id\}\)/);
 });
