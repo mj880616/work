@@ -1,5 +1,5 @@
 // S69-20 ③④⑤(명진 11/24 08:48 "ㄱ 폴더도"): 자료실 앱 폴더 구조를 구글 드라이브 '자료실' 폴더 아래에 똑같이 맞춘다.
-// workspace-drive POST ?action=drive-mirror {mode:'auto'|'align'}가 부른다(새 자료실 폴더 표시 MIRROR_MARK는 library-files도 씀). DOM·네트워크 없음(db·drive는 부르는 쪽이 넣는다, 시험 tests/library-drive-mirror.test.mjs).
+// workspace-drive POST ?action=drive-mirror {mode:'auto'}가 부른다(새 자료실 폴더 표시 MIRROR_MARK는 library-files도 씀). DOM·네트워크 없음(db·drive는 부르는 쪽이 넣는다, 시험 tests/library-drive-mirror.test.mjs).
 //
 // 규칙(한 곳):
 // - 기준은 앱(DB). 앱 폴더마다 짝 드라이브 폴더(app_library_folders.drive_folder_id). 짝이 없거나 드라이브에서 지워졌으면
@@ -7,10 +7,13 @@
 // - 자료: 폴더 안 자료는 그 폴더의 짝, '폴더 밖' 자료는 '자료실' 폴더로. 파일 id는 그대로 두고 부모(parents)만 바꾼다(링크가 깨지지 않음).
 //   지금 '자료실' 나무(자료실 폴더와 짝 폴더들) 안에 있는 파일만 옮긴다. 회의자료·바구니처럼 다른 곳에 있는 파일은 건드리지 않는다.
 // - 휴지통에 간 앱 폴더(화면에서 안 보이는 폴더)와 그 안 자료는 드라이브에서 그대로 둔다(되살리면 다시 맞춘다). 드라이브의 폴더·파일은 절대 지우지 않는다.
-// - 'auto'(앞으로 같게)는 드라이브 '자료실' 폴더에 맞춤 표시(appProperties won_mirror=1)가 있을 때만 돈다. 표시는
-//   새 사용자의 자료실 폴더를 만들 때(library-files) 또는 명진이 [드라이브 폴더 맞추기]('align')를 끝까지 마쳤을 때 붙는다.
-//   그 전에는 서버가 기존 자료를 몰래 옮기지 않는다.
-// - 시간 한도(budgetMs) 안에서만 하고, 남으면 more:true(이어서 다시 부르면 이어서 함). 'align'은 드라이브 실패가 나면 거기서 멈춘다.
+// - S70-76 LIB-드라이브늘같게(명진 11/24·11/26 "자료실은 그냥 드라이브를 항상 반영하는걸로"): 갈래는 'auto' 하나다. 화면은 자료를 옮기거나
+//   폴더를 만들거나 이름을 바꾸거나 옮길 때마다 그 자리에서 부르고(app/drive-follow.mjs), 자료실에 들어올 때도 한 번 부른다.
+//   [드라이브 폴더 맞추기]('align')·[드라이브와 맞는지 보기]는 일회용이 되어 지웠다(AGENTS.md 4절). 맞춤 표시(appProperties won_mirror=1)가
+//   아직 없는 자료실(옛 사용자)도 'auto'가 기존 자료까지 맞추고, 끝까지(남은 것·대기 없이) 마치면 표시를 붙인다(표시는 기록일 뿐 막지 않음).
+// - 밀린 것: 기준은 서버 DB(자료실 폴더·연결 줄)이고 드라이브와 다른 곳을 부를 때마다 서버가 다시 계산한다. 그래서 드라이브 쪽이 실패해도
+//   잃지 않고, 다음 부름(어느 기기든 자료실 열기·다음 옮기기·[다시])에서 서버가 다시 한다. 밀린 수는 pending·left로 돌려준다.
+// - 시간 한도(budgetMs) 안에서만 하고, 남으면 more:true(이어서 다시 부르면 이어서 함). 드라이브 실패는 멈추지 않고 대기(pending)로 센다.
 //   S69-40(명진 11/24 13시 "폴더 0개 만들고 자료 0개 옮겼어요"가 되풀이): 한도는 화면 기다림(45초)보다 훨씬 짧게(10초) 두고, 드라이브 읽기는
 //   폴더 하나씩 묻지 않고 부모 폴더 여러 개를 한 번에(drive.list) 묻는다. 그래서 한 번 부를 때마다 앞에서 읽기만 하다 끝나지 않고 꼭 몇 개씩 옮긴다.
 //   left = 아직 옮길 자료 수(화면 진행 표시), stage = 멈춘 단계(library·folders·list·files·mark — 화면 일상어 한 줄).
@@ -23,7 +26,7 @@
 //     드라이브만 바뀜(이름·부모) → 자료실이 따라간다(앱 폴더 이름·부모를 고침, 내 토큰·owner RLS·나무 검사 그대로).
 //     자료실만 바뀜 → 드라이브를 고친다(지금까지와 같음). 표식이 아직 없는 옛 짝 → 지금까지와 같이 자료실 기준(legacy).
 //     둘 다 바뀜·따라갈 수 없음(드라이브에서 자료실 밖·짝 없는 폴더로 옮김, 이름이 자료실 규칙(1~40자)에 안 맞음) → 아무것도 바꾸지 않고
-//     conflicts로 센다([드라이브와 맞는지 보기] 목록에 뜸, library-drive-check.mjs).
+//     conflicts로 센다(S70-76: 점검 창은 지웠고, 숫자만 서버 기록에 남는다).
 
 export const MIRROR_MARK = 'won_mirror';
 export const MIRROR_BUDGET_MS = 10000;
@@ -93,7 +96,7 @@ export function stampFor(drive, name, parent) {
 
 export function parseMirrorBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).join(',') !== 'mode') return null;
-  return body.mode === 'auto' || body.mode === 'align' ? body.mode : null;
+  return body.mode === 'auto' ? 'auto' : null; // S70-76: 'align'([드라이브 폴더 맞추기])은 지웠다
 }
 
 /** 앱 폴더를 위에서 아래 차례로. 부모가 보이지 않는 폴더(휴지통 아래 등)는 뺀다. */
@@ -128,7 +131,7 @@ export function topDown(folders) {
  *  drive.createFolder(name, parent, appProperties?) — S69-52 새 짝 폴더에 처음부터 표식.
  *  now() → ms
  */
-export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now, budgetMs = MIRROR_BUDGET_MS }) {
+export async function mirrorLibrary({ libraryId, db, drive, now = Date.now, budgetMs = MIRROR_BUDGET_MS }) {
   const started = now();
   const out = { ok: true, state: 'not_aligned', folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0, pending: 0, left: 0, more: false, stopped: false, stage: null, app_renamed: 0, app_moved: 0, conflicts: 0, stamped: 0 };
   if (typeof libraryId !== 'string' || !DRIVE_ID.test(libraryId)) return { ...out, state: 'none' };
@@ -137,10 +140,9 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
   if (!lib || lib.trashed === true) return { ...out, ok: false, code: 'library_missing', stage: 'library' };
   const aligned = lib.appProperties?.[MIRROR_MARK] === '1';
   out.state = aligned ? 'aligned' : 'not_aligned';
-  if (mode === 'auto' && !aligned) return out;
 
   const late = () => now() - started > budgetMs;
-  const failed = (e, stage) => { if (mode === 'align') { out.stopped = true; out.stage = out.stage || stage; } out.pending++; return e; };
+  const failed = (e, stage) => { out.stage = out.stage || stage; out.pending++; return e; };
 
   // 부모 드라이브 폴더 → 바로 아래(폴더·파일). 여러 부모를 한 번에 묻는다.
   const kids = new Map();
@@ -172,13 +174,14 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
   let level = byParent.get('') || [];
   while (level.length && !out.stopped && !out.more) {
     const parents = level.map(f => f.parent_id ? pair.get(f.parent_id) : libraryId).filter(Boolean);
-    try { await listMany(parents); } catch (e) { failed(e, 'list'); if (mode === 'align') break; }
+    try { await listMany(parents); } catch (e) { failed(e, 'list'); }
     const next = [];
     for (const f of level) {
       if (out.stopped) break;
       if (late()) { out.more = true; break; }
       const parent = f.parent_id ? pair.get(f.parent_id) : libraryId;
       if (!parent) { out.pending++; continue; }
+      if (!kids.has(parent)) { out.pending++; continue; } // 그 부모 목록을 못 읽었으면 같은 이름 폴더를 또 만들지 않게 다음 부름으로
       try {
         let id = isDriveId(f.drive_folder_id) ? f.drive_folder_id : null;
         let meta = id ? childrenOf(parent).find(c => c.id === id) || null : null;
@@ -270,8 +273,8 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
     }
   }
 
-  // 3) 맞춤 표시: [드라이브 폴더 맞추기]를 끝까지(남은 것·대기 없이) 마쳤을 때만.
-  if (mode === 'align' && !aligned && !out.more && !out.stopped && out.pending === 0) {
+  // 3) 맞춤 표시: 처음으로 끝까지(남은 것·대기 없이) 맞췄을 때 한 번(S70-76: 'auto'가 저절로).
+  if (!aligned && !out.more && !out.stopped && out.pending === 0) {
     try { await drive.patch(libraryId, { appProperties: { [MIRROR_MARK]: '1' } }); out.state = 'aligned'; }
     catch (e) { failed(e, 'mark'); }
   }

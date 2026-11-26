@@ -15,7 +15,7 @@ export function scanLines(r) {
   if (trash) parts.push(`휴지통 ${trash}(` + [[c.temp, '앱 임시'], [c.junk, '찌꺼기'], [c.dup, '중복']].filter(([v]) => n(v)).map(([v, w]) => `${w} ${n(v)}`).join('·') + ')');
   if (wait) parts.push(`정리 대기 ${wait}(` + [[c.old, '바꿔 끼운 옛 원본'], [c.none, '앱 기록 없음']].filter(([v]) => n(v)).map(([v, w]) => `${w} ${n(v)}`).join('·') + ')');
   const keep = n(c.library_top) ? `폴더 밖 자료 ${n(c.library_top)}개는 그 자리가 맞아 그대로` : '';
-  const align = n(r?.need_align) ? `${n(r.need_align)}개는 [드라이브 폴더 맞추기]를 먼저 해야 옮겨요` : '';
+  const align = n(r?.need_align) ? `${n(r.need_align)}개는 드라이브 폴더가 아직 없어 못 옮겼어요(잠시 뒤 다시)` : '';
   return { head: `드라이브 자료실 맨 위 파일 ${n(r?.total)}개`, todo: parts.length ? parts.join(' · ') : null, note: [keep, align, r?.partial ? '폴더가 많아 일부만 봤어요' : ''].filter(Boolean).join(' · ') };
 }
 

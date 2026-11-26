@@ -4,7 +4,7 @@
 // 지금: 100개씩 한 요청(이미 연결된 것 PATCH document_id=in.(…), 새로 넣을 것 POST 배열, 폴더 밖으로는 DELETE in.(…)).
 //   한 묶음이 거절되면 그 묶음만 하나씩 다시 해 실패한 자료만 남긴다. 새로 넣기가 겹침(409)이면 그 자료의 지금 폴더를 읽어 기억한 뒤 PATCH(되돌리기가 그 자리로).
 // 쓰는 곳은 그대로 소유자 RLS 표(app_library_folder_items) 하나 — 서버 권한·검사는 바뀌지 않는다. 드라이브 파일은 건드리지 않는다
-//   (연결만 한 원본·앱이 만든 파일 모두 자료실 폴더 줄만 바뀜. 드라이브 위치 맞추기는 [드라이브 폴더 맞추기]가 따로).
+//   (연결만 한 원본·앱이 만든 파일 모두 자료실 폴더 줄만 바뀜. 드라이브 위치는 저장 직후 drive-follow.mjs가 서버에 맞추게 부탁).
 export const MOVE_CHUNK = 100;
 const T_ITEMS = '/rest/v1/app_library_folder_items';
 const enc = encodeURIComponent;
