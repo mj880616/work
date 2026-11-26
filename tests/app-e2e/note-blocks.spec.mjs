@@ -2,6 +2,7 @@
 // - 끈 상태가 기본(손잡이 없음, 글쓰기 그대로). 서식 줄 [블록]으로 켜면 손잡이 ⋮⋮가 보이고, 끄면 사라진다.
 // - 손잡이를 끌어 블록 순서를 바꾸고(PC는 마우스 끌기, 폰은 꾹 누른 뒤 끌기), 저장 뒤 다시 불러와도 그 순서다.
 // - 손잡이를 누르면 블록 메뉴(복제·지우기·바꾸기). 순서는 끌기 + Alt+↑↓만(메뉴에 위로·아래로 없음, D6).
+// - S71-66(P6): 폰 390(손가락)은 손잡이·[블록 모드] 단추가 없고 꾹 눌러 잡는다 — 폰 손잡이 시험은 note-block-hold.spec.mjs로 옮겼다.
 // - '/' 목록으로 제목·접기 블록을 넣는다(블록 편집을 꺼도 쓸 수 있다). 접기는 접힘 상태가 저장되고, 게시(받는 화면) 글에서도 보인다.
 import {test, expect} from '@playwright/test';
 import {appOrigin} from './helpers/test-origin.mjs';
@@ -48,7 +49,8 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await expect(page.locator('.ed-grip')).toHaveAttribute('data-ed-block', String(index));
     };
 
-    test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
+    // S71-66(P6): 손잡이·[블록 모드]는 PC만(폰은 note-block-hold.spec.mjs).
+    if (!touch) test('끈 상태가 기본: 손잡이 없음 · [블록]으로 켜면 손잡이 보임 · 끄면 사라짐', async ({page}) => {
       await open(page, 'blocks=off');
       // [블록 모드]는 편집 막대 위 작은 아이콘 단추(↶ 앞, 폰·PC 같은 자리). NOTE-블록모드찾기: [문단 ▾] 안이 아니다.
       const box = page.locator('.ed-input'), toggle = page.locator('.ed-bar').getByRole('button', {name: '블록 모드', exact: true, includeHidden: true});
@@ -75,7 +77,7 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       expect(await box.evaluate(el => getComputedStyle(el).paddingLeft)).toBe(pad);
     });
 
-    test('손잡이를 끌어 순서 바꾸기(↶ 한 번에 되돌림) · Alt+↑↓ · 누르면 블록 메뉴(복제·지우기·바꾸기, 위로·아래로 없음)', async ({page}) => {
+    if (!touch) test('손잡이를 끌어 순서 바꾸기(↶ 한 번에 되돌림) · Alt+↑↓ · 누르면 블록 메뉴(복제·지우기·바꾸기, 위로·아래로 없음)', async ({page}) => {
       await open(page, 'blocks=on');
       const box = page.locator('.ed-input');
       await reach(page, box.locator('p').nth(2));
@@ -225,7 +227,8 @@ test('옛 글은 그대로 열린다: 블록 편집을 켜도 저장 모양은 �
 // 노트 화면: 끈 상태로 열리고, [블록]을 켜면 이 노트·내 기본값을 서버에 기억하며, 끌어 바꾼 순서는 저장 뒤 다시 불러와도 그대로.
 test.describe('노트 화면', () => {
 test.use({hasTouch: true});
-for (const width of [1280, 390]) test(`노트에서 블록 편집 켜기 → 끌어 순서 바꾸기 → 저장 → 다시 불러와도 그 순서 ${width}`, async ({page}) => {
+// S71-66(P6): 폰 390은 손잡이 대신 꾹 눌러 끌기 — note-block-hold.spec.mjs 'P6 노트 화면 폰 390'.
+for (const width of [1280]) test(`노트에서 블록 편집 켜기 → 끌어 순서 바꾸기 → 저장 → 다시 불러와도 그 순서 ${width}`, async ({page}) => {
   test.setTimeout(60000);
   const touch = width < 761;
   await page.setViewportSize({width, height: 900});

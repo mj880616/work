@@ -46,7 +46,7 @@
 //     The row's photos are as high as each other; a phone wraps a row of three or four (ed-doc.css).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
-import {mountBlocks, gripIcon} from './ed-blocks.js';
+import {mountBlocks, gripIcon, phoneTouchMedia} from './ed-blocks.js';
 import {mountGtasks, gtaskDedupe} from './ed-gtasks.js';
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled, CHECK_MARKER,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
@@ -688,6 +688,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
 
   // The table as drawn in the editor: the same layout readers use (ed-render.mjs, ed-schema.mjs tableLayout), plus a small
   // grip at its top left corner that selects the whole table and a handle at its bottom right corner that resizes it.
+  const touchPhone = phoneTouchMedia(), tableViews = new Set();
+  const syncTableGrips = () => { for (const t of tableViews) t.syncGrip(); };
+  touchPhone?.addEventListener?.('change', syncTableGrips);
   class TableView {
     constructor(node) {
       this.node = node;
@@ -702,9 +705,17 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.colgroup = this.table.appendChild(document.createElement('colgroup'));
       this.contentDOM = this.table.appendChild(document.createElement('tbody'));
       this.box.append(this.table, this.resizer);
-      this.dom.append(this.grip, this.box);
+      this.dom.append(this.box);
+      tableViews.add(this); this.syncGrip();
       this.layout();
     }
+    // NOTE-블록꾹눌러잡기(S71-66 ④): a phone (finger, ≤760px) has no corner grip — too small for a finger. There a table is chosen with
+    // [표 선택] in the table row, and held by its outer edge for its block menu (notes). Not a hidden grip: it is not in the table at all.
+    syncGrip() {
+      if (touchPhone?.matches) this.grip.remove();
+      else if (!this.grip.isConnected) this.dom.prepend(this.grip);
+    }
+    destroy() { tableViews.delete(this); }
     layout() {
       const cells = []; this.node.firstChild?.forEach(c => cells.push(c.attrs));
       const widths = widthsOfRow(cells), lay = tableLayout(widths);
@@ -716,7 +727,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.table.style.width = lay ? `${lay.width}px` : '';
     }
     update(node) { if (node.type !== this.node.type) return false; this.node = node; this.layout(); return true; }
-    ignoreMutation(record) { return record.type === 'attributes' && (record.target === this.dom || record.target === this.box || record.target === this.table || this.colgroup.contains(record.target) || this.resizer.contains(record.target)) || this.grip.contains(record.target) || this.resizer.contains(record.target); }
+    ignoreMutation(record) { return (record.type === 'childList' && record.target === this.dom) || record.type === 'attributes' && (record.target === this.dom || record.target === this.box || record.target === this.table || this.colgroup.contains(record.target) || this.resizer.contains(record.target)) || this.grip.contains(record.target) || this.resizer.contains(record.target); }
     stopEvent(event) { return this.grip.contains(event.target) || this.resizer.contains(event.target); }
   }
 
@@ -981,9 +992,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   });
   // NOTE-노션편집 ①(나): the block parts (handle ⋮⋮ and its menu, the '/' list). Made for the openers that ask (notes); none elsewhere.
   if (blocks || slash) {
-    blockPart = mountBlocks({pm, view, schema, root, box, bar, handles: !!blocks?.on, slash,
+    blockPart = mountBlocks({pm, view, schema, root, box, bar, handles: !!blocks?.on, grab: !!blocks, slash,
       insert: {block: node => insertBlock(node), table: () => insertBlock(newTable(2, 2)), photo: photos ? () => pickPhotos() : null},
-      changed: () => syncBox()});
+      changed: () => { syncBox(); syncBlocksButton(); }, onPhone: () => syncBlocksButton()});
     root.classList.add('ed-has-blocks');
   }
   // S69-97 노트 안 할 일: the notes opener's provider (its own Google connection only). Its first read starts after the first paint (below).
@@ -1602,7 +1613,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     nowStamp: () => view.dispatch(view.state.tr.insertText(nowText()).scrollIntoView()),
     photo: () => pickPhotos(),
     scan: () => pickScan(),
-    blocks: () => setBlocks(!blockPart?.isOn(), true),
+    // NOTE-블록꾹눌러잡기(S71-66, P6): a phone has no handle, so ⠿ opens the cursor block's menu (the same menu); wider it is 블록 모드.
+    blocks: () => (blockPart?.isPhone() ? blockPart.toggleMenuAt(buttons.blocks) : setBlocks(!blockPart?.isOn(), true)),
     gtask: () => { void gtaskPart?.press(); },
     form: () => { const at = buttons.gInsert?.isConnected && !buttons.gInsert.hidden ? buttons.gInsert : buttons.form; void forms?.pick(at); },
     file: () => pickFiles(),
@@ -2034,10 +2046,20 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   function setBlocks(next, pressed = false) {
     if (!blockPart || !blocks) return false;
     blockPart.setOn(!!next);
-    buttons.blocks?.setAttribute('aria-pressed', String(blockPart.isOn()));
+    syncBlocksButton();
     if (pressed) blocks.onToggle?.(blockPart.isOn());
     syncBox();
     return blockPart.isOn();
+  }
+  // The ⠿ button on the row: wider = the 블록 모드 switch (pressed = on); a phone (P6) = '블록 메뉴', which opens a menu.
+  function syncBlocksButton() {
+    const b = buttons.blocks;
+    if (!b || !blockPart) return;
+    const menuMode = blockPart.isPhone(), name = menuMode ? '블록 메뉴' : '블록 모드';
+    b.setAttribute('aria-label', name); b.title = name;
+    const word = b.querySelector('.ed-tool-word'); if (word && word.textContent !== name) word.textContent = name;
+    if (menuMode) { b.removeAttribute('aria-pressed'); b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', String(blockPart.menuOpenFor(b))); }
+    else { b.setAttribute('aria-pressed', String(blockPart.isOn())); b.removeAttribute('aria-haspopup'); b.removeAttribute('aria-expanded'); }
   }
   function isEmpty() {
     const d = view.state.doc;
@@ -2073,7 +2095,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       stopUploads(); upRows.destroy(); for (const url of upPreview.values()) URL.revokeObjectURL(url); upPreview.clear();
-      lineGone = true; lineGrip?.destroy(); blockPart?.destroy(); noteLinkPart?.destroy(); gtaskPart?.destroy();
+      lineGone = true; touchPhone?.removeEventListener?.('change', syncTableGrips); lineGrip?.destroy(); blockPart?.destroy(); noteLinkPart?.destroy(); gtaskPart?.destroy();
       view.destroy();
       if (leadAt?.parent?.isConnected) leadAt.parent.insertBefore(lead, leadAt.next?.parentNode === leadAt.parent ? leadAt.next : null);
       root.remove();
