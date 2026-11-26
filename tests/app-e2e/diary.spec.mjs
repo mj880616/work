@@ -998,7 +998,8 @@ test('[하루 기록] 목록 폰 390 줄 밀기: 왼쪽 [고정][별표][수정]
  await expect(async()=>{await lvSwipe(lv.locator('[data-diary-lv-swipe="2026-10-03"]'),200);await expect(page.locator('#diaryRoot .row-swipe-pickbar')).toBeVisible({timeout:1000});}).toPass({timeout:10000});
  await expect(page.locator('#diaryRoot .row-swipe-pick-count')).toHaveText('1개 선택됨');
  await expect(lv.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
- await page.locator('#diaryRoot .row-swipe-pickbar [data-row-pick-stop]').click();await expect(page.locator('#diaryRoot .row-swipe-pickbar')).toBeHidden();
+ await expect(page.locator('#diaryRoot .row-swipe-pickbar [data-row-pick-stop]')).toHaveCount(0); // S70-64b: ✕ 없음 — 끝내기는 Esc·뒤로가기
+ await page.keyboard.press('Escape');await expect(page.locator('#diaryRoot .row-swipe-pickbar')).toBeHidden();
  // 한 일만 있는 날(일기 없음)은 밀어도 칸이 없다.
  await lvSwipe(lv.locator('[data-diary-lv-swipe="2026-10-05"]'),-430);await page.waitForTimeout(300);await expect(ends).toHaveCount(0);
  expect(f.errors).toEqual([]);

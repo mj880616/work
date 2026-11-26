@@ -44,7 +44,7 @@ export async function openSavedDoc(page, width, { title = '예시 기사 하나'
   await page.locator(`#readingView .rd-row[data-rd-open="${READ_ID}"]`).click();
   const detail = page.locator('#readingView [data-rd-detail]');
   await expect(detail.locator('.ds-doc-top')).toBeVisible();
-  return { errors, prefs, rows, detail, list: page.locator('#readingView [data-rd-list]'), firstLeft: page.locator('#readingView [data-rd-list] .rd-head') };
+  return { errors, prefs, rows, detail, list: page.locator('#readingView [data-rd-list]'), firstLeft: page.locator('#readingView [data-rd-list]') }; // S71-26: 목록 머리 줄(.rd-head)이 없어져 왼쪽 첫 줄 위 끝 = 목록 칸 위 끝(보기 탭 알약 위 끝)
 }
 // 읽을 거리: [언론] 탭 첫 기사를 연 상태.
 export async function openNewsDoc(page, width) {

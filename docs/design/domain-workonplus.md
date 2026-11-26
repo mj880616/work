@@ -1,6 +1,6 @@
 # 새 주소 workonplus.com 연결 (DOMAIN-workonplus)
 
-2026-11-21 명진 요청: 앱 이름이 WORK ON+(11/21 07:35 확정, `AGENTS.md` 5절)로 바뀌어 주소도 `workonplus.com`으로 옮긴다(명진이 가비아에서 삼, 같은 Cloudflare 계정에 존을 더함). `nojoplus.com`에 오는 사람에게는 '개인 업무 앱으로 바뀌었고 노동조합+는 집행부·조합원 공간 중심으로 다시 출시 예정'이라는 안내와 새 주소로 가는 링크 하나를 보여 준다. 방식은 [`domain-nojoplus.md`](domain-nojoplus.md) 1단계와 같다. 운영 반영(Worker 배포·Edge 배포·Supabase Auth·구글 OAuth·폰 앱 릴리스)은 커맨드센터가 한다.
+2026-11-21 사용자 요청: 앱 이름이 WORK ON+(11/21 07:35 확정, `AGENTS.md` 5절)로 바뀌어 주소도 `workonplus.com`으로 옮긴다(사용자가 가비아에서 삼, 같은 Cloudflare 계정에 존을 더함). `nojoplus.com`에 오는 사람에게는 '개인 업무 앱으로 바뀌었고 노동조합+는 집행부·조합원 공간 중심으로 다시 출시 예정'이라는 안내와 새 주소로 가는 링크 하나를 보여 준다. 방식은 [`domain-nojoplus.md`](domain-nojoplus.md) 1단계와 같다. 운영 반영(Worker 배포·Edge 배포·Supabase Auth·구글 OAuth·폰 앱 릴리스)은 커맨드센터가 한다.
 
 작업은 PR 둘로 줄 세운다.
 
@@ -57,7 +57,7 @@
 | ③ | Edge 함수 배포(한 번에 하나, 되돌리기 ref = 배포 전 main 커밋): `auth-handoff`, `public-policy-drive`, `google-calendar`, `google-tasks`, 그리고 `_shared/web-cors.ts`를 쓰는 Web2 함수 전부(`grep -l "web-cors" supabase/functions/*/index.ts`로 목록을 뽑아 차례로). verify_jwt는 함수마다 지금 값 유지(`keep`) | 기록한 이전 ref로 같은 workflow 재실행 |
 | ④ | Supabase Auth → URL Configuration → Redirect URLs에 `https://workonplus.com/**` 줄 추가(Site URL 그대로) | 추가한 줄 삭제 |
 | ⑤ | Google Cloud OAuth 동의 화면 → 승인된 도메인에 `workonplus.com` 추가(로그인 자체는 Supabase 콜백이라 새 리디렉션 URI는 필요 없음) | 추가한 도메인 삭제 |
-| ⑥ | 확인 + 명진 실기기: `workonplus.com`에서 구글 로그인·캘린더 연결이 `workonplus.com`으로 돌아오는지 | 위 각각 |
+| ⑥ | 확인 + 사용자 실기기: `workonplus.com`에서 구글 로그인·캘린더 연결이 `workonplus.com`으로 돌아오는지 | 위 각각 |
 | ⑦ | 폰 앱 0.5.17 릴리스(④ 다음에만 — 앱 로그인 복귀 화면이 새 주소). 올린 뒤 앱에서 한 번 다시 로그인 | 옛 판 APK 다시 설치 |
 | ⑧ | PR-B merge(⑥ 확인 뒤) = Worker 배포. `nojoplus.com` 앱 자리가 안내 한 장이 됨 | 이전 Worker 버전 |
 
@@ -67,6 +67,6 @@
 
 - `nojoplus.com/`, `/work/app`, `/work/app/**`(Web2 화면·파일 모두)에 같은 안내 HTML 한 장(200, `noindex`, 저장 안 함). Pages에서 아무것도 가져오지 않는다.
 - 제목 'WORK ON+로 옮겼어요'. 본문: 개인 업무 관리 앱 WORK ON+로 바뀌어 새 주소에서 계속 쓸 수 있다(기록은 그대로, 새 주소에서 한 번 다시 로그인) / 노동조합+는 노조 집행부·조합원 공간 중심으로 바꾸어 다시 출시할 예정.
-- 버튼 하나 [workonplus.com으로 가기] → 같은 경로·`?쿼리`를 유지해 `https://workonplus.com/work/app/…`(맨 앞 `/`는 `/work/app/`). 자동 이동은 하지 않는다(명진 요청은 '안내 + 링크').
+- 버튼 하나 [workonplus.com으로 가기] → 같은 경로·`?쿼리`를 유지해 `https://workonplus.com/work/app/…`(맨 앞 `/`는 `/work/app/`). 자동 이동은 하지 않는다(사용자 요청은 '안내 + 링크').
 - 그대로: `nojoplus.com/s/<짧은 주소>`, `/work/about/**`, 그 밖 `/work/**` → `work.bokdoong.com` 302, `www` 301.
 - 폰 앱 0.5.17(PR-A에 포함)은 `nojoplus.com/work/app/**`로 가려는 앱 안 이동을 같은 경로·쿼리의 `workonplus.com`으로 바꿔 연다(안내 대신 새 주소). 옛 판 사용자는 안내 화면의 버튼으로 옮긴다.

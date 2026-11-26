@@ -31,7 +31,7 @@ S64-09 정리(2026-11-17). ⑤-1(#2720)·⑤-2(#2726) 뒤, `LEGACY_FORM`·`LEGAC
 
 ### 정하기 전에 커맨드센터가 볼 숫자(내용 안 봄, 개수만)
 
-바탕(자료실 확정본)이 있는 작업공간 가운데 `app_weekly_forms`에 행이 없는 작업공간 **개수**. 0이면 '가'의 멈춤 길은 안전장치일 뿐이고, 명진을 포함해 지금 쓰는 사람에게는 바뀌는 것이 없다.
+바탕(자료실 확정본)이 있는 작업공간 가운데 `app_weekly_forms`에 행이 없는 작업공간 **개수**. 0이면 '가'의 멈춤 길은 안전장치일 뿐이고, 사용자를 포함해 지금 쓰는 사람에게는 바뀌는 것이 없다.
 
 ## 3. 정한 뒤 PR 순서(줄 세움, 같은 파일을 만지므로 앞 PR 브랜치 위에서)
 
@@ -39,7 +39,7 @@ S64-09 정리(2026-11-17). ⑤-1(#2720)·⑤-2(#2726) 뒤, `LEGACY_FORM`·`LEGAC
 2. **⑤-3b 화면 절 제목**: `journal-weekly.js`([주간 정리] 절 제목·복사 글 `REQUEST_TITLES` 등)·`journal-hwpx.js`(상태 줄 글)·`weekly-flow-cells.js`·`weekly-discuss-table.js`·`weekly-draft-store.js`·`delta.mjs`의 고정 제목을 같은 profile 제목으로. 화면이 바뀌므로 업데이트 기록 1개.
 3. **⑤-3c Edge 사본**: `weekly-lines.mjs`·`weekly-layout.mjs`(바이트 같은 사본 `supabase/functions/_shared/`)의 `BIG` 정규식·`FORM_LABELS`·`SUB_WORDS`를 profile 인자로. 서버(`ai-assist`)는 본인 로그인으로 '내 양식'을 읽어 넘긴다. merge 뒤 **배포할 함수: `ai-assist`**(되돌리기 ref 기록). 앱의 `draft.issued` 줄 나누기와 서버가 같은 profile을 써야 하므로 a·b 뒤에 한다.
 
-## 4. 정한 길 — 명진 결정 11/17 10:13 '나' (S64-11, ⑤-3a)
+## 4. 정한 길 — 사용자 결정 11/17 10:13 '나' (S64-11, ⑤-3a)
 
 "나" = 바탕(확정본)이 있는데 쓸 '내 양식'이 없을 때 **바탕 파일에서 양식을 읽어 '내 양식'에 자동 저장**하고 그것으로 연다.
 
