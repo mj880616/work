@@ -1664,7 +1664,8 @@ jobs:
           grep -q "data-ps3-records" app/project-system-v3.js
           # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
           if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
-          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          # UI-기록줄높이통일(S70-66): 연결 기록 줄은 공용 기록 줄(record-fold.js) — 누르면 그 자리 펼침, 원래 글 열기는 ⋯.
+          grep -q "foldHeadHtml(" app/project-system-v3.js
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
           # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
