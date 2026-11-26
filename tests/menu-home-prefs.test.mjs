@@ -25,12 +25,19 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S70-35 NOTE-목록표머리 ①-2: DB(20261125100000, 같은 PR) note_list_sort를 화면 허용 목록에도 더했다(적용 전에는 정렬 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-35 NOTE-목록표머리 ②: DB(20261125110000, 같은 PR) note_cols를 화면 허용 목록에도 더했다(적용 전에는 보일 칸 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-72 FILES-상세칸정리: DB(20261126090000, 같은 PR, #3124 reading_split 뒤) files_prev_shut을 화면 허용 목록에도 더했다(적용 전에는 접음 기억만 이번 접속). DB에만 있는 칸은 없다.
+// S70-84 BRIEF-두칸폴더: DB(20261126120000, 같은 PR, #3138 files_prev_shut 뒤) brief_sort·split_ratio.brief를 화면 허용 목록에도 더했다(적용 전에는 정렬·폭 기억만 이번 접속). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut)와 같다', () => {
-  const sql = read('supabase/migrations/20261126090000_profile_view_prefs_files_prev_shut.sql');
+test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut·BRIEF-두칸폴더 brief_sort)와 같다', () => {
+  const sql = read('supabase/migrations/20261126120000_profile_view_prefs_brief_room.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 64);
+  assert.equal(KEYS.length, 65);
+  // brief_sort 허용 칸(key)이 DB 검사 목록과 같다(files_sort와 같은 네 칸). split_ratio 화면 이름 brief도 DB가 안다.
+  const briefKeys = [...sql.match(/view_prefs -> 'brief_sort' ->> 'key'\) in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(m => m[1]);
+  assert.deepEqual(briefKeys, ['name', 'modified', 'size', 'kind']);
+  for (const key of briefKeys) for (const dir of ['asc', 'desc']) assert.equal(validValue('brief_sort', {key, dir}), true, key + dir);
+  for (const v of [null, {}, 'name', {key: 'name'}, {key: 'path', dir: 'asc'}, {key: 'name', dir: 'up'}, {key: 'name', dir: 'asc', x: 1}]) assert.equal(validValue('brief_sort', v), false, JSON.stringify(v));
+  assert.match(sql, /@\.key == "reading" \|\| @\.key == "brief"\)\)/);
   assert.match(sql, /jsonb_typeof\(view_prefs -> 'files_prev_shut'\) = 'boolean'/);
   for (const v of [true, false]) assert.equal(validValue('files_prev_shut', v), true);
   for (const v of [null, 'true', 1, 0, {}, [true]]) assert.equal(validValue('files_prev_shut', v), false, JSON.stringify(v));
@@ -208,10 +215,11 @@ test('메뉴 목록은 한 곳(menu-model.mjs)에서 정의하고 폰 하단바�
   assert.match(read('app/menu-edit.js'), /from '\.\/menu-model\.mjs'/);
   assert.match(read('app/index.html'), /id="menuEditModal"/);
 });
-test('MENU-세칸: 편집 창은 세 칸 + PC 왼쪽 메뉴 미리보기, 맨 아래 묶음은 저장된 아래 칸(숨은 feed 규칙 아님)', () => {
+test('MENU-세칸 · S71-32: 수정 창은 하단바·위 메뉴를 목록 하나로(여기까지 폰 하단바 줄), PC 미리보기 없음, 맨 아래 묶음은 저장된 아래 칸', () => {
   const edit = read('app/menu-edit.js');
-  for (const name of ['bar', 'rest', 'tail']) assert.match(edit, new RegExp(`group\\('${name}'`), name);
-  assert.match(edit, /pcSplit\(full\)/); assert.match(edit, /data-menu-edit-preview/);
+  for (const name of ['bar', 'rest', 'tail', 'hidden']) assert.match(edit, new RegExp(`list\\('${name}'`), name);
+  assert.match(edit, /여기까지 폰 하단바/);
+  assert.doesNotMatch(edit, /pcSplit|data-menu-edit-preview|me-pv/, 'PC 왼쪽 메뉴 미리보기 상자 없음');
   const top = read('app/topbar-actions.js');
   assert.doesNotMatch(top, /\['calls','telegram','arsenal'\]\.forEach/, 'PC 맨 아래 묶음 표시를 세 메뉴 이름에 묶어 두지 않는다');
   assert.doesNotMatch(read('app/menu-model.mjs').split('export function pcSplit')[1].split('\n}')[0], /\.feed/, 'pcSplit은 저장값(아래 칸)만 본다');

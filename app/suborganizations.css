@@ -8,7 +8,7 @@
 /* S52-01 ③b: '관련 담당조직'은 한 줄(area-org-picker.js 줄, 누르면 공용 고르기 창). 상자 없이 칸 사이에 둔다. */
 .so-org-box{margin:6px 0}
 .so-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.so-admin-members{display:grid;gap:5px;margin-top:8px}.so-admin-member{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important;margin:0!important}
-@media(max-width:650px){.so-team-actions{align-items:center}.so-team-actions #soAddOrg{min-height:36px;padding:0 12px;font-size:var(--kptu-text-meta)}}
+@media(max-width:650px){.so-team-actions{align-items:center}}
 #soOrganizationList>.so-org-group{border:0;border-radius:var(--kptu-radius-md);background:transparent}
 .so-group-heading{margin:0 0 6px;font-size:12px;line-height:18px;color:var(--kptu-muted)}
 .so-group-card{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
@@ -78,11 +78,7 @@
 #soTeamTools .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 /* 접은 폰(600px 미만) 머리 줄은 44px 높이 — ⋯도 그 높이(예전 폰 자리와 같은 크기). */
 @media(max-width:599px){#soTeamTools .so-team-more{width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}#soTeamTools .so-team-more::after{content:none}}
-/* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
-#soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
-#soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
-#soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이 — 아래 [참고 묶음] 줄과 겹치지 않게. */
+/* UI-기다림표시통일 3차: 담당조직이 하나도 없을 때의 공용 '없음'(.wait-empty)은 목록 한 줄 높이. */
 #soOrganizationList>.wait-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target);margin:0;padding:0 var(--kptu-space-4)}
 
 /* DESK-전체현황표(요청함 11/03 07:48): 담당조직 맨 위 소탭 [목록 | 전체 표]와 전체 표(org-overview.js). 작고 낮게(UI-버튼기준), 새 색 없음. */
@@ -109,16 +105,15 @@
 /* 기준 칸(다섯 칸, 공용 .ds-seg 모양 그대로)이 있는 화면 메뉴만 넓힌다. 메뉴 자리는 그려진 폭으로 다시 잡는다(anchored-menu.js). */
 .so-team-menu:has(.so-quiet-seg){min-width:252px}
 .so-team-menu .so-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
-/* MULTI-다른담당자맞춤 ①(2026-11-13 명진 결정): 맨 위 [+ 담당조직](⋯ 왼쪽, 작은 글자 버튼).
+/* S71-35 ORG-조직관리로모으기: 맨 위 [+ 담당조직]은 없앴다(추가는 ⋯ '새 담당조직').
    ORG-목록줄메뉴없음(S71-08, 2026-11-26 명진): 조직 줄 끝 ⋯는 지웠다(그 조직 메뉴는 상세 맨 위 ⋯). */
-.so-team-tools .so-team-add{flex:none;white-space:nowrap}
-/* ORG-목록단계칩위치: 줄 끝은 [칩 ·8· › ·(⋯ 자리)· 끝]. 묶음 머리줄 [N곳 ·8· ⋯ ·8· 끝]과 같은 세로줄 — 줄 ⋯는 지웠어도(S71-08) 머리줄 ⋯ 자리만큼
-   줄 오른쪽을 비워 › 와 'N곳' 끝을 맞춘다(--so-more-w, space-2 한 값). */
+/* ORG-목록단계칩위치·ORG-단계오른쪽(S71-22, 2026-11-26 사용자 "없앤 자리에 쟁의단계가 차고 들어가야지"): 줄 끝은 [칩 ·8· › ·8· 끝].
+   줄 ⋯를 지웠으니(S71-08) 그 자리를 비워 두지 않는다 — › 오른쪽 끝 = 묶음 머리줄 오른쪽 끝선(머리줄 ⋯ 오른쪽 끝, ⋯ 없는 머리줄은 'N곳' 끝, 모두 끝에서 space-2). */
 #soOrganizationList{--so-more-w:32px}
 #soOrganizationList .so-row{position:relative;min-width:0}
-#appView #teamView #soOrganizationList .so-row>.kptu-list-row{padding-right:calc(var(--kptu-space-2) * 2 + var(--so-more-w))}
+#appView #teamView #soOrganizationList .so-row>.kptu-list-row{padding-right:var(--kptu-space-2)}
 #appView #teamView .so-group-card .so-row:last-child>.kptu-list-row{border-bottom:0}
-/* 제외한 조직: 맨 아래 묶음, 흐리게(누르면 상세는 그대로 열림). */
+/* 보관한 조직(옛 제외한 조직): 맨 아래 묶음, 흐리게(누르면 상세는 그대로 열림). */
 #soOrganizationList .so-row.is-excluded>.kptu-list-row .kptu-list-name{color:var(--kptu-muted);font-weight:var(--ds-weight-medium,500)}
 #soOrganizationList .so-excluded-group .so-dot{opacity:.5}
 /* PC [목록] 머리줄 자리 하나(MULTI-다른담당자맞춤 ①·②): 목록 칸 위 한 줄. 오른쪽 상세 칸은 목록과 같은 줄에서 시작(왼쪽 첫 카드 윗선 = 상세 칸 윗선).
@@ -129,8 +124,6 @@
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#soOrganizationList{grid-row:2}
   #appView #teamView #soTeamSection.so-has-tabs:not(.so-view-table)>#wdDetailPane{grid-row:2}
 }
-/* [전체 표]에서는 맨 위 줄 오른쪽이 표 도구 자리라 [+ 담당조직]은 [목록]에서만. */
-html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 /* MULTI-다른담당자맞춤 ②(시안 #2522): 묶음 칸 손잡이 ⋮⋮·묶음 ⋯·빈 묶음·놓을 자리 줄. 모양은 공용 .icon-btn, 여기는 자리만. */
 #appView #teamView #soOrganizationList .so-group-card>.so-group-heading:has(.so-grip){justify-content:flex-start;align-items:center;gap:var(--kptu-space-2)}
 #appView #teamView #soOrganizationList .so-group-heading:has(.so-grip)>.so-group-count{margin-left:auto}
@@ -142,8 +135,8 @@ html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 #soOrganizationList .so-grip::before{content:"⋮⋮"}
 #soOrganizationList .so-group-more::before{content:"⋯"}
 #soOrganizationList .so-group-heading .so-group-more{width:var(--so-more-w);min-width:var(--so-more-w);margin-right:calc(var(--kptu-space-2) - var(--kptu-space-4))}
-/* 머리줄에 ⋯가 없는 묶음(그 외·제외한 조직 등)도 'N곳' 오른쪽 끝을 줄 › 오른쪽 끝에 맞춘다(줄 ⋯ 자리만큼 비움). 선택 중에는 줄에도 ⋯가 없다. */
-#appView #teamView #soOrganizationList:not(.so-picking) .so-group-card>.so-group-heading:not(:has(.so-group-more)){padding-right:calc(var(--kptu-space-2) * 2 + var(--so-more-w))}
+/* 머리줄에 ⋯가 없는 묶음(그 외·제외한 조직 등)도 'N곳' 오른쪽 끝을 같은 끝선(끝에서 space-2)에 — 줄 › 오른쪽 끝과 같다. */
+#appView #teamView #soOrganizationList:not(.so-picking) .so-group-card>.so-group-heading:not(:has(.so-group-more)){padding-right:var(--kptu-space-2)}
 #soOrganizationList .so-group-heading .so-grip{margin-left:calc(var(--kptu-space-2) * -1)}
 /* 머리줄 높이는 그대로(손잡이·⋯는 글줄 높이 안에서 위아래로 넘침). */
 #soOrganizationList .so-group-heading :is(.so-grip,.so-group-more){margin-block:-5px}
@@ -196,3 +189,52 @@ html:has(#soTeamSection.so-view-table) #soTeamTools .so-team-add{display:none}
 #soOrganizationList .so-quiet .oq-last { color:var(--kptu-faint); font-size:11px; white-space:nowrap; }
 #soOrganizationList .so-quiet .oq-days { min-width:44px; text-align:right; color:var(--kptu-muted); white-space:nowrap; }
 #soOrganizationList .so-quiet .oq-note { padding:3px 0 0; color:var(--kptu-faint); font-size:11px; border-top:1px solid var(--kptu-border); }
+/* S71-35 ORG-조직관리로모으기: 목록 맨 아래 접힌 '보관한 조직 n곳'(옛 '제외한 조직')과 '내 묶음 n'(옛 내 프로필 칸). 머리는 묶음 머리줄과 같은 모양. */
+#soOrganizationList .so-archived>summary{cursor:pointer;list-style:none}
+#soOrganizationList .so-archived>summary::-webkit-details-marker{display:none}
+#soOrganizationList .so-archived>summary::after,#soOrganizationList .so-collab>summary::after{content:"›";margin-left:6px;color:var(--kptu-muted);transition:transform .15s}
+#soOrganizationList .so-archived[open]>summary::after,#soOrganizationList .so-collab[open]>summary::after{transform:rotate(90deg)}
+#soOrganizationList .so-excluded-group .so-row{display:flex;align-items:center;gap:6px}
+#soOrganizationList .so-excluded-group .so-row>.so-card{flex:1;min-width:0}
+#soOrganizationList .so-unarchive{flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;font-size:var(--ds-text-meta);margin-right:6px}
+#soOrganizationList .so-collab{margin-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#soOrganizationList .so-collab>summary{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target,44px);padding:0 4px;cursor:pointer;list-style:none;font-weight:var(--ds-weight-medium,600);font-size:var(--ds-text-meta)}
+#soOrganizationList .so-collab>summary::-webkit-details-marker{display:none}
+#soOrganizationList .so-collab>summary .so-group-count{color:var(--kptu-muted);font-weight:400}
+#soOrganizationList .so-archived>summary .so-group-count{margin-left:auto}
+#soCollabPanel{padding:0 4px 6px;font-size:var(--ds-text-row,14px)}
+#soCollabPanel .cg-group>summary{font-size:var(--ds-text-row,14px)}
+/* COLLAB-묶인사람끼리공유 1단계 '내 묶음' 칸 안(collab-groups.js 한 곳이 그림, 옛 #profileView .ps-collab 모양 그대로 옮김). 콤팩트, 줄 단위. */
+#soCollabPanel .cg-muted{color:var(--kptu-muted);font-size:var(--ds-text-meta);margin:4px 0}
+#soCollabPanel .cg-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#soCollabPanel .cg-card{border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:6px 8px;margin:6px 0;background:var(--kptu-surface-subtle)}
+#soCollabPanel .cg-join-title,#soCollabPanel .cg-form-title{font-weight:600}
+#soCollabPanel .cg-join-who{margin:2px 0 4px}
+#soCollabPanel .cg-consent{font-size:var(--ds-text-meta);margin:4px 0;color:var(--kptu-ink)}
+#soCollabPanel .cg-consent-head{color:var(--kptu-muted)}
+#soCollabPanel .cg-hint{font-size:var(--ds-text-meta);color:var(--kptu-muted);margin:4px 0}
+#soCollabPanel .cg-field{display:flex;flex-direction:row;align-items:center;gap:8px;margin:4px 0;font-weight:400}
+#soCollabPanel .cg-field span{flex:none;width:52px;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#soCollabPanel .cg-field input{flex:1;min-width:0}
+#soCollabPanel .cg-group{border-top:.5px solid var(--kptu-border)}
+#soCollabPanel .cg-group:first-of-type{border-top:0}
+#soCollabPanel .cg-group>summary{display:flex;align-items:center;gap:8px;min-height:var(--kptu-touch-target,44px);cursor:pointer;list-style:none}
+#soCollabPanel .cg-group>summary::-webkit-details-marker{display:none}
+#soCollabPanel .cg-group>summary::after{content:"›";margin-left:auto;color:var(--kptu-muted);transition:transform .15s}
+#soCollabPanel .cg-group[open]>summary::after{transform:rotate(90deg)}
+#soCollabPanel .cg-gname{font-weight:600;font-size:var(--ds-text-row,14px);min-width:0;overflow-wrap:anywhere}
+#soCollabPanel .cg-gmeta{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+#soCollabPanel .cg-body{padding:0 0 6px 4px}
+#soCollabPanel .cg-sec{display:flex;align-items:center;gap:6px;font-weight:600;font-size:var(--ds-text-meta);margin:6px 0 2px}
+#soCollabPanel .cg-sec-btn{margin-left:auto}
+#soCollabPanel .cg-ln{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);border-top:.5px solid var(--kptu-border)}
+#soCollabPanel .cg-nm{font-weight:500;min-width:0;overflow-wrap:anywhere}
+#soCollabPanel .cg-t{flex:1;min-width:0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#soCollabPanel .cg-tag{font-size:11px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);padding:0 5px;color:var(--kptu-muted)}
+#soCollabPanel .cg-more{position:relative}
+#soCollabPanel .cg-more>summary{list-style:none;cursor:pointer;min-width:var(--ds-compact-height);text-align:center;color:var(--kptu-muted)}
+#soCollabPanel .cg-more>summary::-webkit-details-marker{display:none}
+#soCollabPanel .cg-more-menu{position:absolute;right:0;top:100%;z-index:5;display:flex;flex-direction:column;gap:2px;padding:4px;background:var(--kptu-surface);border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);white-space:nowrap}
+#soCollabPanel .cg-link-box{margin:6px 0}
+#soCollabPanel .cg-link{font-family:ui-monospace,monospace;font-size:12px;padding:6px 8px;border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);overflow-wrap:anywhere;user-select:all}
+#soCollabPanel .cg-foot{justify-content:flex-end}

@@ -197,7 +197,7 @@ for (const [label, width, height] of WIDTHS) {
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.setViewportSize({width, height});
     await openEmpty(page);
-    for (const [view, title, action] of [['team', '맡은 조직별 상황을 쌓아 두는 곳이에요', '+ 담당조직'], ['meetings', '회의·면담·집회처럼 날짜 있는 활동을 남기는 곳이에요', '+ 사업 만들기'], ['brief', '긴 자료를 넣으면, 자료 짜임대로 요약해 줘요', '자료 넣기']]) {
+    for (const [view, title, action] of [['team', '맡은 조직별 상황을 쌓아 두는 곳이에요', '새 담당조직'], ['meetings', '회의·면담·집회처럼 날짜 있는 활동을 남기는 곳이에요', '+ 사업 만들기'], ['brief', '긴 자료를 넣으면, 자료 짜임대로 요약해 줘요', '자료 넣기']]) {
       await page.evaluate(v => window.KPTURouter.go(v), view);
       const card = page.locator(`#${view}View [data-first-use="${view}"]`);
       await expect(card).toBeVisible();
@@ -211,7 +211,7 @@ for (const [label, width, height] of WIDTHS) {
     // [쓰는 법 보기] → 그 줄.
     await page.locator('#briefView [data-first-use] [data-help-open]').click();
     await expect(page).toHaveURL(/topic=brief/);
-    // [+ 담당조직] → 담당조직 추가 창.
+    // [새 담당조직] → 담당조직 추가 창.
     await page.evaluate(() => window.KPTURouter.go('team'));
     await page.locator('#teamView [data-fu-action="team"]').click();
     await expect(page.locator('#soEditModal')).toBeVisible();

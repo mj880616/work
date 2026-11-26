@@ -1,5 +1,5 @@
 // APP-기록+이름바꾸기(S67-44) · S67-71: '내가 고친 이름'(내 프로필 행 app_profiles.custom_words, owner RLS)을 읽고 쓰는 유일한 길.
-// 내 프로필 '이름 바꾸기' 칸(custom-words-panel.js)과 '메뉴 수정' 창(menu-edit.js)이 같이 쓴다 — 두 화면이 서로 다른 값을 쓰지 않게.
+// 고치는 화면은 '메뉴 수정' 창(menu-edit.js) 하나다(S71-32: 내 프로필 '이름 바꾸기' 상자는 없앴다).
 // 기기에는 남기지 않는다. 칸이 아직 없는 서버(DB 적용 전)는 읽기가 400(err.status 그대로 올린다).
 import {parseCustomWords, buildSaveValue} from './brand/custom-words-model.mjs';
 
@@ -23,12 +23,14 @@ export async function writeCustomWords(rt = window.KPTURuntime, userId, value) {
 }
 
 /**
- * 칸 하나만 바꾼다(메뉴 수정 창). 바로 전에 서버 값을 다시 읽어 다른 칸은 그대로 두고 이 칸만 갈아 끼운다. 빈칸 = 기본 이름.
- * → {saved}(바뀐 뒤 값) 또는 {error: 칸 id | 'size'}(저장하지 않음).
+ * 고친 칸들만 바꾼다(메뉴 수정 [완료]). 바로 전에 서버 값을 다시 읽어 다른 칸은 그대로 두고 이 칸들만 갈아 끼운다. 빈칸 = 기본 이름.
+ * changes = {칸 id: 이름}. → {saved}(바뀐 뒤 값) 또는 {error: 칸 id | 'size'}(저장하지 않음).
  */
-export async function saveCustomWordSlot(rt = window.KPTURuntime, face, slotId, name) {
+export async function saveCustomWords(rt = window.KPTURuntime, face, changes) {
   const {userId, saved} = await readCustomWords(rt);
-  const next = buildSaveValue(face, {...saved, [slotId]: typeof name === 'string' ? name : ''});
+  const merged = {...saved};
+  for (const [slotId, name] of Object.entries(changes || {})) merged[slotId] = typeof name === 'string' ? name : '';
+  const next = buildSaveValue(face, merged);
   if (next.error) return {error: next.error};
   return {saved: await writeCustomWords(rt, userId, next.value)};
 }
