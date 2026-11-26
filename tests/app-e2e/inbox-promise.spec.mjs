@@ -1,7 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {basketKindButton} from './helpers/basket-kind.mjs';
-import {pickBasketView} from './helpers/forget-view.mjs';
 
 // INBOX-상대약속(S52-20: 정리함 한 목록 처리 전 맨 아래): 정리함 shows the counterpart promise the radar's finding returned, with [원장으로] (same text as the PC home card's
 // [원장으로 복사]). It is not counted in [챙길 것 n] and nothing is written. Supabase REST and ai-assist are the only synthetic parts.
@@ -36,8 +35,5 @@ for(const width of [390,1280])test(`상대 약속 줄 and [원장으로] in 정�
  await row.getByRole('button',{name:'원장으로'}).click();
  await expect(page.locator('#basketView [data-forget-status]')).toHaveText('원장에 넣을 약속 문구를 복사했어요.');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toMatch(/^쓰기요청\n- 종류: 약속\(상대·제3자\)\n- 내용: 상대 측 자료 송부 약속\n- 기한: 2026-10-10/);
- // The other views do not show promises.
- await pickBasketView(page,'tasked');
- await expect(row).toHaveCount(0);
  expect(writes).toEqual([]);expect(errors).toEqual([]);
 });

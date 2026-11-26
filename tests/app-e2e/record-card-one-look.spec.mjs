@@ -49,10 +49,10 @@ for(const width of [412,1280]){
   await expect(thumb).toBeVisible();
   const tb=await box(photo.locator('[data-record-photo]'));
   expect(Math.abs(tb.w-tb.h)).toBeLessThan(1);expect(tb.w).toBeLessThanOrEqual(44);
-  // 사진만 있는 기록: 그림 옆에 기록 한 줄(파일 이름)
+  // 사진만 있는 기록: 그림 옆에 기록 글(파일 이름). UI-기록줄균일(S70-85): 글은 두 줄까지, 작은 그림은 글 오른쪽(사업 관리 기록과 같은 자리).
   const lb=await box(photo.locator('[data-link-summary-text]'));
-  expect(lb.x).toBeGreaterThan(tb.x+tb.w);expect(lb.h).toBeLessThan(26);
-  // 안쪽 여백·높이: 글 두 줄 카드 이하
+  expect(lb.x+lb.w).toBeLessThanOrEqual(tb.x);expect(lb.h).toBeLessThan(42);
+  // 안쪽 여백·높이: 글 두 줄 카드 이하(S70-85부터 모든 기록 줄 같은 높이 — record-row-uniform.spec.mjs)
   expect(await photo.evaluate(e=>getComputedStyle(e).paddingTop)).toBe(await f.text.evaluate(e=>getComputedStyle(e).paddingTop));
   const [tc,pc]=[await box(f.text),await box(photo)];
   expect(pc.h).toBeLessThanOrEqual(tc.h+0.5);

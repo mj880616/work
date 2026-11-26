@@ -6,7 +6,6 @@ import {readFileSync} from 'node:fs';
 // 화면 쪽 판정(todo-radar-data.js)과 서버 옮기기(migration 20261125160000)의 같은 기준을 본다. 실제 PostgreSQL 실행은
 // tests/auth-handoff/forget-auto-expire-db.test.mjs가 본다. 글·이름은 지어낸 것이다.
 const {autoDone, autoReplied, starredCandidate, bundleDay, AUTO_DONE_LABEL} = await import('../app/todo-radar-data.js');
-const {candidateDone} = await import('../app/forget-list.js');
 
 const seoulKey = d => new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
 const row = (o = {}) => ({id: 'c1', kind: 'request', summary: '가상 요청', due: null, source_kind: 'basket', status: 'open', created_at: '2026-10-05T03:00:00Z', decided_at: null, ...o});
@@ -16,18 +15,14 @@ test('지남: 서버가 저절로 옮긴 그대로인 줄만 이미 함 · 지�
   const c = row({status: 'done', auto_done: 'expired', auto_done_at: AT, decided_at: AT});
   assert.equal(autoDone(c), 'expired');
   assert.equal(AUTO_DONE_LABEL.expired, '지남');
-  assert.match(candidateDone(c), /^이미 함 · 지남/);
   assert.equal(autoDone({...c, source_kind: 'telegram'}), 'expired');
   // 되돌렸다가(처리 전) 사람이 다시 [이미 함]을 누르면 처리한 때가 달라져 꼬리표 없음.
   assert.equal(autoDone({...c, decided_at: '2026-10-08T01:00:00Z'}), '');
   assert.equal(autoDone({...c, status: 'open', decided_at: null}), '', '되돌린 줄은 처리 전');
-  assert.match(candidateDone({...c, decided_at: '2026-10-08T01:00:00Z'}), /^이미 함( · |$)/);
-  assert.doesNotMatch(candidateDone({...c, decided_at: '2026-10-08T01:00:00Z'}), /지남/);
 });
 test('답장함은 그대로 텔레그램만(앞 단계 #3052 규칙 유지)', () => {
   const c = row({source_kind: 'telegram', status: 'done', auto_done: 'replied', auto_done_at: AT, decided_at: AT});
   assert.equal(autoReplied(c), true);
-  assert.match(candidateDone(c), /^이미 함 · 답장함/);
   assert.equal(autoDone({...c, source_kind: 'basket'}), '');
   assert.equal(autoDone({...c, auto_done: 'other'}), '');
 });

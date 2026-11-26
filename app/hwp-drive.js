@@ -101,6 +101,18 @@ export function takeHwpEditRequest(rt=window.KPTURuntime){
   return value&&value.scope===scopeOf(rt)&&Date.now()-value.at<REQUEST_MS?value.target:null;
 }
 export function hasHwpEditRequest(){return !!pending}
+// S71-61 HWP-노트안으로: 노트 ⋯ [이 노트를 HWP로] → HWP 편집의 [노조 서식으로 만들기] 글 칸에 그 노트 글을 넣어 여는 한 번짜리 넘김.
+// 위 넘김과 같은 규칙(로그인한 사람·작업공간에 묶임, 1분, 이 탭 메모리만 — 기기 저장소 없음). 글자만 넘기고 노트는 바꾸지 않는다.
+let convertPending=null;
+export function requestHwpConvert(text,rt=window.KPTURuntime){
+  const scope=scopeOf(rt),value=String(text??'');
+  convertPending=scope&&value.trim()?{text:value,scope,at:Date.now()}:null;
+  return !!convertPending;
+}
+export function takeHwpConvertRequest(rt=window.KPTURuntime){
+  const value=convertPending;convertPending=null;
+  return value&&value.scope===scopeOf(rt)&&Date.now()-value.at<REQUEST_MS?value.text:null;
+}
 
 const failure=(kind,message,extra={})=>Object.assign(new Error(message),{kind,...extra});
 async function session(rt){
