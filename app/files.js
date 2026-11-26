@@ -75,7 +75,7 @@ import {FILES_TWO_KEY, twoLayout, twoOn, twoValue, paneSide, sendLabel, paneDest
 import {within, isLoadTimeout} from './load-deadline.js';
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
-import {createSelectKeys, renameTarget} from './select-keys.js';
+import {createSelectKeys, renameTarget, confirmDelete} from './select-keys.js';
 import {uploadLabelHtml} from './upload-label.mjs';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
@@ -2439,6 +2439,7 @@ async function makeFolder(anchor, where = null) {
   const d = await write('mkdir', {source: w.source, parent: w.parent, name: chk.base}, '폴더 만드는 중');
   if (d) { await applyWrite(d, [folderKey(w.source, w.parent)]); notify(writeDoneText('mkdir'), {record: false}); }
 }
+// K1 한 규칙(I-6, select-keys.js confirmDelete): 휴지통 보내기 뒤에 [되돌리기] 알림이 없다(클라우드·폰·내 PC 휴지통에서 되살림) — 늘 확인 창을 받는다.
 async function trashRows(rows, anchor) {
   const list = rows.filter(Boolean);
   if (!list.length || phoneStop(list, null, {write: true})) return;
@@ -2448,8 +2449,8 @@ async function trashRows(rows, anchor) {
     const items = list.filter(r => r.parent_id);
     if (!items.length) { notify('드라이브는 휴지통으로 보내지 않아요', {record: false}); return; }
     const one = items.length === 1;
-    if (!(await askConfirm(anchor, {text: one ? `'${items[0].name}'을(를) 휴지통으로 보낼까요?` : `${items.length}개를 휴지통으로 보낼까요?`,
-      note: '되돌리기는 윈도우 휴지통에서 합니다', ok: '휴지통으로', danger: true}))) return;
+    if (!(await confirmDelete({undo: false, ask: () => askConfirm(anchor, {text: one ? `'${items[0].name}'을(를) 휴지통으로 보낼까요?` : `${items.length}개를 휴지통으로 보낼까요?`,
+      note: '되돌리기는 윈도우 휴지통에서 합니다', ok: '휴지통으로', danger: true})}))) return;
     let done = 0;
     const gone = [];
     for (const r of items) {
@@ -2484,7 +2485,7 @@ async function trashRows(rows, anchor) {
       if (!files.length) { notify(folders.length === 1 ? `'${folders[0].name}' 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})` : `선택한 폴더 안에 보낼 파일이 없어요(${PHONE_FOLDER_LEFT_NOTE})`, {record: false}); return; }
     }
     const ask = phoneTrashAsk({files: files.length, folders: folders.map(r => r.name), one: files[0]?.name});
-    if (!(await askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true}))) return;
+    if (!(await confirmDelete({undo: false, ask: () => askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true})}))) return;
     let done = 0;
     for (let i = 0; i < files.length; i += PHONE_TRASH_BATCH) {
       const part = files.slice(i, i + PHONE_TRASH_BATCH);
@@ -2498,7 +2499,7 @@ async function trashRows(rows, anchor) {
     return;
   }
   const ask = trashAsk(list);
-  if (!(await askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true}))) return;
+  if (!(await confirmDelete({undo: false, ask: () => askConfirm(anchor, {text: ask.text, note: ask.note, ok: '휴지통으로', danger: true})}))) return;
   let done = 0, failed = 0;
   for (const g of groupBySource(list)) {
     let ids = g.rows.map(r => r.item_id);

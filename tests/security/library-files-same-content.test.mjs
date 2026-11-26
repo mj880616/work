@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import {
-  hashKey, lookupTargets, folderInfo, planSameContent, linkMoves, linksByDoc, markSame, parseSameRequest, folderName, createSameContent, SAME_FOLDER_PREFIX, APPLY_MAX,
-} from '../../supabase/functions/library-files/same-content.mjs';
+import * as SC from '../../supabase/functions/library-files/same-content.mjs';
+const { hashKey, folderInfo, markSame, SAME_FOLDER_PREFIX } = SC;
 import { createDriveImport } from '../../supabase/functions/library-files/drive-import.mjs';
 
 // S69-45 LIB-같은내용정리: 가짜 데이터만(네트워크·운영 DB 없음).
+// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [같은 내용 자료 정리](scan·apply·undo)는 지웠다. 같은 내용 판정은 [드라이브에서 가져오기] '이미 있음'이 계속 쓴다.
 const u = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const fid = s => (s + '__________').slice(0, 12);
 const M1 = 'a'.repeat(32), M2 = 'b'.repeat(32);
@@ -17,13 +17,6 @@ test('hashKey: md5 32자 + 양의 크기만', () => {
   assert.equal(hashKey(M1, 0), null);
   assert.equal(hashKey('xyz', 10), null);
   assert.equal(hashKey(undefined, 10), null);
-});
-
-test('lookupTargets: 크기가 같은 자료가 둘 이상인 것만 묻는다(구글 문서류·크기 하나뿐은 안 물음)', () => {
-  const docs = [doc(1), doc(2), doc(3, { file_size: 999 }), doc(4, { mime_type: 'application/vnd.google-apps.document', file_size: null }), doc(5, { file_id: null })];
-  assert.deepEqual(lookupTargets(docs).sort(), [fid('f1'), fid('f2')].sort());
-  // 같은 드라이브 id를 가리키는 두 행은 크기가 달라 보여도 묻는다
-  assert.deepEqual(lookupTargets([doc(6, { file_id: fid('same') }), doc(7, { file_id: fid('same'), file_size: 5 })]), [fid('same')]);
 });
 
 test('folderInfo: 받는 폴더·그 아래·잡동사니·폴더 밖은 분류 안 됨, 경로 글자', () => {
@@ -39,41 +32,6 @@ test('folderInfo: 받는 폴더·그 아래·잡동사니·폴더 밖은 분류 
 
 const FOLDERS = [{ id: u(100), parent_id: null, name: '잡동사니' }, { id: u(101), parent_id: null, name: '교섭' }];
 
-test('남길 것 기준: 손으로 분류한 폴더 > 기록 연결 > 먼저 들어온 것', () => {
-  const keys = new Map([[fid('f1'), `${M1}:100`], [fid('f2'), `${M1}:100`], [fid('f3'), `${M1}:100`], [fid('f4'), `${M2}:100`], [fid('f5'), `${M2}:100`], [fid('f6'), `${M2}:100`]]);
-  const docs = [doc(1), doc(2, { created_at: '2026-01-01T00:00:00Z' }), doc(3), doc(4, { created_at: '2025-01-01T00:00:00Z' }), doc(5), doc(6)];
-  // 묶음1: 3은 '교섭'(손 분류), 2는 가장 오래됨 → 3 남김. 묶음2: 5는 노트 연결, 4가 가장 오래됨 → 5 남김(연결이 이김)
-  const items = new Map([[u(1), u(100)], [u(2), u(100)], [u(3), u(101)], [u(4), u(100)], [u(5), u(100)]]);
-  const links = { records: [{ id: u(900), document_id: u(5), google_task_id: null, note_id: u(800) }] };
-  const r = planSameContent({ docs, keys, items, folders: FOLDERS, links });
-  const g1 = r.groups.find(g => g.key === `${M1}:100`), g2 = r.groups.find(g => g.key === `${M2}:100`);
-  assert.equal(g1.keep.id, u(3)); assert.equal(g1.keep.path, '교섭');
-  assert.deepEqual(g1.drop.map(d => d.id).sort(), [u(1), u(2)].sort());
-  assert.equal(g2.keep.id, u(5));
-  assert.deepEqual(r.totals, { groups: 2, trash: 4, skipped: 0 });
-});
-
-test('휴지통 폴더에 든 자료는 대상에서 빠지고, 묶음이 하나뿐이면 정리 없음', () => {
-  const keys = new Map([[fid('f1'), `${M1}:100`], [fid('f2'), `${M1}:100`]]);
-  const r = planSameContent({ docs: [doc(1), doc(2)], keys, items: new Map([[u(2), u(555)]]), folders: FOLDERS });
-  assert.deepEqual(r.totals, { groups: 0, trash: 0, skipped: 0 });
-});
-
-test('기록 연결 보호: 옮길 수 없는 연결(회의·조직이 다름, 같은 노트 연결이 이미 있음)이면 그 묶음은 건너뜀', () => {
-  const keys = new Map([[fid('f1'), `${M1}:100`], [fid('f2'), `${M1}:100`]]);
-  const items = new Map([[u(1), u(101)], [u(2), u(100)]]); // 1이 손 분류 → 남김, 2가 지울 대상
-  const meet = planSameContent({ docs: [doc(1), doc(2, { meeting_id: u(700) })], keys, items, folders: FOLDERS });
-  assert.equal(meet.groups[0].skip, 'linked'); assert.deepEqual(meet.totals, { groups: 1, trash: 0, skipped: 1 });
-  const same = planSameContent({ docs: [doc(1), doc(2)], keys, items, folders: FOLDERS, links: { records: [{ id: u(901), document_id: u(1), note_id: u(800), google_task_id: null }, { id: u(902), document_id: u(2), note_id: u(800), google_task_id: null }] } });
-  assert.equal(same.groups[0].skip, 'linked');
-  // 옮길 수 있는 연결(다른 노트·보고 묶음)은 남길 자료로 옮길 계획
-  const map = linksByDoc({ records: [{ id: u(903), document_id: u(2), note_id: u(801), google_task_id: null }], snaps: [{ id: u(904), document_id: u(2) }] });
-  const mv = linkMoves(doc(1), [doc(2)], map);
-  assert.equal(mv.ok, true);
-  assert.deepEqual(mv.records, [{ id: u(903), from: u(2), to: u(1) }]);
-  assert.deepEqual(mv.snaps, [{ id: u(904), from: u(2), to: u(1) }]);
-});
-
 test('markSame: 자료실과 같은 내용이면 이미 있음(자료 이름·폴더), 목록 안 두 번째도 표시', () => {
   const items = [{ id: 'x1', name: 'a.pdf', kind: 'file' }, { id: 'x2', name: 'b.pdf', kind: 'file' }, { id: 'x3', name: 'b 사본.pdf', kind: 'file' }, { id: 'x4', name: 'memo', kind: 'link' }];
   const fileKeys = new Map([['x1', `${M1}:1`], ['x2', `${M2}:1`], ['x3', `${M2}:1`], ['x4', `${M1}:1`]]);
@@ -85,23 +43,33 @@ test('markSame: 자료실과 같은 내용이면 이미 있음(자료 이름·�
   assert.equal(r.same, 2);
 });
 
-test('parseSameRequest: 모양이 정확할 때만', () => {
-  assert.deepEqual(parseSameRequest({ action: 'same-content-scan' }), { action: 'scan' });
-  assert.equal(parseSameRequest({ action: 'same-content-scan', workspace_id: 'w' }), null);
-  assert.deepEqual(parseSameRequest({ action: 'same-content-apply', groups: [{ keep: u(1), drop: [u(2)] }] }), { action: 'apply', groups: [{ keep: u(1), drop: [u(2)] }] });
-  assert.equal(parseSameRequest({ action: 'same-content-apply', groups: [{ keep: u(1), drop: [u(1)] }] }), null, '겹침');
-  assert.equal(parseSameRequest({ action: 'same-content-apply', groups: [{ keep: u(1), drop: [] }] }), null);
-  assert.equal(parseSameRequest({ action: 'same-content-apply', groups: [{ keep: 'x', drop: [u(2)] }] }), null);
-  const many = Array.from({ length: APPLY_MAX }, (_, i) => u(i + 10));
-  assert.equal(parseSameRequest({ action: 'same-content-apply', groups: [{ keep: u(1), drop: many }] }), null, '한도');
-  assert.ok(parseSameRequest({ action: 'same-content-undo', undo: { folder: u(1), moves: [{ d: u(2), f: null }], links: [{ t: 'r', id: u(3), from: u(2), to: u(4) }] } }));
-  assert.equal(parseSameRequest({ action: 'same-content-undo', undo: { folder: u(1), moves: [{ d: u(2), f: 'x' }], links: [] } }), null);
-});
-
-test('folderName: 한국 시각, 앞말 고정, 40자 안', () => {
-  const n = folderName(new Date('2026-11-24T07:05:00Z'));
-  assert.equal(n, `${SAME_FOLDER_PREFIX} 11-24 16:05`);
-  assert.ok(n.length <= 40);
+test('drive-import list: 드라이브 id가 달라도 같은 내용이면 이미 있음(같은 내용: 자료 이름·폴더)', async () => {
+  const F = 'application/vnd.google-apps.folder';
+  const P = fid('pick');
+  const driveFiles = [
+    { id: P, name: '고른 폴더', mimeType: F, parents: [fid('root')], ownedByMe: true, trashed: false },
+    { id: fid('copy'), name: '교섭안 사본.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M1, parents: [P], ownedByMe: true },
+    { id: fid('new'), name: '새 자료.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M2, parents: [P], ownedByMe: true },
+  ];
+  const regMeta = { [fid('f1')]: { md5Checksum: M1, size: '100' } };
+  const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s });
+  const fetch = async url => {
+    const s = String(url);
+    if (s.startsWith('https://oauth2.googleapis.com/tokeninfo')) return json({ scope: 'https://www.googleapis.com/auth/drive' });
+    if (s.startsWith('https://www.googleapis.com/drive/v3/files?')) { const q = new URL(s).searchParams.get('q'); return json({ files: driveFiles.filter(f => (f.parents || []).some(p => q.includes(`'${p}' in parents`))) }); }
+    const m = s.match(/\/files\/([^?]+)\?fields=/);
+    if (m) { const id = decodeURIComponent(m[1]); const f = driveFiles.find(x => x.id === id) || regMeta[id]; return f ? json(f) : json({}, 404); }
+    throw new Error(s);
+  };
+  const docs = [doc(1)];
+  const admin = { from() { const b = { select: () => b, eq: () => b, range: async () => ({ data: docs, error: null }), maybeSingle: async () => ({ data: {}, error: null }) }; return b; } };
+  const { db } = fakeDb({ app_library_folders: [{ id: u(101), workspace_id: 'w1', parent_id: null, name: '교섭' }], app_library_folder_items: [{ document_id: u(1), folder_id: u(101), workspace_id: 'w1' }] });
+  const imp = createDriveImport({ admin, db, fetch, token: 't', workspaceId: 'w1', userId: 'u1', titleFor: n => n, classify: () => ({}), log: () => {} });
+  const r = await imp.list(P);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.items.find(x => x.id === fid('copy')).same, { title: '자료1', path: '자료실 › 교섭' });
+  assert.equal(r.items.find(x => x.id === fid('new')).same, undefined);
+  assert.equal(r.same, 1);
 });
 
 // ---- 가짜 DB(로그인한 사람 토큰 모양 — 한 작업공간 표만) + 가짜 드라이브 ----
@@ -176,84 +144,11 @@ function world() {
   return { tables, meta };
 }
 
-test('scan → apply → undo: 정리 폴더로 옮겨 휴지통, 연결은 남길 자료로, 되돌리면 원래대로(드라이브는 읽기만)', async () => {
-  const { tables, meta } = world();
-  const { db, calls } = fakeDb(tables);
-  const drive = fakeDrive(meta);
-  const same = createSameContent({ db, fetch: drive.fetch, token: 't', workspaceId: 'w1', userId: 'u1', now: () => new Date('2026-11-24T07:05:00Z'), log: () => {} });
-  const s = await same.scan();
-  assert.equal(s.ok, true);
-  assert.deepEqual(s.totals, { groups: 1, trash: 2, skipped: 0 });
-  assert.equal(s.groups[0].keep.id, u(3)); // '교섭' 폴더(손 분류)
-  assert.equal(drive.calls.some(c => c.url.includes(fid('f4'))), false, '크기가 하나뿐인 자료는 드라이브에 묻지 않음');
-  assert.equal(calls.some(c => c.op && c.op !== 'select'), false, '미리 보기는 아무것도 바꾸지 않음');
 
-  const r = await same.apply([{ keep: s.groups[0].keep.id, drop: s.groups[0].drop.map(d => d.id) }]);
-  assert.equal(r.ok, true); assert.equal(r.trashed, 2); assert.equal(r.skipped, 0); assert.equal(r.in_trash, true);
-  const dedup = tables.app_library_folders.find(f => f.name === `${SAME_FOLDER_PREFIX} 11-24 16:05`);
-  assert.ok(dedup?.deleted_at, '정리 폴더는 휴지통 표시');
-  assert.deepEqual(tables.app_library_folder_items.filter(i => i.folder_id === dedup.id).map(i => i.document_id).sort(), [u(1), u(2)].sort());
-  assert.equal(tables.app_documents.length, 4, '자료 행은 지우지 않음');
-  assert.equal(tables.app_record_links[0].document_id, u(3), '노트 연결은 남길 자료로');
-  assert.equal(drive.calls.every(c => c.method === 'GET'), true, '드라이브는 메타데이터 읽기만');
-  assert.equal(calls.every(c => !c.table || c.f.some(([op, k, v]) => k === 'workspace_id' && v === 'w1') || c.op === 'insert' || (c.table === 'app_profiles' && c.f.some(([, k, v]) => k === 'user_id' && v === 'u1'))), true, '모든 조회·변경은 내 작업공간 조건');
-
-  const back = await same.undo(r.undo);
-  assert.deepEqual(back, { ok: true, restored: 2, missed: 0 });
-  assert.equal(tables.app_library_folder_items.find(i => i.document_id === u(1)).folder_id, u(100));
-  assert.equal(tables.app_library_folder_items.some(i => i.document_id === u(2)), false, '폴더 밖이던 것은 다시 폴더 밖');
-  assert.equal(tables.app_record_links[0].document_id, u(1), '연결도 되돌림');
-  assert.equal(tables.app_library_folders.some(f => f.id === dedup.id), false, '비게 된 정리 폴더는 지움');
-});
-
-test('apply: 화면이 보낸 묶음이 같은 내용이 아니거나 남의 자료면 건너뜀(아무것도 안 옮김)', async () => {
-  const { tables, meta } = world();
-  tables.app_documents.push(doc(9, { workspace_id: 'w2' }));
-  const { db } = fakeDb(tables);
-  const same = createSameContent({ db, fetch: fakeDrive(meta).fetch, token: 't', workspaceId: 'w1', userId: 'u1', log: () => {} });
-  const r = await same.apply([{ keep: u(3), drop: [u(4)] }, { keep: u(2), drop: [u(9)] }]);
-  assert.deepEqual({ trashed: r.trashed, skipped: r.skipped, undo: r.undo }, { trashed: 0, skipped: 2, undo: null });
-  assert.equal(tables.app_library_folders.some(f => String(f.name).startsWith(SAME_FOLDER_PREFIX)), false);
-});
-
-test('drive-import list: 드라이브 id가 달라도 같은 내용이면 이미 있음(같은 내용: 자료 이름·폴더)', async () => {
-  const F = 'application/vnd.google-apps.folder';
-  const P = fid('pick');
-  const driveFiles = [
-    { id: P, name: '고른 폴더', mimeType: F, parents: [fid('root')], ownedByMe: true, trashed: false },
-    { id: fid('copy'), name: '교섭안 사본.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M1, parents: [P], ownedByMe: true },
-    { id: fid('new'), name: '새 자료.pdf', mimeType: 'application/pdf', size: '100', md5Checksum: M2, parents: [P], ownedByMe: true },
-  ];
-  const regMeta = { [fid('f1')]: { md5Checksum: M1, size: '100' } };
-  const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s });
-  const fetch = async url => {
-    const s = String(url);
-    if (s.startsWith('https://oauth2.googleapis.com/tokeninfo')) return json({ scope: 'https://www.googleapis.com/auth/drive' });
-    if (s.startsWith('https://www.googleapis.com/drive/v3/files?')) { const q = new URL(s).searchParams.get('q'); return json({ files: driveFiles.filter(f => (f.parents || []).some(p => q.includes(`'${p}' in parents`))) }); }
-    const m = s.match(/\/files\/([^?]+)\?fields=/);
-    if (m) { const id = decodeURIComponent(m[1]); const f = driveFiles.find(x => x.id === id) || regMeta[id]; return f ? json(f) : json({}, 404); }
-    throw new Error(s);
-  };
-  const docs = [doc(1)];
-  const admin = { from() { const b = { select: () => b, eq: () => b, range: async () => ({ data: docs, error: null }), maybeSingle: async () => ({ data: {}, error: null }) }; return b; } };
-  const { db } = fakeDb({ app_library_folders: [{ id: u(101), workspace_id: 'w1', parent_id: null, name: '교섭' }], app_library_folder_items: [{ document_id: u(1), folder_id: u(101), workspace_id: 'w1' }] });
-  const imp = createDriveImport({ admin, db, fetch, token: 't', workspaceId: 'w1', userId: 'u1', titleFor: n => n, classify: () => ({}), log: () => {} });
-  const r = await imp.list(P);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.items.find(x => x.id === fid('copy')).same, { title: '자료1', path: '자료실 › 교섭' });
-  assert.equal(r.items.find(x => x.id === fid('new')).same, undefined);
-  assert.equal(r.same, 1);
-});
-
-test('index.ts: 같은 내용 정리 갈래는 로그인 → 내 owner 작업공간 → 내 토큰 DB·내 구글 연결, 화면 작업공간 값을 받지 않는다', () => {
+test('S70-29: [같은 내용 자료 정리] 갈래·부품이 없다(같은 내용 판정·가져오기 표시는 남음)', () => {
+  for (const name of ['createSameContent', 'parseSameRequest', 'planSameContent', 'linkMoves', 'linksByDoc', 'folderName', 'lookupTargets', 'APPLY_MAX']) assert.equal(SC[name], undefined, name);
+  for (const name of ['hashKey', 'fileKey', 'hashable', 'folderInfo', 'markSame', 'lookupKeys']) assert.equal(typeof SC[name], 'function', name);
   const src = readFileSync(new URL('../../supabase/functions/library-files/index.ts', import.meta.url), 'utf8');
-  const at = src.indexOf("input.action.startsWith('same-content-')");
-  assert.ok(at > 0);
-  const part = src.slice(at, at + 1200);
-  assert.match(part, /parseSameRequest\(input\)/);
-  assert.match(part, /workspaceFor\(user\.id\)/);
-  assert.match(part, /userDbFor\(req\)/);
-  assert.match(part, /driveToken\(wmSame\.workspace_id\)/);
-  assert.doesNotMatch(part, /admin/);
-  assert.doesNotMatch(part, /input\.workspace_id|input\.user_id/);
+  assert.doesNotMatch(src, /same-content-|createSameContent|parseSameRequest|top-files-|createTopFiles|parseTopFilesRequest/);
+  assert.match(src, /if\(input\?\.action!=='previous-keep'\)throw new UploadError\('지원하지 않는 작업입니다\.'/, '지운 요청은 지원하지 않는 작업으로 거절');
 });
