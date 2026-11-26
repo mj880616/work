@@ -36,7 +36,7 @@ import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK, EDIT} from './row-swipe.js';
 import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
 import {shareArticleLink} from './link-share.js';
-import {iconHtml} from './tree-icons.js';
+import {iconNode} from './tree-icons.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
@@ -507,7 +507,7 @@ function drawDetail() {
   // S71-69 SHARE-글공유: ↗ 옆 [공유] 아이콘 = 제목 + 원래 주소(link-share.js — 폰 공유 창 · PC 복사). 주소가 http·https인 글만.
   if (shareOf(row.id)) {
     const share = btn('ds-doc-icon rd-share', '', {rdShare: row.id});
-    share.innerHTML = iconHtml('share'); share.title = SHARE_LABEL; share.setAttribute('aria-label', SHARE_LABEL);
+    share.append(iconNode('share')); share.title = SHARE_LABEL; share.setAttribute('aria-label', SHARE_LABEL);
     icons.append(share);
   }
   icons.append(src);

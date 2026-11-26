@@ -107,7 +107,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // S70-40b READ-글보기머리: 이름은 저장한 글과 같은 '원래 페이지'(ui-words.md). 글 머리 첫 줄 오른쪽 ↗ 아이콘(공용 .ds-doc-icon)이 기본 자리,
   // 원문을 못 받은 까닭 줄 끝 글자 링크(…원래 사이트 ↗)는 그 줄 안내라 그대로 둔다.
   // S71-69 SHARE-글공유: 머리 줄 ↗ 옆 [공유] 아이콘(공용 share 그림). 주소가 http·https인 글만.
-  const shareIconHtml = h => (articleShare(h) ? `<button type="button" class="ds-doc-icon nd-share" data-nd-share title="${SHARE_LABEL}" aria-label="${SHARE_LABEL}">${iconHtml('share')}</button>` : '');
+  const shareIconHtml = h => (articleShare(h) ? `<button type="button" class="ds-doc-icon icon-btn nd-share" data-nd-share title="${SHARE_LABEL}" aria-label="${SHARE_LABEL}">${iconHtml('share')}</button>` : '');
   const siteLink = (label = '원래 사이트 ↗', cls = 'nd-link', name = '원래 사이트') => (cur.head.url ? `<a class="${cls}" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)} (새 창)">${esc(label)}</a>` : '');
   const langAttr = () => (cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '');
   const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
