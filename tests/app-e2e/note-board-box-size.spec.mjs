@@ -169,10 +169,10 @@ test('PC: 가지를 빈 곳에 끌어 두면 그 자리(자동 배치가 덮어�
   const rb = await box(node(page, '가운데 주제')), gb = await box(g1);
   await page.mouse.move(from.x, from.y); await page.mouse.down();
   await page.mouse.move(far.x, rb.y + gb.height / 2 + 2, { steps: 10 });
-  await expect(page.locator('[data-nb-guides] .nb-guide')).not.toHaveCount(0);
+  await expect(page.locator('[data-nb-guides] .nb-guide:not([visibility="hidden"])')).not.toHaveCount(0);
   await page.mouse.move(far.x, far.y, { steps: 6 });
   await page.mouse.up();
-  await expect(page.locator('[data-nb-guides] .nb-guide')).toHaveCount(0);
+  await expect(page.locator('[data-nb-guides] .nb-guide:not([visibility="hidden"])')).toHaveCount(0);
   await expect.poll(() => rowBy(textRows, '가지 하나').pinned).toBe(true);
   expect(rowBy(textRows, '가지 하나').parent_id).toBe('r');
   await expect(g1).toHaveAttribute('data-pinned', '');

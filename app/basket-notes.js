@@ -292,7 +292,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     focusCard:id => !!board?.focusCard(id), centerPoint:() => board?.centerPoint() || null,
     openNote:id => { if (busy || !notes.some(n => n.id === id)) return; open(id); },
     // S70-32 ③: 보드 칸 메뉴 [PDF로 내보내기]·[HTML로 내보내기] — 보드 전체를 이 기기로 내려받기(서버 사본 없음).
-    onExport:kind => { void exportThisBoard(kind); }});
+    onExport:kind => { void exportThisBoard(kind); },
+    // S71-50 NOTE-보드배경색: 색을 바꾸면 판 바탕만 바꾼다(카드·선은 다시 그리지 않음).
+    onBg:() => { if (board && boards.isNamed()) board.setBg(boards.bgOf(boards.current())); }});
   let exporting = false;
   async function exportThisBoard(kind) {
     if (exporting || !board || !boards.isNamed()) return;
@@ -625,7 +627,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
-      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
+      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), branchReady:() => boardLinks.branchReady(), canBranch:() => boardLinks.checkBranch(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
       onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
       // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
@@ -638,7 +640,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     void boardLinks.load(); // 처음 한 번(작업공간이 바뀌면 다시) — 다 읽으면 onChange로 다시 그린다
     const shown = named.notes, key = boards.current();
     board.paint({notes:shown, folderOf, colorOfFolder:id => colorOf(folderById(id)), visible:m ? new Set(shown.filter(m).map(n => n.id)) : null, pickActive:!!pick.active, isPicked:id => isPicked('n:' + id),
-      boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), placeOf:named.placeOf, removable:true, emptyText:named.emptyText});
+      boardKey:key, links:boardLinks.forBoard(key), texts:boardLinks.textsFor(key), placeOf:named.placeOf, removable:true, emptyText:named.emptyText, bg:boards.bgOf(key)});
   }
   function paintViewSwitch() {
     host.querySelectorAll('[data-note-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.noteView === view)));
@@ -962,7 +964,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const menuItems = (note, from, folderId = null, {goto = false} = {}) => {
     if (from === 'file') return [['data-note-file-rename', '이름 수정'], ['data-note-file-detach', '빼기'], ['data-note-file-delete', '삭제', 'basket-menu-danger']];
     // UI-우클릭전수(2026-11-03): 빈 보드 우클릭 메뉴. 새 노트는 목록 맨 위 입력칸에서 쓴다(입력칸으로 초점).
-    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기'], ['data-nbb-export-pdf', 'PDF로 내보내기'], ['data-nbb-export-html', 'HTML로 내보내기']]; // S70-32 ③
+    if (from === 'board') return [['data-nbb-newnote', '새 노트 쓰기'], ['data-nbb-export-pdf', 'PDF로 내보내기'], ['data-nbb-export-html', 'HTML로 내보내기']]; // S70-32 ③ (S71-50: 위에 배경색 고르기 — openMenu)
     // ② '보일 칸': 체크 줄(누르면 그 칸 켜기·끄기, 메뉴는 열린 채). 제목은 늘 켜짐이라 없다. 맨 아래 [기본으로].
     if (from === 'cols') { const on = listCols(); return [...NOTE_COLS.map(k => [`data-nl-col-toggle="${k}" role="menuitemcheckbox" aria-checked="${on.includes(k)}"`, `<span class="nl-check" aria-hidden="true">${on.includes(k) ? '✓' : ''}</span>${LIST_COL_NAMES[k]}`]), ['data-nl-cols-reset', '기본으로']]; }
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '삭제', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
@@ -1049,7 +1051,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu();
     const el = menuEl();
     el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '선택한 것 메뉴' : from === 'cols' ? '보일 칸' : '노트 메뉴');
-    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuButtonsHtml(menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}));
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + ((from === 'board' || (from === 'head' && view === 'board')) && boards.isNamed() ? boards.bgSwatchesHtml(boards.current()) : '') + menuButtonsHtml(menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}));
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
@@ -2168,6 +2170,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // A menu item acts on the note the menu was openSet for (a list row's note need not be open).
   function menuAction(b, from) {
+    // S71-50 NOTE-보드배경색: 빈 판 우클릭 메뉴·보드 보기의 화면 ⋯ 메뉴 맨 위 색 고르기.
+    if (b.hasAttribute('data-nbb-bg')) { if (view === 'board' && boards.isNamed()) boards.setBg(boards.current(), b.dataset.nbbBg || null); return; }
     if (from.from === 'cols') { if (b.hasAttribute('data-nl-cols-reset')) setListCols([...LIST_COLS_DEFAULT]); return; }
     if (from.from === 'picked') {
       if (b.hasAttribute('data-nx-sel-move')) openMovePicker(from.trigger, pickedItems());
