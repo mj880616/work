@@ -30,7 +30,7 @@ import {waitHtml, failHtml, emptyEl} from './wait-state.js';
 import {notify, askConfirm} from './small-notice.js';
 import {word, APP_NAME} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
-import {bindRowSwipe, claimedSince, PICK} from './row-swipe.js';
+import {bindRowSwipe, claimedSince, PICK, EDIT} from './row-swipe.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
@@ -42,6 +42,7 @@ import {openMemoSource} from './memo-open.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
+import {registerScreenFind, refreshScreenFind, finderOf, toolsBox} from './screen-find.js';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const btn = (cls, text, data) => { const b = el('button', cls, text); b.type = 'button'; for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v; return b; };
@@ -80,6 +81,19 @@ function setFilter(v) {
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
 const marksNow = () => visibleMarks(highlightsNow(), {newsOn: state.marksNewsOn, noteHidden: () => !!window.KPTUFeatureLock?.notesHidden?.()});
 const entriesNow = () => entriesOf(state.rows);
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '저장한 글에서 찾기' — 지금 탭 목록을
+// 제목·매체(밑줄 탭은 밑줄 글·메모·글 제목, 메모 탭은 글 제목·메모)로 거른다. 이 화면 메모리만(서버 검색 없음).
+let findText = '', findQuery = '';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder = finderOf('reading', () => findText);
+const ranked = (list, texts) => (findQuery ? finder().rank(list, texts) : list);
+registerScreenFind('reading', {
+  label: '저장한 글에서 찾기',
+  active: () => window.KPTURouter?.current === 'reading' && !!view() && !view().classList.contains('hidden') && !view().querySelector('[data-rd-list]')?.hidden,
+  value: () => (findQuery ? findText : ''),
+  marks: '#readingView [data-rd-list]',
+  apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const next = findText.trim().toLowerCase(); if (next === findQuery && !again) return; findQuery = next; drawList(); },
+});
 // News에서 열 수 있는 줄의 원래 글({type,id}) — News 기능 키가 있을 때만.
 const newsLinkOf = id => (state.newsOn ? linkOf(rowOf(id)) : null);
 // S69 [수정](명진 11/24 "목록에서 ... 안에 수정 버튼도 있어야"): 어느 창으로 고치나 — 한 곳만.
@@ -134,6 +148,11 @@ const areaText = id => (id && areaNames ? areaNames(id) : '');
 
 // ---------- 목록 ----------
 let switchHost = null;
+// S71-26: 화면 이름 줄의 ＋(글 추가). 그리기는 여기 한 번, 누르기는 bind()의 누르기 처리(상자에도 같은 처리를 붙인다).
+const tools = toolsBox('reading', 'reading');
+const addBtn = btn('rd-add icon-btn', '＋', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js — data-screen-tools-for로 찾음)
+addBtn.setAttribute('aria-label', '글 추가'); addBtn.title = '글 추가';
+tools.append(addBtn);
 function rowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
@@ -159,16 +178,11 @@ function rowEl(e) {
 function drawList() {
   const box = view()?.querySelector('[data-rd-list]');
   if (!box) return;
-  const head = el('div', 'rd-head');
-  // S70-40b ④ READ-목록머리(docs/design/reading-screens.md 5절 ② (가), 명진 11/25 16:16 "추천대로"): PC 틀(761px~)은 위 줄(app-topline)에
-  // 화면 이름 '저장한 글'이 이미 보이므로 머리 줄 제목은 그리지 않는 쪽(reading.css가 761px~에서 뺌) — 머리 줄은 보기 탭 + ＋ 아이콘만.
-  // 폰·접은 폴드(~760px)는 위 줄이 없어 제목이 화면 이름이고 탭은 하단바 위 공용 전환 줄로 간다(머리 = 제목 + ＋).
-  head.append(el('h2', 'rd-title', '저장한 글'));
-  const add = btn('rd-add icon-btn', '＋', {rdAdd: '1', ctxScreenItem: '글 추가'}); // S70-28: 빈 곳 우클릭 메뉴에도(context-menu.js)
-  add.setAttribute('aria-label', '글 추가'); add.title = '글 추가';
-  add.setAttribute('aria-expanded', String(state.adding));
-  head.append(add);
-  const parts = [head];
+  // S71-26 SAVED-머리한줄(명진 11/26 "+ 를 돋보기 우측으로"): ＋는 목록 머리 줄이 아니라 화면 이름 줄 찾기 오른쪽(공용 단추 상자 screen-find.js toolsBox —
+  // 폰·폴드 앱 머리 줄 [W 저장한 글 · 찾기 · ＋], PC 맨 위 줄 검색 칸 오른쪽). ＋ 하나만 있던 폰 목록 머리 줄(.rd-head)은 없앴다.
+  // 목록 첫 줄은 보기 탭(.rd-switch)뿐 — 폰은 하단바 위 공용 전환 줄, PC 틀은 목록 맨 위. 화면 이름은 앱 머리 줄·PC 위 줄 한 곳(S70-40b·S70-57).
+  addBtn.setAttribute('aria-expanded', String(state.adding));
+  const parts = [];
   if (state.adding) {
     const form = el('form', 'rd-form');
     form.dataset.rdForm = '1';
@@ -186,7 +200,7 @@ function drawList() {
       const bm = el('p', 'rd-line rd-bm');
       bm.dataset.rdBm = '1';
       const a = el('a', 'rd-bm-link', `${APP_NAME} 저장`);
-      a.href = bookmarklet(); a.dataset.rdBmLink = '1'; a.title = '즐겨찾기 막대로 끌어 놓기';
+      a.href = bookmarklet(); a.dataset.rdBmLink = '1';
       bm.append('크롬 버튼: ', a, ' ', btn('mini', '한 줄 복사', {rdBmCopy: '1'}));
       parts.push(bm);
     }
@@ -205,10 +219,10 @@ function drawList() {
   switchHost ||= el('div', 'rd-switch');
   renderFilterChips(switchHost, {options: filterOptions(entries, marks ? marks.length : null, memoState().ready ? myMemos().length : null), value: keepFilter(state.filter), label: '저장한 글 보기', seg: true,
     onChange: v => { setFilter(v); drawList(); }});
-  head.insertBefore(switchHost, add);
-  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks)); box.replaceChildren(...parts); return; }
+  parts.unshift(switchHost);
+  if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && ranked(marks, h => [h.quote, h.memo, h.source_title]))); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
-  const shown = filterEntries(entries, state.filter, state.open || '');
+  const shown = ranked(filterEntries(entries, state.filter, state.open || ''), e => { const l = lineOf(e.row); return [l.title, l.site]; });
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
@@ -245,7 +259,7 @@ function memosEl() {
   const st = memoState();
   if (!st.loaded) { void loadMemos(); list.insertAdjacentHTML('beforeend', waitHtml({rows: 3, h: 40})); return list; }
   if (!st.ready) { list.append(emptyEl(st.missing ? '메모는 준비 중이에요.' : '메모를 읽지 못했어요.')); return list; }
-  const rows = myMemos();
+  const rows = ranked(myMemos(), m => [readingMemoTitle(m), m.quote, m.body]);
   if (!rows.length) list.append(emptyEl(emptyText('memos', 0)));
   else list.insertAdjacentHTML('beforeend', `<div class="memo-lines">${rows.map(m => memoRowHtml(m, {titleOf: readingMemoTitle, exists: readingMemoExists})).join('')}</div>`);
   return list;
@@ -298,9 +312,10 @@ function drawDetail() {
   const box = detailBox, listBox = view()?.querySelector('[data-rd-list]');
   if (!box) return;
   const row = state.open ? rowOf(state.open) : null;
-  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); return; }
+  if (!row) { box.hidden = true; box.replaceChildren(); memoThread.detach(); if (listBox) listBox.hidden = false; view()?.classList.remove('rd-reading'); refreshScreenFind(); return; }
   view()?.classList.add('rd-reading');
   if (listBox) listBox.hidden = !split();
+  refreshScreenFind(); // 폰은 글 보기가 목록 대신 — 그동안 맨 위 칸은 이 화면 찾기가 아니다
   const l = lineOf(row);
   // S70-40b READ-글보기머리(docs/design/reading-screens.md 4절·5절 ①③ (가)): 공용 '글 보기 머리'(ui-standard.css .ds-doc-*) —
   // 첫 줄 = [‹](폰) 출처 · 날짜 · 사업영역 꼬리표 + 오른쪽 작은 아이콘 줄 [↗ 원래 페이지][−][+][⋯], 둘째 줄 = 제목(두 줄까지 줄바꿈, 말줄임 없음).
@@ -629,9 +644,10 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
 
 // 좌우 밀기: 목록 칸에서 옆으로 밀면 옆 칩으로(세로 스크롤과 구분: 가로 이동이 세로의 2배 이상·60px 이상).
 // UI-줄밀기 Raindrop식(S68-26 2/2): 줄 위에서 시작한 밀기는 줄 밀기가 먼저다(claimedSince) — 그때는 칩을 넘기지 않는다.
+// S71-26: 줄 밖 밀기 자리였던 목록 머리 줄(＋만 있던 줄)이 없어져, 화면 칸 전체(목록 아래 빈 곳 포함)에서 받는다. 글 보기 칸에서 시작한 밀기는 넘기지 않는다.
 function bindSwipe(box) {
   let x0 = null, y0 = 0, t0 = 0;
-  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-switch')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, {passive: true});
+  box.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest?.('input,textarea,.rd-switch,[data-rd-detail]')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, {passive: true});
   box.addEventListener('touchend', e => {
     if (x0 === null) return;
     const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
@@ -643,8 +659,8 @@ function bindSwipe(box) {
   }, {passive: true});
 }
 
-// UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
-// 오른쪽으로 밀면 [선택] → 'n개 선택됨 · [읽음][삭제]'. News에서 보낸 줄도 같은 단추(S68-29).
+// S70-62부터 왼쪽 밀기 칸은 [수정][삭제](아래). 옛 설명 — UI-줄밀기 Raindrop식(S68-26 2/2, 명진 11/22 21:31): 폰 읽을 거리 줄 — 왼쪽으로 밀면 [사업에 연결]·[읽음]/[안 읽음으로],
+// 오른쪽으로 밀면 여러 개 선택(막대 '[전체 선택][삭제]' 두 칸, S70-64b — 읽음은 줄 밀기·⋯로). News에서 보낸 줄도 같은 단추(S68-29).
 // 단추는 ⋯ 메뉴와 같은 함수만 부른다(toggleRead·pickArea·removeAny). S68-31(명진 11/23 02:24 "삭제가 필요 가능한 경우 왼쪽으로 밀 때 삭제도"):
 // 왼쪽 밀기 맨 끝에 [삭제] — ⋯ [삭제]와 같은 removeAny(직접 넣은 줄은 묻고 지우기, News에서 보낸 줄은 5초 [되돌리기]). 끝까지 밀어도 칸만 열린다.
 function bindRows(box) {
@@ -654,23 +670,20 @@ function bindRows(box) {
       const key = keyOf(el);
       const row = rowOf(key);
       if (!row) return null;
-      const readAct = row.read_at ? {key: 'unread', label: '안 읽음으로', tone: 'muted', icon: 'undo'} : {key: 'read', label: '읽음', tone: 'info', icon: 'done'};
-      return {start: PICK, end: [{key: 'area', label: '사업에 연결', tone: 'move', icon: 'link'}, readAct, {key: 'delete', label: '삭제', tone: 'danger'}]};
+      // S70-62 READ-밀기메뉴(명진 11/26 07:41 "저장된 글에서는 수정 삭제로"): 칸은 [수정][삭제] 둘. 읽음·사업에 연결은 ⋯·글 보기에 그대로.
+      // [수정]은 ⋯ [수정]과 같은 startEdit(고칠 수 없는 줄 — News에서 온 사회운동 글 — 은 [삭제]만).
+      return {start: PICK, end: [...(editKind(key) ? [EDIT] : []), {key: 'delete', label: '삭제', tone: 'danger'}]};
     },
     run: (key, el) => {
       const id = keyOf(el);
       const row = rowOf(id);
       if (!row) return;
-      if (key === 'read' || key === 'unread') void toggleRead(id, key === 'read');
-      else if (key === 'area') { const at = box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`); if (at) void pickArea(at, id); }
+      if (key === 'edit') void startEdit(id);
       else if (key === 'delete') void removeAny(id, box.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || el);
     },
-    // 고른 줄: [읽음]은 하나씩 차례로(⋯와 같은 길), [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
-    select: {attr: 'data-rd-pick', label: '선택한 글', acts: () => [{key: 'read', label: '읽음'}, {key: 'delete', label: '삭제', danger: true}],
-      run: async (key, ids) => {
-        if (key === 'delete') { await removeMany(ids); return; }
-        for (const id of ids) { const row = rowOf(id); if (row && !row.read_at) await toggleRead(id, true); }
-      }}});
+    // 고른 줄: [삭제]는 removeMany(⋯ 삭제와 같은 규칙, 묻기·알림은 한 번).
+    select: {attr: 'data-rd-pick', label: '선택한 글', acts: () => [{key: 'delete', label: '삭제', danger: true}],
+      run: async (key, ids) => { if (key === 'delete') await removeMany(ids); }}});
 }
 
 function bind() {
@@ -687,7 +700,6 @@ function bind() {
     if (mo) { openMemoLine(mo.dataset.memoOpen); return; }
     const more = t.closest?.('[data-rd-more]');
     if (more) { headMenu = more.dataset.rdHeadMore === '1'; menu.open(more); return; }
-    if (t.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-add-close]')) { state.adding = false; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-bm-link]')) { e.preventDefault(); notify('즐겨찾기 막대로 끌어 놓아 쓰세요', {record: false}); return; }
     if (t.closest?.('[data-rd-bm-copy]')) { void copyText(bookmarklet()).then(ok => notify(ok ? '한 줄 복사했어요 · 즐겨찾기 막대 오른쪽 클릭 → 페이지 추가 → URL에 붙여 넣기' : '복사하지 못했어요', {record: false, error: !ok})); return; }
@@ -715,8 +727,10 @@ function bind() {
     e.preventDefault();
     void addUrl(form.querySelector('input')?.value || '');
   });
+  // S71-26: ＋는 화면 이름 줄 상자(이 화면 칸 밖)에 있어 같은 동작을 상자에도 붙인다(목록 안 [닫기]와 같은 상태·같은 그리기).
+  tools.addEventListener('click', e => { if (e.target.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); } });
   const listBox = v.querySelector('[data-rd-list]');
-  if (listBox) { bindSwipe(listBox); bindRows(listBox); }
+  if (listBox) { bindSwipe(v); bindRows(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
   bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});

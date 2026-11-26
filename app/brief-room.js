@@ -58,6 +58,7 @@ import {followPane} from './follow-pane.js';
 import {openFolderSheet} from './folder-dest-sheet.js';
 import {askText} from './small-notice.js';
 import {createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
+import {registerScreenFind,refreshScreenFind,finderOf} from './screen-find.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -86,6 +87,15 @@ const SPLIT=window.matchMedia?.(SPLIT_QUERY);
 const split=()=>!!SPLIT?.matches;
 const mouse=()=>!!window.matchMedia?.('(pointer: fine)').matches;
 const sortNow=()=>state.sort||=cleanBriefSort(viewPrefs.getBriefSort?.());
+// S70-57(명진 11/26 "메뉴별 검색창은 '<메뉴>에서 찾기'로 통일 / 검색창은 하나로만"): 맨 위 칸이 '브리핑 룸에서 찾기' — 목록 줄을
+// 자료 이름·파일 이름·한 줄 요지로 거른다. 이 화면 메모리만(서버 검색 없음). 폰에서 보기가 목록 대신일 때는 찾기가 아니다.
+let findText='',findQuery='';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말), 맞은 정도 순, 맞은 부분 굵게.
+const finder=finderOf('brief',()=>findText),rowTexts=row=>[docName(row.doc),row.doc.file_name,row.state.kind==='done'?row.state.text:''];
+registerScreenFind('brief',{label:'브리핑 룸에서 찾기',marks:'#briefView [data-br-list]',
+  active:()=>window.KPTURouter?.current==='brief'&&!!view()&&!view().classList.contains('hidden')&&!view().querySelector('[data-br-list]')?.hidden,
+  value:()=>findQuery?findText:'',
+  apply:(raw,{again}={})=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery&&!again)return;findQuery=next;drawList()}});
 const here=()=>window.KPTURouter?.current==='brief'&&!document.hidden;
 
 async function findFolder(){
@@ -200,7 +210,9 @@ function drawList(){
   // HELP-처음쓰는사람안내 ③: 서버에서 읽은 뒤에도 자료·폴더가 하나도 없으면 '처음 쓰는 법' 안내(자료가 생기면 목록이 대신 그려짐). 읽기 전·못 읽음은 지금처럼.
   if(!rowsNow.length&&!state.sub.length&&state.loaded&&!pick.active){box.replaceChildren(head,firstUseEl('brief'));return}
   const list=el('div','fx-rows br-rows');if(pick.active)list.classList.add('br-picking');list.dataset.textSizeTarget='';list.setAttribute('role','list');
-  for(const t of treeRows({sub:state.sub,rows:rowsNow,itemFolder:state.itemFolder,open:state.xopen,sort:sortNow()})){
+  // 찾는 중(S70-57·S70-67)에는 폴더를 풀어 맞은 자료만 맞은 정도 순으로 한 줄씩(폴더 나무 없이).
+  const lines=findQuery?finder().rank(rowsNow,rowTexts).map(row=>({type:'file',depth:0,row})):treeRows({sub:state.sub,rows:rowsNow,itemFolder:state.itemFolder,open:state.xopen,sort:sortNow()});
+  for(const t of lines){
     if(t.type==='file')list.append(fileRow(t.row,t.depth));
     else if(t.type==='empty')list.append(html(ftEmptyRowHtml({depth:t.depth,attrs:{'data-br-drop':t.id}})));
     else list.append(folderRow(t));
@@ -247,12 +259,13 @@ function detailShown(){const b=state.open?state.briefs.get(state.open):null;retu
 function drawDetail(){
   const box=view()?.querySelector('[data-br-detail]'),listBox=view()?.querySelector('[data-br-list]');if(!box)return;
   const doc=state.docs.find(d=>d.id===state.open),b=doc?state.briefs.get(doc.id):null;
-  if(!doc||b?.status!=='done'||!b.brief){state.editing=null;box.hidden=true;box.replaceChildren();if(listBox)listBox.hidden=false;view()?.classList.remove('br-reading');return}
+  if(!doc||b?.status!=='done'||!b.brief){state.editing=null;box.hidden=true;box.replaceChildren();if(listBox)listBox.hidden=false;view()?.classList.remove('br-reading');refreshScreenFind();return}
   if(state.editing&&state.editing.doc!==doc.id)state.editing=null;
   // 고치는 중에는 4초마다 다시 그리기·창 크기·밑줄 알림이 와도 칸을 새로 만들지 않는다(쓰던 글·커서 그대로).
   if(state.editing&&box.dataset.brDoc===doc.id&&box.querySelector('[data-br-form]')){if(listBox)listBox.hidden=!split();return}
   view()?.classList.add('br-reading');
   if(listBox)listBox.hidden=!split();
+  refreshScreenFind();
   const bar=el('div','br-head');
   if(!split()){const back=btn('br-back icon-btn','‹',{brBack:'1'});back.setAttribute('aria-label','목록으로');bar.append(back)}
   bar.append(el('h2','br-title br-doc',String(doc.title||doc.file_name||'')));

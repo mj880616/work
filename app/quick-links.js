@@ -14,6 +14,7 @@ import {placeAnchored,clearAnchored,followAnchor,dragByTitle} from './anchored-p
 import {createAnchoredMenu} from './anchored-menu.js';
 import {word} from './brand/brand.mjs';
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
+import {setDragGhostImage} from './drag-ghost.js'; // S70-79 STD-끌기모양: 끄는 줄은 공용 이름 조각 하나
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
 
@@ -606,7 +607,8 @@ function onDragStart(event) {
   drag = link ? {kind: 'link', index: Number(link.dataset.qlHandle)} : {kind: 'group', id: grp.dataset.qlGhandle};
   event.dataTransfer.effectAllowed = 'move';
   try { event.dataTransfer.setData('text/plain', link ? link.dataset.qlHandle : grp.dataset.qlGhandle); } catch {}
-  try { event.dataTransfer.setDragImage(link ? source : grp.closest('.ql-group-head'), 12, 12); } catch {}
+  const label = link ? (state.draft[drag.index]?.name || '새 링크') : (state.draftGroups.find(g => g.id === drag.id)?.name || '분류');
+  setDragGhostImage(event.dataTransfer, label, document, event);
   source?.classList.add('ql-dragging');
 }
 // 놓을 곳: {ok, mark(표시할 요소), cls(표시 종류), ...} 또는 null(여기는 놓는 곳이 아님).

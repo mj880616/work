@@ -4,7 +4,7 @@
 - 시안: `docs/design/mockups/ai-cost-view.html`, 사진 `docs/design/mockups/ai-cost-view/`.
 - 공개 저장소라 금액 숫자·계정 정보는 쓰지 않는다. 시안 숫자는 모두 가짜다.
 
-## 0. 명진 요청과 한 줄 결론
+## 0. 사용자 요청과 한 줄 결론
 
 > "웹2 사용하면서 실제로 얼마가 들고, 어느 주기로 얼마를 충전해야 지금 서비스를 지속가능한지를 알고싶은거야. 웹2 안에서도 기능별로 얼마가 들고" / "1회성으로 알려주는거 말고 … 웹2 안에서 볼 수 있게 프로필 칸 안에서"
 
@@ -25,7 +25,7 @@
 | 회의 녹음 뒤 서버 요약 | Edge `meeting-transcribe` 안의 요약 한 번 | OpenAI | 남음 | `app_ai_daily_usage` | 잡힘(섞임) | 기능 구분 없음 |
 | 텔레그램 판정 | Edge `collector-feed`(source `telegram`) | OpenAI, `WEB2_AI_MODEL` | 남음 | `app_feed_days.ai_*` | 잡힘(텔레그램·통화 판정) | 없음 |
 | 통화 판정(전사본 분류) | Edge `collector-feed`(source `call`) | OpenAI | 남음 | `app_feed_days.ai_*` | 잡힘 | 없음 |
-| **통화 전사** | 명진 Google 앱 스크립트(저장소 밖, `docs/design/call-telegram-feed.md` 1.2) | Gemini | **안 남음(추정)** | (`app_ai_external_usage` source `transcript`로 보내는 길은 있음) | **안 잡힘** | 보고 코드 없음 |
+| **통화 전사** | 사용자 Google 앱 스크립트(저장소 밖, `docs/design/call-telegram-feed.md` 1.2) | Gemini | **안 남음(추정)** | (`app_ai_external_usage` source `transcript`로 보내는 길은 있음) | **안 잡힘** | 보고 코드 없음 |
 | **통화 분석(검토 md)** | 같은 앱 스크립트 | Gemini | **안 남음(추정)** | (같은 표 source `analysis` 길은 있음) | **안 잡힘** | 보고 코드 없음 |
 | **뉴스 요약·제목·[번역]** | Edge `news-feed` | OpenAI | 남음 | `app_news_days.ai_*` | **안 잡힘** | `drive-summary` 합산에 `app_news_days`가 없음 |
 | **사회운동 [번역]** | Edge `outside-feed` | OpenAI | 남음 | `app_news_days.ai_*`(뉴스와 같은 줄) | **안 잡힘** | 위와 같음 |
@@ -36,9 +36,9 @@
 ### 1.1 통화 전사가 안 잡히는 원인
 
 - **사실**: 이번 달 `app_ai_external_usage`에는 `mtg-`·`mtgfail-`(회의 전사)만 있다(CC 11/12 확인). Google 실제 지출은 Web2 회의 전사 추정보다 훨씬 크다.
-- **사실**: 보고 길(`drive-summary` `POST ?action=ai_usage`, 수집 점검 신호와 같은 비밀값 머리글)은 10/28부터 열려 있다. 그러나 저장소의 앱 스크립트 문서(`docs/ops/collector-heartbeat.gs`·`collector-feed.gs`)에는 이 보고를 부르는 코드가 없다. 원장 AI-사용량줄 행의 "명진 할 일: 앱 스크립트에 보고 함수 붙여 넣기"가 끝났다는 기록도 없다.
+- **사실**: 보고 길(`drive-summary` `POST ?action=ai_usage`, 수집 점검 신호와 같은 비밀값 머리글)은 10/28부터 열려 있다. 그러나 저장소의 앱 스크립트 문서(`docs/ops/collector-heartbeat.gs`·`collector-feed.gs`)에는 이 보고를 부르는 코드가 없다. 원장 AI-사용량줄 행의 "사용자 할 일: 앱 스크립트에 보고 함수 붙여 넣기"가 끝났다는 기록도 없다.
 - **추정**: 통화 전사·분석 앱 스크립트가 Gemini를 부른 뒤 사용량을 보내지 않는다. 그래서 Gemini 지출의 대부분(통화)이 Web2에 없다.
-- 확인 방법: 앱 스크립트 편집기에서 `ai_usage` 문자열 검색(명진 또는 브라우저 연결된 CC). 없으면 2단계(5절)로 메운다.
+- 확인 방법: 앱 스크립트 편집기에서 `ai_usage` 문자열 검색(사용자 또는 브라우저 연결된 CC). 없으면 2단계(5절)로 메운다.
 - **2단계 확인 결과(S60-25, 11/12)**: 저장소 전체(`docs/ops`·`scripts`·`windows-app`·`basket-pc`·`android-app`)에 `ai_usage`를 보내는 코드가 없다(사실). 서버는 받은 보고를 source(`transcript`/`analysis`)로만 나눠 **회의 전사(`mtg-`)와 통화 전사가 같은 '전사' 칸에 섞였다**(사실, `drive-summary/ai-usage.mjs`). 또 외부 보고 읽기가 1000행에서 실패하게 되어 있어, 통화 보고가 붙으면 한 달 안에 AI 사용량 줄 전체가 실패할 수 있었다(사실). 2단계 PR에서 ① 보고 함수 `docs/ops/ai-usage-report.gs` ② ref 앞머리로 나눈 `gemini.by_kind`(회의·통화 전사·통화 분석) ③ 1000행씩 차례 읽기(최대 20쪽) ④ 수집 비밀값 보고로 `mtg-`·`mtgfail-` 거절(회의 월 상한 보호)을 더했다. 실제 앱 스크립트 편집기 검색은 웹 세션이라 못 했다(붙일 때 CC가 브라우저로 확인).
 
 ### 1.2 그 밖의 발견
@@ -74,13 +74,13 @@
 - 권한: authenticated는 소유자(`private.app_is_workspace_owner`) 읽기만 + `ai-assist`가 로그인 토큰으로 넣을 칸 grant(소유자 with check). service_role은 넣기 칸만(읽기 없음). anon·PUBLIC 없음. `app_ai_external_usage`와 같은 모양.
 - 양: 호출 묶음당 1행. 한 달 수천 행 수준(추정) — 13개월 넘은 행 정리는 나중 별도 결정.
 
-**(나) 공급자 한도·충전 설정** — `app_ai_cost_entries.kind`에 `cap`(Gemini 후불 월 한도)·`reload`(OpenAI 자동 충전 금액) 더하기. 명진이 프로필에서 한 번 넣으면 4절 계산이 '한도까지 며칠'을 보여 준다. (`view_prefs`는 DB가 키 모양을 엄격히 검사하므로 거기 넣으려 해도 DB 변경이 필요 — 금액 성격이 같은 이 표가 맞다.)
+**(나) 공급자 한도·충전 설정** — `app_ai_cost_entries.kind`에 `cap`(Gemini 후불 월 한도)·`reload`(OpenAI 자동 충전 금액) 더하기. 사용자가 프로필에서 한 번 넣으면 4절 계산이 '한도까지 며칠'을 보여 준다. (`view_prefs`는 DB가 키 모양을 엄격히 검사하므로 거기 넣으려 해도 DB 변경이 필요 — 금액 성격이 같은 이 표가 맞다.)
 
 ## 3. 실제 청구 금액과 맞추기
 
 | 공급자 | 공식으로 읽는 길 | 이 설계의 선택 |
 | --- | --- | --- |
-| OpenAI | **Costs API** `GET /v1/organization/costs`(날짜별 금액, `group_by=line_item`·`project_id`). **조직 관리자 열쇠(Admin key)**가 있어야 한다. 크레딧 **잔액은 API로 주지 않는다**(커뮤니티 확인). | 명진 결정 대기. 하면: 새 서버 비밀값 1개, `drive-summary` GET이 이번 달·지난달 실제 금액을 읽어 '실제' 표시와 보정 비율에 씀. 안 하면: 추정 + 대시보드 바로가기. |
+| OpenAI | **Costs API** `GET /v1/organization/costs`(날짜별 금액, `group_by=line_item`·`project_id`). **조직 관리자 열쇠(Admin key)**가 있어야 한다. 크레딧 **잔액은 API로 주지 않는다**(커뮤니티 확인). | 사용자 결정 대기. 하면: 새 서버 비밀값 1개, `drive-summary` GET이 이번 달·지난달 실제 금액을 읽어 '실제' 표시와 보정 비율에 씀. 안 하면: 추정 + 대시보드 바로가기. |
 | Gemini(AI Studio) | 공식 문서에 **지출을 읽는 API가 없다**. AI Studio 결제·지출 화면, Cloud Billing 보고서(하루 늦음)뿐. 프로그램으로는 **Cloud Billing → BigQuery 내보내기**만 있다(서비스 계정 열쇠·BigQuery 설정 필요, 하루 늦음). | 'Web2 추정 + AI Studio 지출 화면 바로가기'. BigQuery 길은 무겁고 열쇠가 하나 더 늘어 하지 않는다(다시 볼 조건: 추정과 실제 차이가 계속 크면). |
 
 보안(관리자 열쇠를 쓰기로 할 때):
@@ -88,8 +88,8 @@
 - 관리자 열쇠는 조직 설정·열쇠 관리까지 할 수 있는 강한 열쇠다. **서버 비밀값(`production-edge`가 아니라 Supabase Edge 비밀값)에만** 두고, 화면·로그·PR·채팅에 값이 나오지 않게 한다. 이름 제안 `WEB2_OPENAI_ADMIN_KEY`.
 - 읽는 것은 costs 한 주소뿐(코드에서 주소 고정). 답에서 숫자(날짜·금액)만 꺼내고 나머지는 버린다.
 - 프로필을 열 때마다 부르지 않고 탭당 10분 한 번(지금 수집 칸과 같은 요청에 얹음).
-- OpenAI 조직 화면에서 관리자 열쇠 권한을 좁힐 수 있으면 읽기만으로 만든다(만들 때 확인). 좁힐 수 없으면 그 위험을 명진이 판단한다.
-- 기존 결정과의 관계: AI-사용량줄(10/28)은 "관리자 키는 쓰지 않음"으로 만들었다. 이번에 쓰려면 **명진이 그 결정을 바꾸는 것**이다.
+- OpenAI 조직 화면에서 관리자 열쇠 권한을 좁힐 수 있으면 읽기만으로 만든다(만들 때 확인). 좁힐 수 없으면 그 위험을 사용자가 판단한다.
+- 기존 결정과의 관계: AI-사용량줄(10/28)은 "관리자 키는 쓰지 않음"으로 만들었다. 이번에 쓰려면 **사용자가 그 결정을 바꾸는 것**이다.
 
 ## 4. '얼마를 언제 충전' 계산 규칙
 
@@ -108,17 +108,17 @@
 
 ## 5. 단계별 PR
 
-> **2026-11-25 명진 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 2번**: 통화 글로 옮기기(전사·분석) AI는 유료 열쇠로 보고 비용 화면에 넣는다. 그래서 2단계 붙이기(CC 브라우저) → 4단계 DB → 5단계 Edge → 6단계 화면을 이 순서로 시작한다. 지시서 초안은 `docs/qa/stalled-audit-20261125.md` '결정 뒤 구현 줄' I-1~I-4. 7단계(OpenAI 관리자 열쇠)와 시안 A/B 고르기는 이번 결정에 들지 않는다(6단계 세션이 시안을 다시 보여 준다).
+> **2026-11-25 사용자 결정(21:35 "추천대로", `docs/qa/stalled-audit-20261125.md` 2절) 2번**: 통화 글로 옮기기(전사·분석) AI는 유료 열쇠로 보고 비용 화면에 넣는다. 그래서 2단계 붙이기(CC 브라우저) → 4단계 DB → 5단계 Edge → 6단계 화면을 이 순서로 시작한다. 지시서 초안은 `docs/qa/stalled-audit-20261125.md` '결정 뒤 구현 줄' I-1~I-4. 7단계(OpenAI 관리자 열쇠)와 시안 A/B 고르기는 이번 결정에 들지 않는다(6단계 세션이 시안을 다시 보여 준다).
 
 | 순서 | PR | 바뀌는 곳 | 정지 지점 | 의존 |
 | --- | --- | --- | --- | --- |
 | 1 | 이 PR | 설계·시안 문서 | 없음 | — |
-| 2 | 통화 전사·분석 보고 붙이기 | `docs/ops/ai-usage-report.gs`(앱 스크립트 붙일 함수, ref `call-`·`calla-`) + 붙여 넣기(명진 또는 브라우저 연결된 CC) | 없음(DB·Edge 그대로) | — · **가장 먼저**(Gemini 차이의 원인) |
+| 2 | 통화 전사·분석 보고 붙이기 | `docs/ops/ai-usage-report.gs`(앱 스크립트 붙일 함수, ref `call-`·`calla-`) + 붙여 넣기(사용자 또는 브라우저 연결된 CC) | 없음(DB·Edge 그대로) | — · **가장 먼저**(Gemini 차이의 원인) |
 | 3 | 뉴스 합산·4절 계산 | `drive-summary/ai-usage.mjs`(뉴스 읽기, 14일 평균, 공급자별 권장) | Edge 배포 1개 | 2와 병렬 가능 |
 | 4 | DB: 기능별 표·한도 종류 | migration + 짝 파일 5개(`app_ai_usage_events`, `app_ai_cost_entries.kind`에 `cap`·`reload`) | DB 적용(시험 먼저) | 3 뒤 |
 | 5 | 기능 이름 기록 | `_shared/ai-features.mjs`, `_shared/ai-daily-usage.mjs`, `ai-assist` 등 9개 함수 | Edge 배포 여러 개(한 번에 하나, 되돌리기 ref) | 4 적용 뒤 |
 | 6 | 화면: 프로필 'AI 비용' 칸 | `app/ai-usage-line.js`·`ai-usage-model.mjs`를 키움(같은 상태 소유자·렌더러), 한도·자동 충전 금액 입력 한 줄, 업데이트 기록 | 없음 | 3·5 뒤(5 전엔 OpenAI가 '기능 구분 전'으로 한 줄) |
-| 7 | (명진이 하기로 하면) OpenAI 실제 금액 대조 | `drive-summary`에 Costs API 읽기 | 비밀값 등록(명진) + Edge 배포 | 6 뒤 언제든 |
+| 7 | (사용자가 하기로 하면) OpenAI 실제 금액 대조 | `drive-summary`에 Costs API 읽기 | 비밀값 등록(사용자) + Edge 배포 | 6 뒤 언제든 |
 
 ### 5.1 5단계 반영(S70-55 I-3)
 

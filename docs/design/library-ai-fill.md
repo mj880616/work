@@ -101,7 +101,7 @@
 
 1. 읽기 전용으로 묶음 목록을 본다: `select batch_id, min(created_at), count(*) from public.app_library_tidy_backups where reverted_at is null group by 1 order by 2 desc;`
 2. 사용자가 SQL Editor 새 창에서 `begin; select public.app_library_auto_tidy_revert('<묶음 id>'); commit;` 실행 → 결과 `{"reverted":n,"skipped":m}`.
-3. 전부 되돌릴 때는 묶음마다 2를 반복한다. `skipped`는 그 사이 명진이 고친 칸이라 그대로 둔다.
+3. 전부 되돌릴 때는 묶음마다 2를 반복한다. `skipped`는 그 사이 사용자가 고친 칸이라 그대로 둔다.
 
 ### 6.5 적용 순서와 정지 지점
 
@@ -189,7 +189,7 @@
 ### 8.7 전체 되돌리기 (화면 버튼 없음)
 
 1. 읽기 전용으로 시작 시각 확인: `select min(tried_at) from public.app_library_classify_attempts;`
-2. 사용자가 SQL Editor 새 창에서 CC가 준비한 문장을 실행(폰 경로 C, 첫 줄·마지막 줄 `commit;` 확인): `begin; select public.app_library_classify_revert_since('<시작 시각>'); commit;` → `{"batches":n,"reverted":m,"skipped":k}`. `skipped`는 그 사이 명진이 고친 칸이라 그대로 둔다. 시도 기록은 남아 같은 자료를 다시 AI에 보내지 않는다.
+2. 사용자가 SQL Editor 새 창에서 CC가 준비한 문장을 실행(폰 경로 C, 첫 줄·마지막 줄 `commit;` 확인): `begin; select public.app_library_classify_revert_since('<시작 시각>'); commit;` → `{"batches":n,"reverted":m,"skipped":k}`. `skipped`는 그 사이 사용자가 고친 칸이라 그대로 둔다. 시도 기록은 남아 같은 자료를 다시 AI에 보내지 않는다.
 
 ### 8.8 시험
 

@@ -691,7 +691,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.grip.setAttribute('aria-hidden', 'true'); this.grip.title = '표 전체 선택';
       this.box = document.createElement('div'); this.box.className = 'ed-table-box';
       this.resizer = document.createElement('span'); this.resizer.className = 'ed-table-resize'; this.resizer.contentEditable = 'false';
-      this.resizer.setAttribute('aria-hidden', 'true'); this.resizer.title = '끌어서 표 크기 바꾸기';
+      this.resizer.setAttribute('aria-hidden', 'true');
       this.resizer.addEventListener('pointerdown', e => startTableResize(this, e));
       this.table = document.createElement('table'); this.table.className = 'ed-table';
       this.colgroup = this.table.appendChild(document.createElement('colgroup'));

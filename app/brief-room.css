@@ -2,6 +2,8 @@
 #briefView .br-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:0;min-width:0}
 #briefView .br-head{display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px)}
 #briefView .br-title{margin:0;font-size:var(--ds-text-title,15px);font-weight:var(--ds-weight-medium,600);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* S70-57: 폰 틀(~760px)은 앱 머리 줄이 화면 이름 '브리핑 룸'을 보이므로 목록 머리 줄 제목은 뺀다(같은 이름 두 번 없음). PC 틀은 위 줄에 이 화면 이름이 없어 그대로. */
+@media(max-width:760px){#briefView [data-br-list] .br-head>.br-title{display:none}}
 #briefView .br-head .br-pick-lib,#briefView .br-head .br-src{margin-left:auto;flex:none}
 #briefView .br-head .br-add{flex:none}
 /* UI-간격기준 A(S70-42, 명진 11/25 "자료실에서 선택 자료넣기랑 그 아래랑 여백 없고"): 머리줄 단추 줄과 놓기 칸 사이 = --ds-gap-bar. */

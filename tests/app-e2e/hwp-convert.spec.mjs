@@ -66,7 +66,8 @@ async function fixture(page,width,{ai}={}){
     sent.ai.push(request.postDataJSON());
     return ai?ai(route):route.fulfill({headers:cors,json:answer});
   });
-  await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());sent.library.push(body);return route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
+  await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipart(route.request());sent.library.push(body);return route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
   await expect(page.locator('#hwpView')).toBeVisible();
   await expect(page.locator('#hwpLabStatus')).toHaveText(/HWP 편집이 준비됐습니다/,{timeout:60000});
   return {sent,errors,external};
@@ -192,7 +193,8 @@ for(const width of [390,1280])test(`no form yet: upload the form first, it goes 
   await page.route(SB+'/rest/v1/app_profiles?**',r=>r.fulfill({json:[{document_categories:['교섭','투쟁','교육','선전','정책','회의','기타']}]}));
   await page.route(SB+'/rest/v1/rpc/app_document_category_add',r=>{const b=r.request().postDataJSON();added.push(b.p_name);return r.fulfill({json:{ok:true,categories:['교섭','투쟁','교육','선전','정책','회의',b.p_name,'기타'],documents:0}})});
   await page.unroute(SB+'/functions/v1/library-files');
-  await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());f.sent.library.push(body);docs=[{id:'tpl-new',workspace_id:'w',title:body.title,file_name:'보고서.hwp',category:body.category,created_at:stamp}];return route.fulfill({headers:cors,json:{ok:true,document:{id:'tpl-new',title:body.title,file_name:'보고서.hwp'}}})});
+  await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipart(route.request());f.sent.library.push(body);docs=[{id:'tpl-new',workspace_id:'w',title:body.title,file_name:'보고서.hwp',category:body.category,created_at:stamp}];return route.fulfill({headers:cors,json:{ok:true,document:{id:'tpl-new',title:body.title,file_name:'보고서.hwp'}}})});
   await press(page,'hwpLabConvert',width);
   const up=page.locator('#hwpFormUploadModal');
   await expect(up).toBeVisible();
