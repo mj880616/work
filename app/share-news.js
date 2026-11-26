@@ -4,6 +4,7 @@
 // [열기] = News [보관] 탭 + 그 기사 상세(news-request.mjs, 노트 '보관한 글'과 같은 길). 발송·공유·삭제로 이어지는 흐름은 없다. 기기 저장 없음.
 import {notify} from './small-notice.js';
 import {requestNewsOpen} from './news-request.mjs';
+import {openOnScreen} from './source-open.js';
 import {NEWS_NOTE, saveFailNote} from './share-news-words.mjs';
 
 export const SAVED_MS = 6000, FAILED_MS = 20000, WORKING_MS = 120000;
@@ -25,6 +26,6 @@ export async function saveSharedNews(url, {title = '', isCurrent = () => true} =
   window.KPTUOutside?.refresh?.();
   const id = out.id;
   notify(NEWS_NOTE.done, {ms: SAVED_MS, note: out.status === 'no_body' ? NEWS_NOTE.noBody : '',
-    actions: [{label: NEWS_NOTE.open, run: ({close}) => { close(); if (requestNewsOpen({type: 'news', id})) window.KPTURouter?.go?.('news', {source: 'delegated'}); }}]});
+    actions: [{label: NEWS_NOTE.open, run: ({close}) => { close(); if (requestNewsOpen({type: 'news', id})) void openOnScreen('outside'); }}]});
   return id;
 }

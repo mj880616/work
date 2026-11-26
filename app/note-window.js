@@ -40,8 +40,8 @@ export function attachRow({id, getBatch, isBusy, say, going = null}) {
 export const shortFolder = name => { const chars = [...String(name || '')]; return chars.length > 8 ? chars.slice(0, 8).join('') + '…' : chars.join(''); };
 // FORGET-노트고르기: target(note-pick.js createNoteTarget)이 있으면 줄 맨 앞에 [새 노트 ▾], 그다음 [폴더 ▾]·제목 칸·'📁 폴더 · 끝에 더함',
 // 줄 아래 고른 노트의 흐린 마지막 두 줄(target.tail). 제목 칸은 새 노트일 때만, [폴더 ▾]는 새 노트와 가족 '잊지 말기' 노트일 때만 보인다.
-// S69-97 노트 서식: form = {pick(button)} — the new-note window's [서식 ▾] (note-templates.js) right of the title box.
-function titleRow({value = '', folder = null, target = null, form = null, placeholder = '제목(비우면 첫 줄)'}) {
+// S71-65: the title row is the title box and [폴더 ▾] only (노트 서식 is [넣기 ▾] › [서식] on the editor's row, openNoteWindow forms).
+function titleRow({value = '', folder = null, target = null, placeholder = '제목(비우면 첫 줄)'}) {
   const row = document.createElement('div'); row.className = 'edw-title-row';
   const label = document.createElement('label'); label.className = 'a11y-only'; label.htmlFor = 'edwNoteTitle'; label.textContent = '노트 제목';
   const input = document.createElement('input');
@@ -52,14 +52,8 @@ function titleRow({value = '', folder = null, target = null, form = null, placeh
     button = document.createElement('button'); button.type = 'button'; button.dataset.edwFolder = ''; button.setAttribute('aria-haspopup', 'dialog');
     button.addEventListener('click', () => folder.open(button));
   }
-  let formBtn = null;
-  if (form && !target) {
-    formBtn = document.createElement('button'); formBtn.type = 'button'; formBtn.dataset.edwForm = ''; formBtn.setAttribute('aria-haspopup', 'dialog');
-    formBtn.textContent = '서식 ▾'; formBtn.title = '서식으로 쓰기';
-    formBtn.addEventListener('click', () => form.pick(formBtn));
-  }
   if (target) row.append(label, target.button, ...(button ? [button] : []), input, target.info);
-  else row.append(label, input, ...(formBtn ? [formBtn] : []), ...(button ? [button] : []));
+  else row.append(label, input, ...(button ? [button] : []));
   const paint = () => { if (button) { const name = folder.label?.() || '폴더 없음'; button.textContent = shortFolder(name) + ' ▾'; button.title = '노트 폴더: ' + name; } };
   folder?.watch?.(paint);
   paint();
@@ -74,7 +68,7 @@ function titleRow({value = '', folder = null, target = null, form = null, placeh
     };
     target.watch(sync); sync();
   }
-  return {row: node, input, paint, formBtn};
+  return {row: node, input, paint};
 }
 
 // NOTE-주소로 가져오기 2단계(안 A, 시안 docs/design/mockups/note-import-by-url.html): 새 노트 창 제목 줄 아래 주소 칸 [주소 | 가져오기].
@@ -192,7 +186,7 @@ export async function finishNewNote(note, {rt = window.KPTURuntime, noteFolder =
 // (target.family) always saves through target.save (a new family note too: kept out of AI material), and has no [📎 첨부]·사진·파일.
 // NOTE-목록에파일놓기: dropped = files dropped on the note list (they go into this window's own batch through the same picker add as [📎 첨부]:
 // the same size limit and the same-file question), heading = the title box's first value; the cursor then starts in the text.
-// S69-97 노트 서식: [서식 ▾] (only a window for a new note, not one adding to an existing note). formFirst = open the picker at once
+// S69-97 노트 서식(S71-65: [넣기 ▾] › [서식], only a window for a new note, not one adding to an existing note). formFirst = open the picker at once
 // (the note list ⋯ [서식으로 새 노트]). A picked form goes into the text (an empty text: the form as it is; else after what is written)
 // and its name into an empty title box.
 // NOTE-블록모드찾기 blocks: true = the editor's [블록 모드] for a new note (no target). Before the save it starts from, and changes, my default
@@ -212,7 +206,7 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
     if (!head.input.value.trim()) head.input.value = got.name;
     ed.focus();
   }};
-  const head = titleRow({value: firstHeading, folder: noteFolder, target, form});
+  const head = titleRow({value: firstHeading, folder: noteFolder, target});
   const family = !!target?.family, custom = () => !!target && (family || !target.isNew());
   let blockOn = viewPrefs.get('note_blocks') === true;
   const blockSwitch = blocks && !target ? {on: blockOn, onToggle: on => { blockOn = !!on; viewPrefs.set('note_blocks', blockOn, {rejectable: true}); }} : null;
@@ -292,13 +286,13 @@ export function openNoteWindow({text = '', title = '새 노트', rt = window.KPT
   handle = openEdWindow({title, text, draft: true, limit: NOTE_TEXT_MAX, head: headNode, foot: family ? null : files.node, shortcuts: true,
     dirty: () => (!head.input.hidden && !!head.input.value.trim()) || (!custom() && files.pending() > 0),
     photos: family ? null : media.photos, files: family ? null : media.files,
-    blocks: blockSwitch,
+    blocks: blockSwitch, forms: form,
     placeholder: '노트 본문을 쓰세요', save: {aria: target ? '노트에 저장' : '새 노트로 저장', run},
     onClose: ({text: letters}) => { waitingRows.destroy(); media.clear(); noteFolder?.close?.(); target?.close?.(); onClose({saved, text: letters}); }});
   if (handle) {
     handle.paintFolder = head.paint;
     if (dropped?.length) { files.picker.add(dropped); void handle.ready?.then(h => { if (h && !h.closed) h.editor?.focus(); }); }
-    else if (formFirst && head.formBtn) void handle.ready?.then(h => { if (h && !h.closed) void form.pick(head.formBtn); });
+    else if (formFirst && form) void handle.ready?.then(h => { if (h && !h.closed) void form.pick(h.editor?.root?.querySelector('.ed-tools [data-ed-cmd="gInsert"]') || head.input); });
     else queueMicrotask(() => head.input.focus());
   }
   return handle;
