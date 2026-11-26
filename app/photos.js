@@ -44,7 +44,7 @@ import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; /
 //   [사진]에 섞이고(거르기 '전체'·'동영상'만 — ★·스크린샷·달력·빠른 이동 막대·앨범은 아직 원드라이브·폰만), [폴더]는 '구글 드라이브' 묶음(맨 위부터 한 층씩, 스위치·⋯).
 //   사진 이름 바꾸기·옮기기·지우기(드라이브 휴지통)는 사진 ⋯(PC 우클릭)·고른 사진 아래 줄에서, 지우기는 확인 창 한 번. 권한이 없으면 칩·목록 위에 '권한 없음 · [구글 드라이브 다시 연결]'.
 import {gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
-  gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear, gdContentFind} from './gdrive-photos.js';
+  gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear, gdContentFind, gdDescGet} from './gdrive-photos.js';
 import {ownerScope, requestDiaryDay} from './diary-data.js';
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, isWide, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
@@ -164,7 +164,11 @@ const hitText = text => !photoQ || !!photoFinder().hit(String(text ?? ''));
 // 기능 키가 없으면 부르지 않는다 = 지금과 같이 이름만. 설명으로만 걸린 칸에는 작은 '설명으로 찾음' 표시(cell·cellLabel).
 let contentQ = '', contentIds = new Set(), contentTimer = 0, contentRun = 0, contentOff = false;
 const CONTENT_WAIT_MS = 400;
-const byContent = item => !!photoQ && contentQ === photoQ && !!item?.gdId && contentIds.has(item.gdId);
+const byContent = item => !!photoQ && ((contentQ === photoQ && !!item?.gdId && contentIds.has(item.gdId)) || byDesc(item));
+// S71-62 PHOTO-설명: 이 화면에서 읽거나 저장한 설명(드라이브 id → 글, 화면 메모리만). 저장 직후 드라이브 색인을 기다리지 않고 바로 찾기에 잡히게.
+const descById = new Map();
+const descOf = item => (item?.kind === 'gdrive' && item.gdId ? descById.get(item.gdId) || '' : '');
+const byDesc = item => { const d = descOf(item); return !!d && hitText(d); };
 const photoHit = item => hitText(item?.name) || byContent(item);
 const contentOnly = item => byContent(item) && !hitText(item?.name);
 // 친 글이 바뀌면 지난 결과는 바로 버리고, 손을 잠깐 멈춘 뒤 한 번 묻는다. 답이 왔을 때 글이 그대로면 그때 다시 그린다.
@@ -175,7 +179,7 @@ function askContent() {
   if (!q || contentOff) return;
   contentTimer = setTimeout(async () => {
     try {
-      const d = await gdContentFind(rt, q); // 기능 키가 없으면 null(서버에 묻지 않음)
+      const d = await gdContentFind(rt, q, {drive:gdUsable()}); // 기능 키가 없고 구글 드라이브를 못 쓰면 null(서버에 묻지 않음)
       if (!d || my !== contentRun || q !== photoQ) return;
       contentQ = q; contentIds = new Set(Array.isArray(d?.ids) ? d.ids.filter(id => typeof id === 'string') : []);
       if (contentIds.size) repaintShown();
@@ -1353,6 +1357,7 @@ function runStripAct(id, item, btn) {
     case 'restore': return restorePicked([item]);
     case 'rename': return gdRenamePhoto(item);
     case 'info': return openInfo(btn, [item]);
+    case 'desc': return openDesc(btn, [item], 'set');
     default: return undefined;
   }
 }
@@ -1362,6 +1367,8 @@ function openViewer(index, own = null) {
   const shown = tab;
   openPhotoStrip({host:root, list:own?.list || (() => listFor(shown)), index, title:'사진', layerName:'photos-photo',
     element:(item, size, opts) => photoEl(item, size, opts), label:(item, i) => `${item.video ? '동영상' : '사진'} ${i + 1}`, when:whenText,
+    // S71-62: 구글 드라이브 사진은 설명 한 줄을 그림 밑에(글자로만 그림). 처음 보는 장은 서버에서 한 번 읽는다(descFetch).
+    caption:item => { descFetch(item); return descOf(item); },
     info:item => [['찍은 때', whenText(item)], ['파일', item.name], ['크기', item.width && item.height ? `${item.width} × ${item.height}` : ''], ['길이', durationLabel(item.duration_ms)], ['출처', SOURCE_TEXT[item.source] || '원드라이브']],
     original:item => (item.kind === 'phone' ? {} : {download:true}), download:downloadOne,
     // PHOTO-전체화면확대: 확대할 때 원본 해상도(폰 = 앱 다리 원본, 구글 = 서버 중계 원본, 원드라이브 = 받기 주소). 못 받으면 큰 그림 그대로.
@@ -1428,6 +1435,10 @@ function actAvail(id, group, on = true) {
     case 'info': return {hidden: !(on && canInfo(group)), disabled: none || busy};
     case 'untag': return {hidden: !(tab === 'albums' && album), disabled: none || busy};
     case 'edit': return {hidden: !(on && group.length === 1 && editable(group[0])), disabled: busy};
+    // S71-62 PHOTO-설명: 구글 드라이브 사진만(드라이브 파일 '설명' 칸에 저장). 다른 출처·권한 없음은 흐리게 + 까닭 한 줄.
+    // 폰·원드라이브 사진에는 항목이 없다(저장할 곳 없음). 구글 드라이브 사진인데 권한이 없으면 흐리게 + 까닭 한 줄.
+    case 'desc': { const gdOne = group.length === 1 && group[0].kind === 'gdrive'; return {hidden: !(on && gdOne), disabled: busy && gdUsable(), ...(gdOne && !gdUsable() ? {why: photoOffWhy('desc', 'gdrive')} : {})}; }
+    case 'descAdd': { const anyGd = group.some(x => x.kind === 'gdrive'); return {hidden: !on || inTrash || !anyGd, disabled: busy && gdUsable(), ...(anyGd && !gdUsable() ? {why: photoOffWhy('desc', 'gdrive')} : {})}; }
     default: return {};
   }
 }
@@ -1440,6 +1451,7 @@ function runBarItem(id, btn) {
     case 'restore': return restorePicked();
     case 'rename': { const one = pickedItems(); if (one.length === 1) gdRenamePhoto(one[0]); return undefined; }
     case 'info': return openInfo(btn, pickedItems());
+    case 'descAdd': return openDesc(btn, pickedItems(), 'add');
     default: return undefined;
   }
 }
@@ -3304,6 +3316,32 @@ const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-m
 // 고친 뒤 폰 목록을 새로 읽는다(찍은 시각이 바뀌면 순서가 바뀜).
 // S50-31 ②: 원드라이브(쓰기 권한 있을 때)·구글 드라이브(쓸 수 있을 때) 사진도 — PC에서도 보인다(폰 사진은 폰 앱 0.4.15+에서만). JPEG만 고치는 판단은 서버가 한다.
 const canInfo = list => tab !== 'trash' && list.some(x => (x.kind === 'phone' && phone.canMeta()) || (x.kind === 'od' && od.canDelete) || (x.kind === 'gdrive' && gdUsable()));
+// ---- S71-62 PHOTO-설명 ----
+const descAsked = new Set();
+// 크게 보기에서 처음 보는 구글 드라이브 사진의 설명을 한 번 읽는다(이 화면 메모리, 실패하면 다음에 다시).
+function descFetch(item) {
+  if (item?.kind !== 'gdrive' || !item.gdId || !gdUsable() || descById.has(item.gdId) || descAsked.has(item.gdId)) return;
+  const id = item.gdId, who = owner;
+  descAsked.add(id);
+  gdDescGet(rt, id).then(d => {
+    if (who !== owner) return;
+    descById.set(id, typeof d?.description === 'string' ? d.description : '');
+    if (descById.get(id)) photoStripRefresh();
+  }, () => { descAsked.delete(id); });
+}
+function descSaved(done) {
+  for (const d of done || []) if (typeof d?.id === 'string') descById.set(d.id, typeof d.description === 'string' ? d.description : '');
+  if (done?.some(d => !d.read)) { photoStripRefresh(); if (photoQ) repaintShown(); }
+}
+function openDesc(trigger, group, mode) {
+  const list = group.filter(x => x.kind === 'gdrive' && gdUsable());
+  if (!list.length) return undefined;
+  const one = list[0];
+  return void import('./photo-desc.js').then(m => m.openPhotoDesc(trigger, mode === 'set' ? [one] : list, {rt, mode, owner,
+    current:mode === 'set' && descById.has(one.gdId) ? descById.get(one.gdId) : undefined,
+    onSaved:done => { if (mode === 'add' && done.some(d => !d.read)) { select.stop(); paintSelect(); } descSaved(done); }}))
+    .catch(() => notify('설명 창을 열지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true}));
+}
 function openInfo(trigger, group) {
   return void import('./photo-info-edit.js').then(m => m.openPhotoInfo(trigger, group, {phone, rt, onDone:() => {
     closePhotoStrip({restore:false}); // 크게 보기에서 고쳤으면 찍은 시각이 바뀌어 목록이 다시 읽히므로 닫는다(그림 편집과 같은 길)
@@ -3725,6 +3763,7 @@ window.addEventListener('kptu:session-changed', () => {
   batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
   kept = null; keptLoading = null; pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
+  descById.clear(); descAsked.clear();
   gd = {allowed:false, problem:'', foldersOn:0, checked:false}; gdItems = []; gdEnded = false; gdCursor = null; gdSyncAt = 0; gdLevels.clear(); gdLevelFailed.clear(); gdAt = null; gdFFor = null; gdFItems = []; gdClear();
   if (gdPlayUrl) { URL.revokeObjectURL(gdPlayUrl); gdPlayUrl = ''; }
   fxInline.clear(); fxOpen.clear(); coverWait.length = 0; // 폴더 안 처음 몇 장·표지 기억은 그 사람 것이라 사람이 바뀌면 비운다
