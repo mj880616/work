@@ -6,7 +6,7 @@
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
 // FOLDER-나무새기준(S51-12): 폴더 그림(닫힌/열린)·'n개 더 보기' 줄은 노트·파일·사진과 같은 공용 부품(folder-tree-ui.mjs). 점(●)은 그리지 않는다.
-import {ftIconHtml,ftMoreRowHtml} from './folder-tree-ui.mjs';
+import {ftIconHtml,ftMoreRowHtml,FOLDER_EMPTY_TEXT} from './folder-tree-ui.mjs';
 import {treeIconHtml} from './tree-icons.js';
 import {emptyHtml} from './wait-state.js';
 import {folderFileText,folderFileLabel} from './folder-count.mjs';
@@ -199,7 +199,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,menu=null,canDrag=nul
     return files.map(d=>fileHtml(d,n)).join('')+(rest>0?ftMoreRowHtml({rest,depth:0,attrs:{'data-lu-more':n.key},hint:n.kind==='folder'}).replace('class="ft-btn ft-row ft-more-row"','class="ft-btn ft-row ft-more-row lu-more-row"'):'')+(photos.length&&photoTail?photoTail(n,photos):'');
   };
   // UI-폴더이름펼치기(명진 11/24 18:09): 폴더 이름 누르기 = 늘 그 자리 펼치기·접기라, 안이 빈 폴더를 펼치면 안에 '빈 폴더' 한 줄(들어가지 않음).
-  const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml('빈 폴더')}</div>`:'';
+  const emptyIn=n=>n.kind==='folder'&&!n.children.length&&!n.files.length?`<div class="lu-node-empty">${emptyHtml(FOLDER_EMPTY_TEXT)}</div>`:'';
   // lazy(탐색기 칸): 접힌 폴더는 안쪽을 그리지 않는다(보이는 줄만 화면에 — 고르기 수·사각형 고르기가 지금처럼). 펼치면 다시 그린다(library-upload.js luOnHeadClick).
   const body=(n,lazy=false)=>n.children.map(c=>one(c,'',lazy)).join('')+filesOf(n)+emptyIn(n);
   const one=(n,top='',lazy=false)=>{const rest=folderChain(n),open=isOpen(n.key);return `<details class="lu-node${top?' lu-enter':''}" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}"${top}${rest.length?` data-lu-chain="${esc(rest.map(c=>c.key).join(' '))}"`:''} style="--lu-depth:${folderIndent(n.depth)}"${open?' open':''}>${head(n)}<div class="lu-node-body">${lazy&&!open?'':body(n,lazy)}</div></details>`};

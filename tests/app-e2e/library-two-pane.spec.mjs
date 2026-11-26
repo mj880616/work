@@ -259,7 +259,7 @@ for(const width of [1440,884])test(`자료실 ${width} 두 칸: 폴더 누르기
   // UI-폴더이름펼치기(명진 11/24 18:09, 전의 OPS-빠진일2차 1 '빈 폴더 = 한 번에 열기'를 대신함): 빈 폴더도 그 칸 안 펼침('빈 폴더' 한 줄), 다시 누르면 접힘.
   //  들어가기는 우클릭 메뉴 첫 줄 [이 폴더로 들어가기]. 위치 줄로 돌아온다.
   await page.locator(folderIn(0,'fz')).click();
-  await expect(page.locator(`${pane(0)} .lu-pane-empty[data-lu-pane-sub="fz"]`)).toContainText('빈 폴더');
+  await expect(page.locator(`${pane(0)} .lu-pane-empty[data-lu-pane-sub="fz"]`)).toContainText('이 폴더는 비어 있어요');
   await expect(page.locator(`${pane(0)} .lu-pane-here`)).toHaveText('자료실');
   await page.locator(folderIn(0,'fz')).click();
   await expect(page.locator(`${pane(0)} .lu-pane-empty[data-lu-pane-sub="fz"]`)).toHaveCount(0);
