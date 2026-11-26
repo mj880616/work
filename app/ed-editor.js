@@ -209,6 +209,8 @@ const MORE = [
   ['strike', '취소선', null], ['quote', '인용', null], ['rule', '구분선', null],
   ['indent', '들여쓰기', null], ['outdent', '내어쓰기', null], ['clear', '서식 삭제', null],
   ['nowStamp', '지금 시각', null], ['plainPaste', '서식 없이 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 선택'],
+  // S71-65 노트 서식: [넣기 ▾] 안 [서식] (only where the opener gives `forms`: a new note's window). It opens the opener's own picker.
+  ['form', '서식', '서식 넣기'],
 ];
 const ALIGNS = [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']];
 // Signs that open a row of similar signs (사용자 19:33: 비슷한 기호 펼치기). The first one is the button's own sign.
@@ -232,7 +234,8 @@ const GROUPS = [
     // S69-97: [구글 할 일로] is the last of 문단, only where the opener gives tasks.
   ['gPara', '문단 ▾', '문단 서식 선택', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule', 'gtask']],
   // S69-98 NOTE-에버노트 ⑥: [문서 스캔] (only where the opener's photos say scan: notes) sits after [링크] (PC_OUT stays a prefix), inside [넣기 ▾] on a PC too.
-  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'scan', 'nowStamp', 'plainPaste']],
+  // S71-65: [서식] (only where the opener gives forms) is the last of 넣기, inside the list at every width.
+  ['gInsert', '넣기 ▾', '넣을 것 선택', ['table', 'photo', 'file', 'link', 'scan', 'nowStamp', 'plainPaste', 'form']],
   ['gSym', '기호 ▾', '기호 선택', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
 ];
 const GROUP_KEYS = GROUPS.map(g => g[0]);
@@ -321,7 +324,8 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)}: the block handle ⋮⋮ (drag to move, press for the block menu) and a [블록] switch on the
 //   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
 // slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null} = {}) {
+// forms: S71-65 — null, or {pick(anchor)}: [넣기 ▾] › [서식] calls pick with the [넣기 ▾] button (the opener puts the chosen form in).
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null, forms = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -368,6 +372,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   const panels = {};
   for (const [key, text, aria] of MORE) {
+    if (key === 'form' && !forms) continue;
     const b = btn(text, {edCmd: key}, aria);
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'strike' || key === 'quote') b.setAttribute('aria-pressed', 'false');
@@ -1599,6 +1604,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     scan: () => pickScan(),
     blocks: () => setBlocks(!blockPart?.isOn(), true),
     gtask: () => { void gtaskPart?.press(); },
+    form: () => { const at = buttons.gInsert?.isConnected && !buttons.gInsert.hidden ? buttons.gInsert : buttons.form; void forms?.pick(at); },
     file: () => pickFiles(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
     outdent: () => pm.chainCommands(pm.liftListItem(N.list_item), indentBy(-1))(view.state, view.dispatch),
@@ -1869,6 +1875,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if ('edLinkOk' in d) { if (applyLink()) { closePanels(); view.focus(); } return; }
     if ('edLinkOff' in d) { closePanels(); run(removeLink); return; }
     if (d.edCmd === 'plainPaste') { closePanels(); void plainPaste(); return; }
+    // S71-65: [서식] opens the opener's picker; the text keeps no focus meanwhile (a phone's keyboard stays down under the picker).
+    if (d.edCmd === 'form') { closePanels(); RUN.form(); return; }
     if (d.edCmd && RUN[d.edCmd]) { closePanels(); run(RUN[d.edCmd]); return; }
     if (d.edTable) { run(() => tableCmd(d.edTable)); return; }
     if ('edConvert' in d) { void (pasteKey.getState(view.state) ? convertPasted() : convertWhole()); return; }

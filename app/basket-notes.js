@@ -300,7 +300,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     catch (e) { showToast(e?.message || '내보내지 못했어요. 다시 눌러 주세요.'); }
     finally { exporting = false; }
   }
-  const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast,
+  const boardImages = createNoteBoardImages({rt, notes:{get:() => notes, set:fn => { notes = fn(notes); }}, boards, toast:showToast, notice:notify,
     rerender:() => { if (loaded && !selected && view === 'board') renderList(); }});
   // S69-94: 열린 노트의 메모 칸(memo-thread.js가 그 칸의 유일한 renderer). 메모 목록(memo-store.js)이 바뀌면 [메모] 보기만 다시 그린다.
   const noteComments = createMemoThread();
@@ -626,7 +626,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
       decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
-      onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt})});
+      onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
+      // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
+      onPhotoView:(id, file, trigger) => { const row = notes.find(n => n.id === id); if (row && !busy) openPhotoView({row, file, trigger, rt}); }});
     boards.paint();
     // S69-83: [전체]가 없으므로 보드가 하나도 없으면 판(도구 줄 포함) 대신 빈 안내 한 줄 — 보드 칸 줄의 [+ 새 보드]로 만든다.
     const named = boards.boardView(), none = host.querySelector('[data-nbw-none]');
@@ -1620,6 +1622,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (owner === scope()) report(error?.code === 'note_changed' ? error.message : error?.message && /[가-힣]/.test(error.message) ? error.message : '알림을 저장하지 못했어요. 다시 해 주세요.');
     }
   }
+  // S71-65 ⋯ [서식으로 새 노트]: 내 서식이 하나도 없으면 창을 열지 않고 안내 한 줄(앱이 미리 넣은 서식은 없다). 읽지 못하면 창을 열어 고르기 창이 그 사실을 말한다.
+  async function openFormNew() {
+    const owner = scope();
+    const [{listTemplates}, {TEMPLATE_EMPTY_HINT}] = await Promise.all([import('./note-templates.js'), import('./note-templates-model.mjs')]);
+    const mine = await listTemplates({rt});
+    if (owner !== scope()) return;
+    if (mine.ok && !mine.rows.length) { showToast(TEMPLATE_EMPTY_HINT); return; }
+    void openNew('', null, null, {formFirst:true});
+  }
   // S69-97 노트 서식: 이 노트 글(옛 글은 바꾼 모양)을 이름 붙여 내 서식으로 저장(note-templates.js, 서버 표).
   async function saveForm(note, trigger) {
     if (!note || busy) return;
@@ -1628,7 +1639,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const [{saveAsTemplate}, doc] = await Promise.all([import('./note-templates.js'), startValue(note)]);
       const result = await saveAsTemplate(trigger, {name:note.title, doc, rt});
       if (!result || owner !== scope()) return;
-      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
+      if (result.ok) showToast(`'${result.name}' 서식으로 저장했어요. 새 노트 창 [넣기] 안 [서식]에서 선택해 쓸 수 있어요.`); else report(result.message);
     } catch { if (owner === scope()) report('서식을 저장하지 못했어요. 다시 해 주세요.'); }
   }
   async function pin(target = selected) {
@@ -2166,7 +2177,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);
       else if (b.hasAttribute('data-nx-new-in')) void newFolder(id);
       else if (b.hasAttribute('data-nx-rename')) void renameFolder(id);
-      else if (b.hasAttribute('data-nx-form-new')) void openNew('', null, null, {formFirst:true});
+      else if (b.hasAttribute('data-nx-form-new')) void openFormNew();
       else if (b.hasAttribute('data-nx-sort')) setNoteSort(noteSort === 'manual' ? 'changed' : 'manual');
       else if (b.hasAttribute('data-nl-cols-open')) openMenu(from.trigger, null, 'cols');
       else if (b.dataset.nlSort && NOTE_LIST_SORT_KEYS.includes(b.dataset.nlSort)) setListSort(nextSort(listSort(), b.dataset.nlSort, {descFirst:LIST_SORT_DESC_FIRST}));
