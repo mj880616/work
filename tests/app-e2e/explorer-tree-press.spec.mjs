@@ -3,9 +3,10 @@ import { start, openFiles } from './helpers/files-server.mjs';
 import { bootLibrary, libFolder, libDoc } from './helpers/library-folder-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S69-38 UI-탐색기나무누르기(명진 11/24 "상위폴더를 눌러도 오른쪽에 내용이 보이게 / 이거는 모든곳 공통 노트 자료 파일"):
 // 탐색기 화면(왼쪽 나무 | 오른쪽 그 폴더 내용)의 나무에서 어느 폴더를 누르든(하위 폴더가 있는 상위 폴더 포함) 오른쪽이 그 폴더 — 하위 폴더 줄 다음에 파일·자료·노트.
-// 누르면 접혀 있던 그 폴더가 펼쳐지고(펼침 아이콘은 펼치기·접기만). S69-68: 오른쪽 하위 폴더를 누르면 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯). 공용 부품 하나(folder-tree-press.mjs ftExplorePress).
+// TREE-탐색기꺾쇠(S70-81b, T10): 이름 한 번 = 오른쪽 그 폴더(나무 펼침 그대로), 펼치기·접기는 아이콘 왼쪽 꺾쇠·두 번 누르기·→ ←. 이 시험의 '들어가며 펼치기'는 treeEnter(이름 + 꺾쇠). S69-68: 오른쪽 하위 폴더를 누르면 그 자리 펼치기·접기(들어가기는 왼쪽 나무·⋯). 공용 부품 하나(folder-tree-press.mjs ftExplorePress).
 // 같은 시험을 화면마다 되풀이한다: [파일] · 자료실 · 노트. 이름·id는 모두 지어낸 것이다.
 
 // ---------- [파일] ----------
@@ -29,25 +30,27 @@ test('[파일] PC 1280: 하위 있는 상위 폴더를 눌러도 오른쪽 = 그
   const { errors, server } = await start(page, 1280);
   addFiles(server);
   await openFiles(page, 1280);
-  // 구글 드라이브 '음성 녹음 백업'(하위 3개) 이름 누르기 → 오른쪽에 수동전사대기·원본·전사, 나무에서 그 폴더가 펼쳐지고 강조.
+  // 구글 드라이브 '음성 녹음 백업'(하위 3개) 이름 누르기 → 오른쪽에 수동전사대기·원본·전사(나무는 접힌 채), 꺾쇠로 펼치고 강조.
   const voice = fxTreeRow(page, 'gd:gdVoice');
   await voice.locator('.ft-main').click();
+  await expect.poll(() => listNames(page)).toEqual(['수동전사대기', '원본', '전사']);
+  await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'false');
+  await voice.locator(':scope > .ft-tog').click();
   await expect.poll(() => listNames(page)).toEqual(['수동전사대기', '원본', '전사']);
   await expect(fx(page).locator('[data-fx-crumb], [data-fx-pane-i="0"] .fx-ptop')).toContainText(['음성 녹음 백업']);
   await expect(voice).toHaveClass(/ft-current/);
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
   await expect(fxTreeRow(page, 'gd:gdWait')).toBeVisible();
-  // 이름을 다시 누르면 접히고(명진 11/24 20:26), 또 누르면 펼친다. 오른쪽은 늘 그 폴더.
-  await voice.locator('.ft-main').click();
-  await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'false');
-  await expect(fxTreeRow(page, 'gd:gdWait')).toHaveCount(0);
+  // 지금 폴더 이름을 다시 눌러도 접거나 펼치지 않는다(T10 — 접기는 꺾쇠·두 번 누르기·←). 오른쪽은 늘 그 폴더.
+  await page.waitForTimeout(700); // 두 번 누르기로 세지 않게 띄어 누른다
   await voice.locator('.ft-main').click();
   await expect(voice.locator(':scope > .ft-tog')).toHaveAttribute('aria-expanded', 'true');
+  await expect(fxTreeRow(page, 'gd:gdWait')).toBeVisible();
   await voice.locator(':scope > .ft-tog').click();
   await expect(fxTreeRow(page, 'gd:gdWait')).toHaveCount(0);
   await expect.poll(() => listNames(page)).toEqual(['수동전사대기', '원본', '전사']); // 아이콘은 오른쪽을 바꾸지 않음
-  // 원드라이브 'Documents' → 오른쪽 PowerShell(폴더) 다음 파일.
-  await fxTreeRow(page, 'od:OD!D').locator('.ft-main').click();
+  // 원드라이브 'Documents' → 오른쪽 PowerShell(폴더) 다음 파일(나무도 꺾쇠로 펼쳐 둔다).
+  await treeEnter(fxTreeRow(page, 'od:OD!D').locator('.ft-main'));
   await expect.poll(() => listNames(page)).toEqual(['PowerShell', '가짜 목록.txt']);
   // S69-68(명진 11/24 20:09): 오른쪽 하위 폴더 누르기 = 그 자리 펼치기·접기(들어가지 않음). 왼쪽 나무·주소는 그대로.
   const psRow = fx(page).locator('[data-fx-pane-i="0"] [data-fx-row="od:OD!PS"]');
@@ -127,7 +130,7 @@ const luRight = page => page.locator('#documentList > details.lu-node').evaluate
 test('자료실 PC 1280: 하위 있는 \'06. 선전\'을 누르면 오른쪽 = 필수유지·카드뉴스·성명·보도자료 + 자료 · 나무 펼침 · 오른쪽 하위 → 왼쪽 따라 펼침', async ({ page }) => {
   const { errors } = await bootLibrary(page, 1280, { folders: LIB_FOLDERS, items: LIB_ITEMS, docs: LIB_DOCS, init: { viewPrefs: { library_two: false } } });
   await page.locator('#libraryGroupBy').selectOption({ label: '폴더' });
-  await page.locator(luNav('s06')).click();
+  await treeEnter(page.locator(luNav('s06')));
   await expect.poll(() => luRight(page)).toEqual(['f:s06a', 'f:s06b', 'f:s06c']);
   await expect(page.locator('#documentList [data-lu-document="dA"]')).toBeVisible();
   await expect(page.locator(luNav('s06')).locator('xpath=..')).toHaveClass(/ft-current/);
@@ -183,7 +186,7 @@ async function notes(page, width) {
 test('노트 PC 1280: 하위 있는 폴더를 누르면 오른쪽 = 하위 폴더 줄 + 그 폴더 노트 · 나무 펼침 · 오른쪽 하위 → 그 자리 펼치기(S69-68)', async ({ page }) => {
   const { errors } = await notes(page, 1280);
   const tree = page.locator('[data-nx-tree]'), right = page.locator('#noteRows');
-  await tree.locator(`[data-nx-open="${U(1)}"]`).click();
+  await treeEnter(tree.locator(`[data-nx-open="${U(1)}"]`));
   await expect(right.locator(`[data-nx-folder="${U(2)}"]`)).toBeVisible();
   await expect(right.locator('[data-note-row="n1"]')).toBeVisible();
   await expect(right.locator('[data-note-row="n2"]')).toHaveCount(0); // 하위 폴더 안 노트는 그 폴더에 들어가야 보인다

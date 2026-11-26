@@ -76,10 +76,10 @@ for(const width of [412,884]){
     await page.setViewportSize({width,height:900});
     const asks=[];
     await openHome(page,{beforeLoad:()=>routes(page,{asks,recent:[{...ANSWER,ai_status:'ok',status:undefined}]})});
-    // 폰(412)은 메뉴 창 맨 위 검색칸이 입구. 884(접은 폴드 펼침 폭)는 같은 전체 화면 검색을 화면 이동으로 연다.
-    if(await page.locator('#mobileMenuTab').isVisible()){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu .gs-menu-entry').click();}
+    // 폰(412)은 홈 머리 줄 '전체 검색' 입구(S70-57: 전체 검색은 홈에만). 884(접은 폴드 펼침 폭)는 같은 전체 화면 검색을 화면 이동으로 연다.
+    if(await page.locator('#appView > .mobile-shell-header .gs-menu-entry').isVisible()){await page.locator('#appView > .mobile-shell-header .gs-menu-entry').click();}
     else await page.evaluate(async()=>{await window.KPTUViewLoader.load('search');window.KPTURouter.go('search',{source:'delegated'});});
-    const view=page.locator('#searchView'),input=view.locator('.gs-view-input input');
+    const view=page.locator('#searchView'),input=page.locator(width>760?'#gsTopInput':'#gsHeadInput'); // S71-07: 폰 틀은 머리 줄 칸 그대로
     await expect(view).toBeVisible();
     // 빈 검색칸: 최근 물어본 것 1줄.
     await expect(view.locator('.gs-recent .gs-row')).toHaveText(['10/6 '+Q]);
@@ -99,7 +99,8 @@ for(const width of [412,884]){
     await expect(page.locator('#callsView')).toBeVisible();
     await page.goBack();
     await expect(view).toBeVisible();
-    await view.locator('.gs-back').click();
+    // 닫기: PC 틀은 제목 줄 ←, 폰 틀은 화면 안 줄이 없어 뒤로가기(S71-07).
+    if(width>760)await view.locator('.gs-back').click();else await page.goBack();
     await expect(page.locator('#homeView')).toBeVisible();
   });
 }

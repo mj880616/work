@@ -22,9 +22,12 @@ async function swipe(locator, dx) {
 // UI-줄밀기 Raindrop식(S68-26): 왼쪽으로 조금 밀면 오른쪽 끝 칸 [보관]·[숨기기]가 열린 채 멈춘다 → 그 칸을 누른다.
 // 누르기는 그 칸에 바로 보낸다(Playwright click의 '보이게 스크롤'이 스크롤 이벤트를 내 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
 async function swipeTap(page, locator, key) {
-  await swipe(locator, -50);
   const b = page.locator(`[data-row-swipe-key="${key}"]`);
-  await expect(b).toBeVisible();
+  // 민 뒤 목록이 다시 그려지면(늦게 온 읽기) 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
+  await expect(async () => {
+    await swipe(locator, -50);
+    await expect(b).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await touchTap(b);
 }
 // 손가락 한 번 누르기(누름 → click). 밀기 뒤 따라오는 click을 삼키는 규칙은 다음 누름에서 풀린다.
@@ -32,14 +35,30 @@ async function touchTap(locator) {
   await locator.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
   await locator.dispatchEvent('click');
 }
+// S70-60 UI-스와이프메뉴만: 오른쪽으로 끝까지 밀어도 [선택] 칸만 열린다 → 그 칸을 눌러야 선택이 시작된다.
+async function swipePick(page, locator) {
+  const b = page.locator('[data-row-swipe-key="select"]');
+  await expect(async () => {
+    await swipe(locator, 320);
+    await expect(b).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeHidden();
+  await touchTap(b);
+}
 
-test('Now 뉴스 412: 왼쪽 끝까지 밀면 숨기고 [되돌리기], 왼쪽으로 조금 밀어 [보관] 칸(별표)·다시 누르면 풀기', async ({ page }) => {
+test('Now 뉴스 412: 왼쪽 끝까지 밀어도 칸만 열림(S70-60), [숨기기]를 누르면 숨기고 [되돌리기], [보관] 칸(별표)·다시 누르면 풀기', async ({ page }) => {
   test.setTimeout(90000);
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
 
+  // UI-스와이프메뉴만(S70-60): 끝까지 밀어도 숨기지 않고 [저장][숨기기] 칸만 펼쳐진다.
   await swipe(item(page, 'c1'), -320);
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveText(['저장', '숨기기']);
+  await page.waitForTimeout(500);
+  await expect(item(page, 'c1')).toHaveCount(1);
+  expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
+  await touchTap(page.locator('[data-row-swipe-key="hide"]'));
   await expect(item(page, 'c1')).toHaveCount(0);
   const hide = server.calls.filter(c => c.what === 'app_news_marks' && (c.method === 'PATCH' || c.method === 'POST')).at(-1);
   // NEWS-모두에게열기 ③: 표시 줄이 아직 없는 기사는 내 표시 한 줄을 넣는다(작업공간·기사·숨김만, 칸 권한 그대로).
@@ -80,8 +99,8 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   expect(Math.abs(cellBox.height - rowBox.height)).toBeLessThan(2);
   expect(cellBox.x + cellBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 2);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
-  // 오른쪽 끝까지: 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
-  await swipe(item(page, 'c1'), 320);
+  // 오른쪽 끝까지: [선택] 칸만 → 누르면 그 줄이 골라진 채로 고르기 줄. 다른 줄을 눌러 더 고른다(열리지 않음).
+  await swipePick(page, item(page, 'c1'));
   const bar = page.locator('#newsRoot .row-swipe-pickbar');
   await expect(bar).toBeVisible();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
@@ -101,7 +120,7 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   await expect(item(page, 'c1')).toBeVisible();
   await expect(item(page, 'k1')).toBeVisible();
   // Esc(폰은 뒤로가기): 선택을 끝내면 선택 줄이 사라진다(선택 상태는 화면 메모리만).
-  await swipe(item(page, 'c1'), 320);
+  await swipePick(page, item(page, 'c1'));
   await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
   await expect(bar).toBeHidden();
   expect(errors).toEqual([]);
@@ -133,12 +152,15 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
     pt('pointerup', x + dx); tc('touchend', x + dx);
     return true;
   }, { dx, onRow })).toBe(true)).toPass({ timeout: 10000 });
-  // 글 줄 위 오른쪽 끝까지: 고르기만 열리고 탭은 그대로.
+  // 글 줄 위 오른쪽 끝까지: [선택] 칸만 열리고(S70-60) 탭은 그대로. 칸을 누르면 고르기.
   await expect(item(page, 'k1')).toBeVisible();
   await expect(async () => {
     await both(item(page, 'c1'), 320);
-    await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible({ timeout: 1000 });
+    await expect(page.locator('[data-row-swipe-key="select"]')).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 15000 });
+  await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeHidden();
+  await touchTap(page.locator('[data-row-swipe-key="select"]'));
+  await expect(page.locator('#newsRoot .row-swipe-pickbar')).toBeVisible();
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Escape'); // S70-64b: [✕] 없음 — Esc로 끝
   // 글 줄 위 왼쪽 조금: 칸만 열리고 탭은 그대로.

@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { noteField } from './helpers/note-editor.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 
 // NOTE-최근5개 ③(명진 10/29 08:57): 폰 노트 첫 화면 '노트' 제목(위 머리줄)과 검색 칸 사이가 크게 비었다. 같은 빈 공간이 다른 메뉴 첫 화면에
 // 다시 생기지 않게, 메뉴마다 위 머리줄 아래 끝 → 화면에서 처음 보이는 내용(글자·입력칸·버튼·그림·테두리 있는 칸)의 위 끝 거리를 잰다.
@@ -119,7 +120,7 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   await expect(recent.nth(1).locator('[data-nx-recent-folder]')).toContainText('개발');
   await expect(recent.nth(3).locator('[data-nx-recent-folder]')).toHaveCount(0);
   if (wide) {
-    await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
+    await expect(page.locator('[data-nx-tree] .ft-row').first()).toHaveAttribute('data-nx-recent-item', '');
     await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/ft-current/);
     await expect(page.locator('[data-nx-here]')).toHaveText('최근 · 5');
   } else {
@@ -141,7 +142,7 @@ for (const width of [412, 884, 1440]) test(`노트 첫 화면 ${width}: 맨 위 
   await expect.poll(() => writes.length).toBeGreaterThan(0);
   await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
   // PC: 열린 노트를 닫으면(Esc) 목록 — 왼쪽 나무 맨 위 [최근]을 누르면 오른쪽에 최근 5개.
-  if (wide) { await page.keyboard.press('Escape'); await expect(page.locator('[data-note-detail]')).toBeHidden(); await page.locator('[data-nx-tree] [data-nx-open="recent"]').click(); }
+  if (wide) { await page.keyboard.press('Escape'); await expect(page.locator('[data-note-detail]')).toBeHidden(); await treeEnter(page.locator('[data-nx-tree] [data-nx-open="recent"]')); }
   else { await page.goBack(); await expect(page.locator('[data-note-detail]')).toBeHidden(); await page.goBack(); }
   await expect(recent.first()).toHaveAttribute('data-nx-note', 'n1');
   await expect(recent.first()).toContainText('가 노트 고침');

@@ -36,6 +36,7 @@ async function fixture(page,width,plan=()=>null){
     return route.fulfill({status:200,json:result});
   });
   await page.route(SB+'/functions/v1/library-files',async route=>{
+    if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     const raw=route.request().postDataBuffer().toString('utf8'),name=raw.match(/filename="([^"]+)"/)?.[1]||'',n=state.uploads.length+1;
     const answer=plan(n,name)||{};
     state.uploads.push({name,project:raw.match(/name="project_id"\r\n\r\n([^\r]*)/)?.[1]||''});

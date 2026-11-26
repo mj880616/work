@@ -45,6 +45,7 @@ async function mock(page, state, { onedrive = false, days = OD_DAYS } = {}) {
     if (path === '/auth/v1/user') return ok(state.user);
     if (path === '/auth/v1/logout') return ok({});
     if (path === '/functions/v1/library-files' && req.method() === 'GET') return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
+    if (path === '/functions/v1/library-files' && /^\{"action":"drive-auto"\}$/.test(req.postData() || '')) return ok({ ok: true, added: 0 }); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     if (path === '/functions/v1/library-files' && req.method() === 'POST') {
       state.uploads.push((req.postDataBuffer() || Buffer.alloc(0)).toString('latin1'));
       const n = 100 + state.uploads.length;

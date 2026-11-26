@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // S69-29 LIB-한칸크기끌기(명진 11/24 "창 밑으로도 드래그 가능하게 · 정확히는 높이를 · 드래그로 늘릴 수 있게",
 // "한칸보기에서 왼쪽 목록이랑 오른쪽 폴더 또는 자료 보기 사이 드래그가안되네"): 자료실 한 칸 탐색기(왼쪽 나무 | 오른쪽 그 폴더 내용).
 // ① 카드 아래 테두리 끌기 = 카드 높이(서버 기억, 다시 열어도 그대로), 두 번 누르기 = 내용만큼. 늘린 빈 곳에서 사각형 고르기·파일 놓기(지금 폴더로).
@@ -39,7 +40,7 @@ const dropFileAt=(page,x,y,name)=>page.evaluate(({x,y,name})=>{
 test('PC 1280 ① 카드 아래 테두리 끌기 = 높이(서버 기억·다시 열어도 그대로) · 늘린 빈 곳 사각형 고르기·파일 놓기 · 두 번 누르기 = 내용만큼',async({page,browser})=>{
   test.setTimeout(60000);
   const {errors,s}=await boot(page);
-  await page.locator(nav('t1')).click();
+  await treeEnter(page.locator(nav('t1')));
   await expect(page.locator('#documentList [data-lu-document="d3"]')).toBeVisible();
   await expect(heightGrip(page)).toBeVisible();
   await expect(heightGrip(page)).toHaveAttribute('role','separator');
@@ -114,7 +115,7 @@ test('PC 1280 ② 두 칸 사이 세로 선 끌기 = 왼쪽 나무 칸 폭(서�
 test('PC 1280 ③ 오른쪽 자료 여러 개를 왼쪽 나무 폴더에 끌어 놓기 + 따라오는 반투명 조각',async({page})=>{
   const {errors,s}=await boot(page);
   await page.evaluate(()=>{window.__ghost=[];const o=DataTransfer.prototype.setDragImage;DataTransfer.prototype.setDragImage=function(el,x,y){window.__ghost.push(el.textContent);return o.call(this,el,x,y)}});
-  await page.locator(nav('t1')).click();
+  await treeEnter(page.locator(nav('t1')));
   // 둘을 고른 채(Ctrl+클릭) 하나를 끌면 둘 다 옮겨진다.
   await page.locator('#documentList [data-lu-document="d1"] .lu-row-title').click({modifiers:['Control']});
   await page.locator('#documentList [data-lu-document="d2"] .lu-row-title').click({modifiers:['Control']});
@@ -135,7 +136,7 @@ test.describe('펼친 폴드 800 손가락',()=>{
   const center=(page,sel)=>page.locator(sel).first().evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+Math.min(r.width/2,120),y:r.top+r.height/2}});
   test('③ 길게 눌러 오른쪽 자료를 왼쪽 나무 폴더로 — 손가락을 따라오는 조각, 놓으면 사라짐',async({page})=>{
     const {errors,s}=await boot(page,800);
-    await page.locator(nav('t1')).tap();
+    await treeEnter(page.locator(nav('t1')),{tap:true});
     await expect(page.locator('#documentList [data-lu-document="d1"]')).toBeVisible();
     const cdp=await page.context().newCDPSession(page);
     const from=await center(page,'#documentList [data-lu-document="d1"] .lu-row-title'),to=await center(page,nav('t2'));

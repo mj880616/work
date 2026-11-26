@@ -27,6 +27,8 @@ import { SPLIT_QUERY } from './screen-width.mjs'; // FILES-폴드나무목록 �
 import { chevHtml } from './fold-chevron.mjs';
 import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
+// S70-57 UI-검색창하나로(명진 11/26 "메뉴별 검색창은 그 메뉴에서 찾기로 통일"): 맨 위 칸 '할 일에서 찾기' = 할 일 제목 거르기(renderTasks 안, 서버 검색 없음, 메모리만).
+import {registerScreenFind,findFor} from './screen-find.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('google-tasks');
 (()=>{
@@ -186,6 +188,13 @@ const linkKey=l=>l?.project_id?'p:'+l.project_id:l?.meeting_id?'m:'+l.meeting_id
 const keyLink=k=>k.startsWith('p:')?{project_id:k.slice(2)}:k.startsWith('m:')?{meeting_id:k.slice(2)}:{organization_id:k.slice(2)};
 const workspaceOf=()=>rt?.context?.read?.()?.workspace?.id||window.__KPTU_BOOT_CONTEXT__?.workspace?.id||'';
 const tasksViewShown=()=>{const v=document.querySelector('#tasksView');return !!v&&!v.classList.contains('hidden')};
+// 맨 위 칸 '할 일에서 찾기': 친 글자(앞뒤 빈칸 뺀 소문자)가 제목에 든 할 일만 그린다. 목록 칸(#gtTaskSection)이 보일 때만 쓰인다.
+// S70-67 SEARCH-비슷한것찾기: 판정은 공용 부품(screen-find.js findFor — 띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간), 묶음(기한) 안은 맞은 정도 순, 제목 굵게.
+let findQuery='',findText='',taskFind=null;
+const findHit=t=>!findQuery||!!taskFind?.hitAt(String(t?.due||'').slice(0,10),t?.title);
+const findScore=t=>findQuery&&taskFind?taskFind.best(t?.title)?.score??0:0;
+registerScreenFind('tasks',{label:'할 일에서 찾기',marks:'#gtTaskSection .gt-main > b',active:()=>tasksViewShown()&&!!document.querySelector('#gtTaskSection'),value:()=>findQuery?findText:'',
+  apply:(raw,{again}={})=>{findText=String(raw??'');const next=findText.trim().toLowerCase();if(next===findQuery&&!again)return;findQuery=next;renderTasks(lastTasks)}});
 function toast(msg){const t=document.querySelector('#toast');if(!t){setSync(msg,true);return}t.textContent=msg;kptuHoldToast(t)}
 function errorText(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|권한/.test(msg))return '구글 할 일 권한이 빠졌어요. 할 일 탭에서 다시 연결해 주세요.';if(/연결되지/.test(msg))return '구글 할 일을 연결하면 같이 볼 수 있어요(할 일 탭).';return msg}
 // Link choices: active projects in the shared catalog's tree order, and my organizations (my-organizations.js, ORG-고르기통일;
@@ -569,12 +578,13 @@ function renderTasks(tasks){
   const body=section()?.querySelector('#gtTaskBody');if(!body)return;
   if(taskMenu?.active){taskRenderPending=true;return;}
   const focusId=body.contains(document.activeElement)?document.activeElement.dataset?.gtToggle:'',focusEdit=body.contains(document.activeElement)?document.activeElement.dataset?.gtEdit:'',focusMenu=body.contains(document.activeElement)?document.activeElement.dataset?.gtMenu:'',completedOpen=body.querySelector('#gtCompleted')?.open===true,laterFold=body.querySelector('#gtLater'),laterOpen=laterFold?laterFold.open===true:laterWasOpen;
-  const now=Date.now(),items=tasks.filter(t=>!pendingDeletes.has(t.id)&&!deletedTombstones.has(t.id)).map(t=>({t,p:settling.get(t?.id)?.before||t})),row=(x,overdue=false)=>taskRow(x.t,overdue,effectOf(x.t.id,now)),pending=items.filter(x=>!isDone(x.p)),todayKey=dayKey(now),inGroup=g=>pending.filter(x=>dueGroup(dueDateKey(x.p.due),todayKey)===g).sort((a,b)=>byDue(a.p,b.p)),overdue=inGroup('overdue'),today=inGroup('today'),tomorrow=inGroup('tomorrow'),week=inGroup('week'),later=allPendingConfirmed?inGroup('later'):[],undated=allPendingConfirmed?inGroup('undated'):[],completed=items.filter(x=>isDone(x.p)&&completedRecently(x.p,now)).sort((a,b)=>(Date.parse(b.p.completed||'')||0)-(Date.parse(a.p.completed||'')||0));
+  taskFind=findQuery?findFor('tasks',findText):null;
+  const now=Date.now(),items=tasks.filter(t=>!pendingDeletes.has(t.id)&&!deletedTombstones.has(t.id)&&findHit(t)).map(t=>({t,p:settling.get(t?.id)?.before||t})),row=(x,overdue=false)=>taskRow(x.t,overdue,effectOf(x.t.id,now)),pending=items.filter(x=>!isDone(x.p)),todayKey=dayKey(now),inGroup=g=>pending.filter(x=>dueGroup(dueDateKey(x.p.due),todayKey)===g).sort((a,b)=>findScore(b.t)-findScore(a.t)||byDue(a.p,b.p)),overdue=inGroup('overdue'),today=inGroup('today'),tomorrow=inGroup('tomorrow'),week=inGroup('week'),later=allPendingConfirmed?inGroup('later'):[],undated=allPendingConfirmed?inGroup('undated'):[],completed=items.filter(x=>isDone(x.p)&&completedRecently(x.p,now)).sort((a,b)=>(Date.parse(b.p.completed||'')||0)-(Date.parse(a.p.completed||'')||0));
   const count=items.filter(x=>!isDone(x.t)).length;document.querySelector('[data-gt-count]').textContent=`할 일 ${count}개`;document.querySelector('#gtTaskSection .gt-head-left').classList.toggle('hidden',pending.length===0);
   const pc=pcColumns()&&!unlinkedOnly;section()?.classList.toggle('gt-pc',pc);syncSplit();
   if(pc){const openId=isDocked()&&!document.querySelector('#gtTaskModal').classList.contains('hidden')?editing?.id:'',has=rows=>!!openId&&rows.some(x=>x.t.id===openId);paintBody(body,'gt-list gt-board',columnsHtml({overdue,today,tomorrow,week,later,undated,completed},(x,overdue=false)=>taskCard(x.t,overdue,effectOf(x.t.id,now)),{completedOpen:completedOpen||has(completed),laterOpen:laterOpen||has(later)||has(undated)}));laterWasOpen=!!body.querySelector('#gtLater')?.open||(!body.querySelector('#gtLater')&&laterOpen)}else{
   const group=(id,title,rows)=>rows.length?`<div class="gt-group${id==='overdue'?' gt-overdue':''}" data-gt-${id} role="group" aria-labelledby="gt-${id}-head"><h4 id="gt-${id}-head" class="gt-group-head">${title} ${rows.length}</h4>${rows.map(x=>row(x,id==='overdue')).join('')}</div>`:'';
-  if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
+  if(!unlinkedOnly)paintBody(body,'gt-list',(pending.length?'':findQuery?emptyHtml('맞는 할 일 없음'):emptyHtml())+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('tomorrow','내일',tomorrow)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length}${chevHtml(false, 'gt-disclosure')}</summary>${completed.map(x=>row(x)).join('')}</details>`:''));}
   if(unlinkedOnly){section()?.classList.remove('gt-pc');syncSplit();const unlinked=pending.filter(x=>x.t.unlinked);paintBody(body,'gt-list',`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`);body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   // UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 할 일 줄 — 왼쪽으로 밀기 [완료]/[완료 취소](✓와 같은 길, 다시 밀면 되돌아감).

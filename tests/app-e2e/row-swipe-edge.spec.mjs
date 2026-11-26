@@ -103,10 +103,15 @@ for (const width of [412, 390]) {
       await expect(cells(list), `${v}: 가운데 시작`).toHaveCount(3);
       await finger(page, cdp, [[b.x + 40, b.y + b.height / 2]]);
       await expect(cells(list)).toHaveCount(0);
-      // ④ 오른쪽 밀기: [선택] → '1개 선택됨', 탭 그대로.
+      // ④ 오른쪽 밀기: [선택] 칸만 펼쳐짐(S70-60) → 칸을 누르면 '1개 선택됨', 탭 그대로.
       await tick(page);
       await finger(page, cdp, path(b.x + 40, b.y + b.height / 2, 300, 0));
       const bar = page.locator('#readingView .row-swipe-pickbar');
+      const pick = list.locator('[data-row-swipe-key="select"]');
+      await expect(pick, `${v}: 오른쪽 밀기 [선택] 칸`).toBeVisible();
+      await expect(bar).toBeHidden();
+      const pb = await pick.boundingBox();
+      await finger(page, cdp, [[pb.x + pb.width / 2, pb.y + pb.height / 2]]);
       await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
       await expect(tab(list, v)).toHaveAttribute('aria-checked', 'true');
       await page.keyboard.press('Escape'); // S70-64b: [✕]·[그만] 없음 — Esc(폰은 뒤로가기)로 끝
@@ -118,8 +123,8 @@ for (const width of [412, 390]) {
     await expect(tab(list, 'marks')).toHaveAttribute('aria-checked', 'true');
     await expect(list.locator('[data-rd-marks] .nh-row')).toHaveCount(3);
     await expect(rows(list)).toHaveCount(0);
-    // ⑤ 줄 밖(맨 위 제목 줄)에서 밀면 탭을 넘긴다: 밑줄 → (오른쪽 밀기) 안 읽음 → (왼쪽 밀기) 밑줄. S70-24: 탭 차례 [전체·안 읽음·밑줄·메모].
-    const head = list.locator('.rd-head .rd-title');
+    // ⑤ 줄 밖(맨 위 머리 줄)에서 밀면 탭을 넘긴다: 밑줄 → (오른쪽 밀기) 안 읽음 → (왼쪽 밀기) 밑줄. S70-24: 탭 차례 [전체·안 읽음·밑줄·메모].
+    const head = list.locator('.rd-head'); // S70-57: 머리 줄 제목 없음(이름은 앱 머리 줄) — 머리 줄 빈 곳
     await tick(page);
     let h = await box(head);
     await finger(page, cdp, path(h.x + 20, h.y + h.height / 2, 160, 0));

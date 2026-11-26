@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libDoc,libFolder,menuButton,press} from './helpers/library-folder-server.mjs';
 import {folderSheet,sheetGo} from './helpers/folder-sheet.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // S69-62: 폴더 고르기 = [파일] '옮길 곳' 창 하나 — 줄 누르기는 고르기+펼치기, [이 폴더로 정하기]·[여기에 두기]로만 정한다.
 const sheetId=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
 async function pickIds(page,ids){for(const id of ids)await sheetId(page,id).click();await sheetGo(page).click();await expect(folderSheet(page)).toHaveCount(0)}
@@ -31,7 +32,7 @@ async function mockAi(page,s,answer){
   });
 }
 const NEW_ANSWER=ids=>ids.flatMap(id=>id===R2||id===R3?[{id,folder_id:null,new:{name:'산별전환',parent_id:GYO},why:'산별 토론 자료'}]:[]);
-async function enterReceive(page){await page.locator(`#libraryFolderNav [data-lu-nav="${RECV}"]`).click();await expect(page.locator('#libraryPath')).toContainText('잡동사니')}
+async function enterReceive(page){await treeEnter(page.locator(`#libraryFolderNav [data-lu-nav="${RECV}"]`));await expect(page.locator('#libraryPath')).toContainText('잡동사니')}
 
 test.describe('PC 1280 한 칸',()=>{
   test.use({hasTouch:false});
@@ -40,7 +41,7 @@ test.describe('PC 1280 한 칸',()=>{
     let release;s.aiHold=new Promise(r=>{release=r});
     await mockAi(page,s,NEW_ANSWER);
     // 다른 폴더를 연 화면에는 단추가 없다.
-    await page.locator(`#libraryFolderNav [data-lu-nav="${GYO}"]`).click();
+    await treeEnter(page.locator(`#libraryFolderNav [data-lu-nav="${GYO}"]`));
     await expect(page.locator('#libraryPath [data-lu-sort]')).toHaveCount(0);
     await enterReceive(page);
     const btn=page.locator('#libraryPath [data-lu-sort]');
