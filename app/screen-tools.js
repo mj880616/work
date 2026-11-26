@@ -24,7 +24,9 @@ const slot = view => (window.matchMedia(PC).matches ? lineSlot(view) : head());
 // top = 맨 위 줄 찾기 칸 오른쪽(index.html [data-screen-tools="top"]) — 사용자가 그 자리를 따로 정한 화면만.
 // 사업 관리는 첫 줄(#reportTop)이 원래 화면 안이라 표에 없다({wide:false} — 본보기).
 const LINES = {
-  basket: {line: '[data-note-list] > .note-list-head'}, // 노트: 보기 탭 줄(폴더·목록·보드·태그·메모·달력)
+  // 노트·잊지 말기는 한 화면 칸(#basketView)을 같이 쓴다. line이 여럿이면 지금 보이는 첫 줄(없으면 맨 앞 것):
+  //   노트 = 보기 탭 줄(폴더·목록·보드·태그·메모·달력), 잊지 말기 = 화면 머리 줄(.basket-head — [처리 전 ▾]·↻, S71-29 둘째 줄 없앤 뒤 첫 줄).
+  basket: {line: ['[data-note-list] > .note-list-head', ':scope > .basket-head']},
   library: {line: '.library-filter-toolbar > .lu-search-row'}, // 자료실: 고르기 줄(폴더·분류)
   // 예외 — 찾기 칸 옆 ＋ 하나만 있고 사용자가 그 자리를 정한 화면은 맨 위 줄 찾기 칸 오른쪽 그대로(⋯ 메뉴는 없음):
   reading: {top: true}, // 저장한 글 ＋(S71-26 SAVED-머리한줄 "+ 를 돋보기 우측으로", 2026-11-26 사용자 PC 화면 확인 '위치 좋음')
@@ -32,6 +34,12 @@ const LINES = {
   team: {grid: '#soTeamSection > #soTeamTabs'}, // 조직 관리: 목록·전체 표 탭(좌우 격자 첫 줄)
   outside: {grid: '#outsideRoot > .os-tabs'}, // 읽을 거리: 탭 줄(전체·사회운동·언론·밑줄·메모, 두 칸 격자 첫 줄)
 };
+// 줄 후보 중 지금 보이는 첫 줄. 하나도 안 보이면(화면이 숨었거나 글을 연 동안) 있는 첫 줄 — 자리는 그대로 두고 상자는 그 줄과 같이 숨는다.
+const seen = el => (el.checkVisibility ? el.checkVisibility() : !el.closest('[hidden]'));
+function firstRow(panel, line) {
+  const rows = [].concat(line).map(sel => panel.querySelector(sel)).filter(Boolean);
+  return rows.find(seen) || rows[0] || null;
+}
 const slots = new Map(); // view → 자리 요소(처음 부를 때 만들고 계속 같은 것 — 줄이 다시 그려지면 다시 붙인다)
 export function lineSlot(view) {
   const panel = view && document.getElementById(panelId(view));
@@ -44,8 +52,7 @@ export function lineSlot(view) {
     s.className = 'screen-line-slot'; s.dataset.screenTools = 'line'; s.dataset.screenLineView = view;
     slots.set(view, s);
   }
-  // 숨은 줄(같은 화면의 다른 쪽 — 정리함 [잊지 말기]일 때 노트 보기 탭 줄)에는 붙이지 않는다: 그때는 화면 맨 위 자기 줄(own).
-  const row = spec.line ? [...panel.querySelectorAll(spec.line)].find(r => !r.closest('[hidden]')) || null : null;
+  const row = spec.line ? firstRow(panel, spec.line) : null;
   const anchor = !row && spec.grid ? panel.querySelector(spec.grid) : null;
   if (row) {
     s.dataset.screenLineMode = 'line';
