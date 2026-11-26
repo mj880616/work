@@ -493,7 +493,7 @@ function blocksWhere(html: string, hit: (attrs: string) => boolean): string {
 // 글 페이지에서 본문 글자만: 단체 규칙 bodyClass 칸 → <article>(또는 흔한 본문 칸) → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
 // 본문 칸 줄들(필터 전): 단체 본문 칸 → <article> → 흔한 본문 칸 → 페이지 전체 순서. 제목 줄 뒤부터 '목록·이전글·댓글·저작권' 줄 앞까지.
 // 본문 칸 HTML(필터 전)과 그것이 단체 본문 칸(bodyClass)인지. 공용 추출기(_shared/feed-extract.ts)가 같은 칸을 쓴다(한 번 뽑아 세 곳).
-export type BodyScopeVia = "own" | "itemprop" | "article" | "common" | "body" | "article_form" | "common_form" | "body_form";
+export type BodyScopeVia = "own" | "itemprop" | "article" | "common" | "body" | "article_form" | "common_form" | "body_form" | "dense";
 // 본문 칸 고르기(S51-9): 단체 본문 칸(bodyClass)이 있으면 그 칸. 없으면 <article>(앞에서 5개) → 흔한 본문 칸 → 페이지 전체 순서로,
 // 메뉴·머리·꼬리·옆 칸·폼을 뺀 뒤 '글자 SCOPE_MIN_TEXT자 이상 또는 그림이 있는' 첫 칸을 쓴다(예전: 처음 찾은 칸이 비어 있어도 그 칸 — 학비노조 0블록·서비스연맹 93자).
 // 폼을 빼면 비는 칸(게시판 쪽 전체가 <form> 안인 사이트)은 폼 꼬리표만 벗기고 안쪽은 남긴다(입력 칸·선택 칸은 글자 바꾸기에서 빠진다).
@@ -506,11 +506,20 @@ function scopeMeaningful(h: string): boolean {
   return [...t].length >= SCOPE_MIN_TEXT;
 }
 export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string; own: boolean; via: BodyScopeVia } {
+  return bodyScopeCandidates(html, bodyClass, 1)[0];
+}
+export type BodyScope = { html: string; own: boolean; via: BodyScopeVia };
+// 본문 칸 후보들(차례대로 — 첫째가 bodyScopeHtml이 고르는 칸). S71-68 READ-본문뽑기: 첫 칸에서 뽑은 글이 본문이 아니면
+// (짧은 링크 줄 목록 · 제목과 다른 글 — _shared/feed-extract.ts bodyIssue) 공용 추출기가 다음 후보를 차례로 본다.
+// max: 몇 개까지(1이면 예전 bodyScopeHtml과 똑같다). 마지막 후보 'dense'는 페이지에서 글자가 긴 문단(<p>)만 차례로 모은 칸.
+export function bodyScopeCandidates(html: string, bodyClass?: RegExp, max = 12): BodyScope[] {
+  const out: BodyScope[] = [];
+  const put = (c: BodyScope) => { if (out.length < max && !out.some((o) => o.html === c.html)) out.push(c); return out.length >= max; };
   const own = bodyClass ? bodyBlocks(html, bodyClass) : "";
-  if (own.trim()) return { html: own.replace(CHROME, " "), own: true, via: "own" };
+  if (own.trim() && put({ html: own.replace(CHROME, " "), own: true, via: "own" })) return out;
   // S69-06: 단체 본문 칸 규칙이 없거나 못 찾으면 매체가 밝힌 본문 칸(itemprop="articleBody")을 <article>보다 먼저. 그 칸이 비면(화면 스크립트가 채우는 쪽) 예전 차례로.
   const marked = itempropBlocks(html);
-  if (marked.trim()) { const h = marked.replace(CHROME, " "); if (scopeMeaningful(h)) return { html: h, own: true, via: "itemprop" }; }
+  if (marked.trim()) { const h = marked.replace(CHROME, " "); if (scopeMeaningful(h) && put({ html: h, own: true, via: "itemprop" })) return out; }
   const cands: [string, "article" | "common" | "body"][] = [];
   for (const m of html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article\s*>/gi)) { cands.push([m[1], "article"]); if (cands.length >= 5) break; }
   const common = /<(?:div|section)\b[^>]*\b(?:class|id)\s*=\s*["'][^"']*\b(?:entry-content|post-content|article-body|article_body|view_content|view-content|board_view|bbs_view|xe_content|rd_body|content_view|viewContent|bo_v_con|kboard-content)\b[^"']*["'][^>]*>([\s\S]*)/i.exec(html)?.[1];
@@ -519,14 +528,37 @@ export function bodyScopeHtml(html: string, bodyClass?: RegExp): { html: string;
   cands.push([whole, "body"]);
   for (const [c, via] of cands) {
     const s = c.replace(CHROME, " ");
-    if (scopeMeaningful(s)) return { html: s, own: false, via };
+    if (scopeMeaningful(s)) { if (put({ html: s, own: false, via })) return out; continue; }
     if (/<form\b/i.test(c)) {
       const f = c.replace(CHROME_NO_FORM, " ").replace(/<\/?form\b[^>]*>/gi, " ");
-      if (scopeMeaningful(f)) return { html: f, own: false, via: `${via}_form` as BodyScopeVia };
+      if (scopeMeaningful(f) && put({ html: f, own: false, via: `${via}_form` as BodyScopeVia })) return out;
     }
   }
-  return { html: whole.replace(CHROME, " "), own: false, via: "body" };
+  if (!out.length) { out.push({ html: whole.replace(CHROME, " "), own: false, via: "body" }); if (out.length >= max) return out; }
+  const dense = denseParagraphs(whole.replace(CHROME, " "));
+  if (dense) put({ html: dense, own: false, via: "dense" });
+  return out;
 }
+// S71-68: 글자가 긴 문단(<p> — 링크 글자가 적고 DENSE_MIN_CHARS자 넘음)만 차례로 모은 HTML. 모은 글자가 SCOPE_MIN_TEXT*2자 안 되면 "".
+// 본문 칸 이름을 모르는 사이트에서 '많이 본 기사'·메뉴 같은 짧은 링크 줄 칸을 건너뛰고 기사 문단만 고르는 마지막 후보.
+const DENSE_MIN_CHARS = 40;
+function denseParagraphs(html: string): string {
+  const h = html.replace(/<(script|style|noscript|template|svg|iframe|select|textarea)\b[\s\S]*?<\/\1\s*>/gi, " ");
+  const parts: string[] = [];
+  let total = 0;
+  for (const m of h.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)) {
+    const inner = m[1];
+    const t = plainLen(inner);
+    if (t < DENSE_MIN_CHARS) continue;
+    const a = [...inner.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a\s*>/gi)].reduce((n, x) => n + plainLen(x[1]), 0);
+    if (a * 2 > t) continue;
+    parts.push(m[0]);
+    total += t;
+    if (parts.length >= 400) break;
+  }
+  return total >= SCOPE_MIN_TEXT * 2 ? parts.join("\n") : "";
+}
+const plainLen = (h: string) => [...h.replace(/<[^>]*>/g, " ").replace(/&[a-z#0-9]+;/gi, "x").replace(/\s+/g, "")].length;
 
 // 본문 칸 줄들 → 본문 줄들: 제목 줄 뒤부터(단체 본문 칸이면 처음부터) '목록·이전글·댓글·저작권' 줄 앞까지.
 // key: 줄 글자를 판정용으로 바꾸는 함수(추출기의 표시 글자를 떼는 데 씀).
