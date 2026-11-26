@@ -109,10 +109,9 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
     const q=quick(page),clip=q.locator('[data-basket-clip]');
     await expect(clip).toBeVisible();
     const cb=await clip.boundingBox();expect(Math.max(cb.width,cb.height)).toBeGreaterThanOrEqual(36);expect(cb.width).toBeGreaterThanOrEqual(44);
-    // Phone: inside the input's left edge; PC: outside the input, just left of [추가].
-    const ib=await q.locator('[data-quick-input]').boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox();
-    if(viewport.width<761){expect(cb.x).toBeGreaterThanOrEqual(ib.x-1);expect(cb.x+cb.width).toBeLessThan(ib.x+ib.width/2);}
-    else{expect(cb.x).toBeGreaterThanOrEqual(ib.x+ib.width-1);expect(cb.x+cb.width).toBeLessThanOrEqual(ab.x+1);}
+    // NOTE-입력줄높이(S71-67): 폰·PC 모두 입력칸 안 왼쪽 클립.
+    const ib=await q.locator('[data-quick-input]').boundingBox();
+    expect(cb.x).toBeGreaterThanOrEqual(ib.x-1);expect(cb.x+cb.width).toBeLessThan(ib.x+ib.width/2);
     await q.locator('input[type="file"]').setInputFiles([txt('안건.txt')]);
     await expect(q.locator('[data-basket-files] .library-selected-file b')).toHaveText(['안건.txt']);
     expect(await noSideScroll(page)).toBe(true);

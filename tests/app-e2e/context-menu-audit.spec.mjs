@@ -218,7 +218,7 @@ const SPOTS = {
   '하루 기록': [{ name: '하루 기록 머리 줄', sel: '#diaryView .diary-week-head', want: 'app', labels: ['하루 기록 쓰기'] }],
   // S71-25 PHOTO-머리한줄: 화면 안 도구 줄(.photos-bar)은 없다. 맨 위 줄 ⋯(사진 메뉴, data-ctx="screen")가 생겨 사진 본문 빈 곳 우클릭 = 그 ⋯ 메뉴.
   '사진': [{ name: '사진 본문 빈 곳', sel: '#photosView [data-photos-body]', want: 'app', at: 600 }],
-  // S71-29 FORGET-머리한줄: 화면 안 머리 줄(.forget-head)은 없다 — [처리 전 ▾]·최신화는 맨 위 줄 단추 상자라 지킬 빈 곳이 남지 않는다(목록은 전수 조사가 본다).
+  // S71-29 FORGET-머리한줄: 화면 안 머리 줄(.forget-head)은 없다 — 최신화는 맨 위 줄 단추 상자라 지킬 빈 곳이 남지 않는다(목록은 전수 조사가 본다).
   // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름). S71-26: ＋가 맨 위 줄로 가 목록 머리 줄(.rd-head)도 없다 — 목록 첫 줄(보기 탭) 오른쪽 빈 곳.
   // S70-28: 그 우클릭 메뉴에 '글 추가'(＋는 맨 위 줄 단추 상자 — data-screen-tools-for로 찾는다).
   '저장한 글': [{ name: '저장한 글 첫 줄', sel: '#readingView [data-rd-list]', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],

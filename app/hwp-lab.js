@@ -10,7 +10,7 @@
 // [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
 // (버튼의 켜짐·꺼짐·숨김은 sync()가 정하고 메뉴는 열 때 그 상태를 읽어 그린다).
 import {createSandboxedEditor} from './hwp-frame.js';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,EDIT_BACKUP_FOLDER,findConvertTemplate,saveConvertedCopy,saveUnionForm,unionFormFileProblem} from './hwp-drive.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,takeHwpConvertRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,EDIT_BACKUP_FOLDER,findConvertTemplate,saveConvertedCopy,saveUnionForm,unionFormFileProblem} from './hwp-drive.js';
 import {callAiAssist} from './basket-ai-summary.js';
 import {openConvertDialog,openFormUploadDialog,requestEngineBuild,CONVERT_TEXT,ENGINE_TEXT,convertRetryable} from './hwp-convert.js';
 import {DOC_TYPES,convertAnswer,buildPlan,convertedFileName} from './hwp-convert-model.mjs';
@@ -362,7 +362,8 @@ function requestTemplate(row){
 
 // HWP-서식변환: [노조 서식으로 만들기]. 순서는 ① 자료실 "노조 서식"(옛 "양식")에서 이 종류의 빈 양식 찾기·받기 ② AI가 글을 노조 문서 규칙 문단으로 나누기 ③ 칸막이 안 보조
 // 스크립트가 양식에 채우기 ④ HWP 편집에 열기. AI가 실패하면 편집기의 지금 문서는 그대로 둔다(양식을 HWP 편집에 여는 것은 ③ 직전).
-async function startConvert(){
+// S71-61 HWP-노트안으로: text = 노트 ⋯ [이 노트를 HWP로]가 넘긴 노트 글(글 칸에 미리 넣는다). 버튼으로 열 때는 빈 칸.
+async function startConvert(text=''){
   if(busy)return;
   await refreshDirty();
   if(busy)return;
@@ -373,10 +374,10 @@ async function startConvert(){
   try{found=await findUnionTemplate({rt})}catch(err){console.warn('hwp-lab form check',err?.kind||'error')}
   if(busy)return;
   if(found&&!found.total){
-    openFormUploadDialog({check:file=>unionFormFileProblem(file,{hwpOnly:true}),onUpload:uploadUnionForm,onDone:()=>openConvertDialog({onMake:runConvert})});
+    openFormUploadDialog({check:file=>unionFormFileProblem(file,{hwpOnly:true}),onUpload:uploadUnionForm,onDone:()=>openConvertDialog({onMake:runConvert,text})});
     return;
   }
-  openConvertDialog({onMake:runConvert});
+  openConvertDialog({onMake:runConvert,text});
 }
 async function uploadUnionForm(file){
   const saved=await saveUnionForm(file,{},{rt});
@@ -645,6 +646,8 @@ async function start(){
     void openDrive(target);
     return;
   }
+  // S71-61: 노트에서 넘긴 글이 있으면 기기 파일 편집 상태로 맞춘 뒤(아래 그대로) [노조 서식으로 만들기]를 그 글로 연다. 저장 안 한 수정은 startConvert가 묻는다.
+  const noteText=busy?null:takeHwpConvertRequest(rt);
   if(drive&&!busy){
     if(!returning&&dirty()&&(!(await askDiscard(null,'저장하지 않은 수정 내용이 있어요. 내 기기 파일 수정으로 바꾸면 사라져요. 바꿀까요?','바꾸기'))||!drive||busy||!here())){showMode();watchEdits();return}
     resetToDevice();
@@ -653,6 +656,7 @@ async function start(){
   watchEdits();
   // A failed editor load is retried on the next entry to this view.
   editor().catch(()=>{});
+  if(noteText)void startConvert(noteText);
 }
 
 window.KPTURouter?.on?.(VIEW,start);

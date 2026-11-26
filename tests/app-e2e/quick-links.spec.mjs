@@ -41,14 +41,14 @@ const panel=page=>page.locator('#quickLinksPanel');
 const group=(page,label)=>panel(page).getByRole('region',{name:label,exact:true});
 
 for(const width of [1280,1440]){
- test(`PC ${width}: [HWP 편집] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
+ test(`PC ${width}: 위 메뉴([브리핑 룸] 등) 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
   // BASKET-PC메뉴: 사이드바가 두 줄(업데이트·챙길 것) 길어져 900px 높이에서는 맨 아래 줄이 보이는 칸 밖(사이드바 스크롤)이므로 1000px 높이로 시험한다.
   const {errors}=await open(page,width,{height:1000});
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
   // UI-사이드바링크아래: the row sits at the very bottom of the sidebar, after the spacer, with empty space between the menu and it.
   // CALL·TG: [통화]·[텔레그램 소식]·[아스날](주소 개편 ②)이 빈 공간과 이 줄 사이에 있다(맨 아래 묶음).
   expect(await row(page).evaluate(el=>{const a=el.previousElementSibling,b=a?.previousElementSibling,c=b?.previousElementSibling;return [c?.dataset.view,b?.dataset.view,a?.dataset.view,c?.previousElementSibling?.classList.contains('sidebar-spacer')]})).toEqual(['calls','telegram','arsenal',true]);
-  const hwp0=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),nav0=await page.locator('#appView>.app-nav').boundingBox();
+  const hwp0=await page.locator('#appView>.app-nav [data-view="brief"]').boundingBox(),nav0=await page.locator('#appView>.app-nav').boundingBox();
   const r=await row(page).boundingBox();
   expect(r.y).toBeGreaterThan(hwp0.y+hwp0.height+40);
   // S69-71: '쓰는 법'은 계정 메뉴 안으로 옮겨 이 줄이 다시 사이드바 맨 아래 끝에 붙는다.
@@ -93,7 +93,7 @@ for(const width of [1280,1440]){
 test('PC 1280×560: 메뉴가 길어도 줄은 마지막 메뉴 바로 아래(겹치지 않음), 창은 줄 오른쪽에서 위로 열림',async({page})=>{
  const {errors}=await open(page,1280,{height:560});
  await row(page).scrollIntoViewIfNeeded();
- const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
+ const hwp=await page.locator('#appView>.app-nav [data-view="brief"]').boundingBox(),r=await row(page).boundingBox();
  expect(r.y).toBeGreaterThanOrEqual(hwp.y+hwp.height-1);
  await row(page).click();await expect(panel(page)).toBeVisible();
  const p=await panel(page).boundingBox();
@@ -291,7 +291,7 @@ test('저장된 목록이 틀린 모양이면 믿지 않고 빈 목록(수정은
 test('PC 1280: 줄은 사이드바 맨 아래에 있고 창이 그대로 열린다',async({page})=>{
  const {errors}=await open(page,1280,{height:1000});
  await expect(page.locator('#appView>.app-nav .nav-write')).toHaveCount(0);
- const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
+ const hwp=await page.locator('#appView>.app-nav [data-view="brief"]').boundingBox(),r=await row(page).boundingBox();
  expect(r.y).toBeGreaterThan(hwp.y+hwp.height+40);
  await row(page).click();await expect(panel(page)).toBeVisible();
  const p=await panel(page).boundingBox();expect(Math.abs((p.y+p.height)-(r.y+r.height))).toBeLessThanOrEqual(1.5);

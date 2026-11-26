@@ -46,7 +46,7 @@ for(const width of [390,412]){
 
       // 메뉴 칸: 운영자는 저장한 메뉴 순서 그대로(저장값 맨 앞의 옛 공유 페이지는 없어진 메뉴라 빠지고 자료실이 맨 앞), 일반 사용자는 기본 순서(운영자 메뉴 없음).
       const tiles=await page.locator('#mobileMenu nav button').evaluateAll(list=>list.filter(el=>el.getClientRects().length).map(el=>el.dataset.view||el.dataset.basketKindNav));
-      if(operator)expect(tiles).toEqual(['library','basket','reading','files','brief','hwp','photos','outside','calls','telegram','arsenal']);
+      if(operator)expect(tiles).toEqual(['library','basket','reading','files','brief','photos','outside','calls','telegram','arsenal']); // S71-61: 저장값의 hwp는 건너뜀
       else{expect(tiles.slice(0,4)).toEqual(['basket','reading','team','meetings']); /* S68-37: 새 기본에서 자료실·사진은 하단바 칸 */for(const id of ['calls','telegram','arsenal'])expect(tiles).not.toContain(id);}
 
       // 가로 넘침 없음(화면도 창도).
