@@ -364,7 +364,11 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   // notes: 이 판의 노트(자리 계산은 전체로), visible: 그릴 노트 id(찾는 중이면 맞는 것만). folderOf(note) → 폴더 id 또는 null.
   // boardKey: 보드 id(보던 자리를 보드마다 기억), links: 이 보드의 선(parseLink 모양).
-  function paint({notes, folderOf, colorOfFolder = () => null, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = '', boardKey = '', links:list = [], texts:textList = []}) {
+  // S71-50 NOTE-보드배경색: 이 보드의 바탕색 이름(note-boards-model.mjs BOARD_BGS) 또는 null(기본). 색 값은 CSS(basket.css .nb-scroll[data-nb-bg]) 한 곳.
+  // 바탕만 바꾸므로 카드·선을 다시 그리지 않는다(고르는 중 끌기 등이 끊기지 않게). 내보내기는 이 판의 바탕색(exportSnapshot background)을 그대로 쓴다.
+  function applyBg(bg) { if (bg) scroll.dataset.nbBg = bg; else delete scroll.dataset.nbBg; }
+  function paint({notes, folderOf, colorOfFolder = () => null, visible = null, pickActive = false, isPicked = () => false, placeOf = undefined, removable = false, emptyText = '', boardKey = '', links:list = [], texts:textList = [], bg = null}) {
+    applyBg(bg);
     if (drag) cancelDrag();
     if (wire) cancelWire();
     if (lend) cancelLineEnd();
@@ -1825,6 +1829,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   function keepMenu(id) { if (id && links.some(l => l.id === id)) { lineSel = id; const l = links.find(k => k.id === id); if (lineEls.has(id)) paintLine(l); refreshMenu(); } else closeLineMenu(); }
   return {
     paint(args) { const id = menu?.id; paint(args); keepMenu(id); },
+    setBg: bg => applyBg(bg),
     relink(args) { const id = menu?.id; relink(args); keepMenu(id); },
     isDragging: () => !!(drag?.moving || tdrag?.moving || bend?.moved || wire || pan?.moved || pinch || rz || lend || lmove?.moved),
     places: () => new Map(places),

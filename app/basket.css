@@ -13,7 +13,7 @@
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
    S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *, .nbb-bg *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -337,7 +337,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nb-card.nb-flash { animation:nb-flash 1.2s ease-out; }
 @keyframes nb-flash { 0%, 40% { outline:3px solid var(--kptu-primary); outline-offset:3px; } 100% { outline-offset:1px; } }
 @media (prefers-reduced-motion:reduce) { .nb-card.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
-.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); --nb-board-bg:var(--kptu-surface-subtle); background:var(--nb-board-bg); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+/* S71-50 NOTE-보드배경색: 보드마다 고른 바탕색(data-nb-bg, 값은 theme-tokens.css --ds-board-bg-*). 점 무늬·선 글자 테두리는 그 색 위에 그대로. */
+.nb-scroll[data-nb-bg="sand"] { --nb-board-bg:var(--ds-board-bg-sand); }
+.nb-scroll[data-nb-bg="sage"] { --nb-board-bg:var(--ds-board-bg-sage); }
+.nb-scroll[data-nb-bg="sky"] { --nb-board-bg:var(--ds-board-bg-sky); }
+.nb-scroll[data-nb-bg="lilac"] { --nb-board-bg:var(--ds-board-bg-lilac); }
+.nb-scroll[data-nb-bg="peach"] { --nb-board-bg:var(--ds-board-bg-peach); }
+.nb-scroll[data-nb-bg="mint"] { --nb-board-bg:var(--ds-board-bg-mint); }
+.nb-scroll[data-nb-bg="rose"] { --nb-board-bg:var(--ds-board-bg-rose); }
+.nb-scroll[data-nb-bg="gray"] { --nb-board-bg:var(--ds-board-bg-gray); }
 @media (min-width:761px) { .nb-scroll { height:calc(100dvh - 150px); } }
 .nb.nb-space .nb-scroll { cursor:grab; } /* S69-33: PC는 Space+끌기·가운데 단추로 판 이동(빈 곳 끌기 = 사각형 고르기) */
 .nb.nb-panning .nb-scroll { cursor:grabbing; }
@@ -372,7 +381,7 @@ html.nb-full-on #noteDocMenu { z-index:60; }
 /* 누르는 범위: 보이지 않는 굵은 선(폰 손가락으로도 잡힘). */
 .nb-hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; outline:none; }
 .nb-hit:focus-visible { stroke:color-mix(in srgb,var(--nb-link-on) 28%,transparent); }
-.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--kptu-surface-subtle); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
+.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--nb-board-bg,var(--kptu-surface-subtle)); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
 .nb-temp[hidden] { display:none; }
 .nb-temp { fill:none; stroke:var(--nb-link-on); stroke-width:1.6; stroke-dasharray:4 4; }
 .nb-cards { position:absolute; left:0; top:0; width:0; height:0; }
@@ -552,6 +561,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
+/* S71-50 NOTE-보드배경색: 보드 메뉴 안 '배경색' 한 묶음(공용 ui-swatch 칸 그대로 — 위 #basketView button 규칙에서 .nbb-bg 안은 뺐다). */
+#appView #basketView .nbb-bg { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; padding:4px 8px 6px; max-width:220px; border-bottom:var(--ds-line-width,1px) solid var(--kptu-border); }
+#appView #basketView .nbb-bg-label { width:100%; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); line-height:1.6; }
 .nbw-body { display:block; }
 /* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */
 .nbw-main { min-width:0; }
