@@ -258,7 +258,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   await goReading(page, 412);
   await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
-  // 오른쪽으로 밀면 [선택] 칸(공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
+  // 오른쪽으로 밀면 바로 선택(공용 줄 밀기, S70-64 W1). 손가락 밀기는 포인터만 보낸다.
   await expect(async () => {
     const sent = await row(page, T_N1).evaluate(el => {
       if (!el.isConnected) return false;
@@ -270,12 +270,9 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
   const bar = page.locator('#readingView .row-swipe-pickbar');
-  // S70-60 UI-스와이프메뉴만: 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러 선택을 시작한다.
-  const pick = page.locator('#readingView [data-row-swipe-key="select"]');
-  await expect(pick).toBeVisible();
-  await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-  await pick.dispatchEvent('click');
+  // S70-64 W1: 오른쪽 밀기 = 바로 그 줄 선택([선택] 칸이 남지 않음).
   await expect(bar).toBeVisible();
+  await expect(page.locator('#readingView [data-row-swipe-key="select"]')).toHaveCount(0);
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
