@@ -2,7 +2,7 @@
 // PR마다 도는 화면 시험(App browser E2E)을 고친 파일과 관련된 시험으로 줄인다 (OPS-시험줄, S70-39).
 //
 // 규칙(AGENTS.md 9절 '시험 양 줄이기', 2026-11-25 명진 결정):
-// - 고친 파일 → 관련 시험 대응은 이 파일 한 곳에서 계산한다. 손으로 쓴 표는 아래 FULL·IGNORE 목록뿐이고,
+// - 고친 파일 → 관련 시험 대응은 이 파일 한 곳에서 계산한다. 손으로 쓴 표는 아래 FULL·IGNORE·SCREEN_SPECS 목록뿐이고,
 //   나머지는 앱 파일끼리 부르는 관계(import·import()·'./x.js' 문자열·HTML src/href·CSS @import)와
 //   시험 파일이 부르는 앱 파일 이름, 파일 이름 규칙(시험 이름이 앱 파일 이름으로 시작)으로 자동으로 찾는다.
 // - 대응을 못 찾으면, 공용 부품(첫 화면이 바로 부르는 파일·많은 화면이 함께 쓰는 파일)·시험 도구·workflow를 고쳤으면 전체.
@@ -45,6 +45,20 @@ export const IGNORE_PATTERNS = [
   /^app\/release-notes\//,
   /^app\/.*\.md$/i,
 ];
+// 화면 파일 → 이름으로는 찾지 못하는 그 화면의 공용 동작 시험(STAB-파일끌기회귀 S70-80, 명진 11/26 "잘 되던게 자꾸 안됨").
+// standard-interactions.spec.mjs(목록·나무·고르기·끌기 기준표)와 자료실 사각형 고르기 시험은 화면 파일 이름을 부르지 않아(가짜 서버 helper로 화면을 연다)
+// 자동 계산으로는 [파일]·자료실·노트·사진 화면 파일을 고친 PR에서 빠졌다. 그 화면을 고치면 이 시험들을 꼭 함께 돌린다. 새 화면을 기준표에 더하면 여기에도 한 줄.
+export const SCREEN_SPECS = [
+  [/^app\/files[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+  [/^app\/(library-[^/]+\.(m?js|css)|marquee-select\.(js|css))$/, ['standard-interactions.spec.mjs', 'library-marquee-anywhere.spec.mjs', 'library-marquee-select.spec.mjs']],
+  [/^app\/(note|notes)[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+  [/^app\/photos?[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+];
+export function screenSpecsFor(file, testFiles) {
+  const out = new Set();
+  for (const [re, names] of SCREEN_SPECS) if (re.test(file)) for (const n of names) if (testFiles.has(`${SPEC_DIR}/${n}`)) out.add(`${SPEC_DIR}/${n}`);
+  return out;
+}
 // 이 파일이 부르는 쪽을 따라 올라갈 때 멈추는 첫 화면 사슬(모든 화면을 부르므로 따라가면 늘 전체가 된다).
 export const ROOTS = new Set(['app/index.html', 'app/app.js', 'app/loader-v2.js', 'app/view-loader.js']);
 
@@ -182,6 +196,7 @@ export function select(changed, appFiles, testFiles) {
     const hits = specsFor(names, specs);
     const dir = file.split('/').length > 2 ? file.split('/')[1] + '/' : '';
     if (dir) for (const [s, text] of specs) if (text.includes(dir)) hits.add(s);
+    for (const s of screenSpecsFor(file, testFiles)) hits.add(s);
     if (!hits.size) return full(`${file}: 관련 시험을 못 찾음`);
     hits.forEach(s => picked.add(s));
     reasons.push(`${file}: 시험 ${hits.size}개`);

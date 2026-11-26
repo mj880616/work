@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryTopMenu} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,press} from './helpers/library-folder-server.mjs';
 import {folderSheet} from './helpers/folder-sheet.mjs';
+import {treeEnter} from './helpers/tree-enter.mjs';
 // S69-62: 폴더로 옮기기는 [파일] '옮길 곳' 창과 같은 창 — 줄을 눌러 고르고 [여기에 옮기기]로 옮긴다.
 const movePicker=page=>folderSheet(page);
 const moveFolder=(page,id)=>folderSheet(page).locator(`.fx-dest-tree [data-fx-dest-pick="${id}"]`);
@@ -27,7 +28,7 @@ async function boot(page,width,body=PNG){
   const r=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:structuredClone(DOCS),group:'폴더'});
   await page.route('**/functions/v1/library-files*',route=>route.fulfill({status:200,contentType:'image/png',body}));
   // S69-28 LIB-한칸탐색기: 넓은 화면 한 칸은 왼쪽 나무에서 가상 A를 열면 오른쪽에 그 폴더 자료·[사진 n].
-  if(width>=600)await page.locator('#libraryFolderNav [data-lu-nav="fa"]').click();else await expandLibraryTree(page);
+  if(width>=600)await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="fa"]'));else await expandLibraryTree(page);
   await expect(fold(page)).toHaveText(/사진 3/);
   await press(page,fold(page),width);
   await expect(thumb(page,P1)).toBeVisible();

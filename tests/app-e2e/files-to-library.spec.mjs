@@ -19,7 +19,7 @@ async function begin(page, width = 1440) {
     modified_at: '2026-10-05T06:00:00Z', hash: null, trashed: false, starred: false, library_doc_id: null });
   const lib = { uploads: [], registers: [], patches: [] };
   // 자료실 쪽 서버(나중에 붙인 길이 먼저): 사본 올리기·연결·칸 적기.
-  await page.route(SB + '/functions/v1/library-files', async route => {
+  await page.route(SB + '/functions/v1/library-files', async route => {if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     const req = route.request();
     if (req.method() !== 'POST') return route.fallback();
     const raw = req.postDataBuffer()?.toString('latin1') || '', name = Buffer.from(raw.match(/filename="([^"]*)"/)?.[1] || '', 'latin1').toString('utf8');

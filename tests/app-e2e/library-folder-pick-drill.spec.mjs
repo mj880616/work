@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {bootLibrary,libFolder,libDoc,press,openMove,movePicker,moveFolder} from './helpers/library-folder-server.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // LIB-폴더개수·LIB-폴더창들어가기(명진 11/24 18:04): ① 폴더 줄 개수는 하위 폴더가 있으면 '폴더 N · 파일 M'(M = 바로 안, 0이면 '폴더 N'),
 // ② [폴더로 옮기기] 창(S69-62부터 [파일] '옮길 곳' 창)은 상위 폴더를 누르면 선택·펼치기만(옮기지 않음), [여기에 옮기기]를 눌러야 옮긴다. 닫으면 그대로.
 // 이름은 모두 지어낸 것이다.
@@ -18,7 +19,7 @@ for(const width of [390,1280])test.describe(`폴더 개수·옮기기 창 ${widt
     const {errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS,group:'폴더'});
     if(width>=761){
       await expect(page.locator('#libraryFolderNav [data-lu-nav="g03"] .ft-num')).toHaveText('폴더 3 · 파일 1');
-      await page.locator('#libraryFolderNav [data-lu-nav="g03"]').click();
+      await treeEnter(page.locator('#libraryFolderNav [data-lu-nav="g03"]'));
     }else{
       await expect(count(page,'f:g03')).toHaveText('폴더 3 · 파일 1');
       await expect(count(page,'f:g03')).toHaveAttribute('aria-label','폴더 3개 · 자료 1건');

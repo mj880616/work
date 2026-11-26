@@ -89,3 +89,19 @@ test('실제 저장소: 공용 부품은 전체, 화면 시험 파일은 그 파
   assert.deepEqual(select([spec], appFiles, testFiles).specs, [spec]);
   assert.equal(select(['docs/roadmap.md'], appFiles, testFiles).mode, 'none');
 });
+
+// STAB-파일끌기회귀(S70-80): [파일]·자료실·노트·사진 화면 파일을 고친 PR은 공용 동작 기준표 시험(standard-interactions)과
+// 자료실 사각형 고르기 시험을 꼭 함께 돌린다(이름으로는 찾지 못해 빠지던 것).
+test('실제 저장소: 화면 파일 → 공용 동작 기준표·사각형 고르기 시험도 함께', () => {
+  const {appFiles, testFiles} = loadRepo('.');
+  const std = 'tests/app-e2e/standard-interactions.spec.mjs';
+  const lib = ['tests/app-e2e/library-marquee-anywhere.spec.mjs', 'tests/app-e2e/library-marquee-select.spec.mjs'];
+  for (const f of ['app/files.js', 'app/files.css', 'app/library-upload.js', 'app/note-window.js', 'app/photos.js']) {
+    const sel = select([f], appFiles, testFiles);
+    assert.ok(sel.mode === 'full' || sel.specs.includes(std), `${f}: ${sel.mode} ${sel.specs.length}`);
+  }
+  for (const f of ['app/library-upload.js', 'app/marquee-select.js']) {
+    const sel = select([f], appFiles, testFiles);
+    for (const s of lib) assert.ok(sel.mode === 'full' || sel.specs.includes(s), `${f} → ${s}`);
+  }
+});
