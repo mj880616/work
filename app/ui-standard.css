@@ -1834,7 +1834,7 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   /* 앱 머리줄: 아이콘·이름을 왼쪽에 붙인다(전에는 이름 하나라 양끝 맞춤). 폴드 펼침의 찾기 입구는 남은 폭을 그대로 쓴다. */
   #appView > .mobile-shell-header{ justify-content:flex-start; gap:8px; }
   #appView > .mobile-shell-header > [data-mobile-view-name]{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* 사업 관리 BIZ-머리한줄(S71-23, 명진 11/26 "시안 한줄 좋아"): 앱 머리 줄 하나 = [W] 사업 관리 · [전체 ▾] · n건 ……… 찾기 · [+].
+  /* 사업 관리 BIZ-머리한줄(S71-23, 사용자 11/26 "시안 한줄 좋아"): 앱 머리 줄 하나 = [W] 사업 관리 · [전체 ▾] · n건 ……… 찾기 · [+].
      오른쪽 끝 순서는 SAVED-머리한줄(S71-26) '… · 찾기 · [+]'(+가 맨 오른쪽, S71-43에서 맞춤).
      첫 줄(#reportTop)은 screen-tools.js가 이 화면이 보일 때만 머리 줄 도구 칸으로 옮기고({wide:false} — PC는 화면 안), [+] 묶음(.report-head-actions)은
      {end}로 그 칸 안 #reportTop 바로 뒤에 따로 놓는다. 도구 칸은 상자 없이(display:contents) 두 칸을 머리 줄에 바로 세워 찾기를 그 사이에 둔다:

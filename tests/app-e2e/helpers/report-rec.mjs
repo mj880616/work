@@ -1,5 +1,5 @@
 import {expect} from '@playwright/test';
-// BIZ-머리한줄(S71-23, 명진 11/26 "녹음은 + 에 넣고"): 사업 관리 [녹음]은 첫 줄 [+] 메뉴의 한 줄이다(예전 첫 줄 #reportRecordBtn은 없앰).
+// BIZ-머리한줄(S71-23, 사용자 11/26 "녹음은 + 에 넣고"): 사업 관리 [녹음]은 첫 줄 [+] 메뉴의 한 줄이다(예전 첫 줄 #reportRecordBtn은 없앰).
 // 시험은 사람처럼 [+]를 눌러 메뉴의 [녹음]을 누른다. 녹음기(meeting-recorder.js·폰 앱 phone-recorder.js)는 첫 화면 뒤에 붙으므로 붙은 뒤에 연다.
 export const recMenuItem=page=>page.locator('#bizAddMenu [data-report-rec]');
 const recorderReady=page=>page.waitForFunction(()=>!!(window.KPTUMeetingRecorder||window.KPTUPhoneRecorder));

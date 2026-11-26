@@ -349,7 +349,7 @@ function pickWeek(from){reportWeek=from||null;reportWeekIn=todayWeek()}
 function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):rangeOn()?inRange(list,reportRange.from,reportRange.to):list}
 function applyPeriodPref(){if(reportPeriodChosen)return;const p=periodFromPref(viewPrefs.get('report_period'));reportPeriod=p.mode;if(p.mode==='range')reportRange={from:p.from,to:p.to}}
 function setPeriod(mode,range=null){reportPeriodChosen=true;reportPeriod=mode;if(range)reportRange=range;periodPanel='';periodDraft=null;isoDraft=null;meetingSelectedId=null;viewPrefs.set('report_period',prefFromPeriod({mode,...(mode==='range'?reportRange:{})}),{rejectable:true});renderMeetings({resetList:true})}
-// BIZ-머리한줄(S71-23, 명진 11/26 "시안 한줄 좋아"): 첫 줄(#reportTop — 폰·폴드는 앱 머리 줄, PC는 화면 안 한 줄)에는 건수만('n건', 정한 기간이면 기간 글자·×도).
+// BIZ-머리한줄(S71-23, 사용자 11/26 "시안 한줄 좋아"): 첫 줄(#reportTop — 폰·폴드는 앱 머리 줄, PC는 화면 안 한 줄)에는 건수만('n건', 정한 기간이면 기간 글자·×도).
 // 주 넘기기 ‹ 11.23~11.29 ›는 아래 '이번 주 주간 보고' 상자 제목 줄로 옮겼다 — 글자는 여기서 만들어 상자에 넘기고(syncWeekBox → weekly-summary-table.js가 놓기만), 누름도 여기서 받는다.
 // 주 상태(reportWeek 등)의 주인은 그대로 이 파일 하나다. 기간 정하기·주차 고르기 작은 창은 첫 줄 아래 칸(#reportWeekFilter)에.
 let weekNavHtml='';
@@ -793,7 +793,7 @@ window.__KPTU_TEAM_READY__=init().then(result=>{const state=result==='error'?'er
 
 // MEET-결과3단: 오른쪽 후속 할 일은 할 일·회의가 바뀌거나 회의 결과 창을 닫으면 다시 읽는다(창 안에서 고친 할 일 반영).
 window.addEventListener('kptu:documents-changed',()=>{if(workspace?.id&&teamViewLoaded.has('meetings'))reload(['documents'],renderMeetings).catch(err=>console.error('meeting document count refresh failed',err))});
-/* BIZ-머리한줄(S71-23, 명진 11/26 "녹음은 + 에 넣고 / 쓰는 법 여기 있을 필요 없고 사업영역 관리도 + 안에 있어도 됨 다른 거랑 좀 구분되기만 하면"):
+/* BIZ-머리한줄(S71-23, 사용자 11/26 "녹음은 + 에 넣고 / 쓰는 법 여기 있을 필요 없고 사업영역 관리도 + 안에 있어도 됨 다른 거랑 좀 구분되기만 하면"):
    첫 줄 [+] 메뉴 = [새 사업 보고][녹음] / 구분선 / [사업영역 관리](옅은 글자). 예전 첫 줄 [녹음]·⋯(사업영역 관리·쓰는 법)는 없앴다.
    공용 메뉴 부품(anchored-menu.js: [+] 바로 아래, 바깥 누르기·Esc·뒤로가기로 닫힘)과 공용 글자 줄 모양(.topline-add-menu).
    [새 사업 보고]는 예전 [+]와 같다(칸 고르기 → 쓰기 창). [녹음]은 녹음기가 쓸 수 있을 때만 보이고, 모양·시작은 녹음기 모듈이 정한다
