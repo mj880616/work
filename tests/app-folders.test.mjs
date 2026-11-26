@@ -428,7 +428,7 @@ test('서버가 맨 위 앱 폴더를 새로 만드는 곳 모두 만든 바로 
   assert.deepEqual(writers.sort(), ['_shared/meeting-drive-place.mjs', 'library-files/index.ts', 'workspace-drive/index.ts']);
 });
 
-test('화면: 자료실(S71-46 위치 줄 없음)·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {
+test('화면: 자료실(S71-46 위치 줄 없음)·내 프로필 장 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 장은 위치 줄(열기 ↗)과 로그인 계정 줄만', async () => {
   const code = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
   assert.doesNotMatch(code('library-drive-line.js'), /lu-drive-gather|앱 폴더 모으기|gather-folders/);
   // S71-46: 자료실 저장 위치 줄은 없앴다(드라이브 열기는 자료실 ⋯ — 시험 tests/library-drive-place.test.mjs).
@@ -439,10 +439,13 @@ test('화면: 자료실(S71-46 위치 줄 없음)·내 프로필 칸 모두 [한
   for (const name of ['gatherAppFolders', 'gatherAskText', 'gatherResultText']) assert.equal(mod[name], undefined, name);
   const { driveFoldersHtml, cleanPlan } = mod;
   const p = cleanPlan({ ok: true, root_name: 'WORK ON+', root_url: 'https://drive.google.com/drive/folders/abcdefghij12', count: 3, rename: 2 });
-  assert.match(driveFoldersHtml(p), /앱이 쓰는 드라이브 폴더:.*내 드라이브 › WORK ON\+.*열기 ↗/);
+  // S71-36 PROFILE-설정화면: 공용 설정 줄 '앱이 쓰는 폴더 · 내 드라이브 › 이름 · 열기 ↗'(줄 전체가 드라이브 링크).
+  assert.match(driveFoldersHtml(p), /<a class="sl-row sl-link"[^>]*href="https:\/\/drive\.google\.com\/drive\/folders\/abcdefghij12"[^>]*>.*앱이 쓰는 폴더.*내 드라이브 › WORK ON\+.*열기.*↗/);
+  assert.match(driveFoldersHtml(p, {account: 'a@example.org'}), /로그인 계정.*a@example\.org/);
+  assert.doesNotMatch(driveFoldersHtml(p), /로그인 계정/, '계정을 모르면 그 줄은 없다');
   assert.doesNotMatch(driveFoldersHtml(p), /<button|data-dfp-gather|한곳으로 모으기|모아 둠/, '모을 것이 남아도 버튼 없음');
-  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /class="dfp-dup"[^>]*>같은 이름 있어 그대로 2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
-  assert.doesNotMatch(driveFoldersHtml(p), /dfp-dup/);
+  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /data-dfp-dup[^>]*>.*같은 이름 있어 그대로.*>2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
+  assert.doesNotMatch(driveFoldersHtml(p), /data-dfp-dup/);
   assert.equal(cleanPlan({ ok: true, root_name: 'x', root_url: 'https://evil.example/drive/folders/abcdefghij12', count: 0 }).url, null, '드라이브 주소가 아니면 링크를 그리지 않는다');
   assert.equal(cleanPlan(null), null);
   const users = readdirSync(fileURLToPath(new URL('../app/', import.meta.url))).filter(n => /\.(js|mjs)$/.test(n))

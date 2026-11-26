@@ -22,7 +22,6 @@ const ALLOWED = Object.freeze({
   'app/organization-order.js': '순서 규칙(주석에서 표 이름만 언급)',
   'app/org-name-match.mjs': '이름 비교 규칙(주석에서 표 이름만 언급)',
   'app/org-files-folder.js': '고르기 칸 아님 — 내 작업공간 조직인지 확인하고 폴더 이름을 맞추는 데만 읽음(ORG-기록자료폴더)',
-  'app/profile-settings.js': '예외: 내 프로필 › 담당 사업장은 담당을 정하는 칸이라 모든 조직을 보여 준다',
   'app/workplace-detail.js': '조직 한 곳의 상세 읽기·수정(고르기 칸 아님)',
   'app/same-file.js': '이미 있는 파일 알림: 찾은 자료에 연결된 조직 id를 위치 줄 이름으로만 바꿈(고르기 칸 없음)',
   'app/team.js': '사업 보고에 이미 연결된 조직 이름 표시',
@@ -94,10 +93,11 @@ test('통화·텔레그램 조직 고르기 창은 내 담당조직(과 지금 �
   assert.match(source('app/feed-data.js'), /mine:myOrganizationIds\(rows, mine\)/);
 });
 
-test('내 프로필 › 담당 사업장은 예외로 모든 조직을 보여 준다(규칙으로 거르지 않음)', () => {
+// S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "관련 대상 현황 이것도 걍 없애"): 내 프로필의 '담당조직 현황' 체크 칸(옛 예외)은 없앴다 — 조직을 읽지 않는다.
+test('내 프로필은 조직을 읽지 않는다(담당 추가·보관은 조직 관리)', () => {
   const profile = source('app/profile-settings.js');
   assert.doesNotMatch(profile, USES_RULE);
-  assert.match(profile, /app_suborganizations\?workspace_id=eq\.\$\{workspaceId\}/);
+  assert.doesNotMatch(profile, READS_ORGS);
 });
 
 // ---- 규칙 동작 ----

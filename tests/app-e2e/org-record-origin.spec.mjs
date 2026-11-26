@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-// ORG-기록첨부표시이름 ①(S61-6, B안): 조직 기록 입력칸에서 바로 올린 기록(연결 origin 'record_input')은 일반 기록처럼 날짜만 —
-// '잊지 말기 연결' 이름표·표시 아이콘 없음. 잊지 말기에서 옮긴 연결('basket')과 표시가 없는 지난 연결(null)은 지금처럼 '잊지 말기 연결'.
+// ORG-기록첨부표시이름 ①(S61-6, B안): 조직 기록 입력칸에서 바로 올린 기록(연결 origin 'record_input')은 일반 기록처럼 날짜만.
+// S71-57 RECORD-잊지말기연결표시삭제(사용자 결정 2026-11-26): 잊지 말기에서 옮긴 연결('basket')과 표시가 없는 지난 연결(null)도 이제 같다 —
+// '잊지 말기 연결' 이름표·표시 아이콘·잊지 말기로 가는 링크 없음.
 // 저장은 실제 화면 길(입력칸 → app_basket_confirm_links에 origin 'record_input')이고, 가짜 서버가 받은 origin을 그대로 돌려준다. 자료는 모두 가짜.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -59,13 +60,15 @@ async function fixture(page,width){
 const shot=async(page,name)=>{if(process.env.S61_6_SHOTS)await page.screenshot({path:`docs/design/screens/s61-6/${name}.png`})};
 
 for(const width of [412,1280]){
- test(`조직 기록 입력칸에 사진 3장+글 저장 → 일반 기록처럼 날짜만, 잊지 말기에서 옮긴 것·지난 것은 '잊지 말기 연결' ${width}`,async({page})=>{
+ test(`조직 기록 입력칸에 사진 3장+글 저장 → 일반 기록처럼 날짜만, 잊지 말기에서 옮긴 것·지난 것도 출처 표시 없음 ${width}`,async({page})=>{
   const f=await fixture(page,width);
-  // 지난 연결 두 줄: 둘 다 '잊지 말기 연결'(표시 아이콘 포함).
+  // 지난 연결 두 줄: 둘 다 이름표·표시 아이콘·링크 없음(S71-57 소급).
   for(const id of [OLD_BASKET,OLD_NULL]){
-   await expect(f.row(id).locator('.basket-link-open small')).toContainText('잊지 말기 연결');
-   await expect(f.row(id).locator('[data-record-mark]')).toHaveCount(1);
-   await expect(f.row(id).locator('[data-basket-link-menu]')).toHaveAttribute('aria-label','잊지 말기 기록 메뉴');
+   await expect(f.row(id).locator('[data-link-summary-text]')).toBeVisible();
+   await expect(f.row(id).locator('.basket-link-open small')).toHaveCount(0);
+   await expect(f.row(id).locator('[data-record-mark]')).toHaveCount(0);
+   await expect(f.row(id).locator('a')).toHaveCount(0);
+   await expect(f.row(id).locator('[data-basket-link-menu]')).toHaveAttribute('aria-label','기록 메뉴');
   }
   await page.locator('#wdInboxText').fill('합성 지부 간담회 결과');
   await page.locator('#wdInboxAttach').setInputFiles([png('간담회 1.png'),png('간담회 2.png'),png('간담회 3.png')]);
@@ -86,7 +89,7 @@ for(const width of [412,1280]){
   await page.evaluate(()=>window.dispatchEvent(new Event('kptu:basket-links-changed')));
   await expect(row.locator('[data-record-photo]')).toHaveCount(3);
   await expect(row.locator('.basket-link-open small')).toHaveCount(0);
-  await expect(f.row(OLD_BASKET).locator('.basket-link-open small')).toContainText('잊지 말기 연결');
+  await expect(f.row(OLD_BASKET).locator('.basket-link-open small')).toHaveCount(0);
   await row.evaluate(el=>el.scrollIntoView({block:'start'}));
   await shot(page,`org-records-${width}`);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

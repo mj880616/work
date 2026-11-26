@@ -6,7 +6,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { openReportBoxes, closeReportBoxes, pickReportBox } from './helpers/report-boxes.mjs';
 
 // S54-21 BIZ-위쪽정돈(요청함 11/09 00:10~01:22, 시안 docs/design/mockups/biz-report-top.html 확정안 01:22):
-// 사업 보고 위쪽은 세 줄 — ① 제목 '사업 관리' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9(월)~11.15(일) › · n건.
+// 사업 보고 위쪽은 세 줄 — ① 제목 '사업 관리' ……… [녹음][+][⋯] ② [회의 ▾][사업영역 ▾][주 ▾] ③ ‹ 11.9~11.15 › · n건.
 // BIZ-위쪽정돈PC(명진 11/09 10:52 A안, 시안 biz-report-top-pc.html): PC(761px~)는 같은 요소가 한 줄 — ② ③ ……… [녹음][+][⋯](작은 아이콘, 폰과 같은 버튼·순서).
 // 주 고르기는 이 화면에 하나, '이번 주 주간보고'는 늘 펼친 채 같은 주를 따르고, 떠 있는 동그란 [+]는 없다. [목록|달력|사진]은 앞 자리 규칙 그대로(위로 올리지 않음).
 // (가짜 서버·가짜 보고는 report-period.spec.mjs와 같은 틀. 모든 이름·번호는 합성 값.)
@@ -86,45 +86,44 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await open(page, state, width);
   const vp = page.viewportSize();
   const pc = width >= 761;
-  // ① 첫 줄: 오른쪽 [녹음][+][⋯](모든 폭 작은 아이콘) 모두 같은 가운데 높이. 폰 제목 '사업 관리'는 S70-57부터 앱 머리 줄(찾기 돋보기와 함께).
-  const line1 = await mids(page, '#meetingsView .report-top-line .report-head-actions > :not([hidden])');
-  expect(line1.length).toBeGreaterThanOrEqual(2);
+  // ① 첫 줄: 오른쪽 끝 [+] 하나(BIZ-머리한줄 S71-23 — [녹음]·⋯는 [+] 메뉴 안). 폰 제목 '사업 관리'는 앱 머리 줄이고 첫 줄도 그 머리 줄 안.
+  const line1 = await mids(page, '.report-head-actions > :not([hidden])');
+  expect(line1.length).toBe(1);
   expect(Math.max(...line1.map(x => x.mid)) - Math.min(...line1.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (width < 761) await expect(page.locator('#appView > .mobile-shell-header [data-mobile-view-name]')).toHaveText('사업 관리');
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
-  await expect(page.locator('#meetingsView .report-top-line #newMeetingBtn')).toBeVisible();
-  await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
+  await expect(page.locator('#newMeetingBtn')).toBeVisible();
+  await expect(page.locator('#reportMore, #reportRecordBtn, #phoneRecordBtn')).toHaveCount(0);
   // ② 둘째 줄: [회의 ▾](모든 폭 상자, 칩 줄 없음)·[사업영역 ▾]·[주 ▾]가 한 줄이고 폰은 첫 줄 아래, PC는 첫 줄과 같은 줄(아이콘 왼쪽).
   await expect(page.locator('#reportKindFilter, #reportNameSelect')).toHaveCount(0);
   // S67-75 UI-걸러보기칩하나(명진 A안): 폰은 고르기 상자들이 줄에 다 안 들어가면 칩 하나 — 그 칩이 둘째 줄 자리다.
   const inChip = !pc && await page.locator('#reportFilterChip').isVisible();
-  const line2 = await mids(page, inChip ? '#reportFilterChip' : `#meetingsView .report-kind-bar > #reportKindSelect, #meetingsView .report-kind-bar > #reportAreaSelect, #meetingsView .report-kind-bar #reportPeriodPick select`);
+  const line2 = await mids(page, inChip ? '#reportFilterChip' : `#reportFilterBar > #reportKindSelect, #reportFilterBar > #reportAreaSelect, #reportFilterBar #reportPeriodPick select`);
   expect(line2.length).toBeGreaterThanOrEqual(inChip ? 1 : 2);
   expect(Math.max(...line2.map(x => x.mid)) - Math.min(...line2.map(x => x.mid))).toBeLessThanOrEqual(3);
   if (pc) { expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line2.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)) - 32); }
-  // S67-64 UI-윗줄한줄(명진 11/21 시안 D3): 폰도 한 줄 — [고르기(넘치면 칩 하나)] … [+][⋯]. 아이콘·이름은 S70-57부터 그 위 앱 머리 줄.
+  // BIZ-머리한줄(S71-23): 폰은 앱 머리 줄 하나 — [W] 사업 관리 [고르기(넘치면 칩 하나)] n건 … 찾기 [+](S71-43 SAVED-머리한줄 순서).
   else {
     expect(Math.abs(line2[0].mid - line1[0].mid)).toBeLessThanOrEqual(3);
-    const [bar, add] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#meetingsView .report-kind-bar').boundingBox(), page.locator('#newMeetingBtn').boundingBox()]);
-    expect(bar.y).toBeGreaterThanOrEqual((await page.locator('#appView > .mobile-shell-header').boundingBox()).y + 20);
+    const [bar, add, name] = await Promise.all([page.locator(inChip ? '#reportFilterChip' : '#reportFilterBar').boundingBox(), page.locator('#newMeetingBtn').boundingBox(), page.locator('#appView > .mobile-shell-header [data-mobile-view-name]').boundingBox()]);
+    expect(Math.abs((bar.y + bar.height / 2) - (name.y + name.height / 2))).toBeLessThanOrEqual(3);
+    expect(bar.x).toBeGreaterThanOrEqual(name.x + name.width);
     expect(bar.x + bar.width).toBeLessThanOrEqual(add.x);
   }
-  // 녹음·추가는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
-  for (const b of await page.locator('#meetingsView .report-head-actions > :is(#newMeetingBtn,#reportRecordBtn,#phoneRecordBtn):not([hidden])').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
+  // [+]는 모든 폭에서 글자 없는 작은 아이콘(이름은 화면 읽기용).
+  for (const b of await page.locator('.report-head-actions > #newMeetingBtn').all()) { const r = await b.boundingBox(); expect(r.width).toBeLessThanOrEqual(34); expect(r.height).toBeLessThanOrEqual(34); }
   // 작은 버튼 상자 높이가 같다(고르기 상자끼리).
   if (inChip) await openReportBoxes(page);
-  const selH = (await mids(page, '#meetingsView .report-kind-bar select.report-top-select')).map(x => Math.round(x.h));
+  const selH = (await mids(page, '#reportFilterBar select.report-top-select')).map(x => Math.round(x.h));
   expect(new Set(selH).size).toBe(1);
   if (inChip) { expect(Math.round((await page.locator('#reportFilterChip').boundingBox()).height)).toBe(selH[0]); await closeReportBoxes(page); }
-  // ③ 주 줄: ‹ 11.9(월)~11.15(일) › · n건 — 모든 폭에서 같은 한 줄(고르기와 아이콘 사이, S71-10).
-  const nav = page.locator('#reportWeekFilter .report-week-nav');
-  await expect(nav.locator('.report-week-label')).toContainText(/\(월\)~.*\(일\)/);
-  await expect(nav.locator('.report-week-count')).toContainText(/· \d+건/);
-  const line3 = await mids(page, '#reportWeekFilter .report-week-nav > *');
+  // ③ BIZ-머리한줄(S71-23): 첫 줄에는 건수만(n건), 주 넘기기 ‹ 11.23~11.29 ›는 '이번 주 주간 보고' 상자 제목 줄 — 이름·‹ 날짜 ›·꺾쇠가 한 줄.
+  await expect(page.locator('#reportCount .report-week-count')).toHaveText(/^\d+건/);
+  const nav = page.locator('#bizWeekBox .biz-week-nav');
+  await expect(nav.locator('.report-week-label')).toHaveText(/^\d{1,2}\.\d{1,2}~\d{1,2}\.\d{1,2}$/);
+  const line3 = await mids(page, '#bizWeekBox .biz-week-title > *, #bizWeekBox .biz-week-nav > *');
   expect(Math.max(...line3.map(x => x.mid)) - Math.min(...line3.map(x => x.mid))).toBeLessThanOrEqual(3);
-  // S71-10(명진 11/26 '한 줄에 우겨넣고 싶어'): 폰도 PC처럼 주 줄이 첫 줄 안 — 고르기(칩) 오른쪽, [녹음][+][⋯] 왼쪽.
-  expect(Math.abs(line3[0].mid - line1[0].mid)).toBeLessThanOrEqual(3); expect(Math.max(...line3.map(x => x.right))).toBeLessThan(Math.min(...line1.map(x => x.right)));
-  expect(Math.min(...line3.map(x => x.right))).toBeGreaterThan(Math.max(...line2.map(x => x.right)));
+  expect(Math.min(...line3.map(x => x.mid))).toBeGreaterThan(line1[0].mid + 10);
   // 주 고르기는 이 화면에 하나(‹ › 짝 하나, 안쪽 [이번 주 ▾] 아닌 주 고르기 부품 없음).
   await expect(page.locator('#meetingsView [data-report-week="prev"]')).toHaveCount(1);
   await expect(page.locator('#meetingsView [data-report-week="next"]')).toHaveCount(1);
@@ -134,18 +133,19 @@ for (const width of [390, 884, 1280, 1440]) test(`${width}: 위쪽 세 줄(PC �
   await expect(week).toBeVisible();
   expect(await week.evaluate(el => el.tagName.toLowerCase())).not.toBe('details');
   await expect(week.locator(':scope > summary')).toHaveCount(0);
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
+  await expect(week.locator('.biz-week-title > .biz-week-fold').first()).toHaveText('이번 주 주간 보고');
   await expect(week.locator('[data-bp-paper]')).toContainText('1) 사업요약표');
   // 위 주 고르기를 넘기면 이 칸도 같은 주를 보여 준다(이름이 그 주로 바뀐다).
-  const label = page.locator('#reportWeekFilter .report-week-label');
+  const label = page.locator('#bizWeekBox .biz-week-nav .report-week-label');
   const before = (await label.textContent()).trim();
-  await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+  await page.locator('#bizWeekBox [data-report-week="prev"]').click();
   const after = (await label.textContent()).trim();
   expect(after).not.toBe(before);
   const dayOf = t => t.match(/(\d+)\.(\d+)/).slice(1).map(Number).join('.');
   await expect(week.locator('.biz-week-title')).toContainText(dayOf(after));
-  await page.locator('#reportWeekFilter [data-report-week="next"]').click();
-  await expect(week.locator('.biz-week-title')).toHaveText('이번 주 주간 보고');
+  await expect(week.locator('.biz-week-title > .biz-week-fold').first()).toHaveText('주간 보고');
+  await page.locator('#bizWeekBox [data-report-week="next"]').click();
+  await expect(week.locator('.biz-week-title > .biz-week-fold').first()).toHaveText('이번 주 주간 보고');
   // 떠 있는 버튼은 없다(보기는 위 줄 고르기 상자, 동그란 [+]도 없음: [+]는 첫 줄 안).
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
@@ -165,7 +165,7 @@ test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바
   await pickReportBox(page, '#reportViewSelect', 'calendar');
   await expect(page.locator('#reportViewSelect')).toHaveValue('calendar');
   await expect(page.locator('#meetingsView .report-week-bar')).toBeHidden();
-  await expect(page.locator('#meetingsView #reportPeriodPick select')).toHaveCount(0);
+  await expect(page.locator('#reportPeriodPick select')).toHaveCount(0);
   const floating = await page.locator('#meetingsView').evaluate(el => [...el.querySelectorAll('button')].filter(e => getComputedStyle(e).position === 'fixed').map(e => e.id || e.className));
   expect(floating).toEqual([]);
   await pickReportBox(page, '#reportViewSelect', 'list');
@@ -173,31 +173,35 @@ test('390: 달력·사진 보기에서는 기간 줄만 빠지고, 보기를 바
   await expect(page.locator('#reportPeriodPick select')).toBeVisible();
 });
 
-test('390: 추가 +를 누르면 종류를 고른 뒤 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
+test('390: 추가 + › 새 사업 보고를 누르면 종류를 고른 뒤 사업 보고 등록 창이 열리고, 작은 아이콘(글자 없음)이다', async ({page}) => {
   const state = makeState();
   await open(page, state, 390);
   const add = page.locator('#newMeetingBtn');
   const box = await add.boundingBox();
   expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
-  await expect(add).toHaveAttribute('aria-label', '사업 보고 등록');
-  // MTG-더하기늘고르기: [+]는 늘 종류 고르기 창부터.
+  await expect(add).toHaveAttribute('aria-label', '사업 관리 추가');
+  // BIZ-머리한줄(S71-23): [+] › 새 사업 보고 → MTG-더하기늘고르기: 늘 종류 고르기 창부터.
   await add.click();
+  await page.locator('#bizAddMenu [data-report-new]').click();
   await page.locator('#reportKindSheet [data-sheet-value="meeting"]').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
 });
 
-// BIZ-위쪽정돈PC 같은 종류 전수: 녹음 중이면 ● 둘레에 빨간 고리(전 PC 글자 [녹음 중]과 같은 정보, 이름은 '녹음 중'), 기간 정하기 창은 위쪽 한 줄 아래 한 줄을 다 쓴다.
-for (const width of [884, 1280]) test(`${width}: 녹음 중 ● 고리 · 기간 정하기 창은 한 줄 아래`, async ({page}) => {
+// BIZ-머리한줄(S71-23): 녹음은 [+] 메뉴 줄 — 녹음 중이면 이름 '녹음 중'·눌림(aria-pressed)·꺼짐·빨간 글자(전 ● 고리와 같은 정보). 기간 정하기 창은 첫 줄 아래 한 줄을 다 쓴다.
+for (const width of [884, 1280]) test(`${width}: [+] 메뉴 녹음 중 표시 · 기간 정하기 창은 한 줄 아래`, async ({page}) => {
   const state = makeState();
   await open(page, state, width);
-  const rec = page.locator('#reportRecordBtn');
-  await expect(rec).toBeVisible();
-  const ring = () => rec.evaluate(b => getComputedStyle(b, '::before').outlineStyle);
-  expect(await ring()).toBe('none');
-  // 녹음 상태 표시는 녹음기(meeting-recorder.js paintButton)가 이름·aria-pressed로 칠한다 — 여기서는 그 결과 모양만 본다.
-  await rec.evaluate(b => { b.setAttribute('aria-pressed', 'true'); b.textContent = '녹음 중'; });
-  expect(await ring()).toBe('solid');
-  await expect(rec).toHaveAccessibleName('녹음 중');
+  // 녹음 상태 표시는 녹음기(meeting-recorder.js recordItem)가 정한다 — 여기서는 녹음 중 값을 넣어 메뉴 모양만 본다.
+  await page.waitForFunction(() => !!window.KPTUMeetingRecorder); // 녹음기는 첫 화면 뒤에 붙는다(loader-v2.js)
+  await page.evaluate(() => { window.KPTUMeetingRecorder.recordItem = () => ({shown: true, disabled: true, label: '녹음 중', pressed: true}); });
+  await page.locator('#newMeetingBtn').click();
+  const rec = page.locator('#bizAddMenu [data-report-rec]');
+  await expect(rec).toHaveText('녹음 중');
+  await expect(rec).toHaveAttribute('aria-pressed', 'true');
+  await expect(rec).toBeDisabled();
+  expect(await rec.evaluate(b => getComputedStyle(b).color)).not.toBe(await page.locator('#bizAddMenu [data-report-new]').evaluate(b => getComputedStyle(b).color));
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#bizAddMenu')).toBeHidden();
   const lineMid = (await page.locator('#reportKindSelect').boundingBox());
   await page.locator('#reportPeriodPick select').selectOption('range');
   const panel = page.locator('#reportWeekFilter .report-period-panel');

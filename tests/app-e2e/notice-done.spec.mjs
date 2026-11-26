@@ -85,14 +85,16 @@ for(const width of [390,900,1280])test(`profile '최근 알림 7일': one line '
     {kind:'meeting_done',ref_key:'d2026-10-12',at:'2026-10-05T07:00:00.000Z',opened:false,pushed:false,open:ITEM.open},
     {kind:'test',ref_key:'t1',at:'2026-10-04T01:20:00.000Z',opened:true,pushed:true,open:'/work/app/?view=profile&notice=test.t1'},
   ];
-  const push=await fixture(page,{width,items:[],recent,query:'?view=profile'});
+  // S71-36 PROFILE-설정화면: 내 프로필 '알림 설정' 장 안의 '최근 알림 7일 ›'(접힌 줄)을 펴면 한 줄씩.
+  const push=await fixture(page,{width,items:[],recent,query:'?view=profile&pane=push'});
   const list=page.locator('#psPushPanel .ps-push-recent');
   await expect(list).toHaveCount(2,{timeout:15000});
-  await expect(page.locator('#psPushPanel [data-ps-push-recent="2"]')).toHaveText('최근 알림 7일');
+  await expect(page.locator('#psPushPanel [data-ps-push-recent="2"]')).toHaveText('2건');
+  await page.locator('#psPushPanel [data-ps-push-fold="recent"] > summary').click();
   await expect(list.nth(0)).toHaveText('10/05 16:00 · 회의 요약');
   await expect(list.nth(1)).toHaveText('10/04 10:20 · 시험 알림');
   await expect(list.nth(1)).toHaveAttribute('data-opened','');
-  const box=await list.nth(0).boundingBox();expect(box.height).toBeLessThanOrEqual(32);
+  const box=await list.nth(0).boundingBox();expect(box.height).toBeLessThanOrEqual(48);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   await list.nth(0).click();
   await expect.poll(()=>push.calls.filter(c=>c.action==='opened').map(c=>c.body)).toEqual([{kind:'meeting_done',ref_key:'d2026-10-12'}]);
@@ -100,8 +102,8 @@ for(const width of [390,900,1280])test(`profile '최근 알림 7일': one line '
 });
 
 test("profile recent list: empty and failed reads are one short line",async({page})=>{
-  await fixture(page,{items:[],recent:[],query:'?view=profile'});
-  await expect(page.locator('#psPushPanel [data-ps-push-recent="0"]')).toHaveText('최근 7일 알림 없음',{timeout:15000});
+  await fixture(page,{items:[],recent:[],query:'?view=profile&pane=push'});
+  await expect(page.locator('#psPushPanel [data-ps-push-fold="recent"] > summary')).toHaveText(/최근 알림 7일\s*없음/,{timeout:15000});
 });
 
 // APP-알림숫자지우기 ②: 폰 앱에서 알림 자리를 열면(알림 줄 [열기]·✕, 폰 알림 주소, 최근 알림) 앱 다리로 그 폰 알림 지우기(push:clear:종류.열쇠)를 보낸다.

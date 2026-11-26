@@ -71,6 +71,8 @@ async function open(page, state, width, prefsInitial = null, prefsOptions = {}) 
   await signInWithSession(page, 'owner@example.org');
   await page.waitForFunction(() => window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#reportViewSelect option')).toHaveCount(3);
+  if (state.meetings?.length) await expect(page.locator('#reportCount')).toBeVisible(); // 첫 줄이 다 그려진 뒤(건수까지)
+  await expect(page.locator('html')).toHaveAttribute('data-screen-find', 'meetings'); // 찾기 칸까지 붙은 뒤 칩/상자를 판단(폰은 같은 머리 줄)
   return prefs;
 }
 const tops = els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
@@ -81,7 +83,7 @@ async function lineCenters(page, sel) {
 for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + 기간 한 줄, '거르기' 말 없음, 보기 탭 자리`, async ({page}) => {
   const state = makeState();
   await open(page, state, width);
-  const bar = page.locator('#meetingsView .report-kind-bar');
+  const bar = page.locator('#reportFilterBar');
   // S67-75 UI-걸러보기칩하나(명진 A안): 폰(412)은 고르기 상자들이 줄에 다 안 들어가 칩 하나 — 칩이 윗줄 [+]와 같은 줄, 상자는 칩이 여는 창 안(한 줄에 하나씩).
   const inChip = width < 761 && await reportBoxesInChip(page);
   if (inChip) {
@@ -95,9 +97,10 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   // 줄 안 보이는 것들이 모두 한 줄(가운데 높이 같음)이고 줄이 화면 안이다.
   // BIZ-위쪽정돈(11/09 01:22 확정안): [녹음][+][⋯]는 맨 윗줄(.report-top-line)로 올라가 이 둘째 줄은 종류·사업영역·[주 ▾]만이다.
   // BIZ-위쪽정돈PC(11/09 10:52 A안): PC(761px~)는 위쪽 세 줄이 한 줄 — 고르기·‹ 날짜 › · n건·[녹음][+][⋯]가 모두 같은 높이다.
-  const pcOne = width >= 761 ? ', #reportWeekFilter .report-week-nav > *, #meetingsView .report-top-line .report-head-actions > :not([hidden])' : '';
-  const items = await lineCenters(page, '#meetingsView .report-kind-bar > select, #meetingsView .report-kind-bar #reportPeriodPick select' + pcOne).then(xs => xs.filter(x => x.mid < 300));
-  expect(items.length).toBeGreaterThanOrEqual(width >= 761 ? 7 : 2);
+  // BIZ-머리한줄(S71-23): 첫 줄 = 고르기 · n건 ……… [+](주 넘기기는 아래 주간 보고 상자 제목 줄).
+  const pcOne = width >= 761 ? ', #reportCount, #reportTop .report-head-actions > :not([hidden])' : '';
+  const items = await lineCenters(page, '#reportFilterBar > select, #reportFilterBar #reportPeriodPick select' + pcOne).then(xs => xs.filter(x => x.mid < 300));
+  expect(items.length).toBeGreaterThanOrEqual(width >= 761 ? 5 : 2);
   const mids = items.map(x => x.mid);
   expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(3);
   const box = await bar.boundingBox();
@@ -107,15 +110,16 @@ for (const width of [412, 884, 1280, 1440]) test(`${width}: 맨 위 한 줄 + �
   await expect(page.locator('#meetingsView')).not.toContainText('거르기');
   // 종류: 모든 폭에서 고르기 상자 하나(BIZ-위쪽정돈PC: PC 칩 줄 없앰).
   await expect(page.locator('#reportKindSelect')).toBeVisible(); await expect(page.locator('#reportKindFilter')).toHaveCount(0);
-  // 녹음·⋯는 맨 위 줄 안.
-  await expect(page.locator('#meetingsView .report-top-line #reportMore')).toBeVisible();
+  // BIZ-머리한줄(S71-23): 첫 줄 끝은 [+] 하나 — 녹음·⋯는 [+] 메뉴 안으로.
+  await expect(page.locator('#newMeetingBtn')).toBeVisible();
+  await expect(page.locator('#reportMore, #reportRecordBtn')).toHaveCount(0);
   // BIZ-위쪽정돈(11/09, B안): 기간은 두 줄로 나뉜다 — [이번 주 ▾]는 둘째 줄(종류·사업영역 옆), '‹ 날짜 › · n건'은 셋째 줄(폰). PC(761px~)는 BIZ-위쪽정돈PC로 한 줄.
   const period = page.locator('#reportPeriodPick [data-report-period]');
   await expect(period).toBeVisible();
   await expect(period).toHaveValue('week');
-  await expect(page.locator('#reportWeekFilter .report-week-label')).toContainText(/\(월\)~.*\(일\)/);
-  await expect(page.locator('#reportWeekFilter .report-week-count')).toContainText(/· \d+건/);
-  const pmids = (await lineCenters(page, '#reportWeekFilter .report-week-nav > *')).map(x => x.mid);
+  await expect(page.locator('#bizWeekBox .biz-week-nav .report-week-label')).toHaveText(/^\d{1,2}\.\d{1,2}~\d{1,2}\.\d{1,2}$/);
+  await expect(page.locator('#reportCount .report-week-count')).toHaveText(/^\d+건/);
+  const pmids = (await lineCenters(page, '#bizWeekBox .biz-week-title > *')).map(x => x.mid);
   expect(Math.max(...pmids) - Math.min(...pmids)).toBeLessThanOrEqual(3);
   // UI-보기탭드롭다운(11/10): 보기는 탭 줄이 아니라 기간 [이번 주 ▾] 바로 옆 고르기 상자 [목록 ▾] — 모든 폭에서 같은 줄, 같은 높이, 떠 있지 않음.
   const viewBox = await page.locator('#reportViewSelect').boundingBox(), periodBox = await page.locator('#reportPeriodPick').boundingBox();
@@ -161,17 +165,17 @@ test('412: [종류 ▾]로 선택하면 그 칸만 보이고 글자가 진해지
 test('412: [이번 주 ▾] — 전체 기간·기간 정하기·주 넘기면 주 단위, 이번 주로 돌아오기', async ({page}) => {
   const state = makeState();
   await open(page, state, 412);
-  const period = page.locator('#reportPeriodPick [data-report-period]'), label = page.locator('#reportWeekFilter .report-week-nav');
+  const period = page.locator('#reportPeriodPick [data-report-period]'), nav = page.locator('#bizWeekBox .biz-week-nav');
   await expect(period.locator('option:not([hidden])')).toHaveText(['이번 주', '주차 선택', '전체 기간', '기간 정하기']);
-  await page.locator('#reportWeekFilter [data-report-week="prev"]').click();
+  await page.locator('#bizWeekBox [data-report-week="prev"]').click();
   await expect(period).toHaveValue('');
   await expect(period).toHaveClass(/is-on/);
   await openReportBoxes(page);await period.selectOption('week');
   await expect(period).toHaveValue('week');
   await expect(period).not.toHaveClass(/is-on/);
   await openReportBoxes(page);await period.selectOption('all');
-  await expect(label).toContainText('전체');await expect(page.locator('#reportWeekFilter .report-week-count')).toContainText('건');
-  await expect(page.locator('#reportWeekFilter [data-report-week="prev"]')).toHaveCount(0);
+  await expect(nav).toHaveCount(0);await expect(page.locator('#reportCount .report-week-count')).toContainText('건'); // 전체 기간: 주 넘기기 없음, 첫 줄엔 건수만
+  await expect(page.locator('#bizWeekBox [data-report-week="prev"]')).toHaveCount(0);
   await openReportBoxes(page);await period.selectOption('range');
   await expect(page.locator('#reportWeekFilter [data-report-period-panel]')).toBeVisible();
 });
