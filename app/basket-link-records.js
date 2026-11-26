@@ -140,9 +140,10 @@ let memosNowRef=null;
 const linkMemoLabel=row=>{if(!row)return '메모';const t=linkMemoTarget(row),n=(memosNowRef?.()||[]).filter(m=>m.target_type===t.type&&m.target_id===t.id).length;return n?`메모 ${n}`:'메모';};
 void import('./memo-store.js').then(m=>{memosNowRef=m.memosNow;}).catch(()=>{});
 // 기록 ⋯ [메모]: 기록 창(record-sheet.js) = 이 기록 글 + 메모 칸. 원문(잊지 말기·업데이트 글)은 보이지 않는다 — 기록 글만.
-export async function openLinkMemo(row,{place='',trigger=null}={}){
-  if(!row||recordLocked(row))return false;
-  const text=String(recordSourceText(row)??''),{openRecordSheet}=await import('./record-sheet.js'),t=linkMemoTarget(row);
+// openRecordSheet는 부르는 화면이 넘긴다(record-sheet.js가 이 파일을 불러 쓰므로 여기서 부르면 순환 참조).
+export function openLinkMemo(row,{place='',trigger=null,openRecordSheet}={}){
+  if(!row||recordLocked(row)||typeof openRecordSheet!=='function')return false;
+  const text=String(recordSourceText(row)??''),t=linkMemoTarget(row);
   return openRecordSheet({row:{raw_text:text,summary:null},title:'기록',meta:[place,dayCell(row)].filter(Boolean).join(' · '),trigger,memo:{...t,title:[place,previewText(text,60)].filter(Boolean).join(' · ')}});
 }
 // One menu panel for every mounted record host (created on first use inside the open dialog).
@@ -171,7 +172,7 @@ export const linkMenuFollower={get active(){return linkMenu?.active||null},follo
 // on the exact previous summary. [AI 요약] never saves and never replaces typed text without [이걸로 바꾸기]; any automatic
 // filler must send expected NULL, so a summary a person saved (non-NULL) makes it fail with SUMMARY_CHANGED instead of overwriting.
 const LINK_KINDS=['basket','note'];
-export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onBig=null},rt=window.KPTURuntime){
+export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onBig=null,openRecordSheet=null},rt=window.KPTURuntime){
   const states=new Map();let epoch=0;
   const valid=(state,run,owner)=>run===epoch&&states.get(state.id)===state&&owner===scope(rt)&&isCurrent()&&host.isConnected;
   function clear(){epoch++;states.clear();host.querySelectorAll('[data-link-summary-form]').forEach(form=>form.remove());host.querySelectorAll('.basket-link-record [data-basket-link-menu]').forEach(button=>button.disabled=false);host.querySelectorAll('[data-link-action-status]').forEach(status=>{status.textContent='';status.hidden=true;});}
@@ -286,7 +287,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   function action(name,id){
     const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
     if(name==='edit'){open(id);return;}
-    if(name==='memo'){void openLinkMemo(getRecord(id),{place:getName(),trigger:row.querySelector('[data-basket-link-menu]')});return;}
+    if(name==='memo'){openLinkMemo(getRecord(id),{place:getName(),trigger:row.querySelector('[data-basket-link-menu]'),openRecordSheet});return;}
     if(name==='delete')void remove(id);
   }
   function click(event){
