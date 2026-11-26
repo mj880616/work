@@ -161,6 +161,9 @@ export function bindMarquee(area, {enabled = () => true, blank = () => false, it
     // 기본 동작을 막으면 글자 칸에서 초점이 빠지지 않는다 — 빈 곳 누르기는 보통처럼 입력칸 초점을 놓는다(바깥 누르기 = 저장 같은 동작이 그대로).
     const focused = doc.activeElement;
     if (focused && focused !== doc.body && !focused.contains(t) && focused.matches?.('input,textarea,select,[contenteditable],[contenteditable] *')) focused.blur();
+    // S71-45: 줄 위 빈 곳(날짜 칸 등)을 눌러도 보통 누르기처럼 그 줄(가장 가까운 초점 받는 요소)이 초점을 받는다 — 막으면 그 줄의 키(Ctrl+X·F2·Delete)가 닿지 않는다.
+    const host = t.closest('a[href],button,summary,[tabindex]');
+    if (host && area.contains(host) && host !== focused) host.focus?.({preventScroll: true});
     const boxes = scrollBoxesAt(t, {doc});
     const box = boxes[0]?.node || page();
     const ref = box === page() ? (anchor(t) || area) : box;

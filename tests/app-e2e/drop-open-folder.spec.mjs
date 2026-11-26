@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import { dragByName } from './helpers/grab-name.mjs';
+import { dragByName, nameSpot } from './helpers/grab-name.mjs';
 import {mkdirSync} from 'node:fs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 import {start,openFiles,treeGo} from './helpers/files-server.mjs';
@@ -18,7 +18,7 @@ const folderOf=(s,doc)=>s.items.find(x=>x.document_id===doc)?.folder_id||null;
 const line=page=>page.locator('#libraryFolderStatusLine');
 // 끄는 도중(놓기 전) 표시를 읽고 사진을 찍은 뒤 놓는다(실제 마우스).
 async function dragHold(page,from,to,{read=async()=>null,name=''}={}){
-  await from.hover();await page.mouse.down();
+  await from.hover({position:await nameSpot(from)});await page.mouse.down(); // S71-45: 줄 옮기기는 이름 글자를 잡고(S12)
   const b=await to.boundingBox();await page.mouse.move(b.x+Math.min(60,b.width/2),b.y+b.height/2,{steps:8});await page.mouse.move(b.x+Math.min(70,b.width/2),b.y+b.height/2,{steps:2});
   const seen=await read();if(name)await shot(page,name);
   await page.mouse.up();return seen;

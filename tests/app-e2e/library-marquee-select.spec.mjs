@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
+import {namePoint} from './helpers/grab-name.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
 // S69-17 UI-끌어고르기(명진 11/24 08:30 "자료실에서 선택 말고 드래그해서 파일 선택 가능하게"): PC 1440 두 칸 보기에서
 // 칸 목록 빈 곳(마지막 줄 아래)을 마우스로 끌면 사각형에 닿은 줄이 골라지고(기존 선택 모드·위 막대), Ctrl과 끌면 더하기,
-// 줄 위(이름·가운데 빈칸)에서 끌면 지금처럼 폴더로 옮기기, Shift+클릭은 범위. 이름은 지어낸 것.
+// 줄의 이름 글자에서 끌면 폴더로 옮기기(S71-45: 이름 오른쪽 빈칸은 사각형), Shift+클릭은 범위. 이름은 지어낸 것.
 const FOLDERS=[libFolder('src',null,{name:'가상 시작',sort_order:1024}),libFolder('dst',null,{name:'가상 도착',sort_order:2048})];
 const IDS=['d-1','d-2','d-3','d-4','d-5'];
 const docs=IDS.map((id,i)=>libDoc(id,null,{title:'가상 자료 '+(i+1),document_date:'2026-10-0'+(i+1)}));
@@ -77,14 +78,25 @@ test('PC 1440 두 칸: 빈 곳을 끌면 닿은 3줄이 골라지고, Ctrl과 �
   expect(errors).toEqual([]);
 });
 
-test('PC 1440 두 칸: 줄 위(가운데 빈칸 포함)에서 끌면 사각형 없이 지금처럼 폴더로 옮긴다',async({page})=>{
+// S71-45 STD-끌기시작(2026-11-26 사용자 결정 "파일 이름 바로 위 아니고 나머지에서는 드래그 가능하게"): 옛 'S69 줄 가운데 빈칸도 옮기기'를 대신한다(standard-interactions.md S12).
+test('PC 1440 두 칸: 이름 오른쪽 줄 안 빈칸에서 끌면 사각형(옮기지 않음), 이름 글자를 잡고 끌면 폴더로 옮긴다',async({page})=>{
   test.setTimeout(60000);
   const {s,errors}=await boot(page);
   const t=await midOf(page,row('d-2'));
   expect(t.right-t.end).toBeGreaterThan(40); // 이름 오른쪽 줄 안 빈칸을 잡는다
   const to=await page.locator(`${pane(1)} [data-lu-nav="dst"]`).boundingBox();
+  const n=s.writes.length;
   await page.mouse.move(t.x,t.y);await page.mouse.down();
   await page.mouse.move(t.x,t.y+12,{steps:3});
+  await expect(page.locator('.marquee-box')).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator('.marquee-box')).toHaveCount(0);
+  expect(s.writes.length).toBe(n);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#librarySelectBar')).toBeHidden();
+  const g=await namePoint(page.locator(row('d-2')));
+  await page.mouse.move(g.x,g.y);await page.mouse.down();
+  await page.mouse.move(g.x,g.y+12,{steps:3});
   await expect(page.locator('.marquee-box')).toHaveCount(0);
   await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:10});
   await page.mouse.up();
