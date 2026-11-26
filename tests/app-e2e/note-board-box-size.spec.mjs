@@ -95,8 +95,7 @@ const blankPoint = page => page.locator('[data-nb-scroll]').evaluate(el => {
 });
 
 
-// S71-16 임시(반복 확인용, 다음 커밋에서 되돌림): 20번.
-for (let rep = 1; rep <= 20; rep++) test(`PC: 고른 상자 손잡이 8개 — 모서리·변·왼쪽 위(반대편 고정) 크기, 글 쓰는 중 입력칸 = 상자 크기·손잡이, 새로고침 뒤 유지, 크기 자동 (1280) #${rep}`, async ({ page }) => {
+test('PC: 고른 상자 손잡이 8개 — 모서리·변·왼쪽 위(반대편 고정) 크기, 글 쓰는 중 입력칸 = 상자 크기·손잡이, 새로고침 뒤 유지, 크기 자동 (1280)', async ({ page }) => {
   const { errors, textCalls, textRows } = await fixture(page, 1280, { seed: [{ id: 'r', board_id: BID, body: '가운데 주제', x: 160, y: 380, font: 3 }, { id: 'g1', board_id: BID, body: '가지 하나', parent_id: 'r', ord: 0, side: 1 }] });
   const root = page.locator('[data-nb-text="r"]'); // 글 쓰는 중에도 같은 상자(안 글은 입력칸 뒤에 숨음)
   await root.locator('.nb-tx').click();
