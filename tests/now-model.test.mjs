@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, openTabFor, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData} from '../app/now-model.mjs';
+import {NOW_TABS, NOW_TAB_IDS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, titleHit, mediaRows, mediaFits, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, detailBody, signalBody, cleanTopic, confirmedTopics, candidateRows, interestHit, detailView, relatedTarget, detailError, savedRows, openTabFor, dateText, canTranslate, translatedBlocks, translateError, TRANSLATE_REST_MARK, TRANSLATE_FUNCTION, blocksBody, copyArticleText} from '../app/now-model.mjs';
 import {NEWS_TABS} from '../app/view-prefs.js';
 // OUTSIDE-글상세·관심환류 ③④(설계 docs/design/outside-statements.md 12절): Now 화면 순수 계산.
 
@@ -266,11 +266,6 @@ test('원문 [복사] 글: 제목·매체·날짜·문단·주소', () => {
   assert.equal(copyArticleText({...head, url: 'javascript:alert(1)'}, []), '가상 제목\n가상 매체 · 2026. 11. 7. 09:30');
   assert.equal(copyArticleText({title: 'T', meta: []}, [{t: 'p', text: 'B'}]), 'T\n\nB');
   assert.equal(copyArticleText(null, null), '');
-});
-test('⋯ [공유]는 제목·주소만(본문은 넘기지 않음)', () => {
-  assert.deepEqual(shareArticleData({title: '제목', url: 'https://x.example.org/1', meta: ['m']}), {title: '제목', url: 'https://x.example.org/1'});
-  assert.deepEqual(shareArticleData({title: '제목', url: 'http://x.example.org/1'}), {title: '제목', text: '제목'});
-  assert.equal(shareArticleData({}), null);
 });
 
 // S67-05 NEWS-직접넣기 사진: 본문 칸 사진 줄(서버 handPhotoSrc·handBlocks와 같은 모양)

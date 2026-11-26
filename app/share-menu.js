@@ -13,9 +13,10 @@ import {notify} from './small-notice.js';
 import {saveBlobFile} from './photo-share.js';
 import {appShare} from './app-share.js';
 import {PHOTO_ACT_TEXT, SEND_ROWS, SEND_NOTE} from './photo-menu-items.mjs';
+import {WIDE_SHARE_QUERY, wideShare} from './link-share-model.mjs';
 
-export const WIDE_SHARE_QUERY = '(min-width:761px)';
-export const wideShare = (mm = globalThis.matchMedia) => !!(typeof mm === 'function' && mm(WIDE_SHARE_QUERY)?.matches);
+// 넓은 화면 기준은 link-share-model.mjs 한 곳(기사 [공유]도 같은 값).
+export {WIDE_SHARE_QUERY, wideShare};
 export const SHARE_ROW_TEXT = Object.freeze({copy: PHOTO_ACT_TEXT.copy, diary: PHOTO_ACT_TEXT.diary, basket: PHOTO_ACT_TEXT.basket, download: PHOTO_ACT_TEXT.download, native: PHOTO_ACT_TEXT.native});
 export const SHARE_NOTE = Object.freeze({
   copied: '복사했어요',

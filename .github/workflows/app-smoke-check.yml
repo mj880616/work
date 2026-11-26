@@ -1101,6 +1101,9 @@ jobs:
       - name: Check wide-screen share menu (PC공유메뉴, synthetic)
         run: node --test tests/share-menu.test.mjs
 
+      - name: Check article link share (S71-69 SHARE-글공유, synthetic)
+        run: node --test tests/link-share.test.mjs
+
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
 

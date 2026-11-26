@@ -34,6 +34,9 @@ import {notify, askConfirm, askText} from './small-notice.js';
 import {word, APP_NAME} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK, EDIT} from './row-swipe.js';
+import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
+import {shareArticleLink} from './link-share.js';
+import {iconHtml} from './tree-icons.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
@@ -73,6 +76,9 @@ const state = {rows: [], loaded: false, failed: false, filter: DEFAULT_FILTER, o
   folders: [], foldersReady: false, folder: '', boxOpen: true};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
+// S71-69 SHARE-글공유(사용자 결정 2026-11-26 "기사는 링크로 공유"): 저장한 글 하나 → 공유할 제목·원래 주소(http·https 아니면 null — 칸을 두지 않음).
+const shareOf = id => { const row = rowOf(id); return row ? articleShare({title: lineOf(row).title, url: row.url}) : null; };
+const shareRow = id => { const d = shareOf(id); return d ? shareArticleLink(d) : null; };
 // S70-24 READ-저장한글기본전체(명진 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
 // 메뉴로 들어오면(라우터가 주소의 자리 값을 지움) 늘 [전체], 주소에 ?tab=이 적혀 들어오면(뒤로가기·새로고침·링크) 그 보기.
 // 고른 보기는 주소에만 적는다(replaceState — 기록 칸을 늘리지 않음). 기기·서버에 '마지막 보기'를 따로 두지 않는다.
@@ -498,6 +504,12 @@ function drawDetail() {
   const icons = el('span', 'ds-doc-icons');
   const src = el('a', 'ds-doc-icon rd-src', '↗');
   src.href = row.url; src.target = '_blank'; src.rel = 'noopener noreferrer'; src.title = '원래 페이지'; src.setAttribute('aria-label', '원래 페이지 (새 창)');
+  // S71-69 SHARE-글공유: ↗ 옆 [공유] 아이콘 = 제목 + 원래 주소(link-share.js — 폰 공유 창 · PC 복사). 주소가 http·https인 글만.
+  if (shareOf(row.id)) {
+    const share = btn('ds-doc-icon rd-share', '', {rdShare: row.id});
+    share.innerHTML = iconHtml('share'); share.title = SHARE_LABEL; share.setAttribute('aria-label', SHARE_LABEL);
+    icons.append(share);
+  }
   icons.append(src);
   // S68-33 READ-글자크기: [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
   icons.insertAdjacentHTML('beforeend', textSizeHtml());
@@ -795,7 +807,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     const note = headMenu ? `${making}<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
     // S70-58: 두 칸에서는 News에서 온 줄도 오른쪽 칸에 열므로, 글 보기 머리 ⋯에 [읽을 거리에서 보기](요약·시사점·[저장됨 ✓]이 있는 읽을 거리 글 보기 — 뒤로 = 저장한 글).
     const toNews = headMenu && split() && newsLinkOf(id) ? '<button type="button" class="row-act" data-rd-act="news">읽을 거리에서 보기</button>' : '';
-    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${toNews}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${state.foldersReady ? '<button type="button" class="row-act" data-rd-act="folder">폴더로 옮기기</button>' : ''}${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${toNews}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${state.foldersReady ? '<button type="button" class="row-act" data-rd-act="folder">폴더로 옮기기</button>' : ''}${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${shareOf(id) ? `<button type="button" class="row-act" data-rd-act="share">${SHARE_LABEL}</button>` : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = (active.trigger?.isConnected ? active.trigger : null) || view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
@@ -809,6 +821,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     else if (act === 'note') void marksToNote(id);
     else if (act === 'make' && state.open === id) void makeNote(id);
     else if (act === 'news') { const l = newsLinkOf(id); if (l) void openNews(l); }
+    else if (act === 'share') void shareRow(id);
     else if (act === 'delete') void removeAny(id, at);
   }});
 
@@ -883,6 +896,8 @@ function bind() {
     if (t.closest?.('[data-rd-bm-copy]')) { void copyText(bookmarklet()).then(ok => notify(ok ? '한 줄 복사했어요 · 즐겨찾기 막대 오른쪽 클릭 → 페이지 추가 → URL에 붙여 넣기' : '복사하지 못했어요', {record: false, error: !ok})); return; }
     if (t.closest?.('[data-rd-retry]')) { void refresh(); return; }
     if (t.closest?.('[data-rd-back]')) { closeDetail(); return; }
+    const sh = t.closest?.('[data-rd-share]');
+    if (sh) { void shareRow(sh.dataset.rdShare); return; }
     const f = t.closest?.('[data-rd-fetch]');
     if (f) { const row = rowOf(f.dataset.rdFetch); if (row) void startFetch(row); return; }
     const re = t.closest?.('[data-rd-reopen]');

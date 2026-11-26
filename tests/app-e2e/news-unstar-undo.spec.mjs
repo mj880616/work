@@ -167,7 +167,7 @@ for (const width of [412, 884, 1280]) {
     if (shots) await page.screenshot({ path: `${shots}/reading-news-${width}.png` });
 
     await row(page, T_N1).locator('[data-rd-more]').click();
-    await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '안 읽음으로', '사업에 연결', '폴더로 옮기기', '삭제']);
+    await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '안 읽음으로', '사업에 연결', '폴더로 옮기기', '공유', '삭제']);
     await page.locator('#rdRowMenu button', { hasText: '삭제' }).click();
     await expect(row(page, T_N1)).toHaveCount(0);
     expect(await noticeText(page)).toBe('삭제했어요');

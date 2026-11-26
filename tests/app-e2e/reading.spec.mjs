@@ -229,7 +229,7 @@ test('＋(글 추가): 주소 → 넣기 → note-import로 원문을 받아 글
   // 우클릭(PC): 줄의 ⋯ 메뉴가 열린다(공통 context-menu.js).
   await list(page).locator(`.rd-row[data-rd-open="${A}"] .rd-nm`).click({ button: 'right' });
   await expect(page.locator('#rdRowMenu')).toBeVisible();
-  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '읽음', '사업에 연결', '폴더로 옮기기', '삭제']);
+  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '읽음', '사업에 연결', '폴더로 옮기기', '공유', '삭제']);
 });
 
 test('남의 작업공간 줄: 서버가 거절하면 바꾸지 않고 한 줄 알림(화면이 다른 작업공간 열쇠를 보내지 않음)', async ({ page }) => {

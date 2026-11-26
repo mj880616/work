@@ -2,6 +2,8 @@ import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
+import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
+import {shareArticleLink} from './link-share.js'; // 미리 불러 둔다 — 기기 공유 창은 누른 효력이 살아 있을 때만 열린다
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
 // S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀어도 칸만, 누를 때만 숨김 S70-60), 오른쪽 밀기 = [선택](여러 개).
 // 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
@@ -17,6 +19,9 @@ import {openRowMenu, appMenuPoint} from './row-menu.js';
 //   기사 자체 삭제 쪽을 '기사 삭제'(DELETE_BOTH_LABEL)로 부른다(docs/design/ui-words.md).
 // 고르기 막대의 [삭제] = 숨기기(S70-64b). 줄 밀기·⋯의 [숨기기] 글자는 그대로.
 export const PICK_HIDE_LABEL = '삭제';
+// S71-69 SHARE-글공유(사용자 결정 2026-11-26 "기사는 링크로 공유"): shareOf(item)가 {title, url}을 주는 화면은 줄 ⋯·우클릭 메뉴의
+//   숨기기·삭제 바로 앞에 [공유] — 누르면 link-share.js(폰 = 기기 공유 창 '제목 + 원래 주소', PC = 복사 + '복사했어요').
+//   왼쪽 밀기 칸은 S70-65 세 칸 기준([주 동작][수정][숨기기·삭제]) 그대로라 넣지 않고, 마우스 단추 줄에도 두지 않는다.
 export const HIDE_LABEL = '숨기기', SAVE_LABEL = '저장', EDIT_LABEL = '수정', RELEASE_LABEL = '삭제', RELEASE_ARIA = '저장한 글에서 삭제', DELETE_LABEL = '삭제', DELETE_BOTH_LABEL = '기사 삭제';
 // S69-03(명진 11/24 06:48 "저장된 글에서 저장 버튼이 눌린 것 표현한 것이었다면 글자도 저장됨v 이런식으로 바뀌면 인정"): 글 상세 아래 줄의
 //   저장 단추는 켜고 끄는 단추(aria-pressed)라 눌린 상태 글자는 '저장됨 ✓'([관심 없음 ✓]와 같은 꼴). 누르면 저장한 글에서 삭제(5초 [되돌리기]).
@@ -59,18 +64,19 @@ export function hoverButtonsHtml(items, {attr = 'data-now-act'} = {}) {
   return `<span class="now-hov" role="group" aria-label="이 글 처리">${items.map(btn).join('')}</span>`;
 }
 // 줄 ⋯·우클릭 메뉴 항목(밀기·단추와 같은 이름). canEdit: 맨 앞 [수정](S70-62 — 읽을 거리 줄 = [수정][저장][숨기기]).
-export function rowMenuItems({saved = false, isSaved = false, canDelete = false, canEdit = false} = {}) {
+export function rowMenuItems({saved = false, isSaved = false, canDelete = false, canEdit = false, canShare = false} = {}) {
   const del = canDelete ? [{id: 'delete', label: saved || isSaved ? DELETE_BOTH_LABEL : DELETE_LABEL}] : [];
   const edit = canEdit ? [{id: 'edit', label: EDIT_LABEL}] : [];
-  if (saved) return [...edit, {id: 'release', label: RELEASE_LABEL, aria: RELEASE_ARIA}, ...del];
-  return [...edit, isSaved ? {id: 'save', label: RELEASE_LABEL, aria: RELEASE_ARIA} : {id: 'save', label: SAVE_LABEL}, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
+  const share = canShare ? [{id: 'share', label: SHARE_LABEL}] : [];
+  if (saved) return [...edit, ...share, {id: 'release', label: RELEASE_LABEL, aria: RELEASE_ARIA}, ...del];
+  return [...edit, isSaved ? {id: 'save', label: RELEASE_LABEL, aria: RELEASE_ARIA} : {id: 'save', label: SAVE_LABEL}, ...share, ...(del.length ? del : [{id: 'hide', label: HIDE_LABEL}])];
 }
 
 // titleOf: 우클릭 메뉴 머리에 보일 줄 제목(기본은 News 줄의 .nw-title — 다른 화면이 같은 줄 밀기를 쓸 때 줄 제목 위치를 알려 준다: 홈 읽을 만한 글).
 const nwTitle = el => el.querySelector('.nw-title')?.textContent || '';
 // S70-62 READ-밀기메뉴(명진 11/26 07:41 "읽을 거리에서는 수정 저장 숨기기"): canEdit(item)이 참인 줄은 밀기 칸·⋯·우클릭 맨 앞에 [수정] — onEdit(item)
 //   (부르는 화면이 그 글 보기를 열고 기존 ⋯ [수정] 창을 연다. 새 수정 창 없음). 넘기지 않은 화면(홈·노트)은 전처럼.
-export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
+export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, shareOf = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
   if (!host) return {close() {}};
   const fail = () => notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true});
   const busy = new Set(); // 같은 글을 빠르게 두 번 눌러도 한 번만
@@ -78,6 +84,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
   async function run(key, item) {
     const id = item.type + ':' + item.id;
     if (key === 'edit') { if (onEdit && editable(item)) onEdit(item); return; }
+    if (key === 'share') { const d = shareData(item); if (d) await shareArticleLink(d); return; }
     if (busy.has(id)) return;
     busy.add(id);
     try {
@@ -96,7 +103,8 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
     finally { busy.delete(id); }
   }
   const editable = item => !!onEdit && !!canEdit(item);
-  const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
+  const shareData = item => { if (typeof shareOf !== 'function') return null; try { const d = shareOf(item); return d && articleShare(d) ? d : null; } catch { return null; } };
+  const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item), canShare: !!shareData(item)});
   // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
   // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = 여러 개 선택.
   // S70-64b(명진 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
