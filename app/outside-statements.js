@@ -12,7 +12,7 @@ import {hasNewsItem, takeNewsTab, takeNewsOpen} from './news-request.mjs';
 import {itemView, whenOf} from './news-clipping-model.mjs';
 import {NOW_TABS, SAVED_TAB_IDS, keepNowTab, nowTabAt, startTab, openTabFor, itemKey, isUuid, interestHit, dateText, MEDIA_ALL, mediaRows, keepMedia, mediaName, outsideKeysOf, newsKeysOf, mergeFeed, tabForItem} from './now-model.mjs';
 import {outsideColor, outsideBar, newsColor, newsBar, colorVar, familyOfGroup, postTag, newsTag, tagLabel} from './news-colors.mjs';
-import {rowHtml, dayHtml, runsHtml} from './news-row.mjs';
+import {rowHtml, runsHtml, daysListHtml, leadText} from './news-row.mjs';
 import {foldRuns, liftRelated, LIFT_LABEL} from './news-fold.mjs';
 import {ensureReads, readState, markRead, onReads} from './news-reads.js';
 import {createNowDetail} from './now-detail.js';
@@ -33,7 +33,7 @@ import {newsPage} from './feed-shared-model.mjs';
 import {fillGestureArea} from './gesture-fill.js';
 import {sortByName} from './name-order.mjs';
 // UI-검색창하나로(S70-54): 찾기 칸은 맨 위 칸(화면 찾기 등록), [매체 ▾]·⋯는 맨 위 줄 단추 자리(screen-find.js 상자)로.
-import {registerScreenFind, refreshScreenFind, toolsBox, finderOf} from './screen-find.js';
+import {registerScreenFind, refreshScreenFind, toolsBox, noteBox, onScreenFind, finderOf} from './screen-find.js';
 // OUTSIDE-바깥성명 ④ 화면 1(설계 docs/design/outside-statements.md 4절): #outsideView의 유일한 그리기 주인(News 메뉴 껍데기 — S51-17 P5에서 메뉴 이름 'News'·주소 ?view=news).
 // S51-8 NEWS-전면개편 P4b(설계 docs/design/news-overhaul.md 6.1·6.3·6.4절, 시안 docs/design/mockups/news-overhaul.html ①·③):
 // - 탭 [전체][사회운동][언론][보관](now-model.mjs NOW_TABS). 폰은 아래 떠 있는 탭 줄, 폴드 펼침(761~1199px)은 오른쪽 아래, PC(1200px~)는 위(명진 11/06 탭 자리 규칙).
@@ -90,6 +90,36 @@ const root = document.getElementById('outsideRoot');
 const tools = toolsBox('outside', 'outside');
 tools.innerHTML = `<button type="button" class="nw-dd secondary sf-chip" data-nw-media aria-haspopup="dialog" aria-expanded="false"></button><button type="button" class="os-more icon-btn sf-more" data-os-more data-ctx="screen" aria-haspopup="true" aria-expanded="false" aria-label="읽을 거리 메뉴">${MORE}</button>`;
 const $ = sel => root?.querySelector(sel) || tools.querySelector(sel);
+// S71-27 NEWS-머리한줄: 화면 첫 줄 '읽을 거리 · 새 글 N'의 숫자 자리(screen-find.js noteBox — 화면 이름 바로 뒤). 숫자는 탭마다 그 목록 맨 위 '오늘' 묶음(머리를 뺀 것)의 새 글 수.
+// [전체]·[사회운동]은 이 모듈이, [언론]은 그 칸 주인(news-clipping.js)이 KPTUNow.lead로 알린다. 머리를 빼지 않은 목록·[밑줄]·[메모]는 빈 글자(자리째 없음).
+const note = noteBox('outside');
+const leads = {all: null, movement: null, media: null};
+function paintLead() { note.textContent = state.mode === 'list' ? leadText(leads[state.tab || 'all']) : ''; fitHead(); }
+// 첫 줄이 모자라면(좁은 폰·긴 매체 이름) [매체: 전체 ▾]를 [전체 ▾]로 줄인다(글자 원문·읽는 이름은 그대로, 보이는 앞말만 — CSS .is-tight).
+// 그래도 넘치면 칩 폭을 남은 만큼으로 줄이고 매체 이름 끝을 말줄임(…)한다(--nw-dd-max). 머리 줄 실제 폭을 잰다.
+function fitHead() {
+  const b = tools.querySelector('[data-nw-media]'), line = tools.closest('.mobile-shell-header, [data-app-topline]');
+  if (!b) return;
+  b.classList.remove('is-tight'); b.style.removeProperty('--nw-dd-max');
+  if (!line || tools.hidden || !line.offsetParent) return;
+  // 모자란 폭 = 머리 줄 밖으로 넘친 만큼 + 화면 이름·새 글 수가 잘린 만큼 + 찾기 자리(돋보기)가 눌린 만큼(줄어들 수 있는 칸은 넘치기 전에 먼저 눌린다).
+  const name = line.querySelector('[data-mobile-view-name], .topline-where [aria-current]'), find = line.querySelector('.mobile-shell-find');
+  const cut = el => (el?.offsetParent ? Math.max(0, el.scrollWidth - el.clientWidth) : 0);
+  const squeezed = el => (el?.offsetParent ? Math.max(0, [...el.children].reduce((w, c) => w + (c.offsetParent && !c.matches('.gs-field') ? c.offsetWidth : 0), 0) - el.clientWidth) : 0);
+  // 넘침은 scrollWidth로 재지 않는다(단추의 누르는 범위 ::after가 줄 밖까지 나가 있어 늘 넘쳐 보임) — 마지막 단추(⋯) 오른쪽 끝과 줄 안쪽 끝을 비교한다.
+  const out = () => { const r = line.getBoundingClientRect(), last = tools.lastElementChild?.getBoundingClientRect(); return last ? Math.max(0, last.right - (r.right - parseFloat(getComputedStyle(line).paddingRight || '0'))) : 0; };
+  const over = () => out() + cut(name) + cut(note) + squeezed(find);
+  if (over() <= 1) return;
+  b.classList.add('is-tight');
+  for (let i = 0; i < 3; i++) { // 칩을 줄이면 다른 칸이 다시 펴지므로 두세 번 맞춘다
+    const left = over();
+    if (left <= 1) break;
+    b.style.setProperty('--nw-dd-max', `${Math.max(56, Math.floor(b.getBoundingClientRect().width - left))}px`);
+  }
+}
+window.addEventListener('resize', () => { if (window.KPTURouter?.current === 'outside') fitHead(); });
+onScreenFind(cur => { if (cur?.key === 'outside') requestAnimationFrame(fitHead); });
+function setLead(tab, n) { if (leads[tab] === n) return; leads[tab] = n; paintLead(); }
 const rt = () => window.KPTURuntime;
 const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const scopeOf = () => { const c = rt()?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -170,7 +200,10 @@ const picker = () => (mediaPicker ||= createMovePicker({esc, id: 'nwMediaPicker'
 function paintMediaButton() {
   const b = $('[data-nw-media]');
   if (!b) return;
-  b.textContent = `매체: ${mediaName(state.media, {oc: state.catalog || [], nc: newsCatalog()})} ▾`;
+  const name = mediaName(state.media, {oc: state.catalog || [], nc: newsCatalog()});
+  b.innerHTML = `<span class="nw-dd-k">매체: </span><span class="nw-dd-v">${esc(name)}</span><span class="nw-dd-c"> ▾</span>`;
+  b.setAttribute('aria-label', `매체: ${name}`);
+  fitHead();
 }
 function openMediaPicker(anchor) {
   const tab = state.tab || 'all';
@@ -417,15 +450,16 @@ function backFromInterests() {
 
 // ---------- 목록 그리기 ----------
 // 날짜 묶음 → 흰 상자 안 줄. entries = [{type, row}] (그려 둘 순서대로). 묶음 머리에 안 읽은 글 수.
-function daysHtml(entries, now, {lift = true} = {}) {
+// 돌려줌 {html, lead}: lead=true(목록 맨 위)면 맨 위 '오늘' 묶음은 머리 없이 그리고 그 새 글 수를 lead로(S71-27, news-row.mjs daysListHtml).
+function daysHtml(entries, now, {lift = true, lead = true} = {}) {
   const rowFn = e => rowOf(e.type, e.row, {openAttr: 'data-now-open', acts: hoverActsHtml({isSaved: e.type === 'news' ? !!e.row.starred_at : markOf(e.row.id).starred, canDelete: e.type === 'news' && canDeleteNews(e.row), canEdit: e.type === 'news'})});
   const unreadOf = list => list.filter(e => readState({type: e.type, id: e.row.id}) === false).length;
   // NEWS-도배막기 C: 관심 주제에 걸린 최근 글은 위 칸에 먼저(시간순 그대로), 나머지는 아래 날짜별.
   const atOf = e => (e.type === 'news' ? whenOf(e.row) : Date.parse(e.row.published_at || ''));
   const {top, rest} = lift ? liftRelated(entries, e => !!hitOf(e.type, e.row), atOf, now) : {top: [], rest: entries};
-  const head = top.length ? dayHtml(LIFT_LABEL, foldedHtml(top, rowFn), unreadOf(top), esc) : '';
   const wrapped = rest.map(e => ({...e, published_at: e.type === 'news' ? (whenOf(e.row) ? new Date(whenOf(e.row)).toISOString() : '') : e.row.published_at}));
-  return head + groupPosts(wrapped, now).map(g => dayHtml(g.label, foldedHtml(g.items, rowFn), unreadOf(g.items), esc)).join('');
+  const groups = [...(top.length ? [{label: LIFT_LABEL, items: top}] : []), ...groupPosts(wrapped, now)];
+  return daysListHtml(groups.map(g => ({label: g.label, rows: foldedHtml(g.items, rowFn), unread: unreadOf(g.items)})), esc, {lead});
 }
 // S70-67 SEARCH-비슷한것찾기: 제목 거르기는 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말). 서버 찾기·Enter 문장 찾기는 그대로.
 const osFinder = finderOf('outside', () => state.query);
@@ -434,6 +468,7 @@ const shownPosts = () => state.posts.filter(p => !markOf(p.id).dismissed && osHi
 const shownNews = () => state.news.filter(n => osHit([itemView(n).title, n.title]));
 const moreBtn = (attr, busy) => `<button type="button" class="os-text-btn os-more-posts" ${attr}${busy ? ' disabled aria-busy="true"' : ''}>더 보기</button>`;
 function listHtml() {
+  leads.movement = null;
   if (!state.postsLoaded) return state.postsFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6, h: 44});
   if (!state.posts.length) {
     if (!state.sourcesLoaded) return emptyHtml();
@@ -444,12 +479,14 @@ function listHtml() {
   const more = state.end ? '' : moreBtn('data-os-more-posts', state.more);
   if (!shown.length) return `${emptyHtml(state.query ? '제목에서 찾은 글 없음' : '새 글 없음', {attrs: 'data-os-empty="posts"'})}${more}`;
   const ts = Date.now(), entries = list => list.map(row => ({type: 'outside', row}));
-  if (!intlSplitOn(state.media, state.catalog || [])) return daysHtml(entries(shown), ts) + more;
+  if (!intlSplitOn(state.media, state.catalog || [])) { const d = daysHtml(entries(shown), ts); leads.movement = d.lead; return d.html + more; }
   // S63-11: 국내 단체 글 먼저, 국제 글은 아래 접힌 '국제' 묶음(펼쳤을 때만 줄을 그린다 — 접힌 글이 PC 맨 위 글로 저절로 열리지 않게).
   const {home, intl} = splitIntl(shown, state.catalog || []);
   const unread = intl.filter(p => readState({type: 'outside', id: p.id}) === false).length;
-  const fold = intl.length ? `<details class="os-intl" data-os-intl${state.intlOpen ? ' open' : ''}><summary class="os-intl-sum">${esc(INTL_LABEL)} · ${intl.length}건${unread ? ` · 새 글 ${unread}` : ''}${chevHtml(false)}</summary>${state.intlOpen ? daysHtml(entries(intl), ts, {lift: false}) : ''}</details>` : '';
-  return (home.length ? daysHtml(entries(home), ts) : '') + fold + more;
+  const fold = intl.length ? `<details class="os-intl" data-os-intl${state.intlOpen ? ' open' : ''}><summary class="os-intl-sum">${esc(INTL_LABEL)} · ${intl.length}건${unread ? ` · 새 글 ${unread}` : ''}${chevHtml(false)}</summary>${state.intlOpen ? daysHtml(entries(intl), ts, {lift: false, lead: false}).html : ''}</details>` : '';
+  const d = home.length ? daysHtml(entries(home), ts) : {html: '', lead: null};
+  leads.movement = d.lead;
+  return d.html + fold + more;
 }
 // [전체] 찾은 글(서버 찾기): 사회운동 글 + 언론 기사를 시각 최신 순으로, 날짜 묶음만(관심 주제 위 칸은 목록에서만).
 function allFindHtml() {
@@ -461,10 +498,13 @@ function allFindHtml() {
   const news = findNews().map(row => ({id: row.id, at: whenOf(row) ? new Date(whenOf(row)).toISOString() : '', row}));
   const merged = mergeFeed(posts, news);
   if (!merged.length) return emptyHtml(FIND_EMPTY, {attrs: 'data-nw-empty'});
-  return daysHtml(merged, Date.now(), {lift: false});
+  const d = daysHtml(merged, Date.now(), {lift: false});
+  leads.all = d.lead;
+  return d.html;
 }
 // [전체]: 사회운동 글 + 언론 기사를 한 줄로(시각 최신 순).
 function allHtml() {
+  leads.all = null;
   if (allFind.active()) return allFindHtml();
   if (!state.postsLoaded && !state.newsLoaded) return state.postsFailed && state.newsFailed ? failHtml({retry: 'data-os-retry'}) : waitHtml({rows: 6, h: 44});
   const posts = shownPosts().map(row => ({id: row.id, at: row.published_at || '', row}));
@@ -472,7 +512,9 @@ function allHtml() {
   const merged = mergeFeed(posts, news);
   const more = state.end && state.newsEnd ? '' : moreBtn('data-nw-all-more', state.more);
   if (!merged.length) return `${emptyHtml(state.query ? '제목에서 찾은 글 없음' : '새 글 없음', {attrs: 'data-nw-empty'})}${more}`;
-  return daysHtml(merged, Date.now()) + more;
+  const d = daysHtml(merged, Date.now());
+  leads.all = d.lead;
+  return d.html + more;
 }
 
 function sourcesHtml() {
@@ -513,6 +555,7 @@ function paintTabs() {
   show('[data-now-interests]', state.mode === 'interests');
   show('[data-now-hidden]', state.mode === 'hidden');
   paintMediaButton();
+  paintLead();
 }
 // 관심 주제 후보는 목록 위 줄이 아니라 화면 머리 ⋯ 메뉴 안 '관심 주제 후보 n' 한 줄(S69-70, 명진 11/24 20:45 "줄 차지하는게 보기싫음 / ... 안에 넣어줘"). 0개면 그 줄도 없다.
 // 탭 하나 보이기. save=true면 서버에 마지막 탭으로 기억(view_prefs.news_tab). [언론]·[밑줄]은 처음 보일 때 그 칸 주인이 불러온다.
@@ -559,6 +602,7 @@ function paint() {
   if (state.mode === 'sources') { sources.innerHTML = sourcesHtml(); list.replaceChildren(); }
   else { list.innerHTML = state.mode === 'list' && state.tab === 'movement' ? listHtml() : ''; sources.replaceChildren(); }
   if (all) all.innerHTML = state.mode === 'list' && state.tab === 'all' ? allHtml() : '';
+  paintLead();
   mountSplit();
   autoOpenTop();
 }
@@ -566,6 +610,7 @@ function paintList() {
   if (state.mode !== 'list') return;
   if (state.tab === 'movement') { const list = $('[data-os-list]'); if (list) list.innerHTML = listHtml(); }
   else if (state.tab === 'all') { const all = $('[data-nw-all]'); if (all) all.innerHTML = allHtml(); }
+  paintLead();
   autoOpenTop();
 }
 // 읽음 표시가 서버에서 오면(또는 상세를 열어 읽음이 되면) 보이는 목록을 다시 그린다(각 칸 주인이 자기 칸만).
@@ -613,7 +658,7 @@ function resetIfOwnerChanged() {
   const scope = scopeOf();
   if (state.scope === scope) return;
   closeLayer();
-  state = fresh(); state.scope = scope;
+  state = fresh(); state.scope = scope; leads.all = leads.movement = leads.media = null;
   search.reset(); allFind.reset();
   detail.reset(); marks.reset(); memos.reset(); interests.reset(); folds.clear();
   detailFrom = ''; fitWanted = false;
@@ -1046,7 +1091,7 @@ window.KPTUOutside = {refresh: () => load(), sourceName: key => catalogOf(key)?.
 // [언론] 탭 칸 주인(news-clipping.js)이 쓰는 입구: 상세 열기·머리 만들기·줄 그리기·확정 관심 주제·환류 기록 뒤 후보 묻기·지금 탭·찾는 말·고른 매체.
 window.KPTUNow = {
   open: (item, head) => openDetail(item, head), edit: (item, head) => editRow(item, head), listed: () => autoOpenTop(), describe, rowOf, topics: () => interests.topics(), hitOf, foldedHtml, selected: () => { const c = detail.current(); return c ? itemKey(c) : ''; },
-  signaled: () => askInterests(), tab: () => state.tab, newsFresh: (rows, o) => newsFresh(rows, o), openInterests: () => openInterests(), query: () => state.query, newsKeys: () => newsKeys(),
+  signaled: () => askInterests(), tab: () => state.tab, lead: n => setLead('media', n), newsFresh: (rows, o) => newsFresh(rows, o), openInterests: () => openInterests(), query: () => state.query, newsKeys: () => newsKeys(),
   metaChanged: m => { if (m) state.newsMeta = {catalog: m.catalog || [], enabled: m.enabled || []}; state.media = keepMedia(state.tab || 'all', state.media); paintMediaButton(); },
 };
 if (window.KPTURouter?.current === 'outside') enter();
