@@ -143,7 +143,7 @@ export const HAND_RULE = 'manual@1';
 // S73-01 NEWS-본문하루(사용자 결정 2026-11-27): 받은 지 하루 지난 언론 기사는 매일 정리가 본문을 비우고 블록 줄을 이 규칙 표시 줄로 남긴다
 // (DB public.app_news_trim_bodies — blocks 비움·state failed·reason no_body). 화면은 까닭 한 줄 + 원래 사이트 링크만, 저절로 다시 읽지 않는다.
 export const TRIM_RULE = 'trim@1';
-export const TRIM_TEXT = '지난 기사라 본문은 보관하지 않아요';
+export const TRIM_TEXT = '지난 기사라 본문은 저장하지 않아요';
 export function bodyView(row) {
   if (row && row.rule === TRIM_RULE) return {state: 'failed', blocks: [], reason: TRIM_TEXT, trimmed: true};
   const v = bodyViewOf(row);
