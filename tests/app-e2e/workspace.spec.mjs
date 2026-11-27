@@ -175,8 +175,10 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page.locator('#googleCalendarPanel')).toBeVisible();
-  expect(await page.locator('#googleCalendarPanel').evaluate(el=>el.open)).toBe(false);
+  // CAL-머리한줄(S71-24): 여는 단추는 화면 이름 줄 [구글 캘린더 ▾], 연결된 뒤 칸은 닫힌 채 시작.
+  await expect(page.locator('#googleCalendarHeadBtn')).toBeVisible();
+  await expect(page.locator('#googleCalendarHeadBtn')).toHaveAttribute('aria-expanded','false');
+  await expect(page.locator('#googleCalendarPanel')).toBeHidden();
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeGreaterThanOrEqual(44);

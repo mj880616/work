@@ -92,7 +92,7 @@ for (const width of [412, 1280]) {
     await row(page, 'c1').locator('[data-nc-open="c1"]').click();
     await expect(nd.locator('[data-nd-prose] p')).toHaveCount(2);
     await nd.locator('[data-nd-ob-more]').click();
-    await page.locator('#ndObMenu [data-nd-menu="hand"]').click();
+    await page.locator('#ndObMenu [data-nd-menu="edit"]').click(); await page.locator('#outsideRoot [data-nd-edit-info]').click(); // S71-68 ②: ⋯ [수정] = 문단 수정 칸, 기사 정보·본문 직접 넣기 칸은 그 안 [제목·정보]
     await expect(form.locator('[data-nd-hand-in="body"]')).toHaveValue('가짜 채널 본문 첫 문단.\n가짜 채널 본문 둘째 문단.');
     await form.locator('[data-nd-hand-in="body"]').fill('');
     await form.locator('button[type="submit"]').click();
