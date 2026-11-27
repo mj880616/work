@@ -768,6 +768,17 @@ function takeAsked() {
 
 install(); bind();
 state.filter = filterFromUrl();
-window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(보기 탭 줄·목록)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가 기다린 뒤 화면을 보인다.
+// 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 두 칸 폭 맨 위 글 저절로 열기(autoOpenTop)·옛 실패 줄 자동 다시 가져오기(autoRefetch)는 이 화면이 지금 화면일 때만이라,
+// 처음 보이는 그 자리(라우터 진입)에서 한 번 부른다.
+const firstDraw = refresh();
+let firstShown = false;
+window.KPTURouter?.on?.('reading', () => {
+  const filter = filterFromUrl(), changed = filter !== state.filter;
+  state.filter = filter;
+  if (!firstShown) { firstShown = true; if (changed && state.loaded) drawList(); autoOpenTop(); if (state.loaded && !state.failed) void autoRefetch(); void firstDraw.then(takeAsked, takeAsked); return; }
+  if (state.loaded) drawList(); void refresh().then(takeAsked);
+});
+window.__KPTU_READING_READY__ = firstDraw.then(takeAsked);
 window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

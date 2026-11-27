@@ -53,6 +53,8 @@ export const SCREEN_SPECS = [
   [/^app\/(library-[^/]+\.(m?js|css)|marquee-select\.(js|css))$/, ['standard-interactions.spec.mjs', 'library-marquee-anywhere.spec.mjs', 'library-marquee-select.spec.mjs']],
   [/^app\/(note|notes)[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
   [/^app\/photos?[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
+  // RULE-한번에그리기: 화면을 열 때 머리 줄 구성이 한 번에 최종 모양인지(공통 시험 화면 표). 표에 화면을 더하면 그 화면 파일도 여기에.
+  [/^app\/(team|files|report-filter-chip)[^/]*\.(m?js|css)$/, ['screen-open-once.spec.mjs']],
 ];
 export function screenSpecsFor(file, testFiles) {
   const out = new Set();
