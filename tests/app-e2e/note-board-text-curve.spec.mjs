@@ -225,7 +225,7 @@ test('PC: 상자 만들기·수정·옮기기, 노트↔글 상자 선, 선 끌�
   expect(errors).toEqual([]);
 });
 
-test('폰: [+ 주제]·두 번 누르기로 만들기, 누르면 고르기·다시 누르면 수정, 꾹 눌러 옮기기·잇기, 선 끌어 곡선, 삭제 (412)', async ({ page }) => {
+test('폰: [+ 상자]·두 번 누르기로 만들기, 누르면 고르기·다시 누르면 수정, 꾹 눌러 옮기기·잇기, 선 끌어 곡선, 삭제 (412)', async ({ page }) => {
   const width = 412;
   const { errors, linkCalls, linkRows, textCalls, textRows } = await fixture(page, width);
   const cdp = await page.context().newCDPSession(page);
