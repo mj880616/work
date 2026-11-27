@@ -773,7 +773,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   .nl-ph-count { flex:none; min-width:4.5em; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .nl-ph-acts { display:flex; flex:none; align-items:center; gap:12px; min-width:0; }
   #appView #basketView [data-note-list] .nl-ph .nl-ph-btn { position:relative; display:inline-flex; align-items:center; box-sizing:border-box; height:auto; min-height:0; margin:0; padding:0; border:0; border-radius:0; background:none; box-shadow:none; font:inherit; color:inherit; white-space:nowrap; cursor:pointer; }
-  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn::after { content:""; position:absolute; inset:-6px -6px; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn::after { content:""; position:absolute; inset:-6px -6px; height:auto; }
   #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:is(:hover,[aria-expanded="true"]) { color:var(--kptu-ink); }
   #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; }
 }
