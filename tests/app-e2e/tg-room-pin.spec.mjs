@@ -34,12 +34,21 @@ const pinKeys=view=>view.locator('[data-tg-pinrooms] [data-tg-rd]').evaluateAll(
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name).map(w=>w.body);
 // 폰 꾹 누르기: 터치 포인터를 누른 채 0.6초(feed-hold.js 0.5초) 기다렸다 뗀다.
 async function hold(page,locator){
- await expect(locator).toBeVisible(); // 첫 그리기 뒤 줄이 다시 그려지는 사이에 재지 않도록(보이는 줄을 잰다)
- const box=await locator.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
- await page.evaluate(async({x,y})=>{
-  const el=document.elementFromPoint(x,y),o={bubbles:true,cancelable:true,clientX:x,clientY:y,pointerType:'touch',pointerId:21,isPrimary:true};
-  el.dispatchEvent(new PointerEvent('pointerdown',o));await new Promise(r=>setTimeout(r,650));el.dispatchEvent(new PointerEvent('pointerup',o));
- },{x,y});
+ // 첫 그리기 뒤 줄이 한 번 더 다시 그려지면(새 줄로 바뀜) 누르던 줄이 사라져 꾹 누르기가 끊기고, 보임 확인과 위치 재기 사이에
+ // 줄이 바뀌면 상자가 비었다(boundingBox null). 줄에 표시를 달고 0.3초 뒤에도 그 표시가 남은(= 다시 그려지지 않은) 줄이 되면
+ // 그 줄을 위치 재기와 누르기 한 번에 처리한다.
+ await expect.poll(async()=>{
+  const marked=await locator.evaluate(el=>el.hasAttribute('data-hold-seen')).catch(()=>false);
+  if(marked)return true;
+  await locator.evaluate(el=>el.setAttribute('data-hold-seen','1')).catch(()=>{});
+  await page.waitForTimeout(300);
+  return false;
+ },{timeout:10000}).toBe(true);
+ await locator.evaluate(async el=>{
+  const r=el.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;
+  const t=document.elementFromPoint(x,y)||el,o={bubbles:true,cancelable:true,clientX:x,clientY:y,pointerType:'touch',pointerId:21,isPrimary:true};
+  t.dispatchEvent(new PointerEvent('pointerdown',o));await new Promise(res=>setTimeout(res,650));t.dispatchEvent(new PointerEvent('pointerup',o));
+ });
 }
 
 test.describe('마우스 PC',()=>{test.use({hasTouch:false});
