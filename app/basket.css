@@ -14,7 +14,7 @@
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
    S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
    S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게). */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .nxt-row .row-act, .nxt-head .row-act, .nxt-bar .row-act, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .nxt-q, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }

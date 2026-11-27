@@ -43,11 +43,11 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
   function rowHtml(r) {
     const name = r.name || '제목 없음', when = deletedDay(r.deleted_at);
     return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">삭제한 날 </span>${esc(when)}</time>` : ''}</span>`
-      + `<button type="button" class="row-act nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되살리기</button>`
+      + `<button type="button" class="row-act nxt-q nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되살리기</button>`
       + `<details class="nxt-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
   }
   // '휴지통 비우기': 휴지통에 보이는 노트 전부를 영구 삭제(건수 옆, 글자 단추). 서버 길은 줄마다 쓰는 app_trash_purge 그대로.
-  const emptyBtn = (cls = '') => `<button type="button" class="row-act nxt-empty ${cls}" data-nxt-empty-all${busy ? ' disabled' : ''}>휴지통 비우기</button>`;
+  const emptyBtn = (cls = '') => `<button type="button" class="row-act nxt-q nxt-empty ${cls}" data-nxt-empty-all${busy ? ' disabled' : ''}>휴지통 비우기</button>`;
   function listHtml({bar = false} = {}) {
     if (state === TRASH_STATE.FAILED) return failHtml({retry:'data-nxt-retry', text:TRASH_TEXT.LOAD_FAILED});
     if (state === TRASH_STATE.MISSING) return emptyHtml(TRASH_TEXT.PREPARING);
