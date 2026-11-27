@@ -250,3 +250,16 @@ test('글 저장이 실패하면 빠른 입력칸·조직 기록 입력칸은 �
   expect(f.uploads).toEqual([]);
   expect(f.writes).toHaveLength(2);
 });
+
+// 한 영역 한 주인(#3278): 조직 상세는 자료를 다 받기 전에 기록 입력칸을 보이지 않는다 — 받기 전에 [저장]이 눌려 조용히 무시되지 않게(고치기 전 실패·고친 뒤 통과).
+test('조직 상세는 조직 자료를 다 받은 뒤에야 기록 입력칸·[저장]을 보인다 (412)', async ({page}) => {
+  await fixture(page, 412);
+  let release = () => {}; const held = new Promise(ok => { release = ok; });
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_suborganizations' && new URL(u.href).searchParams.has('id'), async r => { await held; return r.fallback(); });
+  await clickView(page, 'team'); await page.locator('[data-so-org="o"]').first().click();
+  await expect(page.locator('#wdModal')).toBeVisible();
+  await expect(page.locator('#wdInbox')).toBeHidden();
+  await expect(page.locator('#wdInboxSave')).toBeHidden();
+  release();
+  await expect(page.locator('#wdInboxSave')).toBeVisible();
+});
