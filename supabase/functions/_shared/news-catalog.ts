@@ -277,8 +277,7 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 같은 매체 피드 꼴 hankyung.com/feed/<섹션>의 opinion.
     extract: false,
     lists: ["https://www.hankyung.com/feed/opinion"], hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
-  // ---- 주제 묶음·양질 블로그(NEWS-수집처늘리기, 사용자 2026-11-28 06:58 "바이브 코딩쪽 양질의 글 … 아스날 및 해외축구 전술 분석 및 리뷰 … 사회운동이나 정치 경제 사회
-  //   … 국내 국제 양질의 글 / 꼭 단체나 언론 매체 아니더라도 … 블로그나 사이트"). 맨 끝에 둔다(앞선 매체 키 순서·돌려쓰기 색 칸 그대로).
+  // ---- 주제 묶음·양질 블로그(NEWS-수집처늘리기, 사용자 요청 2026-11-28: AI 코딩·축구 전술·사회·정치 양질 글, 언론사가 아닌 블로그·뉴스레터도). 맨 끝에 둔다(앞선 매체 키 순서·돌려쓰기 색 칸 그대로).
   //   넣은 기준: 자기 RSS/Atom이 있고, 운영과 같은 robots 판정으로 허용되고, 무료로 읽히는 곳만 — 원문 점검(article-extract-live-check '새 수집처 후보', GitHub 러너, 11/28 [사실]).
   //   뺀 곳·까닭(robots 금지·접속 거절·피드 없음·유료)은 PR #3285 본문 표와 설계 news-clipping.md 3.4절.
   //   규칙은 사설·칼럼과 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 피드의 제목·소개·날짜·링크, 피드에 전문이 있으면 그것만).

@@ -368,7 +368,7 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각�
   expect(errors).toEqual([]);
 });
 
-// NEWS-수집처늘리기(사용자 2026-11-28 "바이브 코딩쪽 양질의 글 … 아스날 및 해외축구 전술 분석"): [매체 ▾]에 'AI 코딩'·'축구' 묶음 — 고르면 그 묶음 글만. 폰 412·PC 1280.
+// NEWS-수집처늘리기(사용자 요청 2026-11-28: AI 코딩·축구 전술 글): [매체 ▾]에 'AI 코딩'·'축구' 묶음 — 고르면 그 묶음 글만. 폰 412·PC 1280.
 for (const width of [412, 1280]) test(`읽을 거리 ${width}: [매체 ▾] AI 코딩·축구 묶음으로 거르기`, async ({ page }) => {
   test.setTimeout(90000);
   const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-tech', name: 'Fake Coding Notes', region: 'tech', lang: 'en', on: true }, { key: 'news-fake-ball', name: 'Fake Tactics Blog', region: 'football', lang: 'en', on: true }];
