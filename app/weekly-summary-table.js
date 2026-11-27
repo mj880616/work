@@ -237,7 +237,7 @@ function factsHtml(items,records){
 function editBox(kind,value,label,max=kind==='owner'?60:2000,clearable=false){
   const input=kind==='owner'?`<input type="text" maxlength="${max}" value="${esc(value)}" data-bp-field aria-label="${esc(label)}">`
     :`<textarea data-autogrow rows="4" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
-  return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button>${clearable&&String(value).trim()?'<button type="button" class="mini secondary" data-bp-edit-clear>이 칸 글 지우기</button>':''}</span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
+  return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button>${clearable&&String(value).trim()?'<button type="button" class="mini secondary" data-bp-edit-clear>이 칸 글 삭제</button>':''}</span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
 }
 function progressCell(ref,row,items,records){
   if(state.now)return nowProgressCell(ref,row,items,records);
@@ -331,12 +331,12 @@ function nowOwnerCell(ref,row){
   if(ed&&ed.kind==='owner'&&ed.row===row)return editBox('owner',v.owner,`${ref.area} ${ref.task} 담당`,NM.OWNER_MAX);
   return `${esc(v.owner)}${state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${v.owner?'수정':'쓰기'}</button>`:''}`;
 }
-// [이 칸 글 지우기]: 열린 칸 하나의 글만 비운다(다른 칸·사업 기록은 그대로). 확인 뒤 지우고 [되돌리기]로 원문을 다시 쓴다.
+// [이 칸 글 삭제]: 열린 칸 하나의 글만 비운다(다른 칸·사업 기록은 그대로). 확인 뒤 지우고 [되돌리기]로 원문을 다시 쓴다.
 async function clearEdit(anchor){
   const ed=state?.editing,ref=ed&&rowRefs()[ed.row];if(!ref||!state.now||ed.kind!=='progress')return;
   const {NM,ND}=state.kit,week=state.from,before=NM.nowView(state.now.rows,ref.space,week).body;
   if(!before)return;
-  if(!(await askConfirm(anchor,{text:'이 칸의 글을 지울까요?',ok:'지우기',danger:true,note:word('지운 뒤 [되돌리기]로 다시 살려요.')})))return;
+  if(!(await askConfirm(anchor,{text:'이 칸의 글을 삭제할까요?',ok:'삭제',danger:true,note:word('삭제한 뒤 [되돌리기]로 다시 살려요.')})))return;
   if(!state?.editing||state.editing!==ed)return;
   const run=state.run;
   for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel],[data-bp-edit-clear]'))b.disabled=true;
@@ -346,8 +346,8 @@ async function clearEdit(anchor){
     const rows=await put('');
     if(!state||run!==state.run||!state.now)return;
     state.now.rows=rows;state.editing=null;say('');renderPaper();
-    notify('글을 지웠어요.',{label:'지운 글',undo:async()=>{const back=await put(before);if(state?.now&&state.run===run){state.now.rows=back;renderPaper()}}});
-  }catch{if(state&&run===state.run){say('지우지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel],[data-bp-edit-clear]'))b.disabled=false}}
+    notify('글을 삭제했어요.',{label:'삭제한 글',undo:async()=>{const back=await put(before);if(state?.now&&state.run===run){state.now.rows=back;renderPaper()}}});
+  }catch{if(state&&run===state.run){say('삭제하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel],[data-bp-edit-clear]'))b.disabled=false}}
 }
 async function saveNowEdit(ed,field,ref){
   const {NM,ND}=state.kit,owner=ed.kind==='owner';

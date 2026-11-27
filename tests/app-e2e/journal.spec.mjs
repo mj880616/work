@@ -3430,7 +3430,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
 });
 
 // WEEKLY-수정열기·글지우기: 묶음 표 [수정]은 글이 보이는 칸을 기존 글 그대로 열고(자기 칸이 비고 세부 과제 칸에 글이 있어도), 저장하면 그 칸이 바뀌며,
-// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 지우기]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
+// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 삭제]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
 for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글을 채워 열고 글 칸을 지울 수 있다 ${width}`,async({page})=>{
  const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
  const f=await weekLinesFixture(page,{width,hwpx:true,team});
@@ -3462,16 +3462,16 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
  expect(db.writes.at(-1)).toMatchObject({space_id:'wa1',body:'가상 가-1 고친 상황'});
- // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 지우기]는 없다.
+ // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 삭제]는 없다.
  await ga.locator('[data-bp-cell="progress"]').click();
  await ga.locator('select[data-bp-target]').selectOption({label:'◦ 세부 과제 가-2'});
  await expect(field).toHaveValue('');
  await expect(ga.locator('[data-bp-edit-clear]')).toHaveCount(0);
  await ga.locator('[data-bp-edit-cancel]').click();
- // 지우기: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
+ // 삭제: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
  await ga.locator('[data-bp-cell="progress"]').click();
  await ga.locator('[data-bp-edit-clear]').click();
- await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 지울까요?');
+ await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 삭제할까요?');
  await page.locator('.kptu-ask .kptu-ask-actions .danger').click();
  await expect(ga.locator('.biz-hand-line')).toHaveCount(0);
  expect(db.writes.at(-1)).toMatchObject({body:''});
@@ -3599,7 +3599,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
 });
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
-// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
+// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '삭제할까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
 async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITES_TEAM}){
