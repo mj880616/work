@@ -39,7 +39,7 @@ export const isDelegatedToken = token => {
 
 // 3판(설계 15.2): 읽을 영역 스위치. 칸은 설정 행의 area_* 다섯 개, 가족 방만 기본 꺼짐. 실제 판정은 DB 문지기가 한다.
 export const AREAS = Object.freeze([
-  {key: 'diary', label: '하루 기록', desc: '일기·업무일지 줄·사진 이름'},
+  {key: 'diary', label: '하루 기록', desc: '그날 쓴 글·업무일지 줄·사진 이름'},
   {key: 'calls', label: '통화', desc: '요약·전사'},
   {key: 'recordings', label: '녹음', desc: '회의록 전문·회의 결과'},
   {key: 'basket', label: '정리함 원문', desc: 'AI 재료에서 뺀 것은 빼고'},
