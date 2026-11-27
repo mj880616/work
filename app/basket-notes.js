@@ -247,8 +247,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!z || z.hidden || z.classList.contains('basket-read-empty')) return;
     paintMarks(z, sourceMarks('note', selected.id)); // S70-80: 밑줄 + 형광펜
     if (!hlReveal || !highlightById(hlReveal)) return;
-    if (!revealMark(z, hlReveal)) notify('원문이 바뀌었어요 · 밑줄은 노트 › 밑줄에 그대로 있어요', {record:false});
-    hlReveal = null;
+    const wanted = hlReveal; hlReveal = null;
+    void revealMark(z, wanted, {final:true}).then(r => { if (r === null && !hlReveal && selected) { hlReveal = wanted; noteMarksNow(); } }); // HL-밑줄위치로: 공용 이동(못 찾으면 같은 문장 → 그래도 없으면 맨 위 + 짧은 안내 한 번)
   }
   const hlSourceNow = () => (selected ? {type:'note', id:selected.id, title:selected.title || '제목 없음', media:'노트', date:selected.updated_at || selected.created_at || null, url:''} : null);
   bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection, marks:markActions}); // S70-80: 형광펜 켬
