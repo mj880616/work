@@ -86,14 +86,14 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 고르기 전에는 목록이 화면 폭 전부(오른쪽 칸 없음), 고르면 왼쪽 위·아래 칸 | 오른쪽 상세 칸(왼쪽 위 칸과 같은 줄에서 시작)`,async({page})=>{
+  test(`PC ${width}: 처음부터 왼쪽 위·아래 칸 | 오른쪽 상세 칸(왼쪽 위 칸과 같은 줄에서 시작)`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await open(page,width,[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30')]);
     const box=l=>l.boundingBox();
-    // TASK-넓게쓰기(2026-11-10 명진 B안): 고르기 전에는 오른쪽 칸·경계선이 없고, 두 묶음이 위아래로 화면 폭 전부.
-    await expect(page.locator('#gtDetailPane')).toBeHidden();await expect(page.locator('#gtTaskSection>.split-resize-handle:visible')).toHaveCount(0);
+    // TASK-처음부터두칸(2026-11-27): 고르기 전에도 오른쪽 칸이 있고, 두 묶음은 왼쪽 칸 안에서 위아래로 쌓인다.
+    await expect(page.locator('#gtDetailPane')).toBeVisible();
     {const sec=await box(page.locator('#gtTaskSection')),n=await box(col(page,'now')),w=await box(col(page,'week'));
-      expect(Math.abs(n.width-sec.width)).toBeLessThanOrEqual(1);expect(Math.abs(w.width-sec.width)).toBeLessThanOrEqual(1);expect(w.y).toBeGreaterThanOrEqual(n.y+n.height)}
+      expect(n.width).toBeLessThan(sec.width*0.5);expect(Math.abs(w.width-n.width)).toBeLessThanOrEqual(1);expect(w.y).toBeGreaterThanOrEqual(n.y+n.height)}
     await page.locator('[data-gt-edit="late"]').click();await expect(page.locator('#gtDetailPane #gtTaskModal')).toBeVisible();
     const now=await box(col(page,'now')),week=await box(col(page,'week')),pane=await box(page.locator('#gtDetailPane')),sec=await box(page.locator('#gtTaskSection'));
     // 좌 1/3 : 우 2/3(UI-좌우비율): 오른쪽 폭이 왼쪽의 2배(±3%), 왼쪽 두 칸 폭은 같고 사이에 틈만 있다.
@@ -112,20 +112,22 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 아무것도 안 골랐을 때 오른쪽 칸 없음(넓은 목록), 고르면 수정 칸, ✕·Esc로 닫으면 다시 넓은 목록`,async({page})=>{
+  test(`PC ${width}: 처음부터 두 칸(오른쪽에 짧은 안내), 항목을 눌러도 목록 폭·자리 그대로, 닫아도 두 칸 그대로`,async({page})=>{
     await open(page,width,[task('a','2026-10-08')]);
-    const pane=page.locator('#gtDetailPane'),sec=page.locator('#gtTaskSection'),wide=async()=>{const [s,n]=[await sec.boundingBox(),await col(page,'now').boundingBox()];return Math.abs(s.width-n.width)<=1};
-    // TASK-넓게쓰기(2026-11-10): 고르기 전에는 빈 오른쪽 상자도 없다(요약·안내문도 없음, TASK-오른쪽칸비우기).
-    await expect(pane).toBeHidden();await expect(sec).toHaveClass(/gt-wide/);await expect(pane.locator('.gt-pane-empty')).toHaveCount(0);expect(await wide()).toBe(true);
-    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);await expect(sec).not.toHaveClass(/gt-wide/);expect(await wide()).toBe(false);
-    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane).toBeHidden();await expect(sec).toHaveClass(/gt-wide/);expect(await wide()).toBe(true);
+    const pane=page.locator('#gtDetailPane'),sec=page.locator('#gtTaskSection'),list=async()=>{const n=await col(page,'now').boundingBox();return {x:Math.round(n.x),w:Math.round(n.width)}};
+    // TASK-처음부터두칸(2026-11-27 명진): 고르기 전에도 오른쪽 칸이 있고 안내 한 줄만 둔다. 목록 폭은 항목을 눌러도 바뀌지 않는다.
+    await expect(pane).toBeVisible();await expect(sec).not.toHaveClass(/gt-wide/);await expect(pane).not.toHaveClass(/has-task/);await expect(pane.locator('.gt-pane-empty')).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toHaveText('할 일을 고르면 여기에 나와요');
+    const before=await list(),sw=(await sec.boundingBox()).width;expect(before.w).toBeLessThan(sw*0.5);
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);await expect(pane.locator('.gt-pane-empty')).toBeHidden();expect(await list()).toEqual(before);
+    await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toBeVisible();expect(await list()).toEqual(before);
     await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();
-    await page.locator('#gtEditTitle').press('Escape');await expect(pane).toBeHidden();expect(await wide()).toBe(true);
+    await page.locator('#gtEditTitle').press('Escape');await expect(pane.locator('#gtTaskModal')).toBeHidden();await expect(pane).toBeVisible();expect(await list()).toEqual(before);
   });
-  test(`PC ${width}: 고르기 전 넓은 목록에서는 긴 제목이 잘리지 않는다`,async({page})=>{
+  test(`PC ${width}: 좁은 왼쪽 칸에서도 긴 제목이 칸 밖으로 넘치지 않는다`,async({page})=>{
     const long='예시 긴 제목: 2026년 하반기 교섭 준비 자료 모으기';
     await open(page,width,[task('a','2026-10-08',{title:long})]);
-    const cut=await page.locator('[data-google-task="a"] .gt-main b').evaluate(e=>e.scrollWidth-e.clientWidth);expect(cut).toBeLessThanOrEqual(1);
+    // 두 칸에서는 왼쪽 칸이 좁아 긴 제목은 줄임표로 줄어들 수 있다(지금까지 항목을 고른 뒤 모습과 같음). 줄이 칸 밖으로 넘치지만 않으면 된다.
+    const over=await page.locator('[data-google-task="a"]').evaluate(e=>e.scrollWidth-e.clientWidth);expect(over).toBeLessThanOrEqual(1);
     await expect(page.locator('[data-google-task="a"] .gt-main b')).toHaveText(long);
   });
   test(`PC ${width}: 할 일 줄은 바탕 상자 없이 가는 선 한 줄(높이 36px), 제목 왼쪽·기한 오른쪽`,async({page})=>{
@@ -186,7 +188,7 @@ for(const width of [1280,1440]){
     const tasks=[task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-12')];
     const calls=await open(page,width,tasks,{links:[{google_task_id:'a',project_id:'p1',status:'confirmed'}]});
     const pane=page.locator('#gtDetailPane');
-    await expect(pane).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);await expect(page.locator('#gtTaskModal')).toBeHidden(); // TASK-넓게쓰기: 고르기 전에는 칸 없음
+    await expect(pane).toBeVisible();await expect(pane).not.toHaveClass(/has-task/);await expect(page.locator('#gtTaskModal')).toBeHidden(); // TASK-처음부터두칸: 고르기 전에도 칸은 있고 안내만
     // 키보드로 카드 고르기(제목 버튼 Enter).
     await page.locator('[data-gt-edit="a"]').focus();await page.keyboard.press('Enter');
     const editor=pane.locator('#gtTaskModal');
