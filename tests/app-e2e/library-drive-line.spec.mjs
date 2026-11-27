@@ -11,7 +11,7 @@ const DOC='e0000000-0000-4000-8000-000000000001';
 const FOLDER='libraryFolder0001';
 const PLACE={folder_id:FOLDER,url:`https://drive.google.com/drive/folders/${FOLDER}`,path:['웹2','자료실']};
 
-async function boot(page,{width,place,mirror=[],topFiles=null,check=null}){
+async function boot(page,{width,place,mirror=[],topFiles=null,}){
   await page.setViewportSize({width,height:900});
   const state={user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},asks:[],mirror,mirrorAsks:[]};
   await page.route(`${SB}/**`,async route=>{
@@ -22,7 +22,6 @@ async function boot(page,{width,place,mirror=[],topFiles=null,check=null}){
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/workspace-drive'&&url.searchParams.get('action')==='drive-mirror'){const b=(()=>{try{return req.postDataJSON()}catch{return null}})();state.mirrorAsks.push(b);return ok(state.mirror.length?state.mirror.shift():{ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:0,more:false,stopped:false})}
-    if(path==='/functions/v1/workspace-drive'&&check&&url.searchParams.get('action')==='drive-check'){const b=req.postDataJSON();state.checkAsks=(state.checkAsks||[]);state.checkAsks.push(b);return ok(check(b))}
     if(path==='/functions/v1/workspace-drive'){state.asks.push({method:req.method(),query:url.search,body:req.postData()});return ok(url.searchParams.get('action')==='drive-place'?{ok:true,place}:{error:'Unknown action'},url.searchParams.get('action')==='drive-place'?200:400)}
     if(path==='/functions/v1/library-files'&&/^\{"action":"drive-auto"\}$/.test(req.postData()||''))return ok({ok:true,added:0}); // S70-73: 자료실을 열 때 자동 등록 부탁(이 시험과 무관)
     if(path==='/functions/v1/library-files'&&topFiles&&req.method()==='POST'){const b=req.postDataJSON();state.topAsks=(state.topAsks||[]);state.topAsks.push(b);return ok(topFiles(b))}
@@ -80,15 +79,36 @@ test('서버 답 주소가 드라이브 폴더 주소가 아니면 그리지 않
   await expect(page.locator('#libraryDriveLine')).toBeHidden();
 });
 
+// S70-76 LIB-드라이브늘같게: 앱에서 자료실 표를 바꾸면 그 자리에서 '드라이브도 같게'를 부탁하고,
+// 드라이브 쪽이 밀리면 줄 끝에 '드라이브에 못 옮겼어요 [다시]' — 누르면 그 자리에서 다시. 가짜 서버만.
+test('자료실 표를 바꾸면 그 자리에서 드라이브도 같게 부탁, 밀리면 [다시]',async({page})=>{
+  const state=await boot(page,{width:1280,place:PLACE,mirror:[{ok:true,state:'aligned',pending:0,more:false}]});
+  await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
+  await expect.poll(()=>state.mirrorAsks.length).toBe(1); // 처음 들어오면 한 번(드라이브에서 바꾼 것 따라가기·밀린 것 다시)
+  expect(state.mirrorAsks[0]).toEqual({mode:'auto'});
+  // 옮기기(자료 연결 줄 쓰기) 직후: 드라이브 쪽이 실패 → 줄 끝에 [다시]
+  state.mirror.push({ok:true,state:'aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:1,more:false,stopped:false,stage:'files'});
+  await page.evaluate(()=>window.KPTURuntime.api('/rest/v1/app_library_folder_items',{method:'POST',prefer:'return=minimal',body:{document_id:'e0000000-0000-4000-8000-000000000001',folder_id:'a7600000-0000-4000-8000-000000000001',workspace_id:'workspace-1'},singleFlight:false}));
+  await expect.poll(()=>state.mirrorAsks.length).toBe(2);
+  const note=page.locator('#libraryDriveLine .lu-drive-note');
+  await expect(note).toHaveText('드라이브에 못 옮겼어요');
+  const again=page.locator('#libraryDriveLine [data-lu-drive-retry]');
+  await expect(again).toHaveText('다시');
+  await again.click();
+  await expect.poll(()=>state.mirrorAsks.length).toBe(3);
+  await expect(note).toHaveCount(0);
+  await expect(again).toHaveCount(0);
+});
+
 // S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브 폴더 맞추기]·[맨 위 파일 정리]·[같은 내용 자료 정리]·[드라이브와 맞는지 보기]는 지웠다.
-// 저장 위치가 있어도 ⋯에 넷 다 없다(S70-73: [드라이브에서 가져오기]도 지움 — 자료실을 열 때 자동 등록). 새 자료·폴더 변경은 '앞으로 같게'(drive-mirror auto)가 그대로 맞춘다.
+// 저장 위치가 있어도 ⋯에 넷 다 없다(S70-73: [드라이브에서 가져오기]도 지움 — 자료실을 열 때 자동 등록). S70-76: 드라이브 쪽이 밀리면 줄 끝은 '드라이브에 못 옮겼어요 [다시]'.
 for(const width of [390,1280]){
   test(`자료실 ⋯에 한 번 정리 메뉴 넷·가져오기가 없다, 자동 맞추기는 그대로 (${width})`,async({page})=>{
     const state=await boot(page,{width,place:PLACE,mirror:[{ok:true,state:'not_aligned',folders_made:0,folders_fixed:0,files_moved:0,cant:0,pending:1,more:false,stopped:false}]});
     await expect(page.locator('#libraryDriveLine .lu-drive-where')).toBeVisible();
     await expect.poll(()=>state.mirrorAsks.length).toBe(1); // 처음 들어오면 '앞으로 같게' 한 번
     expect(state.mirrorAsks[0]).toEqual({mode:'auto'});
-    await expect(page.locator('#libraryDriveLine .lu-drive-note')).toHaveText('드라이브 정리 대기');
+    await expect(page.locator('#libraryDriveLine .lu-drive-note')).toHaveText('드라이브에 못 옮겼어요');
     await page.locator('#libraryTopMenuBtn').click();
     const menu=page.locator('#luTopMenu');
     await expect(menu).toBeVisible();

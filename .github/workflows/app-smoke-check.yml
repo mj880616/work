@@ -296,6 +296,7 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/folder-dest-sheet.test.mjs'
       - 'tests/files-trash.test.mjs'
+      - 'tests/trash-row.test.mjs'
       - 'tests/head-sort.test.mjs'
       - 'app/head-sort.mjs'
       - 'tests/files-sources-model.test.mjs'
@@ -613,6 +614,7 @@ on:
       - 'tests/files-model.test.mjs'
       - 'tests/folder-dest-sheet.test.mjs'
       - 'tests/files-trash.test.mjs'
+      - 'tests/trash-row.test.mjs'
       - 'tests/head-sort.test.mjs'
       - 'app/head-sort.mjs'
       - 'tests/files-sources-model.test.mjs'
@@ -897,7 +899,7 @@ jobs:
       - name: Check outside statements and news clipping models (S47-9·S47-48 등록)
         run: node --test tests/outside-statements-model.test.mjs tests/news-clipping-model.test.mjs tests/news-feed-script.test.mjs tests/news-feed-date-source.test.mjs tests/news-feed-text.test.mjs tests/news-feed-keyword-take.test.mjs tests/news-rank.test.mjs tests/news-rank-fill.test.mjs tests/news-feed-keep-hours.test.mjs tests/news-feed-default-on.test.mjs tests/outside-search-model.test.mjs tests/feed-shared-model.test.mjs tests/now-model.test.mjs tests/now-memos-model.test.mjs tests/now-hidden-model.test.mjs tests/news-colors.test.mjs tests/news-name.test.mjs tests/news-fold.test.mjs tests/news-find-model.test.mjs tests/text-highlights-model.test.mjs tests/body-edit-model.test.mjs tests/select-bar-place-model.test.mjs tests/text-size-model.test.mjs tests/name-order.test.mjs
       - name: Check cloud files explorer model (FILES-클라우드탐색기 ④)
-        run: node --test tests/files-model.test.mjs tests/folder-dest-sheet.test.mjs tests/files-trash.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
+        run: node --test tests/files-model.test.mjs tests/folder-dest-sheet.test.mjs tests/files-trash.test.mjs tests/trash-row.test.mjs tests/head-sort.test.mjs tests/files-sources-model.test.mjs tests/files-panes-model.test.mjs tests/library-two-pane-model.test.mjs tests/files-look-model.test.mjs tests/touch-drag.test.mjs tests/drag-edge-scroll.test.mjs tests/marquee-select.test.mjs tests/phone-files-model.test.mjs tests/pc-files-model.test.mjs tests/files-pins-model.test.mjs tests/files-last-model.test.mjs tests/files-find-model.test.mjs tests/files-zip-model.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -1170,6 +1172,9 @@ jobs:
 
       - name: Check photo viewer swipe motion, quick large view and app-start prefetch (PHOTO-스와이프안내·크게보기빨리·미리받기앱시작, synthetic)
         run: node --test tests/photo-swipe-fast.test.mjs
+
+      - name: Check large photo view shows the opened photo at fractional slide widths (PHOTO-크게보기정렬, synthetic)
+        run: node --test tests/photo-viewer-align.test.mjs
 
       - name: Check large photo view swipe left/right/down shares the photo-strip rules (PHOTO-크게보기밀기, fake stage, synthetic)
         run: node --test tests/photo-view-swipe.test.mjs
@@ -1462,7 +1467,7 @@ jobs:
         run: node --test tests/security/no-operator-defaults.test.mjs tests/security/org-names-cross-workspace.test.mjs
 
       - name: Check the two faces and that 노동조합+ screen words stay the same (APP-올인원다이어리 단계 2)
-        run: node --test tests/brand-faces.test.mjs tests/brand-folders.test.mjs tests/library-drive-place.test.mjs tests/library-drive-mirror.test.mjs tests/library-drive-check.test.mjs tests/app-folders.test.mjs tests/library-folder-upload.test.mjs tests/text-temp-sweep.test.mjs
+        run: node --test tests/brand-faces.test.mjs tests/brand-folders.test.mjs tests/library-drive-place.test.mjs tests/library-drive-mirror.test.mjs tests/library-drive-follow-back.test.mjs tests/library-drive-follow-order.test.mjs tests/drive-follow.test.mjs tests/app-folders.test.mjs tests/library-folder-upload.test.mjs tests/text-temp-sweep.test.mjs
 
       - name: Check per-person menu and kind names over the face defaults (APP-기록+이름바꾸기)
         run: node --test tests/custom-words.test.mjs

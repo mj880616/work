@@ -1,4 +1,5 @@
-// S69-20 ③④⑤: 자료실 앱 폴더 = 드라이브 폴더 규칙(supabase/functions/_shared/library-mirror.mjs). 가짜 드라이브·가짜 DB, 값은 모두 가짜.
+// S69-20 ③④⑤·S70-76: 자료실 앱 폴더 = 드라이브 폴더 규칙(supabase/functions/_shared/library-mirror.mjs). 가짜 드라이브·가짜 DB, 값은 모두 가짜.
+// S70-76 LIB-드라이브늘같게: 갈래는 'auto' 하나. 맞춤 표시가 없는 옛 자료실도 'auto'가 기존 자료까지 맞추고, 드라이브 실패는 멈추지 않고 대기로 센다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DriveFail, FOLDER_MIME, MIRROR_MARK, mirrorLibrary, parseMirrorBody, topDown } from '../supabase/functions/_shared/library-mirror.mjs';
@@ -47,10 +48,9 @@ const file = (name, parent) => ({ name, parents: [parent], mimeType: 'applicatio
 const libMeta = aligned => ({ name: '자료실', parents: ['rootFolder000001'], mimeType: FOLDER_MIME, ...(aligned ? { appProperties: { [MIRROR_MARK]: '1' } } : {}) });
 const F = n => `f0000000-0000-4000-8000-00000000000${n}`, D = n => `d0000000-0000-4000-8000-00000000000${n}`;
 
-test('요청 모양: {mode:"auto"|"align"} 하나만', () => {
+test('요청 모양: {mode:"auto"} 하나만(S70-76: [드라이브 폴더 맞추기]의 "align"은 지웠다)', () => {
   assert.equal(parseMirrorBody({ mode: 'auto' }), 'auto');
-  assert.equal(parseMirrorBody({ mode: 'align' }), null, 'S70-29: [드라이브 폴더 맞추기] 요청은 받지 않는다');
-  for (const b of [null, {}, { mode: 'x' }, { mode: 'auto', folder_id: 'y' }, ['auto']]) assert.equal(parseMirrorBody(b), null);
+  for (const b of [null, {}, { mode: 'x' }, { mode: 'align' }, { mode: 'auto', folder_id: 'y' }, ['auto']]) assert.equal(parseMirrorBody(b), null);
 });
 
 test('위에서 아래 차례, 보이지 않는 부모(휴지통 등) 아래 폴더는 뺀다', () => {
@@ -58,16 +58,7 @@ test('위에서 아래 차례, 보이지 않는 부모(휴지통 등) 아래 폴
   assert.deepEqual(list.map(f => f.id), ['c', 'a', 'b']);
 });
 
-test("'auto'는 맞춤 표시가 없으면(기존 자료를 아직 맞추지 않음) 아무것도 바꾸지 않는다", async () => {
-  const drive = fakeDrive({ [LIB]: libMeta(false), file0000000001: file('가.pdf', LIB) });
-  const db = fakeDb({ folders: [{ id: F(1), parent_id: null, name: '교섭', sort_order: 1, drive_folder_id: null }], items: [{ document_id: D(1), folder_id: F(1) }], documents: [{ id: D(1), file_id: 'file0000000001' }] });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'auto', db, drive });
-  assert.equal(r.state, 'not_aligned');
-  assert.deepEqual(drive.calls.map(c => c[0]), ['get']);
-  assert.deepEqual(db.sets, []);
-});
-
-test("[드라이브 폴더 맞추기]('align'): 폴더를 만들고(같은 이름은 다시 씀) 자료를 그 짝 폴더로 옮기고(파일 id 그대로) 끝나면 맞춤 표시", async () => {
+test("S70-76 맞춤 표시가 없는 옛 자료실도 'auto'가 맞춘다: 폴더를 만들고(같은 이름은 다시 씀) 자료를 그 짝 폴더로 옮기고(파일 id 그대로) 끝나면 맞춤 표시", async () => {
   const drive = fakeDrive({
     [LIB]: libMeta(false),
     sameNameFolder01: folder('교섭', LIB),
@@ -79,7 +70,7 @@ test("[드라이브 폴더 맞추기]('align'): 폴더를 만들고(같은 이�
     items: [{ document_id: D(1), folder_id: F(1) }, { document_id: D(2), folder_id: F(2) }, { document_id: D(4), folder_id: F(1) }],
     documents: [{ id: D(1), file_id: 'file0000000001' }, { id: D(2), file_id: 'file0000000002' }, { id: D(3), file_id: 'file0000000003' }, { id: D(4), file_id: 'meetingFile00001' }],
   });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db, drive });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive });
   assert.equal(r.ok, true);
   assert.equal(r.state, 'aligned');
   assert.equal(r.folders_made, 1, "'교섭'은 같은 이름 폴더를 다시 쓰고 '2026'만 새로");
@@ -95,7 +86,7 @@ test("[드라이브 폴더 맞추기]('align'): 폴더를 만들고(같은 이�
   assert.ok(!drive.calls.some(c => c[0] === 'delete'), '지우기 없음');
   // 두 번째 'auto'는 바꿀 것이 없다.
   drive.calls.length = 0;
-  const again = await mirrorLibrary({ libraryId: LIB, mode: 'auto', db, drive });
+  const again = await mirrorLibrary({ libraryId: LIB, db, drive });
   assert.deepEqual([again.folders_made, again.folders_fixed, again.files_moved, again.pending], [0, 0, 0, 0]);
   assert.ok(!drive.calls.some(c => c[0] === 'patch' || c[0] === 'create'));
 });
@@ -112,7 +103,7 @@ test("'auto'(맞춘 뒤 앞으로): 이름 바꾸기·옮기기(부모 바뀜)·
     items: [{ document_id: D(2), folder_id: F(2) }, { document_id: D(4), folder_id: F(3) }],
     documents: [{ id: D(1), file_id: 'file0000000001' }, { id: D(2), file_id: 'file0000000002' }, { id: D(3), file_id: 'file0000000003' }, { id: D(4), file_id: 'file0000000004' }],
   });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'auto', db, drive });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive });
   assert.equal(r.state, 'aligned');
   assert.equal(drive.items.get('pairA00000000001').name, '새 이름');
   assert.deepEqual(drive.items.get('pairB00000000002').parents, ['pairA00000000001']);
@@ -128,59 +119,80 @@ test("'auto'(맞춘 뒤 앞으로): 이름 바꾸기·옮기기(부모 바뀜)·
 test('짝 드라이브 폴더가 드라이브에서 지워졌으면 다시 만들고 짝을 바꾼다(비교-교체)', async () => {
   const drive = fakeDrive({ [LIB]: libMeta(true), goneFolder000001: folder('A', LIB, { trashed: true }) });
   const db = fakeDb({ folders: [{ id: F(1), parent_id: null, name: 'A', sort_order: 1, drive_folder_id: 'goneFolder000001' }] });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'auto', db, drive });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive });
   assert.equal(r.folders_made, 1);
   assert.deepEqual(db.sets[0].slice(2), ['goneFolder000001']);
   assert.notEqual(db.rows[0].drive_folder_id, 'goneFolder000001');
 });
 
-test("드라이브 실패: 'auto'는 대기로 세고 계속(앱 동작은 그대로), 'align'은 거기서 멈추고 표시를 붙이지 않음, 권한 없는 파일은 cant", async () => {
-  const base = () => ({ [LIB]: libMeta(false), file0000000001: file('가.pdf', LIB), file0000000002: file('나.pdf', LIB), notMine00000001: file('남.pdf', LIB) });
-  const dbOf = () => fakeDb({
+test("드라이브 실패: 멈추지 않고 대기(pending)로 센다 → 앱 쪽은 그대로, 다음 부름에서 서버가 DB 기준으로 다시 해서 끝냄, 권한 없는 파일은 cant", async () => {
+  const base = () => ({ [LIB]: libMeta(true), file0000000001: file('가.pdf', LIB), file0000000002: file('나.pdf', LIB), notMine00000001: file('남.pdf', LIB) });
+  const db = fakeDb({
     folders: [{ id: F(1), parent_id: null, name: 'A', sort_order: 1, drive_folder_id: null }],
     items: [{ document_id: D(1), folder_id: F(1) }, { document_id: D(2), folder_id: F(1) }, { document_id: D(3), folder_id: F(1) }],
     documents: [{ id: D(3), file_id: 'notMine00000001' }, { id: D(1), file_id: 'file0000000001' }, { id: D(2), file_id: 'file0000000002' }],
   });
   const fail = (op, id) => op === 'patch' && id === 'notMine00000001' ? 403 : op === 'patch' && id === 'file0000000001' ? 429 : null;
   const drive = fakeDrive(base(), { fail });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: dbOf(), drive });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive });
+  assert.equal(r.ok, true);
   assert.equal(r.cant, 1);
-  assert.equal(r.pending, 1);
-  assert.equal(r.stopped, true);
-  assert.equal(r.state, 'not_aligned');
-  assert.deepEqual(drive.items.get('file0000000002').parents, [LIB], '멈춘 뒤에는 더 옮기지 않음');
-  assert.equal(drive.items.get(LIB).appProperties, undefined);
-  // 다시 누르면(드라이브가 풀림) 이어서 끝낸다 — 이미 만든 폴더는 다시 씀.
-  const db2 = dbOf(); db2.rows[0].drive_folder_id = [...drive.items].find(([, m]) => m.name === 'A')[0];
+  assert.equal(r.pending, 1, '밀린 것 1개');
+  assert.equal(r.stopped, false, '멈추지 않음');
+  assert.equal(r.stage, 'files');
+  assert.deepEqual(drive.items.get('file0000000001').parents, [LIB], '실패한 것은 드라이브에서 그대로');
+  const pairA = db.rows[0].drive_folder_id;
+  assert.deepEqual(drive.items.get('file0000000002').parents, [pairA], '실패 뒤에도 나머지는 옮김');
+  assert.deepEqual(db.sets.length, 1, '앱 쪽 연결 줄은 건드리지 않음(짝 폴더 id만 기록)');
+  // 다음 부름(드라이브가 풀림): 밀린 목록은 서버 DB 기준이라 따로 적어 두지 않아도 다시 한다.
   const drive2 = fakeDrive(Object.fromEntries(drive.items), { fail: (op, id) => op === 'patch' && id === 'notMine00000001' ? 404 : null });
-  const r2 = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: db2, drive: drive2 });
+  const r2 = await mirrorLibrary({ libraryId: LIB, db, drive: drive2 });
   assert.equal(r2.folders_made, 0);
-  assert.equal(r2.files_moved, 2);
-  assert.equal(r2.cant, 1);
-  assert.equal(r2.state, 'aligned', '옮길 수 없는 파일(cant)은 대기가 아니므로 맞춤을 막지 않음');
+  assert.equal(r2.files_moved, 1);
+  assert.equal(r2.pending, 0);
+  assert.equal(r2.cant, 1, '옮길 수 없는 파일(cant)은 대기가 아님');
+  assert.deepEqual(drive2.items.get('file0000000001').parents, [pairA]);
+});
+
+test('맞춤 표시가 없는 자료실에서 드라이브 실패가 나면 표시를 붙이지 않는다(다음 부름에서 마저)', async () => {
+  const drive = fakeDrive({ [LIB]: libMeta(false), file0000000001: file('가.pdf', LIB) }, { fail: (op, id) => op === 'patch' && id === 'file0000000001' ? 500 : null });
+  const db = fakeDb({ folders: [{ id: F(1), parent_id: null, name: 'A', sort_order: 1, drive_folder_id: null }], items: [{ document_id: D(1), folder_id: F(1) }], documents: [{ id: D(1), file_id: 'file0000000001' }] });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive });
+  assert.equal(r.state, 'not_aligned'); assert.equal(r.pending, 1); assert.equal(r.stage, 'files');
+  assert.equal(drive.items.get(LIB).appProperties, undefined);
+});
+
+test('폴더 목록 읽기가 실패하면 같은 이름 폴더를 또 만들지 않는다(대기로 셈)', async () => {
+  const drive = fakeDrive({ [LIB]: libMeta(true), sameName00000001: folder('A', LIB) });
+  const flaky = { ...drive, list: async () => { throw new DriveFail(503); }, children: async () => { throw new DriveFail(503); } };
+  const db = fakeDb({ folders: [{ id: F(1), parent_id: null, name: 'A', sort_order: 1, drive_folder_id: null }] });
+  const r = await mirrorLibrary({ libraryId: LIB, db, drive: flaky });
+  assert.equal(r.folders_made, 0);
+  assert.ok(r.pending >= 1);
+  assert.equal(db.rows[0].drive_folder_id, null);
 });
 
 test('시간 한도: 남으면 more:true(다음 부름에서 이어서), 맞춤 표시는 붙이지 않음', async () => {
   let t = 0;
   const drive = fakeDrive({ [LIB]: libMeta(false) });
   const folders = Array.from({ length: 5 }, (_, i) => ({ id: F(i + 1), parent_id: null, name: '폴더' + i, sort_order: i, drive_folder_id: null }));
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: fakeDb({ folders }), drive, now: () => (t += 10), budgetMs: 35 });
+  const r = await mirrorLibrary({ libraryId: LIB, db: fakeDb({ folders }), drive, now: () => (t += 10), budgetMs: 35 });
   assert.equal(r.more, true);
   assert.ok(r.folders_made > 0 && r.folders_made < 5);
   assert.equal(r.state, 'not_aligned');
 });
 
 test('자료실 폴더가 없거나 드라이브에서 지워졌으면 아무것도 하지 않는다', async () => {
-  assert.equal((await mirrorLibrary({ libraryId: null, mode: 'align', db: fakeDb(), drive: fakeDrive() })).state, 'none');
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: fakeDb(), drive: fakeDrive({ [LIB]: { ...libMeta(false), trashed: true } }) });
+  assert.equal((await mirrorLibrary({ libraryId: null, db: fakeDb(), drive: fakeDrive() })).state, 'none');
+  const r = await mirrorLibrary({ libraryId: LIB, db: fakeDb(), drive: fakeDrive({ [LIB]: { ...libMeta(false), trashed: true } }) });
   assert.equal(r.ok, false); assert.equal(r.code, 'library_missing');
-  const down = await mirrorLibrary({ libraryId: LIB, mode: 'auto', db: fakeDb(), drive: fakeDrive({}, { fail: () => 503 }) });
+  const down = await mirrorLibrary({ libraryId: LIB, db: fakeDb(), drive: fakeDrive({}, { fail: () => 503 }) });
   assert.equal(down.ok, false); assert.equal(down.pending, 1);
 });
 
 // S69-40(명진 11/24 13시: [드라이브 폴더 맞추기]가 늘 "폴더 0개 만들고 자료 0개 옮겼어요"): 앱 폴더가 많고 자료가 수백 개면
 // 옛 방식(폴더마다 get·children)은 한 번 부를 때 한도를 읽기에만 다 써서 한 개도 옮기지 못했다. 지금은 부모 여러 개를 한 번에 읽고(list), 꼭 몇 개씩 옮긴다.
-test('S69-40 자료 수백 개·폴더 수십 개: 부를 때마다 옮기고(left가 줄어듦), 이어 부르면 끝까지, 두 번 눌러도 안전', async () => {
+test('S69-40 자료 수백 개·폴더 수십 개: 부를 때마다 옮기고(left가 줄어듦), 이어 부르면 끝까지, 두 번 불러도 안전', async () => {
   const init = { [LIB]: libMeta(false) };
   const folders = [], items = [], documents = [];
   for (let i = 0; i < 60; i++) { const pid = `pairFolder${String(i).padStart(6, '0')}`; init[pid] = folder('폴더' + i, LIB); folders.push({ id: `f${i}`, parent_id: null, name: '폴더' + i, sort_order: i, drive_folder_id: pid }); }
@@ -191,26 +203,23 @@ test('S69-40 자료 수백 개·폴더 수십 개: 부를 때마다 옮기고(le
   const slow = { ...drive, get: async id => { t++; return drive.get(id); }, children: async p => { t++; return drive.children(p); }, patch: async (id, p) => { t++; return drive.patch(id, p); },
     list: async ps => { t++; drive.calls.push(['list', ps.length]); return [...drive.items].filter(([, m]) => !m.trashed && m.parents?.some(x => ps.includes(x))).map(([id, m]) => ({ id, name: m.name, mimeType: m.mimeType, parents: m.parents })); } };
   const db = fakeDb({ folders, items, documents });
-  const first = await mirrorLibrary({ libraryId: LIB, mode: 'align', db, drive: slow, now: tick, budgetMs: 50 });
+  const first = await mirrorLibrary({ libraryId: LIB, db, drive: slow, now: tick, budgetMs: 50 });
   assert.equal(first.more, true);
   assert.ok(first.files_moved >= 40, `한 번에 여러 개 옮김(${first.files_moved})`);
   assert.equal(first.left, 300 - first.files_moved);
   assert.ok(!drive.calls.some(c => c[0] === 'get' && c[1] !== LIB), '짝 폴더를 하나씩 get하지 않음');
   let moved = first.files_moved, r = first, rounds = 1;
-  while (r.more && rounds < 20) { t = 0; r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db, drive: slow, now: tick, budgetMs: 50 }); moved += r.files_moved; rounds++; }
+  while (r.more && rounds < 20) { t = 0; r = await mirrorLibrary({ libraryId: LIB, db, drive: slow, now: tick, budgetMs: 50 }); moved += r.files_moved; rounds++; }
   assert.equal(moved, 300);
   assert.equal(r.state, 'aligned');
   assert.equal(r.left, 0);
   for (let i = 0; i < 300; i++) assert.deepEqual(drive.items.get(`topFile${String(i).padStart(8, '0')}`).parents, [`pairFolder${String(i % 60).padStart(6, '0')}`]);
   t = 0;
-  const again = await mirrorLibrary({ libraryId: LIB, mode: 'align', db, drive: slow, now: tick, budgetMs: 50 });
-  assert.deepEqual([again.files_moved, again.folders_made, again.left, again.more], [0, 0, 0, false], '다시 눌러도 이미 맞춘 것은 그대로');
+  const again = await mirrorLibrary({ libraryId: LIB, db, drive: slow, now: tick, budgetMs: 50 });
+  assert.deepEqual([again.files_moved, again.folders_made, again.left, again.more], [0, 0, 0, false], '다시 불러도 이미 맞춘 것은 그대로');
 });
 
-test('S69-40 멈춘 단계(stage)를 돌려준다', async () => {
-  const down = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: fakeDb(), drive: fakeDrive({}, { fail: () => 503 }) });
+test('S69-40 실패한 단계(stage)를 돌려준다', async () => {
+  const down = await mirrorLibrary({ libraryId: LIB, db: fakeDb(), drive: fakeDrive({}, { fail: () => 503 }) });
   assert.equal(down.stage, 'library');
-  const drive = fakeDrive({ [LIB]: libMeta(false), file0000000001: file('가.pdf', LIB) }, { fail: (op, id) => op === 'patch' && id === 'file0000000001' ? 500 : null });
-  const r = await mirrorLibrary({ libraryId: LIB, mode: 'align', db: fakeDb({ folders: [{ id: F(1), parent_id: null, name: 'A', sort_order: 1, drive_folder_id: null }], items: [{ document_id: D(1), folder_id: F(1) }], documents: [{ id: D(1), file_id: 'file0000000001' }] }), drive });
-  assert.equal(r.stopped, true); assert.equal(r.stage, 'files'); assert.equal(r.left, 1);
 });

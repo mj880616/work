@@ -862,6 +862,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return names.size > 0 && lines.length > 0 && lines.every(line => names.has(line) || names.has(line.split(/[\\/]/).pop()));
   };
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
+  // 편집기 만들기 안에는 await(노트 연결 부품 불러오기)가 있어, 그 사이에 브라우저 선택·입력 알림이 오면 dispatchTransaction이 먼저 불린다.
+  // 그때 paint는 아직 만들어지지 않은 도구 줄 부품(inNode 등)을 쓰므로, 만들기가 끝나기 전에는 paint를 부르지 않는다(끝에서 한 번 그린다).
+  let built = false;
   const view = new pm.EditorView(box, {
     state,
     nodeViews: {image: node => photoView(node), file: node => fileView(node), toggle: (node, v, getPos) => toggleView(node, v, getPos)},
@@ -969,7 +972,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       } else view.updateState(next);
       if (tr.docChanged) onChange?.(getValue());
       if (tr.docChanged) gtaskPart?.changed(before, tr, view.state.doc);
-      paint();
+      if (built) paint();
       blockPart?.update();
       noteLinkPart?.update();
     },
@@ -2066,6 +2069,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   syncLayout();
+  built = true;
   paint();
   // S69-97: the first read of the linked Google tasks starts only now — its answer redraws (paint), which needs everything above
   // (an earlier start could answer during the '[[' part's import and paint before the toolbar's helpers exist).

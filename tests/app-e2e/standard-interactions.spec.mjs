@@ -2344,3 +2344,78 @@ for (const path of BACK_PATHS) for (const width of path.widths) test(`B1 ${path.
   expect(s.errors).toEqual([]);
 });
 });
+
+// S13(TRASH-줄그림단추, 2026-11-28 명진 시안 '마'): 휴지통 줄은 [제목][지운 날][↶ 되살리기][휴지통X 영구 삭제] 그림 단추 줄이고, 꾹 눌러(PC Ctrl+클릭) 고르면
+// 줄 앞 동그라미·위 [전체 선택]·아래 막대 'N개 선택 · 되살리기 · 영구 삭제'(서버 쓰기 없음), 다시 누르면 풀림, 뒤로가기·Esc·[취소]로 끝.
+// 새 휴지통 화면이 생기면 TRASH_PICK_SCREENS에 한 줄 더한다(공용 부품 app/trash-row.js 한 곳).
+const NOTE_TRASH_IDS = ['t1', 't2', 't3'];
+async function noteTrashScreen(page, width) {
+  await page.setViewportSize({ width, height: 900 });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await openHome(page);
+  await installViewPrefsServer(page);
+  const trash = await noteTrash(page, SB);
+  NOTE_TRASH_IDS.forEach(t => trash.take({ id: t, workspace_id: 'w', kind: 'note', title: `가상 지운 노트 ${t}`, raw_text: '본문' }, 0));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
+  await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_note_folders', r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 500, json: {} }));
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  const item = page.locator(width < 761 ? '#noteRows [data-nx-trash-item]' : '[data-nx-tree] [data-nx-trash-item]');
+  await (width < 761 ? item.tap() : item.click());
+  const box = page.locator('[data-nx-trash]');
+  await expect(box.locator('[data-tr-row]')).toHaveCount(3);
+  return { errors, box, rows: box.locator('[data-tr-row]'), writes: () => trash.restored.length + trash.purged.length, canPurge: true };
+}
+async function filesTrashScreen(page, width) {
+  const { errors, server } = await startFiles(page, width);
+  server.gdTrash = [1, 2, 3].map(n => ({ id: `gdT${n}`, name: `가짜 지운 파일 ${n}`, is_folder: false, size_bytes: 100 * n, trashed_at: '2026-11-20T01:00:00Z', parent_id: null }));
+  await openFiles(page, width);
+  await page.locator('#filesRoot [data-fx-box="gd"] [data-fx-cloud-trash="gd"]').click();
+  const box = page.locator('dialog[data-fx-trash-sheet][open]');
+  await expect(box.locator('[data-tr-row]')).toHaveCount(2); // 서버 흉내는 2개씩 준다
+  await box.locator('[data-fx-trash-more]').click();
+  await expect(box.locator('[data-tr-row]')).toHaveCount(3);
+  return { errors, box, rows: box.locator('[data-tr-row]'), writes: () => server.calls.filter(c => c.what === 'edge' && c.action === 'untrash').length, canPurge: false };
+}
+const TRASH_PICK_SCREENS = [
+  ['노트 휴지통', noteTrashScreen, [412, 1280]],
+  ['[파일] 구글 드라이브 휴지통', filesTrashScreen, [412, 1280]],
+];
+test.describe('S13 휴지통 줄 그림 단추·꾹 눌러 고르기', () => {
+  test.use({ hasTouch: true });
+  for (const [name, open, widths] of TRASH_PICK_SCREENS) for (const width of widths) test(`S13 ${name} ${width}: 그림 단추 줄 → 꾹 눌러(Ctrl+클릭) 고르기 줄·막대 → 토글·전체 선택 → 뒤로가기·Esc로 끝, 서버 쓰기 없음`, async ({ page }) => {
+    const s = await open(page, width), phone = width < 761;
+    const first = s.rows.first();
+    await expect(first.locator('[data-tr-restore]')).toHaveAttribute('aria-label', /되살리기/);
+    expect(await s.rows.first().locator('[data-tr-restore]').evaluate(e => getComputedStyle(e).borderTopWidth)).toBe('0px');
+    await expect(first.locator('summary')).toHaveCount(0);
+    if (s.canPurge) await expect(first.locator('[data-tr-purge]')).toHaveAttribute('aria-label', /영구 삭제/);
+    else await expect(first.locator('[data-tr-purge]')).toHaveCount(0);
+    const pickFirst = async () => (phone ? holdAt(page, first.locator('.tr-name')) : first.locator('.tr-name').click({ modifiers: ['Control'] }));
+    const tap = l => (phone ? l.tap() : l.click());
+    await pickFirst();
+    await expect(s.box.locator('[data-tr-row].tr-pick')).toHaveCount(3);
+    await expect(s.box.locator('[data-tr-restore],[data-tr-purge]')).toHaveCount(0);
+    await expect(s.box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('1개 선택');
+    await expect(s.box.locator('[data-tr-bar]').getByRole('button')).toHaveText(s.canPurge ? ['되살리기', '영구 삭제'] : ['되살리기']);
+    await tap(s.rows.nth(1).locator('.tr-name'));
+    await expect(s.box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('2개 선택');
+    await tap(s.rows.nth(1).locator('.tr-name'));
+    await expect(s.box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('1개 선택');
+    await tap(s.box.locator('[data-tr-all]'));
+    await expect(s.box.locator('[data-tr-all]')).toHaveAttribute('aria-checked', 'true');
+    await expect(s.box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('3개 선택');
+    await tap(s.box.locator('[data-tr-all]'));
+    await expect(s.box.locator('[data-tr-bar]')).toHaveCount(0);
+    // 뒤로가기(폰)·Esc(PC) = 고르기만 끝(창·화면은 그대로).
+    await pickFirst();
+    await expect(s.box.locator('[data-tr-bar]')).toBeVisible();
+    if (phone) await page.goBack(); else await page.keyboard.press('Escape');
+    await expect(s.box.locator('[data-tr-bar]')).toHaveCount(0);
+    await expect(s.rows).toHaveCount(3);
+    await expect(s.box).toBeVisible();
+    expect(s.writes()).toBe(0);
+    expect(s.errors).toEqual([]);
+  });
+});

@@ -119,16 +119,13 @@ for (const width of [1280, 390]) test(`노트 삭제 → '휴지통 1' → 지�
   await press(trashRow);
   const box = page.locator('[data-nx-trash]');
   await expect(box).toBeVisible();
-  const line = box.locator('[data-nxt-row="n2"]');
+  const line = box.locator('[data-tr-row="n2"]');
   await expect(line).toContainText('나 노트');
   await expect(line.locator('time')).toContainText('2026');
-  if (width >= 761) { // PC 줄 우클릭 = 그 줄 ⋯([영구 삭제]) — 공용 우클릭 메뉴
-    await line.locator('.nxt-name').click({ button: 'right' });
-    await expect(line.locator('[data-nxt-purge]')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(line.locator('[data-nxt-purge]')).toBeHidden();
-  }
-  await press(line.locator('[data-nxt-restore]'));
+  // 시안 '마': 글자 단추·네모 ⋯ 칸 없이 그림 단추 둘(이름은 aria-label).
+  await expect(line.locator('summary')).toHaveCount(0);
+  await expect(line.locator('[data-tr-purge]')).toHaveAttribute('aria-label', /영구 삭제/);
+  await press(line.locator('[data-tr-restore]'));
   await expect(line).toHaveCount(0);
   await expect(box.locator('[data-nxt-empty]')).toBeVisible();
   expect(f.trash.restored).toEqual(['n2']);
@@ -179,15 +176,16 @@ for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두�
   const press = l => (width < 761 ? l.tap() : l.click());
   await press(page.locator(width < 761 ? '#noteRows [data-nx-trash-item]' : '[data-nx-tree] [data-nx-trash-item]'));
   const box = page.locator('[data-nx-trash]');
-  const rows = box.locator('[data-nxt-row]');
+  const rows = box.locator('[data-tr-row]');
   await expect(rows).toHaveCount(3);
-  // 얇은 줄: 높이 46px 이하(공용 ⋯ 단추 높이 포함), [되살리기]·⋯·[휴지통 비우기]는 테두리·바탕이 없는 글자형.
+  // 얇은 줄: 높이 46px 이하, 그림 단추 ↶·휴지통X와 [휴지통 비우기]는 테두리·바탕이 없다.
   for (const r of await rows.all()) expect((await r.boundingBox()).height).toBeLessThanOrEqual(46);
   const quiet = async l => expect(await l.evaluate(e => { const c = getComputedStyle(e); return [c.borderTopWidth === '0px' || c.borderTopColor === 'rgba(0, 0, 0, 0)', c.backgroundColor]; })).toEqual([true, 'rgba(0, 0, 0, 0)']);
-  await quiet(rows.first().locator('[data-nxt-restore]'));
-  await expect(rows.first().locator('summary')).toHaveClass(/icon-btn/); // ⋯는 공용 아이콘 단추(네모 칸 없음은 공용 규칙이 맡는다)
+  await quiet(rows.first().locator('[data-tr-restore]'));
+  await quiet(rows.first().locator('[data-tr-purge]'));
   await quiet(box.locator('[data-nxt-empty-all]'));
-  await expect(rows.first().locator('[data-nxt-restore]')).toHaveText('되살리기');
+  await expect(rows.first().locator('[data-tr-restore]')).toHaveAttribute('aria-label', /되살리기/);
+  await expect(rows.first().locator('[data-tr-restore]')).toHaveText('');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // 취소: 아무것도 지우지 않는다.
   await press(box.locator('[data-nxt-empty-all]'));
@@ -206,5 +204,68 @@ for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두�
   expect(f.trash.purged.sort()).toEqual(['t1', 't2', 't3']);
   expect(f.trash.restored).toEqual([]);
   await expect(box.locator('[data-nxt-empty-all]')).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+// TRASH-줄그림단추(명진 11/28 시안 '마'): 휴지통 줄을 꾹 눌러(PC는 Ctrl+클릭) 고르면 줄 앞 동그라미·위 [모두 고르기]·[취소]·아래 막대 'N개 선택 · 되살리기 · 영구 삭제'.
+// 일괄도 줄마다 쓰는 서버 길 그대로(한 개씩). 고르기 줄에는 그림 단추가 없다(줄을 다시 그린다). 뒤로가기·Esc·취소로 끝.
+for (const width of [1280, 412, 390]) test(`휴지통 줄 고르기 모드: 고르기 줄·막대, 일괄 되살리기·영구 삭제, 취소 (${width})`, async ({ page }) => {
+  const f = await fixture(page, width, { trashed: ['t1', 't2', 't3', 't4'] });
+  const phone = width < 761;
+  const press = l => (phone ? l.tap() : l.click());
+  await press(page.locator(phone ? '#noteRows [data-nx-trash-item]' : '[data-nx-tree] [data-nx-trash-item]'));
+  const box = page.locator('[data-nx-trash]');
+  const rows = box.locator('[data-tr-row]');
+  await expect(rows).toHaveCount(4);
+  const hold = async id => { // 폰: 0.5초 꾹 누르기, PC: Ctrl+클릭
+    const r = box.locator(`[data-tr-row="${id}"] .tr-name`);
+    if (!phone) return r.click({ modifiers: ['Control'] });
+    // 앞 일이 끝난 뒤 목록이 다시 그려지는 사이에도 안전하게: 자리를 한 번에 재고, 줄이 바뀌었으면 다시 잰다.
+    let b = null;
+    await expect.poll(async () => { b = await r.evaluate(el => { el.scrollIntoView({ block: 'center' }); const q = el.getBoundingClientRect(); return q.width ? { x: q.x, y: q.y } : null; }).catch(() => null); return !!b; }).toBe(true);
+    await r.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 7, isPrimary: true, clientX: b.x + 4, clientY: b.y + 4, bubbles: true });
+    await page.waitForTimeout(650);
+    await r.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 7, isPrimary: true, clientX: b.x + 4, clientY: b.y + 4, bubbles: true });
+  };
+  await hold('t1');
+  await expect(box.locator('.tr-pick')).toHaveCount(4);
+  await expect(box.locator('[data-tr-restore],[data-tr-purge]')).toHaveCount(0); // 고르기 줄에는 그림 단추가 없다
+  await expect(box.locator('[data-tr-row="t1"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('1개 선택');
+  await expect(box.locator('[data-tr-bar]').getByRole('button')).toHaveText(['되살리기', '영구 삭제']);
+  await expect(box.locator('[data-tr-all]')).toBeVisible();
+  await expect(box.locator('[data-tr-cancel]')).toBeVisible();
+  await press(box.locator('[data-tr-row="t2"] .tr-name'));
+  await expect(box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('2개 선택');
+  await press(box.locator('[data-tr-row="t2"] .tr-name'));
+  await expect(box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('1개 선택');
+  // [모두 고르기] → 4개, 다시 누르면 모두 풀리며 고르기가 끝난다.
+  await press(box.locator('[data-tr-all]'));
+  await expect(box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('4개 선택');
+  await press(box.locator('[data-tr-all]'));
+  await expect(box.locator('[data-tr-bar]')).toHaveCount(0);
+  await expect(box.locator('[data-tr-restore]')).toHaveCount(4);
+  // 취소.
+  await hold('t1');
+  await press(box.locator('[data-tr-cancel]'));
+  await expect(box.locator('[data-tr-bar]')).toHaveCount(0);
+  expect(f.trash.restored).toEqual([]);
+  expect(f.trash.purged).toEqual([]);
+  // 일괄 되살리기(2개).
+  await hold('t1');
+  await press(box.locator('[data-tr-row="t3"] .tr-name'));
+  await press(box.locator('[data-tr-bulk-restore]'));
+  await expect(rows).toHaveCount(2);
+  expect(f.trash.restored.sort()).toEqual(['t1', 't3']);
+  await expect(box.locator('[data-tr-bar]')).toHaveCount(0);
+  // 일괄 영구 삭제: 한 번 묻고(취소하면 그대로), 확인하면 고른 것만.
+  await hold('t2');
+  await press(box.locator('[data-tr-bulk-purge]'));
+  await answerAsk(page, false);
+  expect(f.trash.purged).toEqual([]);
+  await press(box.locator('[data-tr-bulk-purge]'));
+  await answerAsk(page, true);
+  await expect(rows).toHaveCount(1);
+  expect(f.trash.purged).toEqual(['t2']);
   expect(f.errors).toEqual([]);
 });

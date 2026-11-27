@@ -18,7 +18,7 @@
       "buttonHeight": 0
     },
     "app/basket.css": {
-      "fontSize": 75,
+      "fontSize": 73,
       "buttonHeight": 4
     },
     "app/biz-summary.css": {
@@ -82,7 +82,7 @@
       "buttonHeight": 0
     },
     "app/folder-dest-sheet.css": {
-      "fontSize": 8,
+      "fontSize": 7,
       "buttonHeight": 1
     },
     "app/folder-tree.css": {
