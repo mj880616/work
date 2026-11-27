@@ -11,6 +11,10 @@ const ALLOWED=new Set([
  'docs/20261105100000_family_notes.precheck.sql','docs/20261105100000_family_notes.snapshot.sql',
  'docs/20261105100000_family_notes.postcheck.sql','docs/20261105100000_family_notes.rollback.sql','docs/20261105100000_family_notes.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
+ // MCP-Claude읽기 3판(D5): Claude 읽기 연결이 가족 영역 스위치(기본 꺼짐)·운영자 기능 family 뒤에서만 가족 줄을 읽는 DB 함수와 짝 파일·DB 시험.
+ 'supabase/migrations/20261127120000_mcp_claude_read_areas.sql','docs/20261127120000_mcp_claude_read_areas.precheck.sql',
+ 'docs/20261127120000_mcp_claude_read_areas.snapshot.sql','docs/20261127120000_mcp_claude_read_areas.postcheck.sql',
+ 'tests/auth-handoff/mcp-claude-read-areas-db.test.mjs',
  'tests/auth-handoff/family-notes-db.test.mjs','tests/security/family-notes-isolation.test.mjs',
  // 3단계(수집·서버): collector-feed가 뽑은 줄을 넣고(칸별 grant), 중복·최근 줄·가족 방 거름을 위해 읽는다. 시험 하나.
  'supabase/functions/collector-feed/handler.ts','tests/security/collector-feed-family.test.mjs',
