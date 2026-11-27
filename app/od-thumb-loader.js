@@ -15,6 +15,9 @@ export const BATCH_REST_S = 2;
 // 그 답이 칸마다 따로 와서 모으지 않으면 첫 화면의 첫 4묶음이 1~2장짜리가 되고 나머지 칸은 한 번 더 기다렸다(첫 화면 왕복 2번).
 // 화면(diary-onedrive.js)은 이 값을 쓰고, 시험은 0(바로 보냄)으로 둔다.
 export const GATHER_MS = 16;
+// FIX-main시험(#3270): 16ms는 '보통 빠르기'를 가정한 값이라, 기기가 바쁘면 보관본 찾기 답이 그보다 늦어 첫 묶음이 다시 1~4장짜리로 쪼개졌다.
+// 그래서 칸이 보관본을 찾는 동안(hold) 대기열에 알리고, 모으기는 그 칸들이 다 답할 때까지 한다. 답이 늦어도 이 시간(밀리초)을 넘겨 기다리지 않는다.
+export const HOLD_MAX_MS = 250;
 
 export class ThumbError extends Error {
   constructor(code, {retryAfter = 0} = {}) { super(code); this.code = code; this.retryAfter = retryAfter; }
@@ -124,13 +127,44 @@ export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now
 
   // 같은 순간에 들어온 요청을 한 묶음으로 보내려고, 대기열 돌리기는 지금 하던 일이 끝난 직후(microtask)로 미룬다.
   // 묶음 길에서 빈 자리가 있으면 gatherMs만큼 더 모은다(따로따로 온 칸들을 한 묶음으로). 자리가 없으면 어차피 끝난 요청이 대기열을 돌린다.
-  let scheduled = false;
+  // 보관본을 찾는 칸이 남아 있으면(holds) 그 답을 기다려 함께 보낸다(처음 미룬 때부터 HOLD_MAX_MS까지만).
+  let scheduled = false, holds = 0, waitSince = 0, waitTimer = false;
+  const gathering = () => gatherMs > 0 && mode === 'urls' && active < limit;
+  const go = () => {
+    scheduled = false;
+    if (holds > 0 && gathering()) {
+      if (!waitSince) waitSince = now();
+      const left = HOLD_MAX_MS - (now() - waitSince);
+      if (left > 0) {
+        if (!waitTimer) { waitTimer = true; setTimer(() => { waitTimer = false; go(); }, left); }
+        return;
+      }
+    }
+    waitSince = 0;
+    pump();
+  };
   const schedule = () => {
     if (scheduled) return;
     scheduled = true;
-    const go = () => { scheduled = false; pump(); };
-    if (gatherMs > 0 && mode === 'urls' && active < limit) setTimer(go, gatherMs); else queueMicrotask(go);
+    if (gathering()) setTimer(go, gatherMs); else queueMicrotask(go);
   };
+  // 칸 하나가 곧 get()을 부를지 모르는 일(보관본 찾기)을 시작한다. 돌려받은 함수를 그 일이 끝난 뒤(get을 불렀으면 그 뒤) 부른다.
+  // 모으지 않는 길(gatherMs 0·한 장씩 받기)에서는 아무 일도 하지 않는다. 답이 오지 않아도 HOLD_MAX_MS 뒤 저절로 풀린다.
+  function hold() {
+    if (!(gatherMs > 0) || mode !== 'urls') return () => {};
+    const gen = generation;
+    let done = false;
+    holds++;
+    const release = () => {
+      if (done) return;
+      done = true;
+      if (gen !== generation) return;
+      holds = Math.max(0, holds - 1);
+      if (!holds && waitSince) schedule();
+    };
+    setTimer(release, HOLD_MAX_MS);
+    return release;
+  }
   let seq = 0;
   // 사진 하나의 그림 주소. 이미 받았으면 바로, 받는 중이면 같은 약속을 돌려준다(중복 요청 합치기). prio가 더 급하면 앞으로 당긴다.
   function get(id, size = 'small', prio = VISIBLE) {
@@ -171,9 +205,9 @@ export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now
     for (const [, f] of flights) f.reject(new ThumbError('dropped'));
     flights.clear();
     for (const hit of memo.values()) if (hit.kind === 'blob') revoke(hit.url);
-    memo.clear(); bytesOnly.clear(); active = 0; pausedUntil = 0;
+    memo.clear(); bytesOnly.clear(); active = 0; pausedUntil = 0; holds = 0; waitSince = 0;
   }
-  return {get, bump, drop, bad, forget, clear, stats, get mode() { return mode; }, get size() { return memo.size; }, has: (id, size = 'small') => !!cachedUrl(keyOf(id, size)),
+  return {get, bump, drop, bad, forget, clear, hold, stats, get mode() { return mode; }, get size() { return memo.size; }, has: (id, size = 'small') => !!cachedUrl(keyOf(id, size)),
     // PHOTO-크게보기빨리: 이미 받아 둔 주소만(요청 없음). 크게 보기가 큰 그림을 받는 동안 작은 그림을 먼저 띄울 때 쓴다.
     peek: (id, size = 'small') => cachedUrl(keyOf(id, size))};
 }
