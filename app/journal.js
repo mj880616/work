@@ -146,7 +146,16 @@ function dropSuggest(day, id) {
     return setSuggestDone(day, id, false, rt);
   }});
 }
-const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openPhotoDay, onWrite:writeDiary, onDrop:dropSuggest});
+// HOME-읽을만한글넓힘(사용자 2026-11-28): ② 글 줄을 누르면 그 글의 글 보기(News 글 상세 — 요약·시사점·원문)로. 뒤로가기 한 번 = 홈(openOnScreen).
+const openRead = id => Promise.all([import('./news-request.mjs'), import('./source-open.js')])
+  .then(([req, src]) => { if (req.requestNewsOpen({type:'news', id})) return src.openOnScreen('outside'); }).catch(() => {});
+// ② 칸 ⋯ [관심 주제]: News '관심 주제'와 같은 서버 표(app_now_interests)를 고치는 작은 창 + 기본 주제(home-read-topics.mjs). 다음 고르기부터 쓴다.
+const openReadTopics = trigger => Promise.all([import('./small-form-modal.js'), import('./now-interests.js'), import('./home-read-topics.mjs')])
+  .then(([modal, ni, topics]) => modal.openFormModal({id:'homeReadTopics', title:'관심 주제', okLabel:'닫기', cancel:false, className:'hrt-modal', trigger,
+    foot:'읽을 만한 글은 이 주제로 고릅니다. 바꾼 주제는 다음 고르기부터 씁니다.',
+    fill: body => { body.innerHTML = '<div class="now-interests hrt-box" data-home-read-topics></div>'; ni.createNowInterests({box:body.firstElementChild, defaults:topics.DEFAULT_READ_TOPIC_NAMES}).load(); return null; },
+    onSubmit: async () => true})).catch(() => {});
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openPhotoDay, onWrite:writeDiary, onDrop:dropSuggest, onOpenRead:openRead, onReadTopics:openReadTopics});
 // 칸을 끄거나 다시 켜면 그 자리를 다시 그린다(켰으면 서버에 다시 묻는다 — 끈 동안은 기록 제안을 고르지 않았으므로).
 window.addEventListener(HOME_OFF_EVENT, () => { if (!fillReady) return; if (dayPicks.askedSlot && !homeCardOff('suggests')) dayPicks.askedSlot = ''; renderFill(); });
 
