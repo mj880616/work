@@ -5,16 +5,17 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-import { pinchAt, swipeAt, emptySpot, spotIn } from './helpers/pinch.mjs';
+import { pinchAt, swipeAt, settledEmptySpot, spotIn } from './helpers/pinch.mjs';
 
 test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const rowSize = page => page.evaluate(() => document.documentElement.dataset.rowSize || 'm');
 // 빈 곳: 내용 끝 아래, 아래 바보다 위(목록이 짧은 상태여야 시험이 뜻이 있다).
+// 화면 그림이 멈춘 같은 틀에서 재고 확인한다(helpers/pinch.mjs settledEmptySpot — 따로 재면 그 사이 그림이 바뀌어 흔들렸다).
 async function emptyIn(page, items, host) {
-  const spot = await emptySpot(page, items);
+  const { inside, ...spot } = await settledEmptySpot(page, items, host);
   expect(spot.y).toBeLessThan(spot.barTop - 8);
-  expect(await spotIn(page, spot, host)).toBe(true);
+  expect(inside).toBe(true);
   return spot;
 }
 
