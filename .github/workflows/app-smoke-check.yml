@@ -280,6 +280,8 @@ on:
       - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
       - 'tests/reading-fail-reason.test.mjs'
+      - 'tests/reading-folders-model.test.mjs'
+      - 'app/reading-folders-model.mjs'
       - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
@@ -592,6 +594,8 @@ on:
       - 'tests/select-bar-place-model.test.mjs'
       - 'tests/reading-model.test.mjs'
       - 'tests/reading-fail-reason.test.mjs'
+      - 'tests/reading-folders-model.test.mjs'
+      - 'app/reading-folders-model.mjs'
       - 'supabase/functions/note-import/**'
       - 'tests/save-bookmarklet-model.test.mjs'
       - 'tests/text-size-model.test.mjs'
@@ -1103,6 +1107,12 @@ jobs:
       - name: Check wide-screen share menu (PC공유메뉴, synthetic)
         run: node --test tests/share-menu.test.mjs
 
+      - name: Check article link share (S71-69 SHARE-글공유, synthetic)
+        run: node --test tests/link-share.test.mjs
+
+      - name: Check note share choices (S71-69 SHARE-글공유 ②, synthetic)
+        run: node --test tests/note-share-model.test.mjs
+
       - name: Check photo menu names and release after send (S49-9 PHOTO-메뉴항목통일, synthetic)
         run: node --test tests/photo-menu-items.test.mjs
 
@@ -1253,7 +1263,7 @@ jobs:
         run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/video-embed.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs tests/doc-scan-model.test.mjs tests/note-related-model.test.mjs tests/note-link-model.test.mjs
 
       - name: Check phone share intake model (APP-폰앱새로 ②, APP-공유노트할일)
-        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/save-bookmarklet-model.test.mjs
+        run: node --test tests/share-intake-model.test.mjs tests/share-target-model.test.mjs tests/share-news-source.test.mjs tests/reading-model.test.mjs tests/reading-fail-reason.test.mjs tests/reading-folders-model.test.mjs tests/save-bookmarklet-model.test.mjs
 
       - name: Check share goes straight into the basket (SHARE-바로넣기, 확인 줄 없음·메모 달기·되돌리기·다시)
         run: node --test tests/share-auto-put.test.mjs

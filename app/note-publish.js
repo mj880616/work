@@ -126,6 +126,12 @@ export function createNotePublish({rt = window.KPTURuntime} = {}) {
     if (!cur || cur.state !== PUB_ON) throw new Error('게시 중인 노트가 아니에요.');
     return copyText(shareUrl(await linkToken(cur.pageId)));
   }
+  // S71-69 SHARE-글공유 ②: 노트 [공유] › [링크]가 기기 공유 창에 넘길 게시 주소. 게시 중인 노트만(값은 돌려주기만 하고 들고 있지 않는다).
+  async function link(note) {
+    const cur = states.get(note.id);
+    if (!cur || cur.state !== PUB_ON) throw new Error('게시 중인 노트가 아니에요.');
+    return shareUrl(await linkToken(cur.pageId));
+  }
   async function stop(note) {
     const cur = states.get(note.id);
     if (!cur || cur.state !== PUB_ON) return;
@@ -138,5 +144,5 @@ export function createNotePublish({rt = window.KPTURuntime} = {}) {
     if (running) { await running.catch(() => {}); await api(`/rest/v1/app_share_pages?id=eq.${q(cur.pageId)}&workspace_id=eq.${q(ws())}`, {method:'PATCH', prefer:'return=minimal', body:{blocks:[]}}); }
     await createSharePhotos({rt, getPageId:() => cur.pageId}).prune(() => []);
   }
-  return {load, isReady:() => ready, stateOf, isOn, onCount, publish, copy, stop, syncPhotos};
+  return {load, isReady:() => ready, stateOf, isOn, onCount, publish, copy, link, stop, syncPhotos};
 }

@@ -196,11 +196,7 @@ export function copyArticleText(head, blocks) {
   const url = httpsUrl(head?.url);
   return [[title, meta].filter(Boolean).join('\n'), body, url].filter(Boolean).join('\n\n');
 }
-// ⋯ [공유]로 폰 공유 창에 넘길 것: 제목·주소만(본문은 넘기지 않는다). 주소가 없으면 제목만.
-export function shareArticleData(head) {
-  const title = oneLine(head?.title).slice(0, 300), url = httpsUrl(head?.url);
-  return url ? {title, url} : title ? {title, text: title} : null;
-}
+// 기사 [공유](제목 + 원래 주소)는 link-share-model.mjs articleShare 한 곳(S71-69).
 // 글자 크기 단계는 공용 text-size-model.mjs(S68-33, 읽을 거리 글 보기와 같은 다섯 단계).
 // S52-12 NEWS-원문먼저번역(시안 docs/design/mockups/news-detail-translate.html): 원문 칸 [번역].
 // 번역 저장 길(S52-36 NEWS-바깥소식번역): 뉴스 기사는 news-feed translate → app_news_items.body_ko,

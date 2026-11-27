@@ -46,10 +46,18 @@ for (const width of [390, 1280]) {
     // 목록 안에는 ＋도, ＋만 있던 머리 줄도 없다(그리지 않음).
     await expect(page.locator('#readingView [data-rd-add]')).toHaveCount(0);
     await expect(page.locator('#readingView .rd-head')).toHaveCount(0);
-    // 폰: 화면 이름 줄 바로 아래가 첫 글 줄(사이에 따로 한 줄이 없다).
+    // 폰: 화면 이름 줄 바로 아래가 목록 내용(사이에 따로 한 줄이 없다). 저장한 글 폴더 상자(S70-83, 공용 폴더 상자)가 있으면
+    // 머리 줄 → 폴더 상자 → 첫 글 줄이 차례로 붙는다 — 폴더 상자는 목록 내용이지 ＋ 하나만 있던 줄이 아니다.
     if (width <= 760) {
+      const folders = page.locator('#readingView .rd-folders');
       const [h, r] = await Promise.all([box(line), box(page.locator('#readingView .rd-row').first())]);
-      expect(r.y - (h.y + h.height), '머리 줄과 첫 줄 사이').toBeLessThan(24);
+      let top = h.y + h.height;
+      if (await folders.count()) {
+        const fb = await box(folders.first());
+        expect(fb.y - top, '머리 줄과 폴더 상자 사이').toBeLessThan(24);
+        top = fb.y + fb.height;
+      }
+      expect(r.y - top, '머리 줄(또는 폴더 상자)과 첫 줄 사이').toBeLessThan(24);
     }
     // ＋ → 글 저장 칸 열림, 다시 ＋ → 닫힘.
     await expect(add).toHaveAttribute('aria-expanded', 'false');

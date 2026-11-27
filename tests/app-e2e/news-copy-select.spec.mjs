@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noticeText } from './helpers/small-notice.mjs';
 // S52-39 NEWS-원문복사선택(시안 docs/design/mockups/news-copy-select.html, 명진 11/08 01:39 'ㅇ'):
 // 원문 칸 머리 줄 [복사][번역(외국어 글만)][−][+] ⋯. [복사] = 제목 / 매체·날짜 / 본문 전체(문단 그대로) / 원래 주소를 한 번에(번역해서 보는 중이면 한국어 본문),
-// 위쪽 작은 알림 '복사했어요'. ⋯ = [모두 선택](원문 본문 전체가 선택된 상태)·[복사]·[공유](폰 공유 창 — 제목·주소만, 공유 창이 없는 화면엔 없음).
+// 위쪽 작은 알림 '복사했어요'. ⋯ = [모두 선택](원문 본문 전체가 선택된 상태)·[복사]·[공유](제목·주소만 — 폰 공유 창, PC·공유 창 없는 화면은 복사, S71-69).
 // PC는 원문 위 우클릭도 같은 ⋯ 메뉴. 복사·선택은 화면 안에서만(서버에 새로 보내는 요청 없음). 서버는 흉내, 글은 모두 가상.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const EN = 'a2000000-0000-4000-8000-000000000001', KO = 'a2000000-0000-4000-8000-000000000002';
@@ -136,19 +136,27 @@ for (const width of [412, 884, 1440]) {
     expect(sel).toContain('Second fake paragraph.');
     expect(sel).not.toContain('원문 전체');
     expect(sel).not.toContain('가상 상세 요약.');
-    // ⋯ [공유]: 제목·주소만.
+    // ⋯ [공유](S71-69 SHARE-글공유): 제목·주소만. 폰(좁은 화면) = 기기 공유 창, PC(761px~) = 복사 + '복사했어요'.
     await d.locator('[data-nd-ob-more]').click();
     await menuBox(page).getByRole('button', { name: '공유' }).click();
-    await expect.poll(() => page.evaluate(() => window.__shared.length)).toBe(1);
-    expect(await page.evaluate(() => window.__shared[0])).toEqual({ title: '가상 파업 물결', url: 'https://jacobin.com/2026/10/fake' });
+    if (width <= 760) {
+      await expect.poll(() => page.evaluate(() => window.__shared.length)).toBe(1);
+      expect(await page.evaluate(() => window.__shared[0])).toEqual({ title: '가상 파업 물결', text: '가상 파업 물결', url: 'https://jacobin.com/2026/10/fake' });
+    } else {
+      await expect.poll(() => copied(page)).toBe('가상 파업 물결\nhttps://jacobin.com/2026/10/fake');
+      expect(await page.evaluate(() => window.__shared.length)).toBe(0);
+    }
     // ⋯ [복사]도 같은 글.
     await d.locator('[data-nd-ob-more]').click();
     await menuBox(page).getByRole('button', { name: '복사' }).click();
     await expect.poll(() => copied(page)).toMatch(/First fake paragraph\.[\s\S]*https:\/\/jacobin\.com\/2026\/10\/fake$/);
-    // 공유 창이 없는 화면(폰 앱 WebView 등)에는 [공유]를 두지 않는다.
+    // 공유 창이 없는 화면(폰 앱 WebView 등)도 [공유]가 있다 — 복사로 보낸다.
     await page.evaluate(() => { navigator.share = undefined; });
     await d.locator('[data-nd-ob-more]').click();
-    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '원문 다시 가져오기', '수정']);
+    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '공유', '원문 다시 가져오기', '수정']);
+    await menuBox(page).getByRole('button', { name: '공유' }).click();
+    await expect.poll(() => copied(page)).toBe('가상 파업 물결\nhttps://jacobin.com/2026/10/fake');
+    await d.locator('[data-nd-ob-more]').click();
     await page.keyboard.press('Escape');
     await expect(menuBox(page)).toBeHidden();
 

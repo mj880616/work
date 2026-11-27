@@ -86,7 +86,20 @@ export async function boardPdf(snapshot) {
   if (!blob?.size) throw new Error('보드를 그림으로 만들지 못했어요.');
   return pdfFromJpeg(new Uint8Array(await blob.arrayBuffer()), canvas.width, canvas.height, w, h);
 }
-function download(data, name, type) {
+// S71-69 SHARE-글공유 ②: 보드가 아닌 칸 하나(노트 읽기 본문)도 같은 길로 — 그 칸 크기 그대로 한 장. 사진은 이미 뜬 그림을 data:로.
+export function elementSnapshot(el, background = '') {
+  const r = el.getBoundingClientRect();
+  const w = Math.max(1, Math.ceil(Math.max(r.width, el.scrollWidth))), h = Math.max(1, Math.ceil(Math.max(r.height, el.scrollHeight)));
+  let bg = background;
+  for (let n = el; !bg && n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && c !== 'transparent' && !c.replace(/\s/g, '').endsWith(',0)')) bg = c; }
+  return {board: el, bounds: {x: 0, y: 0, w, h}, background: bg || 'white'};
+}
+// kind 'pdf' | 'html' → 파일 하나(File). 내려받기·공유는 부르는 쪽이 정한다.
+export async function snapshotFile(kind, snapshot, fileName) {
+  if (kind === 'html') return new File([await boardHtml(snapshot, fileName.replace(/\.html$/, ''))], fileName, {type: 'text/html'});
+  return new File([await boardPdf(snapshot)], fileName, {type: 'application/pdf'});
+}
+export function download(data, name, type) {
   const url = URL.createObjectURL(new Blob([data], {type}));
   const a = document.createElement('a');
   a.href = url; a.download = name; a.hidden = true;

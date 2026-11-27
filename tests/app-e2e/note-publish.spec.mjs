@@ -396,3 +396,124 @@ for (const width of [390, 1280]) test(`③ 메뉴·메뉴 수정에 '공유 페�
   await expect(page.locator('[data-nx-count]')).toHaveText('노트 · 3');
   expect(errors).toEqual([]);
 });
+
+// S71-69 SHARE-글공유 ②(사용자 결정 2026-11-26 "노트는 본문을 공유 / 노트가 텍스트만 있지 않은 경우 html 또는 pdf 또는 링크로 공유 묻기"):
+// 노트 ⋯ [공유] — 글만 있는 노트(N2)는 바로 '제목 + 본문 글', 머리글·굵게·사진이 있는 노트(N1)는 고르기 [HTML 파일][PDF 파일][링크][글만 보내기].
+// 폰 390 = 기기 공유 창(흉내 — 파일도 받음), PC 1280 = 복사·내려받기. [링크]는 한 줄 확인 뒤에만 기존 게시 길로 게시하고 그 주소를 보낸다.
+async function fakeShareBox(page) {
+  await page.addInitScript(() => {
+    window.__copied = []; window.__shared = []; window.__saved = [];
+    // 내려받기 이름은 링크의 download 칸으로 본다(시험용 크로미움은 한글 이름을 내려받기 사건에 'download'로 넘긴다).
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { if (this.download) window.__saved.push(this.download); return click.call(this); };
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.__copied.push(t); }, write: async () => {} } });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, writable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', { configurable: true, writable: true, value: async d => {
+      const files = await Promise.all((d.files || []).map(async f => ({ name: f.name, type: f.type, head: new TextDecoder().decode(new Uint8Array(await f.slice(0, 16).arrayBuffer())) })));
+      window.__shared.push({ ...d, files: d.files ? files : undefined });
+    } });
+  });
+}
+const shareLog = page => page.evaluate(() => ({ shared: window.__shared, copied: window.__copied }));
+const sheet = page => page.locator('#noteShareSheet');
+async function startShare(page, width) {
+  const server = pubServer();
+  await page.setViewportSize({ width, height: 860 });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await fakeShareBox(page);
+  await openHome(page, { beforeLoad: () => server.install(page) });
+  await openNotes(page, server);
+  return { server, errors };
+}
+
+for (const width of [390, 1280]) test(`노트 공유 ${width}: 글만 있는 노트는 바로 제목 + 본문 글, [공유] 칸은 목록 줄 ⋯에`, async ({ page }) => {
+  const { errors } = await startShare(page, width);
+  expect(await rowMenu(page, N2)).toContain('공유');
+  await menu(page).locator('[data-note-share]').click();
+  await expect(sheet(page)).toBeHidden();
+  if (width <= 760) {
+    await expect.poll(async () => (await shareLog(page)).shared.length).toBe(1);
+    expect((await shareLog(page)).shared[0]).toEqual({ title: '다른 노트', text: '다른 노트\n\n다른 노트 본문 글' });
+  } else {
+    await expect.poll(async () => (await shareLog(page)).copied.at(-1)).toBe('다른 노트\n\n다른 노트 본문 글');
+    expect((await shareLog(page)).shared).toEqual([]);
+  }
+  expect(errors).toEqual([]);
+});
+
+for (const width of [390, 1280]) test(`노트 공유 ${width}: 서식·사진 있는 노트는 고르기 → HTML·PDF 파일 · 글만 보내기`, async ({ page }) => {
+  test.setTimeout(90000);
+  const { errors } = await startShare(page, width);
+  await rowMenu(page, N1);
+  await menu(page).locator('[data-note-share]').click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(sheet(page).locator('[data-note-share]')).toHaveText(['HTML 파일', 'PDF 파일', '링크', '글만 보내기']);
+  const pick = async value => { if (!(await sheet(page).isVisible())) { await rowMenu(page, N1); await menu(page).locator('[data-note-share]').click(); } await sheet(page).locator(`[data-note-share="${value}"]`).click(); };
+  for (const [kind, head, type] of [['html', '<!doctype html>', 'text/html'], ['pdf', '%PDF-1.4', 'application/pdf']]) {
+    if (width <= 760) {
+      const before = (await shareLog(page)).shared.length;
+      await pick(kind);
+      await expect.poll(async () => (await shareLog(page)).shared.length, { timeout: 20000 }).toBe(before + 1);
+      const f = (await shareLog(page)).shared.at(-1).files[0];
+      expect(f.name).toMatch(new RegExp(`^게시할 노트 \\d{4}-\\d{2}-\\d{2}\\.${kind}$`));
+      expect(f.type).toBe(type);
+      expect(f.head.startsWith(head)).toBe(true);
+    } else {
+      const dl = page.waitForEvent('download', { timeout: 20000 });
+      await pick(kind);
+      const d = await dl;
+      expect(await page.evaluate(() => window.__saved.at(-1))).toMatch(new RegExp(`^게시할 노트 \\d{4}-\\d{2}-\\d{2}\\.${kind}$`));
+      const bytes = (await import('node:fs')).readFileSync(await d.path());
+      expect(bytes.subarray(0, head.length).toString('latin1')).toBe(head);
+      if (kind === 'html') { expect(bytes.toString('utf8')).toContain('게시 제목줄'); expect(bytes.toString('utf8')).toContain('굵은 글'); }
+    }
+  }
+  await pick('text');
+  if (width <= 760) await expect.poll(async () => (await shareLog(page)).shared.at(-1)?.text).toBe('게시할 노트\n\n게시 제목줄\n\n굵은 글 보통 글\n\n[사진: 현장]');
+  else await expect.poll(async () => (await shareLog(page)).copied.at(-1)).toBe('게시할 노트\n\n게시 제목줄\n\n굵은 글 보통 글\n\n[사진: 현장]');
+  expect(errors).toEqual([]);
+});
+
+for (const width of [390, 1280]) test(`노트 공유 ${width}: [링크]는 확인 뒤에만 게시하고 게시 주소를 보낸다(취소하면 게시 없음)`, async ({ page }) => {
+  const { server, errors } = await startShare(page, width);
+  await rowMenu(page, N1);
+  await menu(page).locator('[data-note-share]').click();
+  await sheet(page).locator('[data-note-share="link"]').click();
+  expect(await answerAsk(page, false)).toBe('링크로 공유할까요?');
+  expect(server.pages.length).toBe(0);
+  await rowMenu(page, N1);
+  await menu(page).locator('[data-note-share]').click();
+  await sheet(page).locator('[data-note-share="link"]').click();
+  expect(await answerAsk(page, true)).toBe('링크로 공유할까요?');
+  await expect.poll(() => server.links.length).toBe(1);
+  expect(server.pages[0].status).toBe('published');
+  expect(server.pairs).toEqual([{ page_id: server.pages[0].id, note_id: N1 }]);
+  if (width <= 760) {
+    await expect.poll(async () => (await shareLog(page)).shared.length).toBe(1);
+    expect((await shareLog(page)).shared[0]).toEqual({ title: '게시할 노트', text: '게시할 노트', url: URL_OF(TOKEN) });
+  } else await expect.poll(async () => (await shareLog(page)).copied.at(-1)).toBe('게시할 노트\n' + URL_OF(TOKEN));
+  // 이미 게시 중이면 묻지 않고 같은 주소.
+  await rowMenu(page, N1);
+  await menu(page).locator('[data-note-share]').click();
+  await sheet(page).locator('[data-note-share="link"]').click();
+  await expect(page.locator('.kptu-ask')).toHaveCount(0);
+  if (width <= 760) await expect.poll(async () => (await shareLog(page)).shared.length).toBe(2);
+  else await expect.poll(async () => (await shareLog(page)).copied.length).toBe(2);
+  expect(server.pages.length).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('노트 공유 [링크]: 서버가 내 노트가 아니라고 거절하면(짝 표 403) 공유하지 않고 알림, 만든 빈 페이지는 거둔다', async ({ page }) => {
+  const { server, errors } = await startShare(page, 390);
+  // 목록을 읽은 뒤 서버 쪽에서 그 노트가 내 작업공간에 없게(다른 사람 노트 id를 보낸 것과 같은 거절).
+  server.notes = server.notes.filter(n => n.id !== N1);
+  await rowMenu(page, N1);
+  await menu(page).locator('[data-note-share]').click();
+  await sheet(page).locator('[data-note-share="link"]').click();
+  await answerAsk(page, true);
+  await expect.poll(() => server.calls.some(c => c.table === 'app_share_pages' && c.m === 'DELETE')).toBe(true);
+  await expect(page.locator('#kptuNotice .kptu-notice-text')).toHaveText('링크를 만들지 못했어요. 다시 시도해 주세요.');
+  expect((await shareLog(page)).shared).toEqual([]);
+  expect(server.links.length).toBe(0);
+  expect(errors).toEqual([]);
+});

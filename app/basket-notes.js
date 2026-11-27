@@ -123,6 +123,10 @@ import { NOTE_IMPORT_EVENT, isImporting, importIntoNote } from './note-import.js
 import { noteLinkUrl } from './note-import-model.mjs';
 // NOTE-게시 ②(docs/design/note-publish.md): 노트 ⋯ [공유 링크 만들기]·[링크 복사]·[게시 멈춤], 읽기 머리 한 줄, [목록] '게시 중' 거르기.
 import { createNotePublish } from './note-publish.js';
+// S71-69 SHARE-글공유 ②: 노트 ⋯ [공유] — 글만 있는 노트는 바로 '제목 + 본문 글', 아니면 고르기 [HTML 파일][PDF 파일][링크][글만 보내기].
+import { noteIsPlain, noteShareText, noteFileName, NOTE_LINK_ASK, NOTE_SHARE_NOTE } from './note-share-model.mjs';
+import { shareNoteText, shareNoteFile, openNoteShareChoices } from './note-share.js';
+import { shareArticleLink } from './link-share.js';
 import { pubMenu, PUB_LABELS, PUB_ON } from './note-publish-model.mjs';
 import { paintNoteSource } from './note-import-view.js';
 import { busyTitle, noteSource } from './note-import-model.mjs';
@@ -856,6 +860,74 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (kind !== 'copy' && owner === scope()) { if (selected) paintPub(); if (!selected || splitOpen()) renderList(); }
     }
   }
+  // S71-69 SHARE-글공유 ②(사용자 결정 2026-11-26 "노트는 본문을 공유 / 노트가 텍스트만 있지 않은 경우 html 또는 pdf 또는 링크로 공유 묻기").
+  // 고르기 창 [링크]는 기존 게시 길(notePub — owner RLS)만 쓰고, 아직 게시하지 않은 노트는 한 줄 확인 뒤에만 게시한다(기본 꺼짐 그대로).
+  function shareNote(note, trigger) {
+    if (!note || pinLock.noteHidden(note)) return;
+    const data = noteShareText(note);
+    if (noteIsPlain(note)) { void shareNoteText(data); return; }
+    const anchor = (trigger?.isConnected ? trigger : null) || detail.querySelector('[data-note-more]') || host;
+    const canLink = notePub.isReady() && !pinLock.noteInLockedFolder(note);
+    void openNoteShareChoices(anchor, {canLink, onPick:value => {
+      if (value === 'text') void shareNoteText(data);
+      else if (value === 'link') void shareNoteLink(note, anchor);
+      else if (value === 'html' || value === 'pdf') void shareNoteAs(value, note);
+    }});
+  }
+  async function shareNoteLink(note, anchor) {
+    if (pubBusy || pinLock.noteInLockedFolder(note)) return;
+    const owner = scope();
+    if (!notePub.isOn(note.id)) {
+      if (!await askConfirm(anchor, NOTE_LINK_ASK)) return;
+      pubBusy = true;
+      try { await notePub.publish(note); pubPhotos(note); }
+      catch (e) { notify(e?.status === 401 || e?.code === 'session_required' ? '로그인이 끝났어요. 다시 로그인해 주세요.' : NOTE_SHARE_NOTE.linkFail, {error:true, record:false}); return; }
+      finally { pubBusy = false; if (owner === scope()) { if (selected) paintPub(); if (!selected || splitOpen()) renderList(); } }
+    }
+    let url = '';
+    try { url = await notePub.link(note); } catch { notify(NOTE_SHARE_NOTE.linkFail, {error:true, record:false}); return; }
+    if (owner === scope()) await shareArticleLink({title:note.title || '노트', url});
+  }
+  // HTML·PDF: 노트 읽기와 같은 그리기(paintDoc·마크다운·있는 그대로)로 화면 밖 칸에 그린 뒤 보드 내보내기 부품(note-board-export.js)으로 파일 하나.
+  let noteFileBusy = false;
+  async function shareNoteAs(kind, note) {
+    if (noteFileBusy) return;
+    noteFileBusy = true;
+    notify(NOTE_SHARE_NOTE.making, {record:false});
+    let file = null;
+    try {
+      const ex = await import('./note-board-export.js');
+      file = await withNoteBody(note, page => ex.snapshotFile(kind, ex.elementSnapshot(page), noteFileName(note.title, kind)));
+    } catch { notify(NOTE_SHARE_NOTE.failed, {error:true, record:false}); }
+    finally { noteFileBusy = false; }
+    if (file) await shareNoteFile(file);
+  }
+  async function withNoteBody(note, make) {
+    const wrap = document.createElement('div');
+    wrap.className = 'basket-read note-read note-share-print';
+    wrap.setAttribute('aria-hidden', 'true'); wrap.inert = true;
+    wrap.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;pointer-events:none';
+    const page = document.createElement('div');
+    page.style.cssText = 'padding:24px;background:var(--kptu-surface);color:var(--kptu-ink)';
+    const head = document.createElement('h1');
+    head.style.cssText = 'margin:0 0 12px;font-size:20px;line-height:1.35';
+    head.textContent = note.title || '노트';
+    const box = document.createElement('div'); box.className = 'basket-read-text';
+    page.append(head, box); wrap.append(page); host.append(wrap);
+    try {
+      const raw = note.raw_text || '';
+      if (!paintDoc(box, note, {rt})) {
+        if (raw && noteMarkdown(note)) await renderMarkdownInto(box, raw, {});
+        else showPlainText(box, raw);
+      }
+      // 글 속 사진이 다 뜰 때까지(못 뜬 사진은 빈 자리) — 10초 안.
+      for (const end = Date.now() + 10000; Date.now() < end;) {
+        if (!box.querySelector('[data-img-state="loading"]') && [...box.querySelectorAll('img')].every(img => img.complete)) break;
+        await new Promise(r => setTimeout(r, 150));
+      }
+      return await make(page);
+    } finally { wrap.remove(); }
+  }
   function paintTagView(chipsBox, rowsBox, m) {
     const groups = tagGroups(notes.filter(n => (!m || m(n)) && !pinLock.noteHidden(n)));
     if (!tagTouched && !tagSel.some(k => groups.some(g => g.key === k))) tagSel = groups[0] ? [groups[0].key] : [];
@@ -1009,6 +1081,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '잊지 말기로 돌리기']] : []),
       // FAMILY-기억알림: 가족 '잊지 말기' 노트만 [줄 정리] — 줄을 고르면 홈 '가족 · 기억할 것' 줄 ⋯와 같은 메뉴(family-remind-menu.js, [과거 기록으로]).
       ...(from === 'detail' && note?.metadata?.family_list === true ? [['data-note-remind-lines', '줄 정리']] : []),
+      // S71-69 SHARE-글공유 ②: [공유](목록 줄·노트 화면 같은 메뉴). 잠겨 내용이 가려진 노트는 칸이 없다.
+      ...(!pinLock.noteHidden(note) ? [['data-note-share', '공유']] : []),
       // NOTE-게시 ②: 잠근 폴더의 노트는 게시를 새로 열지 않는다(이미 게시 중이면 [게시 멈춤]만). 게시 상태를 못 읽었으면 칸을 내지 않는다.
       ...(notePub.isReady() ? pubMenu(notePub.stateOf(note.id), {locked:pinLock.noteInLockedFolder(note)}).map(k => [`data-note-pub-${k}`, PUB_LABELS[k]]) : []),
       // S69-97 노트 알림·서식: [알림 걸기…](걸려 있으면 [알림 수정…]) · [서식으로 저장](이 노트 글을 내 서식으로).
@@ -2212,6 +2286,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-nbb-attach')) boards.attach([note.id]);
     else if (b.hasAttribute('data-note-copy')) void telegram(note, from.trigger); // UI-눌림느낌: the menu is closed, so the row's ⋯ shows the ✓
     else if (b.hasAttribute('data-note-pin')) void pin(note);
+    else if (b.hasAttribute('data-note-share')) shareNote(note, from.trigger);
     else if (b.hasAttribute('data-note-pub-make')) void pubAct('make', note, from.trigger);
     else if (b.hasAttribute('data-note-pub-copy')) void pubAct('copy', note, from.trigger);
     else if (b.hasAttribute('data-note-pub-stop')) void pubAct('stop', note, from.trigger);
@@ -2474,7 +2549,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // S70-65 UI-밀기메뉴통일(명진 11/26 08:16 가안): [옮기기][수정][삭제] — [수정] = ⋯ [수정](노트를 쓰기 상태로 연다), 빠진 [고정]은 ⋯ '고정'.
   // (옛) UI-목록밀기 → UI-줄밀기 Raindrop식(S68-26): 폰 노트 줄 — 왼쪽으로 밀기 [고정]/[고정 풀기]·[옮기기](폴더 고르기, ⋯ [폴더로 옮기기]와 같은 길)·[삭제]
   // (휴지통 + 위쪽 '지웠어요 [되돌리기]', 묻지 않음 — 끝까지 밀어도 삭제는 칸만 열림). 오른쪽으로 밀기 [선택] = 노트에 이미 있는 선택 모드(그 줄이 골라진 채).
-  // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기). 노트에는 공유 길이 없어 [공유] 칸은 없다.
+  // 선택 모드·열린 노트·포스트잇 보드에서는 밀지 않는다(보드는 칸 옮기기). [공유]는 ⋯ 메뉴에만(S71-69 — 밀기 칸은 W2 세 칸 그대로).
   bindRowSwipe(list, {row:'[data-nx-note]', enabled:() => !selected && !pick.active && !busy && !editing && view !== 'board',
     actions:el => { const note = notes.find(n => n.id === el.dataset.nxNote); return note ? {start:PICK, end:[...(canEditFolders() ? [{key:'move', label:'옮기기', tone:'move'}] : []), EDIT, DELETE]} : null; },
     run:(key, el) => { const note = notes.find(n => n.id === el.dataset.nxNote); if (!note || busy || selected) return; if (key === 'delete') void remove(note.id, ROW_DELETE); else if (key === 'move') openMovePicker(el.querySelector('[data-note-row-more]') || el, {notes:[note.id], folders:[]}); else if (key === 'edit') { open(note.id, {focus:false}); if (selected?.id === note.id) startEdit(); } },
