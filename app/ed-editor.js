@@ -48,7 +48,7 @@
 // the box first (that ends the composition), then runs and puts focus back.
 import {mountBlocks, gripIcon, phoneTouchMedia} from './ed-blocks.js';
 import {mountGtasks, gtaskDedupe} from './ed-gtasks.js';
-// FIX-main시험 #3284: 편집기가 화면에 뜬 뒤 늦게 불러오면 그 사이 친 '[['를 놓친다 — 편집기와 함께 불러온다.
+// FIX-main시험(이슈 3284): 편집기가 화면에 뜬 뒤 늦게 불러오면 그 사이 친 '[['를 놓친다 — 편집기와 함께 불러온다.
 import {mountNoteLink} from './ed-note-link.js';
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled, CHECK_MARKER,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
