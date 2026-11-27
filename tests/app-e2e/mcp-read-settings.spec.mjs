@@ -164,6 +164,9 @@ for (const width of [412, 884, 1280]) test(`동의 화면: 읽기만·볼 수 �
   await expect(page.locator('.mc-lead')).toContainText('읽기만');
   await expect(page.locator('.mc-row')).toHaveCount(3);
   await expect(page.locator('.mc-row').nth(2)).toContainText('claude.ai');
+  // 3판(설계 15절): 켠 영역만 보이고, 가족 방은 따로 켜야 한다는 것을 허락 전에 보여 준다.
+  await expect(page.locator('.mc-row').nth(0)).toContainText('가족 방은 따로 켜야 해요');
+  await expect(page.locator('.mc-row').nth(1)).toContainText('꺼 둔 영역');
   await expect(page.locator('.mc-note').first()).toContainText('켜야 읽기가 시작돼요');
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.screenshot({path: `${SHOTS}/consent-${width}.png`});
