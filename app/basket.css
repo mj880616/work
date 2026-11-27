@@ -252,25 +252,14 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .basket-title { font-weight:400; font-size:var(--ft-font); }
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .basket-title-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-current { background:var(--kptu-primary-soft); }
-/* S69-27 노트 휴지통(note-trash.js): 지운 노트 한 줄씩 — 제목 · 지운 날 · [되돌리기] · ⋯([영구 삭제]). 작고 낮게. */
+/* S69-27 노트 휴지통(note-trash.js): 지운 노트 한 줄씩 — 제목 · 지운 날 · 그림 단추(되살리기·영구 삭제, 줄 모양은 trash-row.css). 작고 낮게. */
 .nxt:not([hidden]) { display:block; }
 .nxt-head { display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
 .nxt-n { font-size:12px; color:var(--kptu-muted); }
-.nxt-list { display:flex; flex-direction:column; }
-.nxt-row { display:flex; align-items:center; gap:6px; min-height:36px; padding:0 2px 0 6px; border-top:1px solid var(--kptu-border); }
-.nxt-row:first-child { border-top:0; }
-.nxt-main { flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:8px; }
-.nxt-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
-.nxt-day { flex:none; font-size:12px; color:var(--kptu-muted); }
 /* 휴지통 줄 단추: 공용 글자 버튼(row-act)·아이콘 버튼(icon-btn) — 모양은 ui-standard.css 한 곳, 여기는 자리만. */
 #appView #basketView .nxt-empty { color:var(--kptu-danger); }
 #appView #basketView .nxt-empty-head { margin-left:auto; }
 .nxt-bar { display:flex; justify-content:flex-end; }
-.nxt-more { position:relative; flex:none; }
-.nxt-more > summary { list-style:none; cursor:pointer; }
-.nxt-more > summary::-webkit-details-marker { display:none; }
-.nxt-more-panel { position:absolute; right:0; top:calc(100% + 2px); z-index:5; min-width:120px; padding:4px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
-#appView #basketView .nxt-more-panel button.nxt-purge { display:flex; width:100%; justify-content:flex-start; }
 .nx-here:not([hidden]) { display:flex; align-items:center; gap:2px; min-height:28px; margin:0 0 2px; font-size:12px; color:var(--kptu-muted); }
 .nx-here-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-ink); font-weight:500; }
 .nx-here-num { flex:none; }
