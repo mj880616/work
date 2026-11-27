@@ -1,0 +1,241 @@
+{
+  "설명": "DESIGN-검증하네스 ②: app/*.css 파일별 손으로 쓴 글자 크기 px(fontSize)·버튼 높이 px(buttonHeight) 개수. 늘리면 CI 실패, 줄이면 node scripts/ci/css-token-check.mjs --write-baseline 으로 같이 줄인다. 손으로 늘리지 않는다.",
+  "files": {
+    "app/area-org-picker.css": {
+      "fontSize": 5,
+      "buttonHeight": 0
+    },
+    "app/arsenal.css": {
+      "fontSize": 5,
+      "buttonHeight": 0
+    },
+    "app/base-ui.css": {
+      "fontSize": 56,
+      "buttonHeight": 11
+    },
+    "app/basket-picker.css": {
+      "fontSize": 4,
+      "buttonHeight": 0
+    },
+    "app/basket.css": {
+      "fontSize": 75,
+      "buttonHeight": 4
+    },
+    "app/biz-summary.css": {
+      "fontSize": 7,
+      "buttonHeight": 0
+    },
+    "app/brief-room.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/calendar-ui.css": {
+      "fontSize": 51,
+      "buttonHeight": 10
+    },
+    "app/choice-sheet.css": {
+      "fontSize": 13,
+      "buttonHeight": 0
+    },
+    "app/compact-list.css": {
+      "fontSize": 4,
+      "buttonHeight": 0
+    },
+    "app/desktop-tight-nav.css": {
+      "fontSize": 5,
+      "buttonHeight": 4
+    },
+    "app/desktop-ui.css": {
+      "fontSize": 7,
+      "buttonHeight": 3
+    },
+    "app/diary.css": {
+      "fontSize": 6,
+      "buttonHeight": 4
+    },
+    "app/ed-doc.css": {
+      "fontSize": 8,
+      "buttonHeight": 2
+    },
+    "app/ed-window.css": {
+      "fontSize": 5,
+      "buttonHeight": 0
+    },
+    "app/feed.css": {
+      "fontSize": 29,
+      "buttonHeight": 0
+    },
+    "app/file-rename.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/files.css": {
+      "fontSize": 47,
+      "buttonHeight": 2
+    },
+    "app/filter-chips.css": {
+      "fontSize": 1,
+      "buttonHeight": 1
+    },
+    "app/first-use.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/folder-dest-sheet.css": {
+      "fontSize": 8,
+      "buttonHeight": 1
+    },
+    "app/folder-tree.css": {
+      "fontSize": 10,
+      "buttonHeight": 0
+    },
+    "app/global-search.css": {
+      "fontSize": 5,
+      "buttonHeight": 1
+    },
+    "app/google-tasks.css": {
+      "fontSize": 23,
+      "buttonHeight": 5
+    },
+    "app/help.css": {
+      "fontSize": 0,
+      "buttonHeight": 1
+    },
+    "app/home-quick.css": {
+      "fontSize": 15,
+      "buttonHeight": 3
+    },
+    "app/hwp-lab.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/journal.css": {
+      "fontSize": 12,
+      "buttonHeight": 2
+    },
+    "app/library-upload.css": {
+      "fontSize": 27,
+      "buttonHeight": 5
+    },
+    "app/list-edit.css": {
+      "fontSize": 6,
+      "buttonHeight": 1
+    },
+    "app/list-row.css": {
+      "fontSize": 2,
+      "buttonHeight": 0
+    },
+    "app/lock.css": {
+      "fontSize": 3,
+      "buttonHeight": 0
+    },
+    "app/meeting-name-panel.css": {
+      "fontSize": 8,
+      "buttonHeight": 0
+    },
+    "app/meeting-recorder.css": {
+      "fontSize": 0,
+      "buttonHeight": 1
+    },
+    "app/meeting-ui.css": {
+      "fontSize": 24,
+      "buttonHeight": 6
+    },
+    "app/memo-thread.css": {
+      "fontSize": 7,
+      "buttonHeight": 0
+    },
+    "app/news-clipping.css": {
+      "fontSize": 4,
+      "buttonHeight": 0
+    },
+    "app/news-mark-rows.css": {
+      "fontSize": 14,
+      "buttonHeight": 1
+    },
+    "app/notice-bar.css": {
+      "fontSize": 2,
+      "buttonHeight": 1
+    },
+    "app/now.css": {
+      "fontSize": 34,
+      "buttonHeight": 2
+    },
+    "app/od-link.css": {
+      "fontSize": 4,
+      "buttonHeight": 2
+    },
+    "app/outside-statements.css": {
+      "fontSize": 2,
+      "buttonHeight": 0
+    },
+    "app/photos.css": {
+      "fontSize": 37,
+      "buttonHeight": 2
+    },
+    "app/profile-settings.css": {
+      "fontSize": 5,
+      "buttonHeight": 0
+    },
+    "app/project-system-v3.css": {
+      "fontSize": 37,
+      "buttonHeight": 6
+    },
+    "app/quick-controls.css": {
+      "fontSize": 2,
+      "buttonHeight": 3
+    },
+    "app/record-sheet.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/row-swipe.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/small-form-modal.css": {
+      "fontSize": 1,
+      "buttonHeight": 0
+    },
+    "app/sr-blocks.css": {
+      "fontSize": 3,
+      "buttonHeight": 0
+    },
+    "app/suborganizations.css": {
+      "fontSize": 9,
+      "buttonHeight": 0
+    },
+    "app/task-layout.css": {
+      "fontSize": 12,
+      "buttonHeight": 1
+    },
+    "app/team.css": {
+      "fontSize": 34,
+      "buttonHeight": 1
+    },
+    "app/todo-radar.css": {
+      "fontSize": 0,
+      "buttonHeight": 2
+    },
+    "app/topbar-actions.css": {
+      "fontSize": 17,
+      "buttonHeight": 3
+    },
+    "app/ui-standard.css": {
+      "fontSize": 39,
+      "buttonHeight": 18
+    },
+    "app/weekly-org-lines.css": {
+      "fontSize": 2,
+      "buttonHeight": 0
+    },
+    "app/workplace-detail.css": {
+      "fontSize": 28,
+      "buttonHeight": 3
+    },
+    "app/workspace-ui.css": {
+      "fontSize": 4,
+      "buttonHeight": 0
+    }
+  }
+}

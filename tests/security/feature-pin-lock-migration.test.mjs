@@ -83,7 +83,10 @@ test('existing structures untouched; rollback drops only what this file made', (
   // 뒤 단계 노트 폴더 잠금(20261119233000_note_folder_lock)은 이 표·함수를 고치지 않고 부르기만 한다(그 파일의 시험이 본다).
   // S69-08 앱 전체 잠금(20261124080000_app_lock_whole_app)은 features 검사와 목록 도우미 두 곳만 고친다(tests/security/app-lock-whole-app-migration.test.mjs가 본다).
   // S69 STORE-계정삭제(20261124130000_account_delete)는 본인 줄만 지운다(user_id = 부른 사람, tests/security/account-delete-migration.test.mjs가 본다).
-  const later = new Set(['20261119233000_note_folder_lock.sql', '20261124080000_app_lock_whole_app.sql', '20261124130000_account_delete.sql']);
+  // MCP-Claude읽기 3판(20261127120000_mcp_claude_read_areas)은 잠금 영역 이름(features 중 diary·calls)만 DEFINER 도우미로 읽는다 — 비밀번호 칸·쓰기 없음
+  // (tests/auth-handoff/mcp-claude-read-areas-db.test.mjs·tests/security/mcp-claude-read-areas-migration.test.mjs가 본다).
+  const later = new Set(['20261119233000_note_folder_lock.sql', '20261124080000_app_lock_whole_app.sql', '20261124130000_account_delete.sql',
+    '20261127120000_mcp_claude_read_areas.sql']);
   const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql` && !later.has(f)
     && /function (public|private)\.app_lock_|app_feature_locks/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);
