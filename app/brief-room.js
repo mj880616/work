@@ -909,5 +909,10 @@ async function takeAsked(){
   else if(b?.status==='done')openDoc(ask.id);
   else{state.open=ask.id;draw()}
 }
-window.KPTURouter?.on?.('brief',()=>{void refresh().then(takeAsked)});
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(두 칸 틀·정렬 머리 줄·저절로 연 브리핑까지)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가
+// 기다린 뒤 화면을 보인다. 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 맨 위 브리핑 저절로 열기(autoOpen)·만드는 중 다시 보기 예약(schedule)은 이 화면이 지금 화면일 때만이라, 처음 보이는 그 자리(라우터 진입, 그리기 전)에서 한 번 부른다.
+const firstDraw=refresh();
+let firstShown=false;
+window.KPTURouter?.on?.('brief',()=>{if(!firstShown){firstShown=true;autoOpen();schedule();void firstDraw.then(takeAsked,takeAsked);return}void refresh().then(takeAsked)});
+window.__KPTU_BRIEF_READY__=firstDraw.then(takeAsked);

@@ -68,9 +68,11 @@ function bind(){
   bar.addEventListener('change',()=>{if(open)queueMicrotask(()=>close())});
   window.addEventListener('popstate',e=>{if(open&&e.state?.[KEY]!==open.id)close(true,false)});
   window.matchMedia('(min-width:761px)').addEventListener?.('change',layout);
-  // 줄 폭이 바뀌거나(폴드 접기·펴기·창 크기) 사업 관리가 다시 보일 때 다시 잰다. 폭만 보고(높이 무시) 다음 그림 차례에 한 번.
-  let frame=0;
-  new ResizeObserver(([entry])=>{const w=Math.round(entry.contentRect.width);if(w===lastWidth)return;lastWidth=w;if(!frame)frame=requestAnimationFrame(()=>{frame=0;layout()})}).observe(top);
+  // 줄 폭이 바뀌거나(폴드 접기·펴기·창 크기) 사업 관리가 다시 보일 때 다시 잰다. 폭만 보고(높이 무시).
+  // RULE-한번에그리기: 화면이 숨겨진 채 그려진 뒤(화면 불러오기가 끝나야 라우터가 보인다) 처음 보일 때 상자 네 개가 한 프레임 보였다가
+  // 칩 하나로 바뀌지 않게, 다음 그림 차례(requestAnimationFrame)로 미루지 않고 ResizeObserver 알림 안에서 바로 잰다 —
+  // 이 알림은 배치 계산 뒤·화면에 그리기 전에 오므로 보이는 첫 그림부터 칩/네 개가 맞다.
+  new ResizeObserver(([entry])=>{const w=Math.round(entry.contentRect.width);if(w===lastWidth)return;lastWidth=w;layout()}).observe(top);
   document.fonts?.ready?.then(()=>layout(),()=>{});
 }
 
