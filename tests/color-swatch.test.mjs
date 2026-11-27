@@ -71,9 +71,9 @@ test('색 고르기 칸은 모두 공용 부품을 쓴다(단추를 직접 만�
   assert.deepEqual(bad, [], '색 고르기 칸은 app/color-swatch.mjs(swatchHtml·createSwatch)로 그린다');
 });
 
-test('공용 부품을 쓰는 곳(일정 색·캘린더 색·프로젝트 색·폴더 색·노트 보드 상자 색)', () => {
+test('공용 부품을 쓰는 곳(일정 색·캘린더 색·프로젝트 색·폴더 색·노트 보드 상자 색·보드 바탕색)', () => {
   const users = code.filter(f => /from\s+['"]\.\/color-swatch\.mjs['"]/.test(f.text)).map(f => f.name).sort();
-  assert.deepEqual(users, ['calendar-persistence.js', 'calendar-plus.js', 'folder-look.js', 'note-board.js', 'project-system-v3.js', 'text-highlights.js', 'text-select-bar.js']); // S69-82: 노트 보드 상자 색, S70-16: 형광펜 색
+  assert.deepEqual(users, ['calendar-persistence.js', 'calendar-plus.js', 'folder-look.js', 'note-board.js', 'note-boards.js', 'project-system-v3.js', 'text-highlights.js', 'text-select-bar.js']); // S69-82: 노트 보드 상자 색, S70-16: 형광펜 색, S71-50: 노트 보드 바탕색
 });
 
 test('색 칸의 모양·고름 표시는 ui-standard.css 공용 규칙만 정하고, 고름이 색을 덮지 않는다', () => {

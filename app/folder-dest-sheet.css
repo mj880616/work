@@ -32,9 +32,7 @@ dialog.fd-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 28%,tra
 .fd-sheet .fd-blocked .ft-main { opacity:.55; }
 /* S69-62 [파일] 휴지통 창(files-trash.js): 같은 아래 시트, 줄은 선택 칸 + 이름 + 지운 날·크기 */
 .fx-trash-list { padding:4px 0; }
-.fx-trash-row { display:flex; align-items:center; gap:8px; min-height:34px; padding:2px 12px; cursor:pointer; }
-.fx-trash-row input { flex:none; margin:0; }
-.fx-trash-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fx-trash-meta { flex:none; font-size:12px; color:var(--kptu-muted); }
+.fx-trash-list .tr-row, .fx-trash .tr-pickhead { padding-left:12px; padding-right:8px; }
+.fx-trash .tr-bar { margin:0 8px; }
 .fx-trash-od { justify-content:flex-end; }
 .fx-dest a.fx-btn { display:inline-flex; align-items:center; text-decoration:none; }

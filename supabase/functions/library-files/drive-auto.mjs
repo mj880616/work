@@ -42,7 +42,8 @@
 import { folderNames, knownFolderNames } from '../_shared/brand-folders.mjs';
 import { fileKey, hashable, lookupKeys } from './same-content.mjs';
 import { FOLDER_MIME, appMarked, isSecretFolder, linkKind, skipReason } from './drive-skip.mjs';
-import { SYNC_NAME, SYNC_PARENT, appNameOk } from '../_shared/library-mirror.mjs';
+import { SYNC_NAME, SYNC_PARENT, appNameOk, FOLLOW_QUIET_MS, followTarget } from '../_shared/library-mirror.mjs';
+export { FOLLOW_QUIET_MS };
 
 export const AUTO_NOTE = '자료실 드라이브 폴더에서 자동 등록 · 파일명 기반 자동분류';
 // 일정 첨부 폴더 이름(_shared/event-attach-file.ts EVENT_ATTACH_FOLDER와 같음 — 시험이 견준다).
@@ -68,7 +69,6 @@ export const ADD_MAX = 200;        // 한 번에 넣는 자료 수(넘으면 mor
 export const INSERT_CHUNK = 50;
 export const FOLDER_MAKE_MAX = 30;  // 한 번에 만들거나 연결하는 자료실 폴더 수(넘으면 more)
 export const SAME_LOOKUP_MAX = 300;
-export const FOLLOW_QUIET_MS = 30 * 60 * 1000; // S70-73c: 앱에서 옮긴 지 이 안이면 드라이브 위치를 따라가지 않음(드라이브 맞추기가 끝나기 전)
 export const FOLLOW_MAX = 500;                 // 한 번에 따라가는 자료 수(넘으면 more) // 나무 밖 자료 중 내용 비교로 드라이브에 묻는 수(넘으면 그 크기 파일은 다음에)
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
@@ -179,19 +179,11 @@ export function planFollow({ docs, files, items, appPair = new Map(), pairOf = n
   for (const d of Array.isArray(docs) ? docs : []) {
     const f = isDriveId(d?.file_id) ? fileOf.get(d.file_id) : null;
     if (!f) continue; // 자료실 나무 밖(다른 앱 폴더·휴지통·자료실 밖) → 그대로
-    const item = itemOf.get(d.id);
-    if (!item?.folder_id) { skipped.loose++; continue; } // 폴더 밖 자료 → 그대로(옮긴 시각을 알 수 없음)
-    if (!appPair.has(item.folder_id)) { skipped.trashed++; continue; } // 휴지통·안 보이는 폴더 안 → 그대로
-    const ps = (Array.isArray(f.parents) ? f.parents : []).filter(isDriveId);
-    if (ps.length !== 1) { skipped.parents++; continue; }
-    const dp = ps[0], cur = appPair.get(item.folder_id);
-    if (cur === dp) continue; // 이미 같음
-    if (dp === libraryId) { skipped.top++; continue; }
-    const to = pairOf.get(dp);
-    if (!to || to === item.folder_id) { skipped.nopair++; continue; } // 드라이브 부모가 짝 없는 폴더 → 그대로(지금 폴더가 짝이 없어도 드라이브 부모가 짝이면 따라감)
-    const at = Date.parse(String(item.moved_at ?? ''));
-    if (!Number.isFinite(at)) { skipped.unknown++; continue; }
-    if (now - at < quietMs) { skipped.quiet++; continue; }
+    const item = itemOf.get(d.id) || null;
+    // S71-05: 드라이브가 이기는지는 드라이브 맞추기(_shared/library-mirror.mjs mirrorLibrary)와 같은 한 곳(followTarget)에서 정한다.
+    const r = followTarget({ item, parents: f.parents, appPair, pairOf, libraryId, now, quietMs });
+    if (!r.to) { if (r.skip !== 'same') skipped[r.skip]++; continue; }
+    const to = r.to;
     if (moves.length >= max) { more = true; continue; }
     moves.push({ docId: d.id, from: item.folder_id, to });
   }

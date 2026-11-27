@@ -180,8 +180,10 @@ export const COL_NAME_RE = /^[a-z][a-z0-9_]{0,19}$/;
 export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
+// 보드 바탕색 이름(note-boards-model.mjs BOARD_BGS와 같음 — tests/note-board-bg.test.mjs가 둘과 DB 검사를 맞춘다).
+export const NOTE_BOARD_BGS = Object.freeze(['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'note_board_bg']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -239,6 +241,10 @@ export function validValue(key, value) {
     case 'note_boards': return Array.isArray(value) && value.length <= NOTE_BOARDS_MAX && value.every(b => !!b && typeof b === 'object' && !Array.isArray(b)
       && Object.keys(b).every(name => name === 'id' || name === 'name') && typeof b.id === 'string' && NOTE_BOARD_ID_RE.test(b.id) && noteBoardName(b.name));
     case 'note_board': return typeof value === 'string' && (value === 'all' || NOTE_BOARD_ID_RE.test(value));
+    // S71-50 NOTE-보드배경색: note_board_bg = {보드 id: 색 이름}(1~12칸, 색은 note-boards-model.mjs BOARD_BGS 여덟 가지만). migration 20261126220000.
+    // 비면 칸을 지운다(null). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다(보드는 기본 바탕).
+    case 'note_board_bg': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length >= 1 && Object.keys(value).length <= NOTE_BOARDS_MAX
+      && Object.entries(value).every(([id, bg]) => NOTE_BOARD_ID_RE.test(id) && NOTE_BOARD_BGS.includes(bg));
     case 'diary_onedrive':
     case 'ed_more': return typeof value === 'boolean';
     case 'library_two': return typeof value === 'boolean';

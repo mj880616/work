@@ -38,6 +38,7 @@ export const PART_STYLES = Object.freeze({
   'folder-dest-sheet': ['./folder-tree.css', './folder-dest-sheet.css'],
   'memo-thread': ['./memo-thread.css'],
   'lock-pad': ['./lock.css'],
+  'trash-row': ['./trash-row.css'],
 });
 
 const browser = () => typeof window !== 'undefined' && typeof document !== 'undefined' && !!document.head
