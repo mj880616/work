@@ -15,8 +15,8 @@ const pad = (n, w = 3) => String(n).padStart(w, '0');
 // 최신순: P000이 가장 늦게 찍은 사진. 하루 12장씩 20일(10월 30일부터 거꾸로). 시계는 2026-10-06(openHome)이라 달 목록은 10월 하나.
 const MEDIA = Array.from({ length: N }, (_, i) => {
   const day = `2026-10-${pad(30 - Math.floor(i / PER_DAY), 2)}`;
-  const sec = PER_DAY - (i % PER_DAY);
-  return { id: 'P' + pad(i), name: 'p.jpg', day, taken_at: `${day}T03:00:${pad(sec, 2)}.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null };
+  const sec = PER_DAY - (i % PER_DAY); // 사진 사이 5분(연속 사진 묶어 보기 PHOTO-연속묶기가 2분 이내를 묶으므로)
+  return { id: 'P' + pad(i), name: 'p.jpg', day, taken_at: `${day}T${pad(Math.floor((180 + sec * 5) / 60), 2)}:${pad((180 + sec * 5) % 60, 2)}:00.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null };
 });
 
 async function fixture(page, width, { warm = false, largeDelay = 0, prefs = null } = {}) {
