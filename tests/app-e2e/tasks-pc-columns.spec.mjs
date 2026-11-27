@@ -116,7 +116,7 @@ for(const width of [1280,1440]){
     await open(page,width,[task('a','2026-10-08')]);
     const pane=page.locator('#gtDetailPane'),sec=page.locator('#gtTaskSection'),list=async()=>{const n=await col(page,'now').boundingBox();return {x:Math.round(n.x),w:Math.round(n.width)}};
     // TASK-처음부터두칸(2026-11-27 명진): 고르기 전에도 오른쪽 칸이 있고 안내 한 줄만 둔다. 목록 폭은 항목을 눌러도 바뀌지 않는다.
-    await expect(pane).toBeVisible();await expect(sec).not.toHaveClass(/gt-wide/);await expect(pane).not.toHaveClass(/has-task/);await expect(pane.locator('.gt-pane-empty')).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toHaveText('할 일을 고르면 여기에 나와요');
+    await expect(pane).toBeVisible();await expect(sec).not.toHaveClass(/gt-wide/);await expect(pane).not.toHaveClass(/has-task/);await expect(pane.locator('.gt-pane-empty')).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toHaveText('할 일을 선택하면 여기에 나와요');
     const before=await list(),sw=(await sec.boundingBox()).width;expect(before.w).toBeLessThan(sw*0.5);
     await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('#gtTaskModal')).toBeVisible();await expect(pane).toHaveClass(/has-task/);await expect(pane.locator('.gt-pane-empty')).toBeHidden();expect(await list()).toEqual(before);
     await pane.locator('[data-gt-close]').click();await expect(pane).not.toHaveClass(/has-task/);await expect(pane).toBeVisible();await expect(pane.locator('.gt-pane-empty')).toBeVisible();expect(await list()).toEqual(before);

@@ -83,7 +83,7 @@ for(const width of [690,884,1280]){
     expect(calls.some(c=>c.action==='create')).toBe(false);
     // ③ 뒤로 키 = 상세 닫기(한 단계), 화면은 할 일 그대로, 요약이 다시 보인다.
     await page.goBack();
-    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('할 일을 고르면 여기에 나와요|1');
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('할 일을 선택하면 여기에 나와요|1');
     await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
     await expect(page.locator('#tasksView')).toBeVisible();
     // 고르기 창(S52-01)도 열 때 뒤로 기록 하나를 쌓고 닫을 때 거둔다(앞으로 칸에 남는 한 칸은 다음 기록이 지운다). 그래서 길이는 칸 하나 + 창 하나.
