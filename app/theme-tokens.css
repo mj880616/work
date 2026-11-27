@@ -93,9 +93,9 @@
    새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
   /* S67-64 UI-윗줄한줄(명진 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
-  /* S73-06 UI-스크롤막대잡기(명진 11/27): 스크롤 손잡이를 창 끝에서 띄워 마우스로 잡기 쉽게. 막대 칸 = --ds-scrollbar-size(잡히는 폭), 손잡이는 양옆 --ds-scrollbar-gap씩 비워 보이는 폭 = size - 2×gap.
-     폰·터치는 예전 그대로(6px·틈 0). 마우스가 있는 화면(PC)만 14px 칸 · 보이는 폭 8px · 틈 3px. 모양 규칙은 base-ui.css 한 곳. */
-  --ds-scrollbar-size:6px;--ds-scrollbar-gap:0px;--ds-scrollbar-radius:999px;
+  /* S73-06 UI-스크롤막대잡기(명진 11/27): 막대는 창 끝에 붙이고, 평소엔 가늘게·마우스를 올리면 굵게. 막대 칸 = --ds-scrollbar-size(늘 같음, 글 안 흔들림),
+     보이는 굵기 = size - inset. 폰·터치는 예전 그대로(6px·안쪽 비움 0). 마우스가 있는 화면(PC)만 칸 14px · 평소 4px(inset 10) · 올리면 10px(inset 4). 모양 규칙은 base-ui.css 한 곳. */
+  --ds-scrollbar-size:6px;--ds-scrollbar-inset-rest:0px;--ds-scrollbar-inset-hover:0px;--ds-scrollbar-radius:999px;
   --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
@@ -411,4 +411,4 @@
     --kptu-primary:#d88272;--kptu-primary-hover:#e09486;--kptu-primary-ink:#e8a397;--kptu-primary-soft:#3d1f1d;--kptu-link:#e8a397;
   }
 }
-@media (hover:hover) and (pointer:fine){:root{--ds-scrollbar-size:14px;--ds-scrollbar-gap:3px}}
+@media (hover:hover) and (pointer:fine){:root{--ds-scrollbar-size:14px;--ds-scrollbar-inset-rest:10px;--ds-scrollbar-inset-hover:4px}}
