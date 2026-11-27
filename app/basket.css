@@ -13,7 +13,8 @@
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
    S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
-   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게). */
+   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
+   S71-50: 보드 배경색 고르기(.nbb-bg)도 공용 색 칸 모양 그대로. */
 #basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .nxt-q, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
@@ -567,7 +568,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
 /* S71-50 NOTE-보드배경색: 보드 메뉴 안 '배경색' 한 묶음(공용 ui-swatch 칸 그대로 — 위 #basketView button 규칙에서 .nbb-bg 안은 뺐다). */
-#appView #basketView .nbb-bg { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; padding:4px 8px 6px; max-width:220px; border-bottom:var(--ds-line-width,1px) solid var(--kptu-border); }
+#appView #basketView .nbb-bg { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; padding:4px 8px 6px; max-width:220px; }
 #appView #basketView .nbb-bg-label { width:100%; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); line-height:1.6; }
 .nbw-body { display:block; }
 /* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */

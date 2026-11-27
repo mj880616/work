@@ -273,12 +273,12 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   function openMenu(chip) {
     const id = chip.dataset.nbbBoard; if (!id) return;
     closeMenu();
-    const el = menuEl();
+    const el = menuEl(); el.setAttribute('aria-label', '보드 메뉴');
     // S70-32 ③: 지금 연 보드면 [PDF로 내보내기]·[HTML로 내보내기](보드 전체를 이 기기로 내려받기).
     const items = [['data-nbb-rename', '이름 바꾸기'], ...(onExport && id === current ? [['data-nbb-export="pdf"', 'PDF로 내보내기'], ['data-nbb-export="html"', 'HTML로 내보내기']] : []), ['data-nbb-delete', '보드 삭제', 'basket-menu-danger']];
     const html = ([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
-    // S71-50: [이름 바꾸기] 아래 배경색 고르기 한 묶음(폰은 보드 칸 꾹 누르기 메뉴, PC는 우클릭).
-    el.innerHTML = html(items[0]) + bgSwatchesHtml(id) + items.slice(1).map(html).join('');
+    // S71-50: [이름 바꾸기] 아래 [배경색] 한 줄(폰은 보드 칸 꾹 누르기 메뉴, PC는 우클릭). 누르면 같은 자리에 색 칸(폴더 [색 고르기…]와 같은 방식).
+    el.innerHTML = html(items[0]) + html(['data-nbb-bg-open', '배경색']) + items.slice(1).map(html).join('');
     el.hidden = false;
     const place = () => placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
     place();
@@ -286,6 +286,13 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     menu.release = holdMenu(el, {close:reason => closeMenu({focus:reason === 'esc'}), keep:t => !!t && chip.contains(t), back:'note-board-chip-menu'});
     chip.setAttribute('aria-expanded', 'true');
     el.querySelector('button')?.focus({preventScroll:true});
+  }
+  function showBgChoice() {
+    const el = menuEl(), chip = menu.chip;
+    el.setAttribute('aria-label', '보드 배경색 선택');
+    el.innerHTML = bgSwatchesHtml(menu.id);
+    placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
+    (el.querySelector('[aria-checked="true"]') || el.querySelector('button'))?.focus({preventScroll:true});
   }
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
@@ -296,6 +303,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
+    if (inMenu && b.hasAttribute('data-nbb-bg-open') && menu) { e.stopPropagation(); showBgChoice(); return; }
     if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; void Promise.resolve(m.released).then(() => { if (b.hasAttribute('data-nbb-bg')) setBg(m.id, b.dataset.nbbBg || null); else if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); }); return; } // 메뉴 겹 뒤로가기 뒤에 실행
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
