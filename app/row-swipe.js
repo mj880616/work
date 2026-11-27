@@ -53,10 +53,9 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     const host = el.parentElement; host.classList.add('row-swipe-host');
     const layer = document.createElement(host.tagName === 'UL' || host.tagName === 'OL' ? 'li' : 'div');
     layer.className = 'row-swipe-acts'; layer.setAttribute('role', 'presentation');
-    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
-    // HOME-읽을거리평가: 두 단추를 한 칸에 포갠 칸(위·아래 반씩, 그림만 — 이름은 aria-label). 누른 상태(pressed)는 aria-pressed로 그 칸에 보인다.
-    const half = a => `<button type="button" class="row-swipe-act row-swipe-half row-swipe-tone-${esc(a.tone || 'muted')}" data-row-swipe-act="end" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}" aria-pressed="${a.pressed ? 'true' : 'false'}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || '', {size:18})}</span></button>`;
-    const cell = a => (isPair(a) ? `<span class="row-swipe-pair" role="group" aria-label="${esc(a.label || '')}">${a.pair.map(half).join('')}</span>` : btn('end', a));
+    // 칸 단추는 이 한 벌로만 만든다. half: HOME-읽을거리평가의 포갠 칸 안 단추(위·아래 반씩, 그림만 — 이름은 aria-label, 누른 상태는 aria-pressed).
+    const btn = (side, a, half = false) => `<button type="button" class="row-swipe-act row-swipe-${half ? 'half' : side} row-swipe-tone-${esc(a.tone || (half ? 'muted' : side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"${half ? ` aria-pressed="${a.pressed ? 'true' : 'false'}"` : ''}><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span>${half ? '' : `<span class="row-swipe-tx">${esc(a.label)}</span>`}</button>`;
+    const cell = a => (isPair(a) ? `<span class="row-swipe-pair" role="group" aria-label="${esc(a.label || '')}">${a.pair.map(p => btn('end', p, true)).join('')}</span>` : btn('end', a));
     const ends = endCells(acts.end);
     layer.innerHTML = (acts.start ? btn('start', acts.start) : '') + (ends.length ? `<span class="row-swipe-ends">${ends.map(cell).join('')}</span>` : '');
     Object.assign(layer.style, {top:el.offsetTop + 'px', height:el.offsetHeight + 'px'});

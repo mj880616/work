@@ -16,8 +16,8 @@ test('밀기 칸·메뉴: 이름 좋아요·별로예요, 그림 아이콘, 누�
   assert.deepEqual(rateMenuItems(LIKE).map(i => i.label), ['좋아요 ✓', '별로예요']);
   assert.deepEqual(rateMenuItems(0).map(i => i.label), ['좋아요', '별로예요']);
 });
-test('기기 저장 없음: 평가 모듈은 localStorage·sessionStorage를 쓰지 않고 서버 길은 feed-shared.js 하나', () => {
-  for (const f of ['app/read-ratings.js', 'app/read-ratings-model.mjs']) assert.doesNotMatch(readFileSync(f, 'utf8'), /localStorage|sessionStorage|indexedDB/);
+// 기기 저장 금지는 CI 저장 검사(audit)가 앱 파일 전체에서 본다. 여기서는 서버 길이 한 곳인지 본다.
+test('서버 길은 feed-shared.js 하나: 평가 모듈은 직접 부르지 않고, 쓰기는 지우고 넣기만(제목·고치기 없음)', () => {
   const src = readFileSync('app/read-ratings.js', 'utf8');
   assert.doesNotMatch(src, /rt\(\)\.api|\.api\(/);
   const shared = readFileSync('app/feed-shared.js', 'utf8');
