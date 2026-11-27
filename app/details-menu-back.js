@@ -6,7 +6,7 @@
 // STD-메뉴바깥닫기(S70-78): 바깥 누름·Esc·스크롤·창 크기·화면 이동·한 번에 하나·뒤로가기 겹은 공용 지킴이(menu-dismiss.js)가 맡는다.
 // 바깥 누름은 닫기만 한다(전의 '닫고 그 누름을 다시 보내기'는 없앴다 — 바깥 누름이 다른 동작을 일으키지 않게, 다른 ⋯ 단추는 바로 열림).
 // 제자리 펼침(진행 이력·접는 칸 등 <details> 접기)은 창이 아니므로 대상이 아니다(AGENTS.md 5절, 접기는 그대로).
-import { holdMenu } from './menu-dismiss.js';
+import { holdMenu, catchUpMenus } from './menu-dismiss.js';
 (() => {
   if (window.__KPTU_DETAILS_MENU_BACK__) return;
   window.__KPTU_DETAILS_MENU_BACK__ = true;
@@ -43,6 +43,10 @@ import { holdMenu } from './menu-dismiss.js';
     return true;
   }
   window.KPTUMenuLayer = {opened, closed, dismissIn, isOpen:el => open?.el === el};
+  // 열림 알림(toggle)이 아직 안 온, 지금 열려 보이는 ⋯ 메뉴를 바로 붙인다(지킴이가 Esc·누름 판정 직전에 부른다). 알림이 뒤에 오면 opened는 그대로 지나간다.
+  catchUpMenus(() => {
+    for (const el of document.querySelectorAll(`${MENU}[open]`)) if (open?.el !== el && el.isConnected && el.getClientRects().length) opened(el, () => { el.open = false; });
+  });
   document.addEventListener('toggle', event => {
     const el = event.target;
     if (!(el instanceof HTMLDetailsElement) || !el.matches(MENU)) return;

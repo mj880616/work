@@ -20,6 +20,13 @@ const SCROLL_GRACE = 300; // 열면서 생기는 스크롤(초점 옮김·자리
 const MORE = new Set(['\u22EF', '\u22EE']); // ⋯ ⋮ 글자 단추(그리는 파일이 아니라 알아보기만 — context-menu-sites 검사 대상 아님)
 const NOT_OUTSIDE = '.kptu-ask'; // 메뉴 항목이 띄운 작은 확인창 안은 바깥이 아니다
 
+// 열렸지만 아직 붙지 않은 메뉴 붙이기(S72-REPORT-PHOTO-ESC): <details> ⋯ 메뉴는 열림 알림(toggle)이 따로 늦게 오는 일이라(브라우저가 나중 차례로 보냄),
+// 여는 누름 바로 뒤의 Esc·누름이 그 알림보다 먼저 오면 메뉴가 열려 보이는데 지킴이는 모른다 — Esc가 메뉴 대신 그 아래 창(사진 크게 보기 등)을 닫았다.
+// 그 메뉴를 쥐는 쪽(details-menu-back.js)이 여기에 확인 하나를 맡기고, Esc·누름을 판정하기 직전에 불러 지금 화면 그대로(열림 속성) 붙인다.
+const catchUps = [];
+export function catchUpMenus(fn) { if (typeof fn === 'function' && !catchUps.includes(fn)) catchUps.push(fn); }
+function catchUp() { for (const fn of catchUps) { try { fn(); } catch (e) { queueMicrotask(() => { throw e; }); } } }
+
 export const menuHeld = () => held.length > 0;
 export function isMenuTrigger(target) {
   const b = target instanceof Element ? target.closest('button,summary,[role="button"]') : null;
@@ -88,6 +95,7 @@ if (typeof window !== 'undefined' && window.addEventListener && !window.__KPTU_M
   window.__KPTU_MENU_DISMISS__ = true;
   window.addEventListener('pointerdown', e => {
     swallow = null; // 새 누름 = 새 손짓
+    catchUp();
     if (!held.length) return;
     const target = e.target instanceof Element ? e.target : null, path = e.composedPath();
     if (target?.closest?.(NOT_OUTSIDE)) return;
@@ -106,7 +114,9 @@ if (typeof window !== 'undefined' && window.addEventListener && !window.__KPTU_M
   }, {capture: true, passive: false});
   // ② Esc = 맨 위 메뉴 닫기(그 화면의 Esc — 고르기 끝·창 닫기 — 는 일어나지 않음).
   window.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || !held.length || e.isComposing) return;
+    if (e.key !== 'Escape' || e.isComposing) return;
+    catchUp();
+    if (!held.length) return;
     e.preventDefault(); e.stopImmediatePropagation();
     shut(held[held.length - 1], 'esc');
   }, true);

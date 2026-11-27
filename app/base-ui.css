@@ -3,7 +3,7 @@
   --kptu-surface:#fff;
   --kptu-surface-subtle:#fafbfc;
   --kptu-ink:#1f2933;
-  --kptu-muted:#66727f;
+  --kptu-muted:#66727f;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%2366727f'/%3E%3C/svg%3E");
   --kptu-faint:#8a949e;
   --kptu-border:#dfe4e8;
   --kptu-border-strong:#cfd6dc;
