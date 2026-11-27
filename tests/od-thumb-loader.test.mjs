@@ -194,7 +194,7 @@ test('gather: cells that arrive one by one within gatherMs leave as full batches
   assert.deepEqual(await run(GATHER_MS), [20, 20], 'with gathering: two full batches at once, nobody waits behind them');
 });
 
-// FIX-main시험(#3270): 기기가 바쁘면 보관본 찾기 답이 GATHER_MS보다 늦게 와서 첫 묶음이 1~4장짜리로 쪼개졌다(CI 사진 속도 시험 간헐 실패).
+// FIX-main시험(이슈 3270): 기기가 바쁘면 보관본 찾기 답이 GATHER_MS보다 늦게 와서 첫 묶음이 1~4장짜리로 쪼개졌다(CI 사진 속도 시험 간헐 실패).
 // 찾는 동안 hold()로 알리면, 모으기는 그 칸들이 다 답할 때까지 한다 — 답이 언제 오든 꽉 찬 묶음. 답이 안 와도 HOLD_MAX_MS 뒤에는 보낸다.
 test('gather: cells still looking in the phone copy are waited for, so slow lookups do not split the first batches', async () => {
   const m = manual(), c = clock();
