@@ -4,7 +4,7 @@ import { noticeText } from './helpers/small-notice.mjs';
 import { start as newsStart, openNews } from './helpers/news-server.mjs';
 // HOME-읽을거리평가(사용자 2026-11-28 07:04 "홈화면 읽을 거리 왼쪽 스와이프 할 땐 엄지척 엄지다운 버튼 추가 학습해서 추후 추천에 반영"):
 // 홈 '읽을 만한 글'·읽을 거리 줄을 왼쪽으로 밀면 맨 왼쪽 평가 칸(위 [좋아요]·아래 [별로예요]). 누르면 서버 표 app_read_ratings에 한 값(지우고 넣기),
-// 다시 열어도(새로 고침 포함) 눌린 상태, 같은 단추를 다시 누르면 취소(지우기만). 줄은 목록에서 빠지지 않는다. PC는 우클릭 메뉴 맨 앞 [좋아요]·[별로예요](눌린 것은 ✓).
+// 다시 열어도(홈을 다시 열면 서버에서 다시 읽음) 눌린 상태, 같은 단추를 다시 누르면 취소(지우기만). 줄은 목록에서 빠지지 않는다. PC는 우클릭 메뉴 맨 앞 [좋아요]·[별로예요](눌린 것은 ✓).
 // 가짜 서버만 쓴다(글·매체 모두 가짜). 시계: 2026-10-06 19:30 KST(home-reads-swipe.spec.mjs와 같음).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const EVENING = '2026-10-06T10:30:00Z';
@@ -84,7 +84,7 @@ async function openRate(page, scope, row) {
 }
 const closeOpen = async (page, row) => { await touchTap(row); await expect(page.locator('.row-swipe-pair')).toHaveCount(0); };
 
-test('폰 412 홈: 밀면 맨 왼쪽 평가 칸 → [좋아요] 저장·다시 열어도(새로 고침) 눌림 → 다시 누르면 취소, [별로예요]로 바꾸기, 줄은 그대로', async ({ page }) => {
+test('폰 412 홈: 밀면 맨 왼쪽 평가 칸 → [좋아요] 저장·다시 열어도(홈 다시 열기, 다른 기기 값) 눌림 → 다시 누르면 취소, [별로예요]로 바꾸기, 줄은 그대로', async ({ page }) => {
   test.setTimeout(120000);
   const store = { rows: new Map(), calls: [] };
   const f = await bootHome(page, 412, 900, store);
@@ -109,9 +109,16 @@ test('폰 412 홈: 밀면 맨 왼쪽 평가 칸 → [좋아요] 저장·다시 �
   await expect(cells.like).toHaveAttribute('aria-pressed', 'true');
   await closeOpen(page, item(page, 1));
 
-  // 새로 고침해도 서버 값 그대로(기기 저장 없음).
-  await page.reload();
-  await expect(item(page, 1)).toBeVisible();
+  // 다시 열면 서버 값을 다시 읽는다(기기 저장 없음): 다른 기기에서 2번 글에 [좋아요] → 홈을 나갔다 돌아오면 2번도 눌린 채, 1번은 그대로.
+  store.rows.set(`news_article_id:${uid(2)}`, { news_article_id: uid(2), outside_article_id: null, rating: 1 });
+  const gets = store.calls.filter(c => c.method === 'GET').length;
+  await page.evaluate(() => window.KPTURouter.go('diary'));
+  await page.evaluate(() => window.KPTURouter.go('home'));
+  await expect.poll(() => store.calls.filter(c => c.method === 'GET').length).toBeGreaterThan(gets);
+  cells = await openRate(page, root, item(page, 2));
+  await expect(cells.like).toHaveAttribute('aria-pressed', 'true');
+  await closeOpen(page, item(page, 2));
+  store.rows.delete(`news_article_id:${uid(2)}`);
   cells = await openRate(page, root, item(page, 1));
   await expect(cells.like).toHaveAttribute('aria-pressed', 'true');
   await expect(cells.dislike).toHaveAttribute('aria-pressed', 'false');
