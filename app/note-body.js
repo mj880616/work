@@ -43,6 +43,15 @@ function zoomable(place, open, name) {
 // The note's photos: drive:<id> of a file in this note's attachments, shown through the owner-only photo view.
 const fileOf = (note, id) => (note?.attachments || []).find(f => f?.drive_file_id === id) || null;
 // 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
+// PHOTO-크게보기넘기기(S71-72): 본문에 놓인 사진(이 노트 첨부의 그림)을 본문 순서대로, 같은 사진은 한 번 — 크게 보기에서 서로 넘긴다.
+function bodyPhotos(box, note) {
+  const seen = new Set(), out = [];
+  for (const place of box.querySelectorAll('[data-ed-drive]')) {
+    const file = fileOf(note, place.dataset.edDrive);
+    if (file && /^image\//.test(file.mime_type || '') && !seen.has(file.drive_file_id)) { seen.add(file.drive_file_id); out.push(file); }
+  }
+  return out;
+}
 export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} = {}) {
   for (const place of box.querySelectorAll('[data-ed-drive]')) {
     const file = fileOf(note, place.dataset.edDrive);
@@ -58,7 +67,7 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
           retry: () => { img.remove(); load(); },
           onShown: () => {
             place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img);
-            if (onOpen) zoomable(place, () => onOpen(file, place), attachmentName(file, '사진'));
+            if (onOpen) zoomable(place, () => onOpen(file, place, bodyPhotos(box, note)), attachmentName(file, '사진'));
           },
         });
       }, () => { if (place.isConnected) slotFailed(place, load, 'photo'); });

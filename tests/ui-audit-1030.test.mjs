@@ -26,10 +26,11 @@ test('C4 체크칸 줄(내 프로필·원장)은 줄 전체 + 위아래 44px이 
   assert.match(css, /top:calc\(50% - var\(--kptu-touch-target,44px\) \/ 2\); height:var\(--kptu-touch-target,44px\); \}/);
 });
 
-test('C5 정리함 [다시 찾기]는 거르기 칩과 다른 글자 버튼(테두리·바탕 없음)', () => {
+// S71-29 FORGET-머리한줄: 최신화는 맨 위 줄 단추 상자의 ↻ 아이콘 단추(다른 머리 줄 아이콘 단추와 같은 흐린 색·바탕 없음).
+test('C5 정리함 최신화는 거르기 칩과 다른 아이콘 단추(테두리·바탕 없음)', () => {
   const css = noComments(read('basket.css'));
-  const find = css.match(/#appView #basketView \.inbox-find \{([^}]*)\}/)?.[1] || '';
-  assert.match(find, /border:0;/); assert.match(find, /background:transparent;/); assert.match(find, /color:var\(--kptu-primary-ink\)/);
+  const find = css.match(/\.forget-tools \.inbox-find \{([^}]*)\}/)?.[1] || '';
+  assert.match(find, /border:0;/); assert.match(find, /background:transparent;/); assert.match(find, /color:var\(--kptu-muted\)/);
   assert.doesNotMatch(css, /\.inbox-find,#appView #basketView \.inbox-chip \{/);
 });
 

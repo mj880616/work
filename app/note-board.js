@@ -62,6 +62,7 @@ import { iconSvg } from './tree-icons.js';
 import { slotLoading, slotImg, slotFailed } from './img-slot.js';
 import { unionBounds } from './note-board-export-model.mjs';
 import { bottomInset, keepInside } from './anchored-popup.js';
+import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78): 판 밖·판 빈 곳 누름·Esc·휠·한 번에 하나
 import { layoutBoard, topZ, movedTo, stepZoom, zoomAt, toBoard, fitView, visibleArea, rectsMeet, cardRect, folderTone, clampZoom, centerOn, FIT_MIN, CARD_W, CARD_H } from './note-board-model.mjs';
 import { bindMarquee } from './marquee-select.js';
 import { bindZoomPct } from './zoom-pct.js';
@@ -1747,7 +1748,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     document.body.append(el);
     el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) lineAction(b); });
     el.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeLineMenu({focus:true}); } });
-    menu = {el, id:null, layer:null};
+    menu = {el, id:null, release:null};
     return el;
   }
   const chip = (attr, value, text, on, label = '') => `<button type="button" class="ds-chip" ${attr}="${value}" aria-pressed="${on}"${label ? ` aria-label="${label}"` : ''}>${text}</button>`;
@@ -1767,7 +1768,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (menu.id !== id) menu.tintOpen = false;
     menu.id = id; el.innerHTML = menuHtml(l); el.hidden = false; menu.x = x; menu.y = y;
     placeMenu();
-    if (!menu.layer) menu.layer = window.KPTURouter?.layer?.open('note-board-line', {close:() => { menu.layer = null; closeLineMenu(); return true; }}) || null;
+    // 고른 선 자체·끝 동그라미는 메뉴를 연 채 바로 끈다(S69-91 끝 끌기, 선 끌어 굽히기) — 바깥이 아니다(누르면 판이 메뉴를 닫고 끌기 시작).
+    menu.release = holdMenu(el, {close:reason => closeLineMenu({focus:reason === 'esc'}), keep:t => !!t && !!lineEls.get(menu?.id)?.contains(t), back:'note-board-line'}); // 뒤로가기 = 닫기(겹 하나)
     el.querySelector('button')?.focus({preventScroll:true});
   }
   function placeMenu() {
@@ -1782,13 +1784,12 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
   }
   function closeLineMenu({focus = false} = {}) {
     if (!menu || menu.el.hidden) { if (lineSel) { const was = lineSel; lineSel = null; const o = links.find(k => k.id === was); if (o && lineEls.has(was)) paintLine(o); } return; }
-    const id = menu.id, layer = menu.layer; menu.el.hidden = true; menu.id = null; menu.layer = null; layer?.close();
+    const id = menu.id; menu.el.hidden = true; menu.id = null; menu.release?.(); menu.release = null;
     const was = lineSel; lineSel = null;
     const o = links.find(k => k.id === was); if (o && lineEls.has(was)) paintLine(o);
     if (focus && id) lineEls.get(id)?.querySelector('.nb-hit')?.focus({preventScroll:true});
   }
   function closeLineMenuIfOutside(target) { if (menu && !menu.el.hidden && !menu.el.contains(target)) closeLineMenu(); }
-  document.addEventListener('pointerdown', e => { if (menu && !menu.el.hidden && !menu.el.contains(e.target) && !box.contains(e.target) && !e.target.closest?.('.kptu-ask')) closeLineMenu(); }, true);
   async function lineAction(b) {
     const l = links.find(k => k.id === menu?.id); if (!l) { closeLineMenu(); return; }
     if (b.hasAttribute('data-nb-lm-tint')) { menu.tintOpen = !menu.tintOpen; refreshMenu(); return; } // 색 칸은 눌러야 펼침(메뉴를 작게)

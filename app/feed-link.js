@@ -22,7 +22,7 @@ export function linkBoxHtml(box, orgs, prefix) {
   return word`<div class="feed-link" data-${prefix}-link data-enter-save="[data-${prefix}-link-save]">
 <div class="feed-link-row"><span class="feed-link-label">조직</span><button type="button" class="feed-small" data-${prefix}-link-pick aria-haspopup="dialog" aria-expanded="false"${box.busy ? ' disabled' : ''}>${esc(name)} ▾</button></div>
 <label class="feed-link-label" for="${prefix}LinkSummary">조직 기록에 남길 요약 <span class="feed-faint">비우면 연결만</span></label>
-<textarea id="${prefix}LinkSummary" class="feed-link-text" data-${prefix}-link-text rows="4" maxlength="2000"${box.busy ? ' disabled' : ''}>${esc(box.summary)}</textarea>
+<textarea data-autogrow id="${prefix}LinkSummary" class="feed-link-text" data-${prefix}-link-text rows="4" maxlength="2000"${box.busy ? ' disabled' : ''}>${esc(box.summary)}</textarea>
 <div class="feed-link-actions"><span class="feed-status" role="status">${esc(box.status)}</span><button type="button" class="feed-small" data-${prefix}-link-cancel${box.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-${prefix}-link-save data-enter-save-submit${box.busy ? ' disabled' : ''}>저장</button></div>
 </div>`;
 }

@@ -1234,7 +1234,8 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   expect(asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
   expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 삭제하지 않으며');
   expect(state.trash.others.library_folder.length).toBe(2);
-  await first.locator('summary').click();
+  // [영구 삭제]를 누르면 ⋯ 메뉴는 닫힌다(STD-메뉴바깥닫기: 메뉴가 열린 채 바깥 [되돌리기]를 누르면 닫기만 하므로 열린 채 두지 않는다).
+  await expect(first.locator('details[open]')).toHaveCount(0);
   // 되돌리기는 그 종류로 가고, 이미 열려 있는 자료실에는 폴더 표를 다시 읽으라고 알린다.
   const told=await page.evaluate(()=>{window.__folderEvents=0;window.addEventListener('kptu:library-folders-changed',()=>{window.__folderEvents++});return true});expect(told).toBe(true);
   await first.locator('[data-ps3-trash-restore]').click();
@@ -1265,7 +1266,7 @@ test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·�
   expect(asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
   expect(asked).toContain('연결 2곳도 함께 삭제되고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
   expect(state.trash.others.note.length).toBe(2);
-  await first.locator('summary').click();
+  await expect(first.locator('details[open]')).toHaveCount(0); // [영구 삭제]를 누르면 ⋯ 메뉴는 닫힌다(STD-메뉴바깥닫기)
   // 되돌리기는 그 종류로 가고, 열려 있는 정리함에는 목록을 다시 읽으라고 알린다.
   await page.evaluate(()=>{window.__noteEvents=0;window.addEventListener('kptu:basket-notes-restored',()=>{window.__noteEvents++})});
   await first.locator('[data-ps3-trash-restore]').click();
@@ -1495,7 +1496,7 @@ async function openRecords(page,state){
   await expect(item.locator('[data-ps3-record-input]')).toHaveCount(0);
   return item;
 }
-async function editSummary(page,row){await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input}
+async function editSummary(page,row){await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input}
 test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({page})=>{
   const state=linkedState(),item=await openRecords(page,state);
   const record=item.locator('[data-basket-link="l-a"]');
@@ -1543,7 +1544,7 @@ for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e reco
   const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),row=b.closest('[data-basket-link]').getBoundingClientRect(),list=b.closest('[data-ps3-records]').getBoundingClientRect();return {w:r.width,h:r.height,right:Math.round(r.right),rowRight:Math.round(row.right),row:Math.round(row.width),list:Math.round(list.width)}});
   expect(page.viewportSize().width).toBe(width);expect(geometry.row).toBe(geometry.list);expect(geometry.right).toBe(geometry.rowRight);expect(geometry.w).toBeGreaterThanOrEqual(44);expect(geometry.h).toBeGreaterThanOrEqual(44);
   const r=await trigger.boundingBox();await page.mouse.click(r.x+r.width-4,r.y+4);await expect(panel).toBeVisible();
-  await expect(panel.locator('button')).toHaveText(['연결 해제','요약 수정']); // S71-57: [업데이트 열기] 없음
+  await expect(panel.locator('button')).toHaveText(['수정','메모','삭제']); // S71-71 RECORD-기록하나로: 기록 ⋯ 한 벌
   for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
   const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();

@@ -124,10 +124,10 @@ for (const width of [412, 884, 1440]) {
     const extra = s.calls.slice(before).filter(c => !c.startsWith('app_outside_articles?') || !c.includes('select=body_ko'));
     expect(extra.filter(c => !/^(app_now_signals|app_feed_reads|app_news_highlights|app_outside_now_signals|app_outside_reads|app_outside_article_marks|app_outside_marks|rpc\/app_outside_article_of)/.test(c))).toEqual([]);
 
-    // ⋯ 작은 메뉴: [모두 선택][복사][공유][원문 다시 가져오기](S69-02 — 다 읽은 글도 메뉴에) 차례.
+    // ⋯ 작은 메뉴: [모두 선택][복사][공유][원문 다시 가져오기](S69-02 — 다 읽은 글도 메뉴에)[수정](S71-68 ② — 사회운동 글에도) 차례.
     await d.locator('[data-nd-ob-more]').click();
     await expect(menuBox(page)).toBeVisible();
-    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '공유', '원문 다시 가져오기']);
+    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '공유', '원문 다시 가져오기', '수정']);
     await expect(menuBox(page).locator('button').first()).toHaveClass(/row-act/);
     await menuBox(page).getByRole('button', { name: '모두 선택' }).click();
     await expect(menuBox(page)).toBeHidden();
@@ -148,7 +148,7 @@ for (const width of [412, 884, 1440]) {
     // 공유 창이 없는 화면(폰 앱 WebView 등)에는 [공유]를 두지 않는다.
     await page.evaluate(() => { navigator.share = undefined; });
     await d.locator('[data-nd-ob-more]').click();
-    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '원문 다시 가져오기']);
+    await expect(menuBox(page).locator('button')).toHaveText(['모두 선택', '복사', '원문 다시 가져오기', '수정']);
     await page.keyboard.press('Escape');
     await expect(menuBox(page)).toBeHidden();
 

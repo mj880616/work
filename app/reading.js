@@ -15,11 +15,12 @@
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
-import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
+import {loadHighlights, highlightsNow, sourceHighlights, sourceMarks, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu, markActions} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
 import {requestNewsOpen} from './news-request.mjs';
+import {openOnScreen} from './source-open.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 import {createNoteDoc} from './basket-data.js';
 import {bindSelectZone} from './text-select-bar.js';
@@ -277,8 +278,8 @@ function openMark(h) {
     return;
   }
   if (h.source_type === 'note') { requestBasketNote(h.source_id); void window.KPTURouter?.openFrom?.('basket')?.catch?.(() => {}); return; }
-  if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; window.KPTURouter?.go?.('brief', {source: 'delegated'}); return; }
-  if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) window.KPTURouter?.go?.('news', {source: 'delegated'});
+  if (h.source_type === 'brief') { window.KPTUBriefOpen = {id: h.source_id, highlight: h.id}; void openOnScreen('brief'); return; }
+  if (requestNewsOpen({type: h.source_type, id: h.source_id, highlight: h.id})) void openOnScreen('outside');
 }
 
 // ---------- 보기 ----------
@@ -349,7 +350,7 @@ function drawDetail() {
   }
   // News에서 온 줄은 그 기사·성명에 News에서 그은 밑줄도 같이 칠한다(같은 원문 사본 — 글자로 찾아 칠함).
   const lk = linkOf(row);
-  const marks = [...sourceHighlights('reading', row.id), ...(lk ? sourceHighlights(lk.type, lk.id) : [])];
+  const marks = [...sourceMarks('reading', row.id), ...(lk ? sourceMarks(lk.type, lk.id) : [])]; // S70-80: 밑줄 + 형광펜(글 안 표시)
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
   prose.dataset.textSizeTarget = '';
@@ -536,7 +537,7 @@ async function makeNote(id) {
   if (!note?.id) return;
   const router = window.KPTURouter;
   notify(made.cut ? '노트로 만들었어요 · 긴 글이라 앞부분만 넣었어요' : '노트로 만들었어요', {record: false,
-    actions: [{label: '열기', run: ({close}) => { close(); requestNoteDocOpen(note.id); router?.go?.('basket', {source: 'delegated'}); }}]});
+    actions: [{label: '열기', run: ({close}) => { close(); requestNoteDocOpen(note.id); void openOnScreen('basket'); }}]});
 }
 async function marksToNote(id) {
   const marks = sourceHighlights('reading', id);
@@ -733,7 +734,7 @@ function bind() {
   if (listBox) { bindSwipe(v); bindRows(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
-  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});
+  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection, marks: markActions}); // S70-80: 형광펜 켬
   onHighlights(() => { if (window.KPTURouter?.current === 'reading') draw(); });
   // 노트 폴더 잠금이 풀리거나 잠기면 [밑줄] 탭의 노트 밑줄이 바뀐다(노트 › 밑줄과 같게).
   window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'reading') drawList(); });
@@ -769,4 +770,4 @@ install(); bind();
 state.filter = filterFromUrl();
 window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
 void refresh().then(takeAsked);
-window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else window.KPTURouter?.go?.('reading'); }};
+window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

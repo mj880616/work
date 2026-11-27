@@ -13,6 +13,7 @@ import { menuItemsHtml, fileAttrs } from './file-actions.js';
 import { bindPhotoTileMenus } from './photo-fold.js';
 import {partStyles} from './part-styles.js';
 import { recordLocked } from './basket-link-records.js';
+import { iconSvg } from './tree-icons.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
 await partStyles('record-files');
 
@@ -52,7 +53,9 @@ export function recordFilesHtml(row, {open = false} = {}) {
   // 넘치면 [+n](누르면 이 화면 메모리에서만 나머지를 편다). 사진만 있는 기록(data-record-only-photos)은 그림 옆에 기록 한 줄(말줄임 — 자동 줄이면 '그림 1장 · 파일 이름').
   const hiddenCount = open ? 0 : Math.max(0, pictures.length - THUMBS);
   const photos = pictures.length ? `<div class="record-photos" data-record-photos="${note}"${open || !hiddenCount ? ' data-all' : ''}><div class="record-photo-thumbs">${thumbs}${hiddenCount ? `<button type="button" class="ds-chip record-photos-more" data-record-photos-more aria-label="사진 ${hiddenCount}장 더 보기">+${hiddenCount}</button>` : ''}</div></div>` : '';
-  return `<div class="record-files" data-record-files="${note}"${rest.length ? '' : ' data-record-only-photos'}>${items}${more > 0 ? `<span class="record-files-more">외 ${more}개</span>` : ''}${photos}</div>`;
+  // UI-기록줄균일(S70-85): 기록 줄이 접혀 있는 동안은 파일 이름 띠 대신 작은 클립 + 개수만(같은 줄 높이 안, 모양은 각 목록 CSS). 펴면 이름 띠.
+  const count = rest.length ? `<span class="record-files-count" data-record-files-count role="img" aria-label="파일 ${rest.length}개">${iconSvg('clip', {size:13})}${rest.length}</span>` : '';
+  return `<div class="record-files" data-record-files="${note}"${rest.length ? '' : ' data-record-only-photos'}>${count}${items}${more > 0 ? `<span class="record-files-more">외 ${more}개</span>` : ''}${photos}</div>`;
 }
 
 // ORG-기록첨부이름반영: 이름 바뀜 알림('kptu:file-renamed')을 그 화면이 들고 있는 기록 줄들(rows)에 반영한다. 바뀐 줄의 id 목록.
@@ -116,7 +119,9 @@ export function bindRecordFiles(host, getRows, {rt = window.KPTURuntime, onError
     const row = getRows().find(r => r.note_id === el.dataset.recordNote);
     const id = el.dataset.recordPhoto || el.dataset.recordFile, file = filesOf(row).find(f => f.drive_file_id === id);
     if (!row || !file) return;
-    if (el.dataset.recordPhoto) { openPhotoView({row:{id:row.note_id}, file, trigger:el, rt}); return; }
-    void pressFile({name:attachmentName(file), mime:file.mime_type, driveId:id, noteId:row.note_id}, {viewPhoto:() => openPhotoView({row:{id:row.note_id}, file, trigger:el, rt}), onError});
+    // PHOTO-크게보기넘기기(S71-72): 같은 기록 줄의 사진끼리 넘긴다(그림 줄과 같은 순서 — splitPictures).
+    const files = splitPictures(filesOf(row), isPicture).pictures;
+    if (el.dataset.recordPhoto) { openPhotoView({row:{id:row.note_id}, file, files, trigger:el, rt}); return; }
+    void pressFile({name:attachmentName(file), mime:file.mime_type, driveId:id, noteId:row.note_id}, {viewPhoto:() => openPhotoView({row:{id:row.note_id}, file, files, trigger:el, rt}), onError});
   });
 }

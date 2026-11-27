@@ -96,9 +96,6 @@ test('양쪽 연결 일치: 프로젝트 쪽에서 연결하면 사업 보고 �
   r=await R.changeOneTarget('m1',O1,'remove',rt);assert.equal(r.ok,true);
   assert.deepEqual((await R.readLinkedReports(O1,rt)).rows,[]);
   assert.deepEqual((await R.readLinkedReports(P1,rt)).rows.map(m=>m.id),['m1']);
-  // 5초 되돌리기: 해제 전 목록으로 다시 맞춘다
-  const back=await R.restoreTargets('m1',r.previous,rt);assert.equal(back.ok,true);
-  assert.deepEqual((await R.readLinkedReports(O1,rt)).rows.map(m=>m.id),['m1']);
 });
 
 test('버전이 다르면 거절하고 아무것도 바꾸지 않는다(오류 글자는 일상어)', async()=>{

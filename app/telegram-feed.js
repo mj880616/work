@@ -24,7 +24,7 @@ import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from 
 import {askConfirm} from './small-notice.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {bindRowSwipe, EDIT, DELETE} from './row-swipe.js';
-import {paintMarks, bindMarks, sourceHighlights, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceMarks, markActions, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark} from './text-highlights.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender, setSenderSelf} from './tg-sender-data.js';
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
@@ -70,10 +70,10 @@ install();
 // S53-5 NEWS-밑줄모으기: 소식 원문([data-tg-raw])에서 글을 고르면(끌기·⋯ [원문 모두 선택]) 하단바 위 공용 줄 [밑줄 저장][노트로][복사][공유] ✕(text-select-bar.js).
 // 출처 = 방 이름·시각. 저장한 밑줄은 원문을 그린 뒤 노란 바탕(text-highlights.js paintMarks), 누르면 메모·노트로·복사·지우기. 모아보기는 News [밑줄] 탭.
 const tgSource = el => { const r = itemOf(el.closest('[data-tg-di]')?.dataset.tgDi || ''); return r ? {type:'telegram', id:r.id, title:oneLineOf(r.room_label) || '텔레그램', media:'텔레그램', date:r.occurred_at || null, url:''} : null; };
-bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSave:saveFromSelection, onNote:noteFromSelection});
+bindSelectZone($('#telegramView'), {zone:'[data-tg-raw]', source:tgSource, onSave:saveFromSelection, onNote:noteFromSelection, marks:markActions}); // S70-80: 형광펜 켬
 bindMarks($('#telegramView'));
 // 원문 칸마다 그 소식의 밑줄을 칠한다(칸은 paintDetail·paintRoomDetail이 그린 그대로, 글자 마디만 감쌈).
-function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceHighlights('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
+function paintTgMarks(box) { for (const el of box?.querySelectorAll('[data-tg-di] [data-tg-raw]') || []) paintMarks(el, sourceMarks('telegram', el.closest('[data-tg-di]').dataset.tgDi)); }
 onHighlights(() => { const box = $('#tgDetail'); if (box && !box.hidden) { paintTgMarks(box); revealTg(box); } });
 // S61-51a NEWS-밑줄모으기: News [밑줄] 탭에서 연 텔레그램 밑줄(reveal = 밑줄 id). 원문이 그려지고 밑줄이 칠해지면 그 자리로 한 번 옮기고 잠깐 밝힌다
 // (뉴스·사회운동 원문과 같은 revealMark). 그 밑줄이 6줄 접힘 안이면 그 줄을 펼친 뒤 옮긴다. 다른 방·날을 열면 잊는다.
@@ -293,7 +293,7 @@ function paint() {
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:wide && open ? name || null : null}}));
   mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !!(state.sel || state.rsel) && !view()?.classList.contains('hidden')});
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 방 상세 칸은 화면에 붙어 따라오고, 다른 방·날을 고르면 머리부터 보인다.
-  if (wide && open) { const key = state.rsel ? 'room:' + state.rsel : rdKey(state.sel.room, state.sel.day); followPane($('#tgDetail'), {reset: followed !== key}); followed = key; }
+  if (wide && open) { const key = state.rsel ? 'room:' + state.rsel : rdKey(state.sel.room, state.sel.day); followPane($('#tgDetail'), {reset: followed !== key, under: () => $('#tgList > .feed-head')}); followed = key; }
   refreshScreenFind();
 }
 const TG_WAIT = '\u0000wait'; // UI-기다림표시통일 2차: 이전 날을 찾는 동안은 글자 없는 회색 칸
@@ -461,7 +461,7 @@ function sumeditHtml(se) {
   const dis = se.busy ? ' disabled' : '';
   const head = se.kind === 'day' ? `<textarea rows="1" class="feed-edit-input" data-tg-se-head data-autogrow data-enter-field="single" autocomplete="off" aria-label="목록에 보이는 한 줄" placeholder="목록에 보이는 한 줄 (${SUMEDIT.HEADLINE_MAX}자까지)"${dis}>${esc(se.headline)}</textarea>` : '';
   const rows = se.kind === 'day' ? Math.min(10, Math.max(4, se.value.split('\n').length + 1)) : 3;
-  const area = `<textarea class="feed-edit-input feed-se-area" data-tg-se-text rows="${rows}" aria-label="${se.kind === 'day' ? '그날 요약 (한 줄에 요약 한 줄)' : '요약'}" autocomplete="off"${dis}>${esc(se.value)}</textarea>`;
+  const area = `<textarea data-autogrow class="feed-edit-input feed-se-area" data-tg-se-text rows="${rows}" aria-label="${se.kind === 'day' ? '그날 요약 (한 줄에 요약 한 줄)' : '요약'}" autocomplete="off"${dis}>${esc(se.value)}</textarea>`;
   const orig = se.edited ? `<button type="button" class="feed-text-btn feed-se-orig" data-tg-se-orig${dis}>초안으로 되돌리기</button>` : '';
   return `<div class="feed-se" data-tg-se data-enter-save="[data-tg-se-save]">${head}${area}<div class="feed-se-actions">${orig}<span class="feed-status" role="status">${esc(se.status)}</span><button type="button" class="feed-small" data-tg-se-cancel${dis}>취소</button><button type="button" class="feed-small primary" data-tg-se-save${dis}>저장</button></div></div>`;
 }

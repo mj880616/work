@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
+import {noteAction,openBasketNote} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
 import {noteTrash} from './helpers/note-trash.mjs';
@@ -9,7 +9,8 @@ import { pickBasketView } from './helpers/forget-view.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
-const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 업데이트는 남아요'};
+// S71-71 RECORD-기록하나로: 기록 줄 ⋯ [삭제] = 그 기록(연결 줄)만 지우기, 원문 업데이트는 그대로.
+const DISCONNECT={organization:'이 기록을 삭제할까요?'};
 const more=row=>row.getByRole('button',{name:'기록 메뉴',exact:true});
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.tap();}else await locator.click();}
 // basket-files note-delete model: trash count comes from the test, the note and its links go away like the real cascade.
@@ -29,13 +30,13 @@ async function open(page,kind){await page.evaluate(kind=>{const s=window.__detai
 const ids=page=>page.evaluate(()=>window.__detailState.ids);
 const deletes=page=>page.evaluate(()=>(window.__detailState.deletes||[]).map(path=>{const u=new URL(path,'https://fixture.invalid');return {table:u.pathname.split('/').pop(),params:Object.fromEntries(u.searchParams)};}));
 
-for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} disconnect removes only that link row ${width}`,async({page},info)=>{
+for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} record [삭제] removes only that link row ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,kind),{link,nullLink,note}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await expect(more(row)).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  if(width===390&&kind==='organization'){await row.scrollIntoViewIfNeeded();await row.screenshot({path:info.outputPath('link-record-line-390.png')});}
  const messages=[];
- await linkAction(row,'연결 해제',{tap:width<761});messages.push(await answerAsk(page,true));
+ await linkAction(row,'삭제',{tap:width<761});messages.push(await answerAsk(page,true));
  await expect(row).toHaveCount(0);expect(messages).toEqual([DISCONNECT[kind]]);
  await expect(host.locator(`[data-basket-link="${nullLink}"]`)).toBeVisible();await expect(host.locator('[data-basket-link]')).toHaveCount(2);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+link,workspace_id:'eq.detail-workspace',select:'id'}}]);
@@ -43,38 +44,20 @@ for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} d
  await expect.poll(()=>page.evaluate(()=>window.__linkEvents)).toBeGreaterThan(0);expect(errors).toEqual([]);
 });
 
-for(const kind of ['organization'])test(`${kind} cancel on either confirmation changes nothing`,async({page})=>{
+for(const kind of ['organization'])test(`${kind} cancel on the confirmation changes nothing`,async({page})=>{
  const errors=await ready(page),host=await open(page,kind),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- for(const name of ['연결 해제','원문 삭제']){await linkAction(row,name);await answerAsk(page,false);await expect(more(row)).toBeEnabled();await expect(more(row)).toBeFocused();}
+ for(const name of ['삭제']){await linkAction(row,name);await answerAsk(page,false);await expect(more(row)).toBeEnabled();await expect(more(row)).toBeFocused();}
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(row.locator('[data-link-action-status]')).toBeHidden();expect(await deletes(page)).toEqual([]);
  expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`organization original delete moves the update to the trash, says so with undo and removes that note's rows ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'organization'),{link,note}=await ids(page);
- const messages=[];
- await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제',{tap:width<761});messages.push(await answerAsk(page,true));
- await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');
- expect(messages).toEqual(['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.']);
- // 예전 서버 note-delete 경로는 쓰지 않고, owner-RLS DELETE 한 번만 보낸다(서버 가로채기가 휴지통 표시로 바꿈).
- expect(page.__posts).toEqual([]);
- expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);
- expect(await page.evaluate(()=>window.__detailState.trashed.map(n=>n.id))).toEqual([note]);
- const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('업데이트를 휴지통으로 옮겼어요.');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
- // Headless screenshots never include the native confirm; redraw its exact received text for the report capture.
- if(width===390){await page.evaluate(text=>{const box=document.createElement('div');box.setAttribute('style','position:fixed;left:16px;right:16px;top:30%;z-index:9999;background:#fff;border:1px solid #888;border-radius:12px;padding:16px;font:15px/1.5 sans-serif;white-space:pre-line');box.textContent=text;document.body.append(box);},messages[0]);await page.screenshot({path:info.outputPath('note-trash-confirm-390.png')});await page.evaluate(()=>document.body.lastElementChild.remove());}
- await notice.getByRole('button',{name:'되돌리기'}).click();
- await expect(host.locator('[data-basket-link]')).toHaveCount(3);
- expect(await page.evaluate(()=>window.__detailState.restores)).toEqual([note]);expect(await page.evaluate(()=>window.__detailState.trashed)).toEqual([]);expect(errors).toEqual([]);
-});
-
-test('organization original delete before the database is ready explains and sends nothing',async({page})=>{
+// S71-71 RECORD-기록하나로: 기록 줄에서 원문(업데이트)을 휴지통에 보내는 길은 없다 — ⋯에 [원문 삭제]가 없고 원문 쓰기도 없다.
+test('organization record ⋯ has no original delete; the update itself is never deleted from a record line',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- await page.evaluate(()=>{window.__detailState.trashMode='missing';});
- page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});await linkAction(row,'원문 삭제');
- await expect(row.locator('[data-link-action-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없어요.');
- await expect(host.locator('[data-basket-link]')).toHaveCount(3);expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(errors).toEqual([]);
+ await more(row).click();await expect(page.locator('#basketLinkMenu')).toBeVisible();
+ await expect(page.locator('#basketLinkMenu button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);
+ await expect(page.locator('#basketLinkMenu').getByRole('button',{name:'원문 삭제'})).toHaveCount(0);await page.keyboard.press('Escape');
+ expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(errors).toEqual([]);
 });
 
 for(const width of [390,1280])test(`project basket rows are plain records (no link to the memo) and offer no summary edit or original delete ${width}`,async({page})=>{
@@ -84,30 +67,30 @@ for(const width of [390,1280])test(`project basket rows are plain records (no li
  expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(3);expect(errors).toEqual([]);
 });
 
-for(const name of ['연결 해제','원문 삭제'])test(`${name} failure keeps the row and explains in plain words`,async({page})=>{
+for(const name of ['삭제'])test(`record ${name} failure keeps the row and explains in plain words`,async({page})=>{
  const errors=await ready(page,{fail:true}),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await page.evaluate(()=>window.__detailState.failDelete=403);await linkAction(row,name);await answerAsk(page,true);
- await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'업데이트를 삭제하지 못했어요. 다시 시도해 주세요.');
+ await expect(row.locator('[data-link-action-status]')).toHaveText('기록을 삭제하지 못했어요. 다시 시도해 주세요.');
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(more(row)).toBeEnabled();expect(errors).toEqual([]);
 });
 
 test('lost delete response is re-read and shows the real state',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page);
- await page.evaluate(()=>window.__detailState.loseDeleteResponse=true);await linkAction(host.locator(`[data-basket-link="${link}"]`),'연결 해제');await answerAsk(page,true);
+ await page.evaluate(()=>window.__detailState.loseDeleteResponse=true);await linkAction(host.locator(`[data-basket-link="${link}"]`),'삭제');await answerAsk(page,true);
  await expect(host.locator(`[data-basket-link="${link}"]`)).toHaveCount(0);await expect(host.locator('[data-basket-link]')).toHaveCount(2);expect(errors).toEqual([]);
 });
 
-test('an open summary edit blocks disconnect without a dialog',async({page})=>{
+test('an open record edit blocks delete without a dialog',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- await linkAction(row,'요약 수정');await row.locator('textarea').fill('작성 중');page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});
- await linkAction(row,'연결 해제');await expect(row.locator('[data-link-action-status]')).toHaveText('요약 수정을 먼저 저장하거나 취소해 주세요.');
+ await linkAction(row,'수정');await row.locator('textarea').fill('작성 중');page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});
+ await linkAction(row,'삭제');await expect(row.locator('[data-link-action-status]')).toHaveText('수정을 먼저 저장하거나 취소해 주세요.');
  await expect(row.locator('textarea')).toHaveValue('작성 중');expect(await deletes(page)).toEqual([]);expect(errors).toEqual([]);
 });
 
 test('a late disconnect result never paints into another opened organization',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page);
  await page.evaluate(id=>{const s=window.__detailState;s.holdTable='app_record_links';s.holdTarget='id=eq.'+id;},link);
- const button=more(host.locator(`[data-basket-link="${link}"]`));await linkAction(host.locator(`[data-basket-link="${link}"]`),'연결 해제');await answerAsk(page,true);await expect(button).toBeDisabled();
+ const button=more(host.locator(`[data-basket-link="${link}"]`));await linkAction(host.locator(`[data-basket-link="${link}"]`),'삭제');await answerAsk(page,true);await expect(button).toBeDisabled();
  await expect.poll(()=>page.evaluate(()=>typeof window.__detailState.release)).toBe('function');
  await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.otherOrg));await expect(page.locator('#wdTitle')).toHaveText('다른 담당조직');
  await page.evaluate(()=>{const s=window.__detailState;s.holdTable=null;s.release();});
@@ -133,7 +116,7 @@ async function basket(page,{fail=0,mode='ok'}={}){
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{const u=new URL(r.request().url()),q=u.searchParams.get('note_id');if(!q)return r.fallback();const wanted=q.startsWith('eq.')?[q.slice(3)]:q.slice(4,-1).split(',');return r.fulfill({json:links.filter(l=>wanted.includes(l.note_id)&&(!u.searchParams.get('status')||l.status==='confirmed'))});});
  return {notes,links,writes,posts,errors,trash};
 }
-async function openNote(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await showBasketRow(page,'n');await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
+async function openNote(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await openBasketNote(page,'n',width<761?l=>l.tap():null);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
 // TRASH-다른삭제 5단계: 업데이트 [삭제]는 휴지통으로 간다. 확인창 글, '휴지통으로 옮겼어요 · 되돌리기' 한 줄, 되돌리면 목록에 다시 나타남.
 const CONFIRM='업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 1곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래 자리로 돌아옵니다.';
@@ -154,8 +137,9 @@ for(const width of [390,1280])test(`basket read view moves the update to the tra
  await notice.getByRole('button',{name:'되돌리기'}).click();
  await expect(notice).toContainText('되돌렸습니다.');
  expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:'n'}]);
- await pickBasketView(page,'classified');await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
- // UI-바구니거르기 → S52-20: the kept memo (no link) sits in 처리 전 (= 미분류). Checked after the undo (the view menu takes a moment, the notice would time out).
+ // S71-58 FORGET-처리전만: 되살린 메모는 연결이 있어(처리한 것) 처리 전 목록에는 없다.
+ await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
+ // UI-바구니거르기 → S52-20: the kept memo (no link) sits in 처리 전 (= 미분류).
  await pickBasketView(page,'unclassified');await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
  if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);

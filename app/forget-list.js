@@ -7,7 +7,9 @@
 //   PC는 마우스 올린 줄·초점 줄에만 전부(notice-box.mjs·ui-standard.css). 줄 버튼과 메뉴 항목은 같은 길 rowAct 하나.
 //   [조직]은 담당조직 고르기 창(맨 위에 '조직 › ○○에 넣기' — 줄의 조직이 내 담당조직과 맞을 때 한 번에), [사업]은 사업 고르기 창이고,
 //   고르면 기존 기록 길(quick-save.js 담당조직 기록 → 이번 주 조직보고 제안 / 사업 기록 → 사업 보고·주간보고 사업 칸)로 넣는다.
-// - 위 오른쪽 [처리 전 ▾] 하나(공용 작은 메뉴 anchored-menu.js): 처리 전·보냄·이미 함·무시·연결 완료(업데이트), 아래쪽에 출처 거르기.
+// - FORGET-처리전만(S71-58, 사용자 결정 2026-11-26 "들어온 걸 쳐내는 게 중요하지 기록 관리는 별로 안 중요함"): 보기·출처 거르기([처리 전 ▾])는 없다.
+//   목록은 늘 처리 전 줄만(출처 구분 없이 한 목록, 새 것이 위). 처리하면 그 줄은 바로 빠지고, 아래 공용 되돌리기 알림 하나(offerUndoNotice)로만 되돌린다.
+//   처리한 줄을 다시 모아 보는 화면·메뉴는 두지 않는다(처리 상태 값·출처 데이터는 서버에 그대로).
 // - 서버·원본·버튼 동작은 그대로다. 챙길 것·텔레그램 줄은 기존 후보 길(todo-radar-data.js, 소유자 RLS 표), 가족 줄은 기존 잊지 말기 길
 //   (family-notes-data.js, 서버 운영자 기능 family + 소유자 RLS — 화면 숨김은 보안이 아니다), 업데이트 줄은 정리함(basket.js)의 기존 길에 맡긴다
 //   (basket.js가 줄 재료를 set으로 넘기고, 업데이트 줄의 버튼은 onUpdateAct로 돌려준다).
@@ -27,7 +29,7 @@ import {seoulDateKey} from './meeting-time.js';
 import {compileFind} from './find-match-model.mjs'; // S70-67 SEARCH-비슷한것찾기: 공용 판정(화면에서는 screen-find.js findFor, 순수 시험에서는 같은 규칙 그대로)
 import {dueLabel} from './task-due.mjs';
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markDone, markTasked, markNotMine, undoNotMine, candidateToTask, validateTaskDraft,
-  notPlanned, quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, autoDone, AUTO_DONE_LABEL, starredCandidate, bundleDay} from './todo-radar-data.js';
+  notPlanned, quickDue, radarScope, RADAR_SOURCE_LABEL, logFeedback, dropFeedback, ledgerRequestText, linkCandidateToTask, unlinkCandidate, dropCandidateOnly, taskLinks, sourceText, starredCandidate, bundleDay} from './todo-radar-data.js';
 import {similarTasks} from './todo-link-model.mjs';
 import {FIRM_LABEL, draftOf, metaLine, noteLine} from './family-notes-model.mjs';
 import {decide as decideFamily, hasFamily, readNotes} from './family-notes-data.js';
@@ -37,14 +39,9 @@ import {word} from './brand/brand.mjs';
 const CHANGED = 'kptu:todo-radar-changed';
 // FORGET-노트고르기: 업무 줄 [노트]의 처음 폴더(맨 위 폴더 이름, 없으면 폴더 없음).
 export const WORK_NOTE_FOLDER = '01. 업무메모';
-// 보기(처리 상태)와 출처. 이름은 시안 그대로.
-export const FORGET_VIEWS = Object.freeze([['open', '처리 전'], ['tasked', '보냄'], ['done', '이미 함'], ['dismissed', '무시'], ['linked', '연결 완료']]);
-export const FORGET_SOURCES = Object.freeze([['all', '모든 출처'], ['telegram', '텔레그램'], ['news', '소식'], ['family', '가족'], ['update', '업데이트'], ['todo', 'AI 제안']]);
+// 줄 앞 흐린 출처 꼬리표(거르기가 아니라 어디서 왔는지 보이기만).
 export const SOURCE_TAG = Object.freeze({telegram: '텔레그램', news: '소식', family: '가족', update: '업데이트', todo: 'AI 제안', promise: '상대 약속'});
-// FORGET-소식합치기: 소식 줄이 그 보기에 드는가(처리 전 = suggested, 연결 완료 = 조직·사업에 넣음 kept, 무시 = dropped).
-export const NEWS_VIEW = Object.freeze({open: 'suggested', linked: 'kept', dismissed: 'dropped'});
-// 처리 전은 새 기준(AI가 종류를 정한) 줄만 — 빨간 숫자와 같은 기준(forget-news-data.js openNews). picks: 종류를 읽을 수 있었는가.
-export const newsFor = (view, rows, picks = false) => view === 'open' ? openNews(rows, picks) : (rows || []).filter(r => NEWS_VIEW[view] && r.status === NEWS_VIEW[view]);
+// 소식 줄은 처리 전(suggested) 중 새 기준(AI가 종류를 정한) 줄만 — 빨간 숫자와 같은 기준(forget-news-data.js openNews).
 // AI가 정한 종류 → 굵게 보일 버튼(같은 이름). 누르는 건 사람이다.
 export const NEWS_HINT = Object.freeze({task: 'task', event: 'event', note: 'note', org: 'org', area: 'area'});
 // S61-11: 상대 약속 소식 줄의 버튼. 받음 = 상대가 해 줌(소식 '처리함'), 무시 = 소식 '무시'. 둘 다 되돌리기 있음.
@@ -52,7 +49,6 @@ export const PROMISE_NEWS_ACTS = Object.freeze([['ledger', '원장으로'], ['do
 // 상대 약속 소식 → 원장 쓰기요청 글(챙길 것 약속과 같은 모양, 근거는 출처 이름만 — 사람 이름·연락처 없음).
 export const promiseNewsLedger = r => ledgerRequestText({summary: newsText(r), due: '', evidence: '', source_kind: '', source_day: r?.day || ''})
   .replace('- 출처: 노동조합+ 기록', `- 출처: 노동조합+ 소식(${r?.source === 'telegram' ? '텔레그램' : '통화'})`);
-export const newsDone = r => { const d = shortDay(r.decidedAt ? seoulDateKey(new Date(r.decidedAt)) : ''); const t = r.status === 'kept' ? '처리함' : '무시함'; return d ? `${t} · ${d}` : t; };
 
 const shortDay = v => { const m = String(v ?? '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${Number(m[1])}/${Number(m[2])}` : ''; };
 const cut = (v, n) => [...String(v ?? '')].slice(0, n).join('');
@@ -60,43 +56,24 @@ export const candidateSource = c => c?.source_kind === 'telegram' ? 'telegram' :
 // 아래 작은 줄 왼쪽 글(출처 꼬리표 뒤). 텔레그램: 방 이름 · 날짜 · 기한. 챙길 것: '업데이트에서' 같은 원래 기록 · 날짜 · 기한.
 export function candidateMeta(c) {
   const from = c?.source_kind === 'telegram' ? (c?.tg?.room_label || '') : RADAR_SOURCE_LABEL[c?.source_kind] ? `${RADAR_SOURCE_LABEL[c.source_kind]}에서` : '';
-  return [from, shortDay(c?.source_day), c?.status === 'open' && dueLabel(c?.due) ? `기한 ${dueLabel(c.due)}` : ''].filter(Boolean).join(' · ');
+  return [from, shortDay(c?.source_day), dueLabel(c?.due) ? `기한 ${dueLabel(c.due)}` : ''].filter(Boolean).join(' · ');
 }
 // 할 일·일정·노트 창에 미리 채울 글. 날짜는 바꾸지 않는다(명진이 창에서 고름).
 export const candidateDraft = c => ({title: cut(plainText(c?.summary), 100), // S59-20: 제목에는 마크다운 기호(`**`)를 넣지 않는다
   memo: [c?.source_kind === 'telegram' ? '텔레그램' : RADAR_SOURCE_LABEL[c?.source_kind] || '', c?.tg?.room_label || '', shortDay(c?.source_day)].filter(Boolean).join(' · ')});
-const decidedDay = c => c?.decided_at && Number.isFinite(Date.parse(c.decided_at)) ? dotDay(seoulDateKey(new Date(c.decided_at))) : '';
-const alreadyDropped = c => c.status === 'dismissed' && c.outcome === 'already_tasked';
-// 처리한 후보 줄의 오른쪽 상태 글.
-export function candidateDone(c) {
-  const day = decidedDay(c), at = t => day ? `${t} · ${day}` : t;
-  if (c.outcome === 'already_tasked' && (c.status === 'tasked' || c.status === 'dismissed')) return at('이미 할 일에 있음');
-  if (c.status === 'dismissed') return at(c.outcome === 'not_mine' ? '내 일 아님' : '무시함');
-  // FORGET-이미한일빼기: 텔레그램에서 내가 이미 답해 서버가 저절로 옮긴 줄은 까닭 꼬리표 '답장함'(이미 함 보기에서만 보임).
-  // FORGET-기본이미함: 하루 지나도 손대지 않아 저절로 옮긴 줄은 '지남'.
-  if (c.status === 'done') { const why = AUTO_DONE_LABEL[autoDone(c)]; return at(why ? `이미 함 · ${why}` : '이미 함'); }
-  const due = c.task_due ? dotDay(c.task_due) : '';
-  return due ? `할 일로 보냄 · ${due}` : '할 일로 보냄';
-}
-// 보기마다 그 보기에 드는 후보(새 것이 위: 처리 전은 만든 때, 그 밖은 처리한 때).
-export function candidatesFor(view, rows, taskTitles = []) {
-  if (view === 'open') return notPlanned(rows.filter(r => r.status === 'open'), taskTitles);
-  if (view === 'tasked') return rows.filter(r => r.status === 'tasked' || alreadyDropped(r));
-  if (view === 'dismissed') return rows.filter(r => r.status === 'dismissed' && !alreadyDropped(r));
-  if (view === 'done') return rows.filter(r => r.status === 'done');
-  return [];
-}
+// 처리 전 후보(새 것이 위, 만든 때). 이미 할 일 목록에 같은 제목이 있는 줄은 뺀다(notPlanned).
+export const openCandidates = (rows, taskTitles = []) => notPlanned((rows || []).filter(r => r.status === 'open'), taskTitles);
 // 여러 출처의 줄을 새 것이 위로 하나로(같은 때는 들어온 순서 그대로).
 export const newestFirst = items => items.map((x, i) => [x, i]).sort((a, b) => String(b[0].at || '').localeCompare(String(a[0].at || '')) || a[1] - b[1]).map(([x]) => x);
 const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
 
-// host: 줄을 그릴 <ul>(바깥 칸은 notice-box 'list' 톤). statusEl: 목록 아래 상태 줄. viewButton: [처리 전 ▾].
-// updates(): {loading, items:[{id, at, body, meta, done, below, tail, attrs, open}]} — basket.js가 지금 보기의 업데이트 줄 재료를 준다.
-// onUpdateAct(id, act, button): 업데이트 줄 버튼(org·area·task·event·note·done·dismissed). onView(view): 보기가 바뀌면(업데이트 거르기를 맞춤).
+// host: 줄을 그릴 <ul>(바깥 칸은 notice-box 'list' 톤). statusEl: 목록 아래 상태 줄.
+// updates(): {loading, items:[{id, at, body, meta, below, tail, attrs, open}]} — basket.js가 처리 전(미분류) 업데이트 줄 재료를 준다.
+// onUpdateAct(id, act, button): 업데이트 줄 버튼(org·area·task·event·note·done·dismissed).
 // radarPromises(): 찾기가 돌려준 상대 약속(저장하지 않음, todo-radar.js) — 처리 전 맨 아래 같은 줄로, 버튼은 [원장으로](쓰기요청 글 복사) 하나. 세지 않는다.
-export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, viewButton = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, onView = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
+export function mountForgetList(host, {rt = window.KPTURuntime, win = window, statusEl = null, updates = () => ({loading: false, items: []}), onUpdateAct = () => {}, radarPromises = () => [], openSource = () => {}, updateCount = () => null} = {}) {
   if (!host) return null;
-  let view = 'open', src = 'all', rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
+  let rows = [], cState = 'loading', notes = [], fOn = false, fWs = '', run = 0, status = '', scope = radarScope(rt);
   let query = ''; // S70-57 UI-메뉴별검색: '잊지 말기에서 찾기' 글자(맨 위 칸, basket.js가 setQuery로 넘김). 메모리만, 거르기는 아래 items() 한 곳.
   let news = [], nOn = false, nPicks = false, nRun = 0, orgRead = null; // 소식 줄(FORGET-소식합치기)과 조직 이름 맞추기에 쓰는 내 담당조직(readOrganizations, 한 번)
   const busy = new Set(), unknown = new Set(), linking = new Map(), openBundles = new Set();
@@ -105,16 +82,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   const byId = id => rows.find(r => r.id === id);
   const say = text => { status = text; paint(); };
 
-  // 보기 메뉴: 위쪽 보기 5개, 아래쪽 출처 5개. 고른 것만 aria-checked(선택 표시 규칙).
-  const menu = viewButton ? createAnchoredMenu({id: 'forgetViewMenu', className: 'radar-row-menu forget-view-menu', label: '목록 보기', historyKey: 'kptuForgetViewMenu',
-    key: () => 'view', boxWidth: 180,
-    render: () => FORGET_VIEWS.map(([v, l]) => `<button type="button" class="row-act" role="menuitemradio" aria-checked="${v === view}" data-forget-view="${v}">${esc(l)}</button>`).join('')
-      + '<hr class="forget-view-sep" aria-hidden="true">'
-      + FORGET_SOURCES.map(([v, l]) => `<button type="button" class="row-act" role="menuitemradio" aria-checked="${v === src}" data-forget-src="${v}">${esc(l)}</button>`).join(''),
-    onAction: button => {
-      if (button.dataset.forgetView) setView(button.dataset.forgetView);
-      else if (button.dataset.forgetSrc) { src = button.dataset.forgetSrc; status = ''; paint(); }
-    }}) : null;
   // 줄 ⋯(UI-잊지말기줄단추, 처리 전 줄마다 하나 — 우클릭도 같은 메뉴): 폰에서 줄에 없는 [일정으로][노트로][조직][사업]·×([무시])를 줄 버튼과
   // 같은 이름·같은 길(rowAct)로 먼저, 그 아래 챙길 것 줄만의 기존 셋 [수정해서 할 일로] · [이미 할 일에 있음] · [내 일 아님]. 가족 줄은 조직·사업 없음.
   const rowKind = key => String(key || '').slice(0, 1);
@@ -135,12 +102,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       if (act === 'not-mine') void notMine(c); else if (act === 'already') void startLinking(c); else if (act === 'edit') void editToTask(c);
     }});
 
-  function paintViewButton() {
-    if (!viewButton) return;
-    const label = FORGET_VIEWS.find(([v]) => v === view)?.[1] || '처리 전';
-    viewButton.textContent = `${label}${src === 'all' ? '' : ` · ${SOURCE_TAG[src]}`} ▾`;
-    viewButton.dataset.forgetCurrent = view;
-  }
   function items() {
     const out = [];
     // SEC-기능PIN잠금 ②: 통화·텔레그램 소식을 잠갔고 아직 안 풀었으면 그 줄들은 그리지 않고 맨 아래 '잠김' 한 줄만(몇 줄인지만). 누르면 그 자리 PIN 창(S67-25, feature-lock.js askHere).
@@ -152,52 +113,45 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     // FORGET-기본이미함(S70-20b): 처리 전 업무 제안 중 ★(마감·직접 부름)는 맨 위에 한 줄씩, 어제 들어온 나머지는 '어제 들어온 요청 n개' 한 줄 묶음.
     // 묶음은 그냥 두면 서버 예약(app_forget_auto_expire)이 다음 날 0시(서울)에 '이미 함(지남)'으로 옮긴다 — 화면은 묶어 보이기만 한다.
     const stars = [], bundle = [], today = seoulDateKey();
-    if (src === 'all' || src === 'telegram' || src === 'todo') {
-      for (const c of candidatesFor(view, rows, taskTitles())) {
-        const s = candidateSource(c); if (src !== 'all' && src !== s) continue;
-        if (s === 'telegram' && locked.telegram) { hidden++; continue; }
-        if (!hit(plainText(c.summary), candidateMeta(c))) continue;
-        const open = c.status === 'open', isBusy = busy.has(c.id), star = open && starredCandidate(c);
-        const into = star ? stars : open && bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
-        into.push({at: open ? c.created_at : (c.decided_at || c.created_at), html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: isBusy, report: true,
-
-          // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
-          open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
-          done: !open ? candidateDone(c) : unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
-          // 저절로 옮긴 줄만 [되돌리기](잘못 빠진 것을 처리 전으로) — 기존 되살리기 길(status·decided_at만 바꿈).
-          tail: autoDone(c) ? `<button type="button" class="row-act" data-forget-reopen="${esc(c.id)}"${isBusy ? ' disabled' : ''}>되돌리기</button>` : '', more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`, below: open ? linkingHtml(c) : ''})});
-      }
+    for (const c of openCandidates(rows, taskTitles())) {
+      const s = candidateSource(c);
+      if (s === 'telegram' && locked.telegram) { hidden++; continue; }
+      if (!hit(plainText(c.summary), candidateMeta(c))) continue;
+      const star = starredCandidate(c), into = star ? stars : bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
+      into.push({at: c.created_at, html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: busy.has(c.id), report: true,
+        // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
+        open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
+        done: unknown.has(c.id) ? '결과 확인 필요 · 할 일 화면에서 확인' : '',
+        more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`, below: linkingHtml(c)})});
     }
-    if (view === 'open' && fOn && (src === 'all' || src === 'family')) {
+    if (fOn) {
       for (const n of notes) if (hit(n.body, metaLine(n))) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`),
         prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', more: `data-forget-more="f:${esc(n.id)}"`, attrs: 'data-forget-src="family"'})});
     }
-    if (nOn && (src === 'all' || src === 'news')) {
-      for (const r of newsFor(view, news, nPicks)) {
+    if (nOn) {
+      for (const r of openNews(news, nPicks)) {
         if (locked[r.source]) { hidden++; continue; }
-        const open = r.status === 'suggested', label = newsText(r);
+        const label = newsText(r);
         if (!hit(label)) continue;
-        out.push({at: open ? r.at : (r.decidedAt || r.at), html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
+        out.push({at: r.at, html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
-          report: true, hint: open ? NEWS_HINT[r.kind] || '' : '', why: open ? r.reason : '', done: open ? '' : newsDone(r), more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
+          report: true, hint: NEWS_HINT[r.kind] || '', why: r.reason, more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
       }
     }
-    if (src === 'all' || src === 'update') {
-      for (const u of updates().items || []) if (hit(u.text ?? u.body, u.meta)) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
-        report: true, done: view === 'open' ? '' : (u.done || ' '), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
-    }
+    for (const u of updates().items || []) if (hit(u.text ?? u.body, u.meta)) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
+      report: true, open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     if (bundle.length) {
       const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
       out.push({at: rowsIn[0].at, html: groupHtml({key: 'yesterday', label: `어제 들어온 요청 ${bundle.length}개`, faint: '· 두면 내일 이미 함', rows: rowsIn.map(x => x.html), open: !shut})});
     }
     const sorted = [...newestFirst(stars), ...newestFirst(out)];
-    // 상대 약속: 처리 전일 때만, 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
+    // 상대 약속: 맨 아래(시각 없음). 세지 않는다(상대가 할 일).
     // S61-11 FORGET-요청방향 2단계(명진 11/13 05:19): 내가 남에게 부탁해 상대가 하기로 한 일은 어느 길에서 왔든 여기 한 곳에 모은다. 꼬리표 = '상대 약속 · 출처'.
-    // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 모든 출처일 때만, 버튼 [원장으로] 하나(그대로).
-    // - 소식(통화·텔레그램, 서버 표 종류 promise): 모든 출처·소식일 때. [원장으로][받음][무시] — 받음·무시는 소식 줄의 기존 상태 길(되돌리기 있음).
-    if (view === 'open' && src === 'all' && cState === 'ok') (radarPromises() || []).forEach((p, i) => hit(p.summary) && sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
+    // - 챙길 것 찾기가 돌려준 약속(radarPromises, 저장하지 않음): 버튼 [원장으로] 하나(그대로).
+    // - 소식(통화·텔레그램, 서버 표 종류 promise): [원장으로][받음][무시] — 받음·무시는 소식 줄의 기존 상태 길(되돌리기 있음).
+    if (cState === 'ok') (radarPromises() || []).forEach((p, i) => hit(p.summary) && sorted.push({html: rowHtml({id: `p:${i}`, body: p.summary, src: `${SOURCE_TAG.promise} · ${SOURCE_TAG.todo}`,
       meta: [RADAR_SOURCE_LABEL[p.source_kind] || '', dueLabel(p.due) ? `기한 ${dueLabel(p.due)}` : ''].filter(Boolean).join(' · '), acts: [['ledger', '원장으로']], attrs: 'data-forget-src="promise" data-inbox-promise'})}));
-    if (view === 'open' && nOn && (src === 'all' || src === 'news')) for (const r of promiseNews(news)) {
+    if (nOn) for (const r of promiseNews(news)) {
       if (locked[r.source]) { hidden++; continue; }
       const label = newsText(r);
       if (!hit(label)) continue;
@@ -220,7 +174,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 같은 줄의 새 칸에 붙는다(공용 keepMenus).
   function paint() { return keepMenus([more], {attrs:['data-forget-more']}, paintNow); }
   function paintNow() {
-    paintViewButton();
     // UI-앱안알림 3단계(A4) → S52-20: 메뉴 '홈' 표시는 홈 '잊지 말기' 한 줄과 같은 숫자(처리 안 한 수, 새 읽기 없음).
     { const n = api.openCount(updateCount()); if (n !== null) setHomeAsks(n); }
     const list = items(), u = updates();
@@ -235,10 +188,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       statusEl.innerHTML = [esc(status), fail].filter(Boolean).join(' ');
     }
     if (focus?.row) host.querySelector(`[data-nbx-row="${CSS.escape(focus.row)}"] ${focus.act ? `[data-nbx-act="${CSS.escape(focus.act)}"]` : 'button'}`)?.focus({preventScroll: true});
-  }
-  function setView(next) {
-    if (!FORGET_VIEWS.some(([v]) => v === next)) return;
-    view = next; status = ''; onView(view); paint();
   }
 
   async function loadCandidates() {
@@ -335,14 +284,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
 
   // ── 소식 줄(FORGET-소식합치기 → 소식바로잡기): 다른 줄과 같은 일곱 버튼. 상태는 표가 허락한 셋뿐 — 처리하면 kept, ×는 dropped ──
   const newsById = id => news.find(r => r.id === id);
-  async function newsMark(r, next, done, undo = false, saved = null) {
+  // FORGET-처리전만: 처리하면 줄이 빠지고 늘 되돌리기 알림 하나. kept = 되돌려도 남는 것(만든 할 일·일정·노트) 한마디.
+  async function newsMark(r, next, done, undo = false, saved = null, kept = '') {
     const key = `n:${r.id}`;
     if (busy.has(key) || r.status !== 'suggested') return;
     busy.add(key); status = ''; paint();
     let ok = false;
     try { ok = await decideNews(rt, r.id, next, next === 'kept' ? r.line : null); } catch { ok = false; }
     busy.delete(key);
-    if (!ok) { say(next === 'kept' && !undo ? '만들었지만 이 줄은 목록에서 빼지 못했어요. ×로 빼 주세요.' : '저장하지 못했어요. 다시 눌러 주세요'); return; }
+    if (!ok) { say(next === 'kept' && (!undo || kept) ? '만들었지만 이 줄은 목록에서 빼지 못했어요. ×로 빼 주세요.' : '저장하지 못했어요. 다시 눌러 주세요'); return; }
     r.status = next; r.decidedAt = new Date().toISOString(); say(done);
     if (saved) offerUndoNotice({text: done, onUndo: () => undoSaved(saved, async () => {
       const back = await decideNews(rt, r.id, 'suggested');
@@ -354,9 +304,10 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       try { back = await decideNews(rt, r.id, 'suggested'); } catch { back = false; }
       if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
       r.status = 'suggested'; r.decidedAt = ''; status = ''; paint();
-      return {status: 'done', message: '다시 보이게 했어요.'};
+      return {status: 'done', message: kept ? `다시 보이게 했어요. ${kept}` : '다시 보이게 했어요.'};
     }});
   }
+  const KEPT = Object.freeze({task: '만든 할 일은 그대로예요.', event: '만든 일정은 그대로예요.', note: '저장한 노트는 그대로예요.'});
   // FORGET-노트고르기(요청함 11/09 13:34, 명진 13:37): 업무 줄 [노트]는 노트 창 제목 줄 앞 [새 노트 ▾][폴더 ▾](note-pick.js).
   // 기본은 새 노트 · 폴더 '01. 업무메모'(그 폴더가 없으면 폴더 없음), 기존 노트는 미리 고르지 않는다. 기존 노트를 고르면 그 노트 끝에 더한다.
   // FORGET-노트작은창(요청함 11/09 21:39, 명진 21:42): [노트로]는 큰 창 대신 누른 줄 아래 작은 창(note-quick.js)이 먼저 뜨고, 길게 쓸 때만 [크게 수정 ↗]로 큰 창.
@@ -399,24 +350,24 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (act === 'task') {
       try {
         await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
-        win.KPTUGoogleTasks.openEditor(null, {title: cut(text, 100), memo, onCreated: () => { if (live()) void newsMark(r, 'kept', '할 일로 만들었어요'); }});
+        win.KPTUGoogleTasks.openEditor(null, {title: cut(text, 100), memo, onCreated: () => { if (live()) void newsMark(r, 'kept', '할 일로 만들었어요', true, null, KEPT.task); }});
       } catch { say('할 일 창을 열지 못했어요'); }
       return;
     }
     if (act === 'event') {
       if (!win.KPTUEventCreate?.open) { say('일정 창을 열지 못했어요'); return; }
-      win.KPTUEventCreate.open({title: cut(text, 100), memo, onCreated: () => { if (live()) void newsMark(r, 'kept', '일정으로 만들었어요'); }});
+      win.KPTUEventCreate.open({title: cut(text, 100), memo, onCreated: () => { if (live()) void newsMark(r, 'kept', '일정으로 만들었어요', true, null, KEPT.event); }});
       return;
     }
     if (act === 'note') {
       try {
-        await openWorkNote(`${text}\n\n${memo}`, () => { if (live()) void newsMark(r, 'kept', '노트로 저장했어요'); }, button);
+        await openWorkNote(`${text}\n\n${memo}`, () => { if (live()) void newsMark(r, 'kept', '노트로 저장했어요', true, null, KEPT.note); }, button);
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
 
   // ── 챙길 것·텔레그램 후보 줄(기존 정리함 챙길 것·나한테 온 요청 길 그대로) ──
-  async function decideCandidate(c, runIt, outcome, done, undo = null, saved = null) {
+  async function decideCandidate(c, runIt, outcome, done, undo = null, saved = null, kept = '') {
     busy.add(c.id); status = ''; paint();
     let ok = false;
     try { ok = await runIt(); } catch { ok = false; }
@@ -432,11 +383,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     })});
     else if (undo) offerUndoNotice({text: done, onUndo: async () => {
       let back = false;
-      try { back = await reopenCandidate(c.id, rt, undo); } catch { back = false; }
+      try { back = await (undo === 'tasked' ? unlinkCandidate(c.id, rt) : reopenCandidate(c.id, rt, undo)); } catch { back = false; } // 할 일로 보낸 줄은 이은 할 일 번호도 비운다
       if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
       if (feedbackId) await dropFeedback(feedbackId, rt);
       c.status = 'open'; c.decided_at = null; delete c.outcome; status = ''; paint(); changed();
-      return {status: 'done', message: '다시 보이게 했어요.'};
+      return {status: 'done', message: kept ? `다시 보이게 했어요. ${kept}` : '다시 보이게 했어요.'};
     }});
   }
   // [할 일로]: 텔레그램 요청은 할 일 창(고쳐서 저장), 챙길 것은 제안 기한으로 바로 하나(출처 연결·업데이트 기록 포함, candidateToTask) — 기존 두 길 그대로.
@@ -446,7 +397,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       try {
         await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
         win.KPTUGoogleTasks.openEditor(null, {title: draft.title, memo: draft.memo,
-          onCreated: taskId => { if (live()) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요'); }});
+          onCreated: taskId => { if (live()) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요', 'tasked', null, KEPT.task); }});
       } catch { say('할 일 창을 열지 못했어요'); }
       return;
     }
@@ -462,6 +413,13 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (result.status === 'marked_failed') { unknown.add(c.id); say('할 일은 만들었어요. 목록에서 빼지 못했어요.'); return; }
     c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString(); c.task_due = quick.due || null;
     say('할 일로 보냈어요.'); changed();
+    offerUndoNotice({text: '할 일로 보냈어요.', onUndo: async () => {
+      let back = false;
+      try { back = await unlinkCandidate(c.id, rt); } catch { back = false; }
+      if (!back) return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'};
+      c.status = 'open'; c.task_id = null; c.task_due = null; c.decided_at = null; status = ''; paint(); changed();
+      return {status: 'done', message: `다시 보이게 했어요. ${KEPT.task}`};
+    }});
   }
   // [조직]·[사업]: 고른 곳에 그 줄 글을 기록으로 넣고, 후보는 '이미 함'과 같은 처리(done)로 뺀다.
   async function candidateReport(c, save, done) {
@@ -483,12 +441,12 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (kind === 'task') return candidateTask(c);
     if (kind === 'event') {
       if (!win.KPTUEventCreate?.open) { say('일정 창을 열지 못했어요'); return; }
-      win.KPTUEventCreate.open({title: draft.title, memo: draft.memo, onCreated: () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '일정으로 만들었어요'); }});
+      win.KPTUEventCreate.open({title: draft.title, memo: draft.memo, onCreated: () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '일정으로 만들었어요', 'done', null, KEPT.event); }});
       return;
     }
     if (kind === 'note') {
       try {
-        await openWorkNote(`${c.summary}\n\n${draft.memo}`, () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요'); }, button);
+        await openWorkNote(`${c.summary}\n\n${draft.memo}`, () => { if (live()) void decideCandidate(c, () => markDone(c.id, rt), 'done', '노트로 저장했어요', 'done', null, KEPT.note); }, button);
       } catch { say('노트 창을 열지 못했어요'); }
     }
   }
@@ -529,15 +487,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   }
   // 묶음을 펼친 채로 다시 그리기(줄을 처리해도 접히지 않게). 이 화면 동안만 기억한다(저장하지 않음).
   host.addEventListener('toggle', e => { const b = e.target?.closest?.('[data-nbx-group]'); if (!b) return; if (e.target.open) openBundles.add(b.dataset.nbxGroup); else openBundles.delete(b.dataset.nbxGroup); }, true);
-  // FORGET-이미한일빼기·기본이미함: 서버가 '답장함'·'지남'으로 저절로 뺀 줄을 처리 전으로 돌린다. 서버는 한 번 옮긴 줄을 다시 옮기지 않는다(auto_done이 남음).
-  async function reopenAuto(c) {
-    busy.add(c.id); paint();
-    let ok = false;
-    try { ok = await reopenCandidate(c.id, rt, 'done'); } catch { ok = false; }
-    busy.delete(c.id);
-    if (!ok) { say('되돌리지 못했어요. 다시 눌러 주세요.'); return; }
-    c.status = 'open'; c.decided_at = null; say('처리 전으로 돌렸어요.'); changed();
-  }
   // 이어 둘 할 일이 없을 때: 새 할 일 없이 목록에서만 뺀다(결과 기록은 같은 'already_tasked').
   async function dropAlready(c) {
     linking.delete(c.id);
@@ -549,7 +498,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     try {
       await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
       win.KPTUGoogleTasks.openEditor(null, {title: plainText(c.summary), memo: draft.memo, links: taskLinks(c),
-        onCreated: taskId => { if (mine === radarScope(rt)) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요'); }});
+        onCreated: taskId => { if (mine === radarScope(rt)) void decideCandidate(c, () => markTasked(c.id, taskId, rt, new Date(), null), 'tasked', '할 일로 만들었어요', 'tasked', null, KEPT.task); }});
     } catch { say('할 일 창을 열지 못했어요'); }
   }
   // [내 일 아님]: [무시]처럼 빼고, 다음 찾기에서 비슷한 것을 거르는 예시를 남긴다(기존 길). [되돌리기]는 둘 다 되돌린다.
@@ -579,7 +528,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     busy.delete(key); notes = notes.filter(x => x.id !== n.id); say(text);
     return true;
   }
-  function familyUndo(n, text, done = null) {
+  function familyUndo(n, text, done = null, kept = '') {
     offerUndoNotice({text, onUndo: async () => {
       try { await decideFamily(rt, ws(), n.id, 'new'); } catch { return {status: 'failed', message: '되돌리지 못했어요. 다시 시도해 주세요.'}; }
       notes = [{...n, status: 'new'}, ...notes.filter(x => x.id !== n.id)]; status = ''; paint();
@@ -588,7 +537,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         try { const {undoDone} = await import('./family-note-send.js'); await undoDone(rt, done); }
         catch { return {status: 'done', message: '제안은 돌렸지만 노트의 줄은 남았어요'}; }
       }
-      return {status: 'done', message: '되돌렸어요.'};
+      return {status: 'done', message: kept ? `되돌렸어요. ${kept}` : '되돌렸어요.'};
     }});
   }
   async function familyAct(n, kind, trigger) {
@@ -609,20 +558,20 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       try {
         const {openFamilyNoteWindow} = await import('./family-note-send.js');
         await openFamilyNoteWindow({rt, line: noteLine(n), body: n.body, anchor: trigger,
-          onSent: ({folderName}) => void familyChange(n, 'kept', folderName ? `'${folderName}' 폴더 노트에 넣었어요` : '노트에 넣었어요')});
+          onSent: ({folderName}) => { const text = folderName ? `'${folderName}' 폴더 노트에 넣었어요` : '노트에 넣었어요'; void familyChange(n, 'kept', text).then(ok => ok && familyUndo(n, text, null, KEPT.note)); }});
       } catch { say('노트로 보내는 창을 열지 못했어요'); }
       return;
     }
     if (kind === 'task') {
       try {
         await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]);
-        win.KPTUGoogleTasks.openEditor(null, {title: draft.title, memo: draft.memo, onCreated: () => void familyChange(n, 'tasked', '할 일로 만들었어요')});
+        win.KPTUGoogleTasks.openEditor(null, {title: draft.title, memo: draft.memo, onCreated: () => void familyChange(n, 'tasked', '할 일로 만들었어요').then(ok => ok && familyUndo(n, '할 일로 만들었어요', null, KEPT.task))});
       } catch { say('할 일 창을 열지 못했어요'); }
       return;
     }
     if (kind === 'event') {
       if (!win.KPTUEventCreate?.open) { say('일정 창을 열지 못했어요'); return; }
-      win.KPTUEventCreate.open({title: draft.title, memo: draft.memo, onCreated: () => void familyChange(n, 'scheduled', '일정으로 만들었어요')});
+      win.KPTUEventCreate.open({title: draft.title, memo: draft.memo, onCreated: () => void familyChange(n, 'scheduled', '일정으로 만들었어요').then(ok => ok && familyUndo(n, '일정으로 만들었어요', null, KEPT.event))});
     }
   }
 
@@ -642,7 +591,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (b.dataset.forgetNewsOpen) { const r = newsById(b.dataset.forgetNewsOpen); if (r) void openNewsSource(r, rt).then(ok => { if (!ok) say('원본을 열지 못했어요.'); }, () => say('원본을 열지 못했어요. 다시 시도해 주세요.')); return; }
     const d = b.dataset;
     if (d.forgetSource) { const c = byId(d.forgetSource); if (c) openSource(c); return; }
-    if (d.forgetReopen) { const c = byId(d.forgetReopen); if (c && autoDone(c) && !busy.has(c.id)) void reopenAuto(c); return; }
     if (d.forgetLinkTask) { const c = byId(d.forgetLinkFor), t = c && linking.get(c.id)?.tasks?.find(x => x.id === d.forgetLinkTask); if (c && t && !busy.has(c.id)) void linkTask(c, t); return; }
     if (d.forgetLinkNone) { const c = byId(d.forgetLinkNone); if (c && c.status === 'open' && !busy.has(c.id)) void dropAlready(c); return; }
     if (d.forgetLinkRetry) { const c = byId(d.forgetLinkRetry); if (c && linking.has(c.id)) void startLinking(c); return; }
@@ -656,7 +604,6 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   statusEl?.addEventListener('click', event => {
     if (event.target.closest?.('[data-forget-retry]')) { cState = 'loading'; paint(); void loadCandidates(); }
   });
-  viewButton?.addEventListener('click', () => menu.open(viewButton));
   win.addEventListener(CHANGED, event => {
     if (!host.isConnected || scope !== radarScope(rt)) return;
     if (event.detail?.reload && !busy.size) void loadCandidates(); else paint();
@@ -665,15 +612,15 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
   win.addEventListener('kptu:feature-lock-changed', () => { if (cState === 'ok') paint(); });
   win.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; view = 'open'; src = 'all'; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
-    onView(view); paint();
+    run++; nRun++; rows = []; notes = []; news = []; nOn = false; nPicks = false; orgRead = null; cState = 'loading'; fOn = false; fWs = ''; status = ''; busy.clear(); unknown.clear(); linking.clear(); scope = radarScope(rt);
+    paint();
   });
-  const api = {refresh, paint, setView, view: () => view, source: () => src,
+  const api = {refresh, paint,
     // S70-57: 맨 위 칸 '잊지 말기에서 찾기'(basket.js registerScreenFind)가 부른다. 같은 글자면 다시 그리지 않는다.
     query: () => query, setQuery: (raw, {again} = {}) => { const next = String(raw ?? ''); if (next === query && !again) return; query = next; paint(); },
     // 처리 안 한 줄 수(연결 안 된 업데이트 포함, 홈 한 줄과 같은 기준 — 상대 약속은 세지 않음). 모르면 null.
     // FORGET-소식합치기(명진 '넣어'): 처리 전 소식도 센다.
-    openCount: count => cState === 'ok' && Number.isInteger(count) ? candidatesFor('open', rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};
+    openCount: count => cState === 'ok' && Number.isInteger(count) ? openCandidates(rows, taskTitles()).length + (fOn ? notes.length : 0) + (nOn ? openNews(news, nPicks).length : 0) + count : null};
   paint();
   return api;
 }

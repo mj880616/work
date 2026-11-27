@@ -1,5 +1,5 @@
 // PHOTO-크게보기밀기(S57-2): 사진 크게 보기(photo-view.js) 칸 위 한 손가락 밀기. 화면 부품(DOM) 없이 칸 하나와 hooks만 받아서 단위 시험이 가짜 칸으로 돌린다.
-import {swipeKind, swipeSide, dragAxis, dragEnd, dragEndX, dragOffsetX, dragOffsetDown} from './photo-viewer-model.mjs';
+import {swipeKind, swipeSide, dragAxis, dragEnd, dragEndX, dragOffsetX, dragOffsetDown, fromScreenEdge} from './photo-viewer-model.mjs';
 
 // PHOTO-크게보기밀기(S57-2): 크게 보기 칸 위 한 손가락 밀기. 방향은 [사진] 메뉴와 같은 dragAxis(세로가 가로의 1.6배 이상이면 세로)로 한 번 정하고, 사진이 손가락을 따라 움직인다.
 // 놓을 때: 가로 = 72px 넘게 밀면 앞뒤 사진(없는 쪽은 고무줄처럼 제자리), 세로 = 아래로 120px 넘게(또는 빠른 손짓) 닫기. 움직임이 잡히기 전에 끝난 빠른 손짓은 swipeKind·swipeSide로 본다.
@@ -41,7 +41,9 @@ export function attachStageSwipe(stage, hooks, {closeNow}) {
   };
   const onStart = event => {
     if (busy) { touch = null; return; }
-    touch = event.touches.length === 1 && !onControl(event.target) ? {x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), fingers: 1, axis: null} : null;
+    // 화면 끝에서 시작한 밀기는 폰 뒤로가기 몫(fromScreenEdge) — 사진 넘기기·닫기로 받지 않는다.
+    const edge = event.touches.length === 1 && fromScreenEdge(event.touches[0].clientX, globalThis.innerWidth);
+    touch = event.touches.length === 1 && !edge && !onControl(event.target) ? {x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), fingers: 1, axis: null} : null;
     if (!touch) settle();
   };
   const onMove = event => {
