@@ -12,7 +12,7 @@ import {openReport} from './report-open.js';
 import {readView,saveView,orderedGroups} from './library-view-pref.js';
 import {readReceiveFolder,saveReceiveFolder,liveReceiveFolder,outsideDocuments,RECEIVE_MARK} from './library-receive.js'; // LIB-받는폴더(S59-11)
 import {recentFolded,toggleRecentFolded} from './recent-fold.js';
-import {ftCaretHtml} from './folder-tree-ui.mjs';
+import {ftCaretHtml, FOLDER_EMPTY_TEXT} from './folder-tree-ui.mjs';
 import {walkTo,walkUp,walkUpLabel} from './folder-walk.mjs';
 import {bindEdgeBack} from './edge-back-swipe.js';
 import {MORE_LABEL,chevHtml} from './fold-chevron.mjs';
@@ -1172,7 +1172,7 @@ function luExplorerHtml(tree,shown,opts){
   const folders=(luInFolder?here?.children||[]:luOutOnly?[]:tree).filter(n=>n.kind==='folder');
   const node=luInFolder||luOutOnly?here:tree.find(n=>n.key===OUT_KEY)||null;
   const html=treeHtml(folders,{...opts,flat:{node}});
-  return html||(globalThis.KPTUWait?.emptyHtml?.('빈 폴더')||'');
+  return html||(globalThis.KPTUWait?.emptyHtml?.(FOLDER_EMPTY_TEXT)||'');
 }
 // 탐색기 칸 지금 자리의 자료 id(하위 폴더 안 자료는 빼고 — 화면에 보이는 줄만). 맨 위·폴더 밖 = 폴더 밖 자료.
 function luExplorerFileIds(){const here=luInFolder?(luLastTree||[]).find(n=>n.key==='f:'+luInFolder):(luLastTree||[]).find(n=>n.key===OUT_KEY);return (here?.files||[]).map(d=>d.id)}

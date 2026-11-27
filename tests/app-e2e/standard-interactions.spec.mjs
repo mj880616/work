@@ -370,7 +370,7 @@ for (const [name, open] of PRESS_SCREENS) test(`T5 ${name} 폰 390: 폴더 이�
   const url0 = page.url();
   await s.press();
   await expect.poll(s.open).toBe(true);
-  await expect(s.empty).toContainText('빈 폴더');
+  await expect(s.empty).toContainText('이 폴더는 비어 있어요');
   expect(page.url()).toBe(url0);
   await s.press();
   await expect.poll(s.open).toBe(false);

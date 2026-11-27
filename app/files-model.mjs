@@ -678,7 +678,9 @@ export function applyStars(rows, source, ids, on) {
 // 펼친 폴더 안에는 하위 폴더 → 그 폴더 파일(처음 limit개 + {type:'more'} 줄). 상자 맨 위(저장소 뿌리)의 파일도 같은 규칙으로 맨 끝에.
 // children·files: Map(folderKey → 폴더 줄·파일 줄 목록, 읽기 전이면 없음). open: 펼친 폴더 열쇠. more: 'n개 더 보기'를 누른 폴더 열쇠.
 // LIB-사진숨김(S60-10): isPhoto를 주면 그 폴더 사진은 파일 줄에서 빼고(처음 n개·'더 보기'도 사진 뺀 줄 기준) 맨 끝에 {type:'photos', rows} 한 줄.
-export function boxRows({source, children = new Map(), files = new Map(), open = new Set(), more = new Set(), order = (s, rows) => rows, limit = 5, isPhoto = null} = {}) {
+// FILES-빈폴더줄(S70-70): pending이면 펼쳤는데 아직 못 읽은 폴더 안에 {type:'wait'}(뼈대 줄), failed(folderKey 묶음)에 든 폴더는 {type:'fail'}(불러오지 못했어요 [다시]).
+// '빈 폴더'({type:'empty'})는 다 읽었고 정말 비었을 때만 — 셋은 섞이지 않는다.
+export function boxRows({source, children = new Map(), files = new Map(), open = new Set(), more = new Set(), order = (s, rows) => rows, limit = 5, isPhoto = null, pending = false, failed = new Set()} = {}) {
   const out = [];
   const fileRows = (parent, depth) => {
     const key = folderKey(source, parent), all = files.get(key) || [], cap = more.has(key) ? Infinity : limit;
@@ -697,6 +699,7 @@ export function boxRows({source, children = new Map(), files = new Map(), open =
       if (o) { walk(f.item_id, depth + 1); fileRows(f.item_id, depth + 1); }
       // UI-폴더이름펼치기(명진 11/24 18:09): 펼친 빈 폴더는 안에 '빈 폴더' 한 줄(누르면 들어가지 않고 그 자리에서 펼쳐 보인다).
       if (o && known && !has) out.push({type: 'empty', source, key, parent: key, depth: depth + 1});
+      else if (o && !known && (pending || failed.has(key))) out.push({type: failed.has(key) ? 'fail' : 'wait', source, key, parent: key, depth: depth + 1});
     }
   };
   walk(null, 0);

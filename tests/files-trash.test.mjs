@@ -22,7 +22,7 @@ test('휴지통 창: 서버 cloud-files의 trash_list(읽기)·untrash(confirm:t
 test('[파일] 나무: 구글 드라이브·원드라이브 상자 맨 아래 회색 휴지통 줄(공용 ftTrashRowHtml), 누르면 휴지통 창(필요할 때만 불러옴)', () => {
   const files = read('app/files.js');
   assert.match(files, /const trashRowHtml = source => \(SOURCES\.includes\(source\) \? ftTrashRowHtml\(\{attrs: \{'data-fx-cloud-trash': source/);
-  assert.equal((files.match(/\+ \(shut \|\| loading \? '' : trashRowHtml\(source\)\)/g) || []).length, 2, 'PC 나무·폰 나무 둘 다');
+  assert.equal((files.match(/\+ \(shut \|\| state0 !== 'ok' \? '' : trashRowHtml\(source\)\)/g) || []).length, 2, 'PC 나무·폰 나무 둘 다');
   assert.match(files, /mod = await import\('\.\/files-trash\.js'\)/);
   assert.match(files, /if \(b\.matches\('\[data-fx-cloud-trash\]'\)\) \{ void openTrash\(b\.dataset\.fxCloudTrash, b\); return; \}/);
 });

@@ -21,7 +21,19 @@
 .fx-tree { flex:0 0 260px; width:260px; padding:0 10px 8px 0; }
 /* S51-25 FOLDER-PC나무: PC·폴드 왼쪽 나무와 두 칸의 ▾ 나무도 공용 상자 나무(folder-tree.css ft-) — 세모 없음, 저장소마다 상자. 화면 CSS는 자리만.
    저장소 상자 머리 오른쪽 [맨 위]는 그 저장소 맨 위를 지금 칸에 연다. */
-.fx-box-top.fx-here { font-weight:700; }
+/* FILES-빈폴더줄(S70-70): 상자 머리 위치 '› 위 폴더 › 지금 폴더'(누르면 그 단계). 길면 줄임표, 저장소 이름은 줄지 않는다. [맨 위]는 맨 위가 아닐 때만 있다. */
+.fx-box-top.fx-here { color:var(--kptu-muted); font-weight:400; }
+.ft-box-head:has(.fx-box-path) > .ft-box-toggle { flex:0 0 auto; }
+.ft-box-head > .fx-box-tail:has(.fx-box-path) { flex:1 1 auto; min-width:0; margin-left:0; }
+.fx-box-tail:has(.fx-box-path) > .fx-box-top { margin-left:auto; }
+.fx-box-path { display:inline-flex; align-items:center; min-width:0; overflow:hidden; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+.fx-box-sep { flex:none; padding:0 2px; }
+.fx-box-step.fx-box-cut { flex:none; }
+.fx-box-step { position:relative; flex:0 1 auto; min-width:0; max-width:14em; min-height:28px; margin:0; padding:0 3px; border:0; border-radius:var(--kptu-radius-sm,6px); background:none; color:inherit; font:inherit; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+.fx-box-step[aria-current] { color:var(--kptu-ink); font-weight:700; }
+.fx-box-step::after { content:""; position:absolute; inset:-8px 0; }
+.fx-box-step:hover { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.fx-box-step:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:-2px; }
 .fx-zero { opacity:.55; }
 /* S49-21 출처 아이콘 줄(켜짐/꺼짐 모양은 source-chips.css 공용). 줄 높이는 [정렬] 칩과 같게 촘촘하게. */
 .fx-srcs { flex:none; }
