@@ -1,5 +1,6 @@
 // MCP-Claude읽기 M-5(설계 docs/design/mcp-claude-read.md 4.6·6·7.1절): 내 프로필 'Claude 읽기 연결' 칸과 동의 화면.
 // - 칸: 설정 행이 있을 때만 보인다. 스위치는 enabled 한 칸, [모든 연결 끊기]는 revoked_before 한 칸만 PATCH. 기록은 읽기만.
+// - 3판(설계 15.2): 읽을 영역 스위치 다섯(area_*), 가족 방만 기본 꺼짐. 하나씩 그 칸만 PATCH.
 // - 표가 아직 없을 때(DB 적용 전, 404)·행이 없을 때: 칸 없음, 화면 오류 없음.
 // - 동의 화면: [허락]은 consent action=approve 하나, 받은 claude.ai 주소로만 간다. 되돌아갈 곳·클라이언트가 다르거나 설정 행이 없으면 버튼 없이 거절 글.
 // 네트워크 없음(지어낸 서버). 캡처는 docs/design/screens/s67-22/.
@@ -10,7 +11,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co/**';
 const SHOTS = 'docs/design/screens/s67-22';
 const user = {id: 'mcp-user', email: 'mcp@example.org'}, workspace = {id: 'mcp-workspace', name: 'QA', slug: 'qa'};
-const ROW = {workspace_id: workspace.id, enabled: false, revoked_before: null};
+const ROW = {workspace_id: workspace.id, enabled: false, revoked_before: null, area_diary: true, area_calls: true, area_recordings: true, area_basket: true, area_family: false};
 const LOGS = [
   {called_at: '2026-11-19T01:12:00Z', tool: 'web2_org_status', status: 'ok', result_count: 3},
   {called_at: '2026-11-19T01:10:00Z', tool: 'ledger_search', status: 'ok', result_count: 12},
@@ -107,6 +108,35 @@ test('칸: 스위치는 enabled만, [모든 연결 끊기]는 revoked_before만 
   expect(state.errors).toEqual([]);
 });
 
+test('칸: 읽을 영역 스위치 다섯 — 가족 방만 꺼짐, 하나씩 그 칸만 저장, 처음 보일 때부터 다섯 줄', async ({page}) => {
+  const state = await boot(page);
+  const selects = [];
+  page.on('request', req => { const u = new URL(req.url()); if (u.pathname === '/rest/v1/app_mcp_settings' && req.method() === 'GET') selects.push(u.searchParams.get('select')); });
+  await openProfile(page);
+  const p = panel(page);
+  const areas = p.locator('[data-mr-area]');
+  // 화면 열 때 한 번에 그린다: 연결 스위치가 보이는 순간 영역 줄도 이미 다섯 개.
+  await expect(p.locator('[data-mr-enabled]')).toBeVisible({timeout: 15000});
+  expect(await areas.count()).toBe(5);
+  expect(await areas.evaluateAll(list => list.map(i => i.getAttribute('data-mr-area')))).toEqual(['diary', 'calls', 'recordings', 'basket', 'family']);
+  for (const key of ['diary', 'calls', 'recordings', 'basket']) await expect(p.locator(`[data-mr-area="${key}"]`)).toBeChecked();
+  await expect(p.locator('[data-mr-area="family"]')).not.toBeChecked();
+  await expect(p.locator('.sl-group-title', {hasText: '읽을 영역'})).toBeVisible();
+  await expect(p).not.toContainText('읽지 않아요: 하루 기록');
+  expect(selects.some(s => /area_diary.*area_family/.test(s || ''))).toBe(true);
+  expect(selects.some(s => /allowed_client_id/.test(s || ''))).toBe(false);
+  await p.locator('[data-mr-area="family"]').check();
+  await expect.poll(() => state.patches.length).toBe(1);
+  await expect(p.locator('[data-mr-area="family"]')).toBeChecked();
+  await p.locator('[data-mr-area="calls"]').uncheck();
+  await expect.poll(() => state.patches.length).toBe(2);
+  expect(state.patches).toEqual([{area_family: true}, {area_calls: false}]);
+  await expect(p.locator('[data-mr-area="calls"]')).not.toBeChecked();
+  await expect(p.locator('[data-mr-enabled]')).not.toBeChecked(); // 연결 스위치는 그대로
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(state.errors).toEqual([]);
+});
+
 for (const [name, opts] of [['표가 아직 없을 때(DB 적용 전)', {settings: 'missing'}], ['설정 행이 없을 때(다른 사용자)', {row: null}]]) test(`칸: ${name} 칸 없음, 화면 그대로`, async ({page}) => {
   const state = await boot(page, opts);
   await openProfile(page, {enter: false});
@@ -134,6 +164,9 @@ for (const width of [412, 884, 1280]) test(`동의 화면: 읽기만·볼 수 �
   await expect(page.locator('.mc-lead')).toContainText('읽기만');
   await expect(page.locator('.mc-row')).toHaveCount(3);
   await expect(page.locator('.mc-row').nth(2)).toContainText('claude.ai');
+  // 3판(설계 15절): 켠 영역만 보이고, 가족 방은 따로 켜야 한다는 것을 허락 전에 보여 준다.
+  await expect(page.locator('.mc-row').nth(0)).toContainText('가족 방은 따로 켜야 해요');
+  await expect(page.locator('.mc-row').nth(1)).toContainText('꺼 둔 영역');
   await expect(page.locator('.mc-note').first()).toContainText('켜야 읽기가 시작돼요');
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.screenshot({path: `${SHOTS}/consent-${width}.png`});
