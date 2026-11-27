@@ -196,8 +196,8 @@
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:var(--ft-row-h,44px);font-weight:700}
 #appView #libraryView #documentList .lu-node-head .lu-folder-shape{margin:0}
 #appView #libraryView #documentList .lu-node-head .lu-node-count{font-weight:var(--ds-weight-regular,400)}
-#appView #libraryView #documentList .lu-node-head > .lu-node-more{width:36px;height:32px;margin:0 2px 0 auto;border-radius:var(--kptu-radius-sm,6px);font-size:inherit;font-weight:400}
-#appView #libraryView #documentList .lu-node-head > .lu-node-more::after{inset:calc((32px - var(--kptu-touch-target,44px)) / 2) -4px}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more{width:28px;height:32px;margin:0 2px 0 auto;border-radius:var(--kptu-radius-sm,6px);font-size:inherit;font-weight:400}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more::after{inset:calc((32px - var(--kptu-touch-target,44px)) / 2) -8px}
 #appView #libraryView #documentList .lu-node-body > .lu-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
 #appView #libraryView #documentList .lu-node-body > .ft-more-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
 #appView #libraryView #documentList .lu-node-body > .lu-node-empty{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
