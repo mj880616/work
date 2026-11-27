@@ -57,6 +57,8 @@ export const SCREEN_SPECS = [
   [/^app\/photos?[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
   // RULE-한번에그리기: 화면을 열 때 머리 줄 구성이 한 번에 최종 모양인지(공통 시험 화면 표). 표에 화면을 더하면 그 화면 파일도 여기에.
   [/^app\/(team|files|report-filter-chip)[^/]*\.(m?js|css)$/, ['screen-open-once.spec.mjs']],
+  // DESIGN-검증하네스 ③(S73-04): 화면 CSS를 고치면 주요 화면 기준 사진도 함께(공용 CSS는 위 FULL_PATTERNS로 이미 전체).
+  [/^app\/[^/]+\.css$/, ['visual-baseline.spec.mjs']],
 ];
 export function screenSpecsFor(file, testFiles) {
   const out = new Set();
@@ -228,6 +230,13 @@ export function select(changed, appFiles, testFiles) {
       if (file.endsWith('.spec.mjs')) {
         if (testFiles.has(file)) { picked.add(file); reasons.push(`${file}: 고친 시험`); }
         else reasons.push(`${file}: 지운 시험`);
+        continue;
+      }
+      // 기준 사진(<시험>.spec.mjs-snapshots/…png)을 고치면 그 시험(DESIGN-검증하네스 ③).
+      const snap = file.match(/^(.+\.spec\.mjs)-snapshots\//);
+      if (snap) {
+        if (testFiles.has(snap[1])) { picked.add(snap[1]); reasons.push(`${file}: 기준 사진`); }
+        else reasons.push(`${file}: 지운 시험의 기준 사진`);
         continue;
       }
       // fixture 등 시험 안 다른 파일: 그것을 부르는 시험.

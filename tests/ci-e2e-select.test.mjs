@@ -137,3 +137,16 @@ test('실제 저장소: 화면 파일 → 공용 동작 기준표·사각형 고
     for (const s of lib) assert.ok(sel.mode === 'full' || sel.specs.includes(s), `${f} → ${s}`);
   }
 });
+
+// DESIGN-검증하네스 ③(S73-04): 기준 사진 파일만 고친 PR은 그 시험만(예전에는 '부르는 시험을 못 찾음'으로 전체),
+// 화면 CSS를 고친 PR은 기준 사진 시험도 함께.
+test('실제 저장소: 기준 사진 → 그 시험, 화면 CSS → 기준 사진 시험도 함께', () => {
+  const {appFiles, testFiles} = loadRepo('.');
+  const vb = 'tests/app-e2e/visual-baseline.spec.mjs';
+  assert.ok(testFiles.has(vb));
+  const snap = select([`${vb}-snapshots/home-pc-chromium-linux.png`], appFiles, testFiles);
+  assert.equal(snap.mode, 'some');
+  assert.deepEqual(snap.specs, [vb]);
+  const css = select(['app/calendar-ui.css'], appFiles, testFiles);
+  assert.ok(css.mode === 'full' || css.specs.includes(vb), `${css.mode} ${css.specs.length}`);
+});
