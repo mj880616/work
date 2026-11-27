@@ -23,12 +23,20 @@ async function swipe(locator, dx) {
 // 누르기는 그 칸에 바로 보낸다(Playwright click의 '보이게 스크롤'이 스크롤 이벤트를 내 열린 칸을 닫지 않게 — 손가락은 스크롤하지 않고 누른다).
 async function swipeTap(page, locator, key) {
   const b = page.locator(`[data-row-swipe-key="${key}"]`);
-  // 민 뒤 목록이 다시 그려지면(늦게 온 읽기) 열린 칸도 닫히므로, 칸이 보일 때까지 다시 민다.
+  // 민 뒤 목록이 다시 그려지면(늦게 온 읽기) 열린 칸도 닫히므로, 민 것과 누르기를 한 묶음으로 다시 한다.
+  // '칸이 보임 확인'과 '누르기' 사이를 벌려 두면 그 틈에 칸이 닫혀도 누르기가 없는 칸을 90초 기다렸다(#3280).
+  // 누르기는 그 순간 칸이 붙어 있을 때만 보내고(한 번의 evaluate), 없으면 던져 다시 민다. 눌린 뒤에는 다시 보내지 않는다.
   await expect(async () => {
     await swipe(locator, -50);
     await expect(b).toBeVisible({ timeout: 1000 });
+    const tapped = await b.evaluate(el => {
+      if (!el.isConnected) return false;
+      el.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    }, null, { timeout: 2000 });
+    expect(tapped).toBe(true);
   }).toPass({ timeout: 15000 });
-  await touchTap(b);
 }
 // 손가락 한 번 누르기(누름 → click). 밀기 뒤 따라오는 click을 삼키는 규칙은 다음 누름에서 풀린다.
 async function touchTap(locator) {
