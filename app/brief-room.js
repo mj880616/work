@@ -51,7 +51,8 @@ import {KIND,dayText} from './files-model.mjs';
 import {iconSvg} from './tree-icons.js';
 import {ftFolderRowHtml,ftEmptyRowHtml,ftIconHtml} from './folder-tree-ui.mjs';
 import {nextSort,headCellHtml,sortSelectHtml,parseSortValue,bindHeadSort} from './head-sort.mjs';
-import {viewPrefs} from './view-prefs.js';
+import {viewPrefs,BRIEF_COLS} from './view-prefs.js';
+import {mountColResize,gripHtml} from './col-resize.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
@@ -180,7 +181,9 @@ function fileRow(row,depth){
   const day=dayText(d.created_at),size=sizeOf(d),kind=kindText(d);
   if(pick.active){const c=el('input','br-pick');c.type='checkbox';c.dataset.brPick=d.id;c.checked=pick.has(d.id);c.setAttribute('aria-label','선택: '+docName(d));r.append(c)}
   const st=stateNode(row);
-  r.append(ico,nm,el('span','fx-day',day),el('span','fx-size',size),el('span','fx-kind',kind),st,el('span','fx-sub',[day,size,kind].filter(Boolean).join(' · ')));
+  // BRIEF-열보이기: 켠 칸만 그린다(숨긴 칸은 그리지 않음 — 덮어 숨기기 없음). 폰의 아래 작은 줄(fx-sub)은 지금처럼 셋 모두.
+  const cells={day:el('span','fx-day',day),size:el('span','fx-size',size),kind:el('span','fx-kind',kind)};
+  r.append(ico,nm,...shownCols().map(k=>cells[k]),st,el('span','fx-sub',[day,size,kind].filter(Boolean).join(' · ')));
   return r;
 }
 const html=h=>{const t=document.createElement('template');t.innerHTML=h;return t.content.firstElementChild};
@@ -194,9 +197,42 @@ function folderRow(t){
     more:{attrs:{'data-br-fmore':t.id},label:`폴더 메뉴: ${name}`}}));
   return node;
 }
+// BRIEF-열보이기·열폭끌기(명진 11/27 PC): 머리 줄 = 이름 + 켠 칸(넣은 날·크기·종류), 칸 오른쪽 금을 끌면 폭(공용 col-resize.js, 서버 view_prefs.col_widths.brief, 화면 종류별).
+// 오른쪽 끝 단추 = '보일 칸' 메뉴(노트 목록 머리와 같은 모양·같은 글자). 이름 칸은 숨길 수 없다. 서버 view_prefs.brief_cols(없으면 셋 다 보임).
+const BR_COL_NAMES=Object.freeze({name:'이름',day:'넣은 날',size:'크기',kind:'종류'});
+const BR_COL_SORT=Object.freeze({name:'name',day:'modified',size:'size',kind:'kind'});
+const BR_COL_VARS=Object.freeze({name:'--br-w-name',day:'--br-w-day',size:'--br-w-size',kind:'--br-w-kind'});
+const BR_COL_W=Object.freeze({day:76,size:56,kind:44});
+const shownCols=()=>{const v=viewPrefs.getBriefCols?.();return Array.isArray(v)?BRIEF_COLS.filter(k=>v.includes(k)):[...BRIEF_COLS]};
+const sameCols=(a,b)=>a.length===b.length&&a.every((k,i)=>k===b[i]);
+function setShownCols(next){const cols=BRIEF_COLS.filter(k=>next.includes(k));viewPrefs.setBriefCols?.(sameCols(cols,BRIEF_COLS)?null:cols);drawList()}
+const colsButtonHtml=()=>'<button type="button" class="icon-btn br-cols-btn" data-br-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="brColsMenu"><span class="more-dots" aria-hidden="true">⋯</span></button>';
 function listHead(){
   const cur=sortNow();
-  return html(`<div class="fx-head br-fhead" role="row" aria-label="정렬 머리"><span aria-hidden="true"></span>${['name','modified','size','kind'].map(key=>headCellHtml({key,label:BRIEF_SORT_NAME[key],cur})).join('')}<span aria-hidden="true"></span></div>`);
+  return html(`<div class="fx-head br-fhead" role="row" aria-label="정렬 머리"><span aria-hidden="true"></span>${['name',...shownCols()].map(k=>headCellHtml({key:BR_COL_SORT[k],label:BR_COL_NAMES[k],cur,extra:gripHtml(k,BR_COL_NAMES[k])}).replace('<span role="columnheader"',`<span data-br-col="${k}" role="columnheader"`)).join('')}<span class="br-fhead-end">${colsButtonHtml()}</span></div>`);
+}
+// 칸 틀(그리드): 켠 칸에 맞춰 폭 변수로 그린다. 목록 칸이 좁으면(두 칸의 왼쪽) 크기·종류 → 넣은 날 순서로 뺀다(CSS container query가 mid·min 틀로 바꿈).
+function paintGrid(box){
+  const tmpl=(ks,dayW)=>['20px',ks.includes('name')?'var(--br-w-name,minmax(0,1fr))':'minmax(0,1fr)',...ks.filter(k=>k!=='name').map(k=>`var(--br-w-${k},${k==='day'&&dayW?dayW:BR_COL_W[k]}px)`),'minmax(24px,auto)'].join(' ');
+  const cols=shownCols();
+  box.style.setProperty('--br-grid',tmpl(['name',...cols]));
+  box.style.setProperty('--br-grid-mid',tmpl(cols.includes('day')?['day']:[],64));
+  box.style.setProperty('--br-grid-min',tmpl([]));
+}
+const colsMenuHtml=()=>{const on=shownCols();return BRIEF_COLS.map(k=>`<button type="button" class="row-act" role="menuitemcheckbox" aria-checked="${on.includes(k)}" data-br-col-toggle="${k}"><span class="br-check" aria-hidden="true">${on.includes(k)?'✓':''}</span>${BR_COL_NAMES[k]}</button>`).join('')+'<button type="button" class="row-act" data-br-cols-reset>기본으로</button>'};
+const colsMenu=createAnchoredMenu({id:'brColsMenu',className:'topline-add-menu br-cols-menu',label:'보일 칸',historyKey:'kptuBriefColsMenu',key:()=>'cols',boxWidth:180,render:colsMenuHtml,onAction:()=>{}});
+{
+  // 켜기·끄기는 메뉴를 닫지 않고 그 자리에서(노트 목록 '보일 칸'과 같음): 공용 메뉴는 단추를 누르면 닫히므로 여기서 먼저 받는다.
+  const panel=document.getElementById('brColsMenu');
+  panel?.addEventListener('click',e=>{
+    const t=e.target.closest?.('[data-br-col-toggle]'),reset=e.target.closest?.('[data-br-cols-reset]');if(!t&&!reset)return;
+    e.stopPropagation();
+    const on=shownCols();
+    if(reset)setShownCols([...BRIEF_COLS]);else{const k=t.dataset.brColToggle;setShownCols(on.includes(k)?on.filter(x=>x!==k):[...on,k])}
+    if(colsMenu.active)panel.innerHTML=colsMenuHtml();
+    colsMenu.follow(()=>view()?.querySelector('[data-br-cols-menu]'));
+    (t?panel.querySelector(`[data-br-col-toggle="${t.dataset.brColToggle}"]`):panel.querySelector('[data-br-cols-reset]'))?.focus({preventScroll:true});
+  },true);
 }
 // S71-30 BRIEF-머리한줄(명진 11/26 17:38 "여기에 파일을 놓아듀 돼요 이 안내멘트 삭제"): 화면 안 머리 줄([자료실에서 선택][자료 넣기][−|+])과
 // 점선 놓기 안내 줄은 없다. 머리 단추는 맨 위 줄 단추 상자(screen-find.js toolsBox — 폰·폴드 '브리핑 룸 · 찾기' 오른쪽, PC 상단 줄 검색 칸 오른쪽)의
@@ -227,8 +263,12 @@ function drawList(){
   if(split())parts.push(listHead());
   const host=rowsHost();host.replaceChildren(list);parts.push(host);
   box.replaceChildren(...parts);
+  paintGrid(box);
   paintTextSize(box);
   bindHeadSort(box,key=>{state.sort=nextSort(sortNow(),key);viewPrefs.setBriefSort?.(state.sort);drawList()});
+  // 칸 오른쪽 금 끌기 = 그 칸 폭(키보드 ←/→ 8px, Home = 기본). 두 번 누르기 = 글자 길이에 맞춤. 폰(머리 줄 없음)은 금이 없다.
+  mountColResize({host:box,name:'brief',vars:BR_COL_VARS,labels:BR_COL_NAMES,
+    fit:key=>Math.ceil(Math.max(0,...[...box.querySelectorAll(`.br-rows .${key==='name'?'br-nm':'fx-'+key}`)].map(c=>c.scrollWidth)))});
 }
 // 목록 줄을 담는 고정 칸 하나(줄 밀기 공용 부품이 한 번만 붙는 자리 — 목록을 다시 그려도 같은 칸).
 let rowsBox=null;
@@ -693,6 +733,7 @@ function bind(){
   const v=view();if(!v||v.dataset.brBound)return;v.dataset.brBound='1';
   v.addEventListener('click',e=>{
     const t=e.target;
+    const cm=t.closest?.('[data-br-cols-menu]');if(cm){e.stopPropagation();colsMenu.open(cm);return}
     const fm=t.closest?.('[data-br-fmore]');if(fm){e.stopPropagation();folderMenu.open(fm);return}
     const fold=t.closest?.('[data-br-fold]');if(fold){state.xopen=toggleOpen(state.xopen,fold.dataset.brFold);drawList();return}
     if(t.closest?.('[data-br-pick-all]')){const ids=roomRows().map(r=>r.doc.id);pick.toggle(ids,{anchor:false});drawList();return}
