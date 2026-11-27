@@ -1,6 +1,7 @@
 // S69-27 노트 휴지통(명진 11/24 "지운 노트 어디서봐? 휴지통 보여야함"): 노트 [삭제]는 이미 휴지통으로 간다(basket-record-delete.js
 // deleteNoteToTrash, DB 20261026100000_trash_notes_db.sql). 그 노트를 노트 [폴더] 보기 안에서 본다 — 왼쪽 나무(폰은 첫 화면 폴더 상자) 맨 아래
-// '휴지통 N' 줄, 누르면 오른쪽(폰은 '그 폴더만' 상자)에 지운 노트(제목·지운 날짜), 줄마다 [되돌리기]와 ⋯ [영구 삭제].
+// '휴지통 N' 줄, 누르면 오른쪽(폰은 '그 폴더만' 상자)에 지운 노트(제목·지운 날짜), 줄마다 그림 단추 [되살리기]·[영구 삭제](공용 trash-row.js, 시안 '마').
+// 꾹 눌러(PC Ctrl+클릭) 고르면 위 [모두 고르기]·[취소], 아래 막대 'N개 고름 · 되살리기 · 영구 삭제'(일괄도 줄마다 쓰는 서버 길 그대로, 한 개씩).
 // 서버 길은 사업 관리 휴지통 탭(project-system-v3.js)과 같은 app_trash_list / app_trash_restore / app_trash_purge('note')뿐이고 같은 문구를 쓴다.
 // 휴지통 종류 'note'에는 정리함 업데이트도 들어 있어 여기서는 노트(note_kind 'note')만 보인다(업데이트는 사업 관리 휴지통 탭 그대로).
 // 그리기 주인은 이 파일 하나(껍데기 basket-notes.js renderList가 paint를 부른다). 상태는 화면 메모리만(기기 저장 없음).
@@ -11,6 +12,7 @@ import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {askConfirm, notify} from './small-notice.js';
 import {bindRowSwipe} from './row-swipe.js';
+import {trashRowHtml, trashListOpen, trashPickHeadHtml, trashPickBarHtml, bindTrashPick} from './trash-row.js';
 
 export const NOTE_TRASH = 'note-trash';
 export const NOTE_TRASH_NAME = '휴지통';
@@ -18,12 +20,13 @@ export const isTrashAt = v => v === NOTE_TRASH;
 // 휴지통 줄에 보일 것: 노트만(업데이트 빼기). 가장 최근에 지운 것이 위(normalizeTrashRows 순서 그대로).
 export const noteTrashRows = rows => (Array.isArray(rows) ? rows.filter(r => r && r.kind === 'note' && r.note_kind === 'note') : []);
 const deletedDay = value => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric'}); };
-const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 
 // esc: 글자 지우기. rt: 서버. onChange(): 다시 그려 달라(껍데기 renderList). onRestored(): 되돌린 노트를 목록에 다시 올려 달라(껍데기 refresh).
 // scope(): 지금 작업공간(늦게 온 답이 다른 작업공간 화면을 바꾸지 않게).
 export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, onChange = () => {}, onRestored = () => {}, scope = () => ''} = {}) {
   let state = TRASH_STATE.UNKNOWN, rows = null, busy = false, seq = 0;
+  const pick = box ? bindTrashPick(box, {order:() => (rows || []).map(r => r.id), onChange:() => onChange(), layer:'note-trash-pick', enabled:() => !busy}) : null;
+  const picking = () => !!pick?.select.active;
   async function load() {
     const run = ++seq, owner = scope();
     const r = await readTrashKind('note', rt);
@@ -38,21 +41,18 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     return ftTrashRowHtml({label:NOTE_TRASH_NAME, count:n === null ? '' : n, countLabel:n === null ? '' : `휴지통 노트 ${n}개`, current:tree && at === NOTE_TRASH, tree,
       attrs:{'data-nx-open':NOTE_TRASH, 'data-nx-trash-item':''}});
   }
-  // 줄 모양(11/26 명진 "뚱뚱한 단추"): 제목·날짜 + 오른쪽 테두리 없는 작은 글자 [되살리기](휴지통에서 꺼내기는 '되살리기', ui-words.md)와 ⋯.
-  // 폰은 줄을 왼쪽으로 밀어도 같은 [되살리기][영구 삭제](다른 휴지통 줄과 같은 밀기 칸). 영구 삭제는 ⋯ 안에서 줄마다 묻는다.
-  function rowHtml(r) {
-    const name = r.name || '제목 없음', when = deletedDay(r.deleted_at);
-    return `<div class="nxt-row" role="listitem" data-nxt-row="${esc(r.id)}"><span class="nxt-main"><span class="nxt-name">${esc(name)}</span>${when ? `<time class="nxt-day" datetime="${esc(r.deleted_at || '')}"><span class="a11y-only">삭제한 날 </span>${esc(when)}</time>` : ''}</span>`
-      + `<button type="button" class="row-act nxt-q nxt-restore" data-nxt-restore="${esc(r.id)}"${busy ? ' disabled' : ''}>되살리기</button>`
-      + `<details class="nxt-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(name)}">${MORE}</summary><div class="nxt-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="danger nxt-purge" data-nxt-purge="${esc(r.id)}"${busy ? ' disabled' : ''}>영구 삭제</button></div></details></div>`;
-  }
-  // '휴지통 비우기': 휴지통에 보이는 노트 전부를 영구 삭제(건수 옆, 글자 단추). 서버 길은 줄마다 쓰는 app_trash_purge 그대로.
-  const emptyBtn = (cls = '') => `<button type="button" class="row-act nxt-q nxt-empty ${cls}" data-nxt-empty-all${busy ? ' disabled' : ''}>휴지통 비우기</button>`;
+  // 줄 모양(시안 '마', 11/28): 제목·날짜 + 그림 단추 ↶ 되살리기·휴지통X 영구 삭제(공용 trash-row.js). 되살리기는 휴지통에서 꺼내기(ui-words.md).
+  // 폰은 줄을 왼쪽으로 밀어도 같은 [되살리기][영구 삭제](다른 휴지통 줄과 같은 밀기 칸). 영구 삭제는 줄마다 묻는다.
+  const rowHtml = r => trashRowHtml({id:r.id, name:r.name, whenText:deletedDay(r.deleted_at), whenIso:r.deleted_at || '', busy, picking:picking(), picked:!!pick?.select.has(r.id)});
+  // '휴지통 비우기': 휴지통에 보이는 노트 전부를 영구 삭제(머리줄 오른쪽 작은 빨간 글자). 서버 길은 줄마다 쓰는 app_trash_purge 그대로.
+  const emptyBtn = (cls = '') => `<button type="button" class="row-act nxt-q nxt-empty ${cls}" data-nxt-empty-all${busy || picking() ? ' disabled' : ''}>휴지통 비우기</button>`;
   function listHtml({bar = false} = {}) {
     if (state === TRASH_STATE.FAILED) return failHtml({retry:'data-nxt-retry', text:TRASH_TEXT.LOAD_FAILED});
     if (state === TRASH_STATE.MISSING) return emptyHtml(TRASH_TEXT.PREPARING);
     if (!rows) return waitHtml({rows:3, h:36});
-    return rows.length ? `${bar ? `<div class="nxt-bar">${emptyBtn()}</div>` : ''}<div class="nxt-list" role="list" aria-label="휴지통에 있는 노트">${rows.map(rowHtml).join('')}</div>` : emptyHtml('휴지통 비어 있음', {attrs:'data-nxt-empty'});
+    if (!rows.length) return emptyHtml('휴지통 비어 있음', {attrs:'data-nxt-empty'});
+    const on = picking(), n = pick.select.size;
+    return `${bar && !on ? `<div class="nxt-bar">${emptyBtn()}</div>` : ''}${on ? trashPickHeadHtml({total:rows.length, picked:n}) : ''}${trashListOpen('휴지통에 있는 노트', on)}${rows.map(rowHtml).join('')}</div>${on ? trashPickBarHtml({picked:n, busy}) : ''}`;
   }
   const ICON = '<span class="ft-ico ft-ico-trash" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></span>';
   // 그리기. at: 지금 자리(NOTE_TRASH일 때만 보인다), phone: 폰 '그 폴더만' 상자, query: 찾는 중이면 숨김, folderView: [폴더] 보기일 때만.
@@ -60,9 +60,10 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     if (!box) return;
     if (!folderView || query || at !== NOTE_TRASH) { box.hidden = true; box.replaceChildren(); return; }
     box.hidden = false;
+    if (pick.select.active) { pick.select.prune(new Set((rows || []).map(r => r.id))); if (!pick.select.size) pick.select.stop(); }
     const n = count(), num = n === null ? '' : String(n);
     if (phone) { box.innerHTML = ftFocusHtml({back:{'data-nx-back':''}, trail:[{label:'노트', attrs:{'data-nx-at':''}}], name:NOTE_TRASH_NAME, icon:ICON, count:num, body:listHtml({bar:true}), attrs:{'data-nxt-focus':''}}); return; }
-    box.innerHTML = `<div class="nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nxt-n">${num}</span>` : ''}${rows && rows.length ? emptyBtn('nxt-empty-head') : ''}</div>${listHtml()}`;
+    box.innerHTML = `<div class="nxt-head">${ICON}<b>${NOTE_TRASH_NAME}</b>${num ? `<span class="nxt-n">${num}</span>` : ''}${rows && rows.length && !picking() ? emptyBtn('nxt-empty-head') : ''}</div>${listHtml()}`;
   }
   const rowOf = id => (rows || []).find(r => r.id === id) || null;
   async function restore(id, anchor) {
@@ -118,21 +119,60 @@ export function createNoteTrash({box, esc, rt = globalThis.window?.KPTURuntime, 
     onChange();
     void load().then(onChange);
   }
-  // 폰 줄 밀기(왼쪽): [되살리기][영구 삭제]. 칸만 열고 누를 때만 한다(다른 휴지통 줄과 같은 공용 부품).
-  if (box) bindRowSwipe(box, {row:'[data-nxt-row]', enabled:() => !busy,
+  // 고르기 막대: 고른 노트를 한 개씩(줄마다 쓰는 서버 길 그대로) 되살리거나 영구 삭제한다. 끝나면 고르기를 끝낸다.
+  async function bulkRestore() {
+    const ids = pick.ids(); if (busy || !ids.length) return;
+    busy = true; onChange();
+    const owner = scope();
+    let done = 0, fail = '';
+    try {
+      for (const id of ids) {
+        const r = await restoreFromTrashKind('note', id, rt);
+        if (!r.ok) { fail = r.message; break; }
+        done++;
+        if (owner === scope()) rows = (rows || []).filter(x => x.id !== id);
+      }
+    } finally { busy = false; }
+    if (owner !== scope()) return;
+    pick.select.stop();
+    notify(fail ? `${done}개를 되살렸어요. ${fail}` : `노트 ${done}개를 되살렸어요.`, {error:!!fail, record:false});
+    if (done) { window.dispatchEvent(new Event('kptu:basket-links-changed')); onRestored(ids[0]); }
+    onChange();
+    void load().then(onChange);
+  }
+  async function bulkPurge(anchor) {
+    const ids = pick.ids(); if (busy || !ids.length) return;
+    if (!(await askConfirm(anchor, {text:`선택한 노트 ${ids.length}개를 영구 삭제할까요?`, note:'삭제하면 되돌릴 수 없어요.', ok:'영구 삭제', danger:true})) || busy) return;
+    busy = true; onChange();
+    const owner = scope();
+    let done = 0, fail = '';
+    try {
+      for (const id of ids) {
+        const r = await purgeFromTrashKind('note', id, rt);
+        if (!r.ok) { fail = r.message; break; }
+        done++;
+        if (owner === scope()) rows = (rows || []).filter(x => x.id !== id);
+      }
+    } finally { busy = false; }
+    if (owner !== scope()) return;
+    pick.select.stop();
+    notify(fail ? `${done}개를 영구 삭제했어요. ${fail}` : `노트 ${done}개를 영구 삭제했어요.`, {error:!!fail, record:false});
+    onChange();
+    void load().then(onChange);
+  }
+  // 폰 줄 밀기(왼쪽): [되살리기][영구 삭제]. 칸만 열고 누를 때만 한다(다른 휴지통 줄과 같은 공용 부품). 고르기 중에는 밀기를 끈다.
+  if (box) bindRowSwipe(box, {row:'[data-tr-row]', enabled:() => !busy && !picking(),
     actions:() => ({start:null, end:[{key:'restore', label:'되살리기', tone:'info', icon:'undo'}, {key:'purge', label:'영구 삭제', tone:'danger', icon:'trash'}]}),
-    run:(key, el) => { const id = el.dataset.nxtRow; if (key === 'restore') void restore(id, el); else if (key === 'purge') void purge(id, el); }});
+    run:(key, el) => { const id = el.dataset.trRow; if (key === 'restore') void restore(id, el); else if (key === 'purge') void purge(id, el); }});
   box?.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b || !box.contains(b) || b.disabled) return;
     if (b.matches('[data-nxt-retry]')) { state = TRASH_STATE.UNKNOWN; rows = null; onChange(); void load().then(onChange); return; }
     if (b.matches('[data-nxt-empty-all]')) { void purgeAll(b); return; }
-    if (b.matches('[data-nxt-restore]')) { void restore(b.dataset.nxtRestore, b); return; }
-    if (b.matches('[data-nxt-purge]')) { b.closest('details')?.removeAttribute('open'); void purge(b.dataset.nxtPurge, b.closest('.nxt-row')?.querySelector('summary') || b); }
+    if (b.matches('[data-tr-bulk-restore]')) { void bulkRestore(); return; }
+    if (b.matches('[data-tr-bulk-purge]')) { void bulkPurge(b); return; }
+    if (b.matches('[data-tr-restore]')) { void restore(b.dataset.trRestore, b); return; }
+    if (b.matches('[data-tr-purge]')) { void purge(b.dataset.trPurge, b); }
   });
-  // 줄 우클릭(PC)은 공용 context-menu.js가 그 줄의 ⋯(summary)을 연다(role listitem 줄). ⋯ 판은 하나만 열린다. 바깥을 누르거나 Esc면 닫힌다.
-  box?.addEventListener('toggle', e => { const d = e.target; if (d?.matches?.('details.nxt-more') && d.open) box.querySelectorAll('details.nxt-more[open]').forEach(x => { if (x !== d) x.open = false; }); }, true);
-  globalThis.document?.addEventListener('click', e => { if (box && !e.target.closest?.('details.nxt-more')) box.querySelectorAll('details.nxt-more[open]').forEach(x => { x.open = false; }); });
-  box?.addEventListener('keydown', e => { if (e.key !== 'Escape') return; const d = e.target.closest?.('details.nxt-more[open]'); if (!d) return; e.preventDefault(); e.stopPropagation(); d.open = false; d.querySelector('summary')?.focus(); });
-  return {load, count, navHtml, paint, isBusy:() => busy, reset() { seq++; state = TRASH_STATE.UNKNOWN; rows = null; busy = false; box?.replaceChildren(); if (box) box.hidden = true; }};
+  return {load, count, navHtml, paint, isBusy:() => busy, reset() { seq++; pick?.select.stop(); state = TRASH_STATE.UNKNOWN; rows = null; busy = false; box?.replaceChildren(); if (box) box.hidden = true; }};
 }

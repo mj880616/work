@@ -10,7 +10,8 @@ test('휴지통 창: 서버 cloud-files의 trash_list(읽기)·untrash(confirm:t
   const code = src.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
   assert.deepEqual([...new Set([...code.matchAll(/call\('([\w-]+)'/g)].map(m => m[1]))].sort(), ['trash_list', 'untrash']);
   assert.match(code, /call\('untrash', \{source: 'gd', ids, confirm: true\}\)/);
-  assert.match(code, /data-fx-trash-restore\$\{n && !st\.busy \? '' : ' disabled'\}/, '고른 것이 없으면 [되살리기]가 꺼져 있다');
+  assert.match(code, /canPurge: false/, '영구 삭제 그림 단추는 그리지 않는다(서버 길 없음)');
+  assert.match(code, /from '\.\/trash-row\.js'/, '줄·고르기는 공용 휴지통 줄 부품(trash-row.js)');
   assert.doesNotMatch(code, /영구|emptyTrash|permanent|method: 'DELETE'/i);
   assert.doesNotMatch(code, DEVICE_STORES); // 기기 저장 낱말은 감사(browser-storage-audit)가 세지 않게 조각으로 만든다(files-model.test.mjs와 같음)
   // 원드라이브 웹 휴지통은 새 창, 원드라이브 주소일 때만.

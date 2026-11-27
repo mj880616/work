@@ -25,30 +25,38 @@ for (const width of [390, 1280]) {
     await expect(box).toBeVisible();
     await expect(box.locator('#fxTrashTitle')).toHaveText('구글 드라이브 휴지통');
     await expect(box.locator('.fx-dest-note')).toContainText('내 드라이브에서 직접 삭제한 것만');
-    await expect(box.locator('.fx-trash-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 폴더']);
-    await expect(box.locator('.fx-trash-meta').first()).toContainText('삭제');
-    await expect(box.locator('.fx-trash-meta').nth(1)).toContainText('폴더');
+    await expect(box.locator('.tr-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 폴더']);
+    await expect(box.locator('.tr-day').first()).toContainText('삭제한 날');
+    await expect(box.locator('.tr-day').nth(1)).toContainText('폴더');
     // 창은 화면 안, 하단바 위(폰)·가운데 아래(PC).
     const r = await box.boundingBox();
     expect(r.y + r.height).toBeLessThanOrEqual(900);
     expect(r.x).toBeGreaterThanOrEqual(0);
     expect(r.x + r.width).toBeLessThanOrEqual(width);
-    // 고르기 전에는 [되살리기]가 꺼져 있고, 영구 삭제 단추는 어디에도 없다.
-    const restore = box.locator('[data-fx-trash-restore]');
-    await expect(restore).toBeDisabled();
+    // 줄마다 그림 단추 ↶ [되살리기]뿐 — 영구 삭제 단추·비우기는 어디에도 없다(서버에 그 길이 없음).
+    await expect(box.locator('[data-tr-restore]')).toHaveCount(2);
+    await expect(box.locator('[data-tr-restore]').first()).toHaveAttribute('aria-label', /되살리기/);
     await expect(box.getByRole('button', { name: /영구|비우기/ })).toHaveCount(0);
     await box.locator('[data-fx-trash-more]').click();
-    await expect(box.locator('.fx-trash-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 폴더', '가짜 지운 표.xlsx']);
+    await expect(box.locator('.tr-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 폴더', '가짜 지운 표.xlsx']);
     await expect(box.locator('[data-fx-trash-more]')).toHaveCount(0);
-    await box.locator('[data-fx-trash-pick="gdT1"]').check();
-    await box.locator('[data-fx-trash-pick="gdT3"]').check();
-    await expect(box.locator('.fx-dest-at')).toHaveText('2개 선택');
-    expect(edge(server, 'untrash')).toHaveLength(0);
-    await restore.click();
+    // 줄 하나 ↶ 한 번 = 그 파일 하나 되살리기.
+    await box.locator('[data-tr-restore="gdT2"]').click();
     await expect.poll(() => edge(server, 'untrash').length).toBe(1);
-    expect(edge(server, 'untrash')[0].body).toEqual({ action: 'untrash', source: 'gd', ids: ['gdT1', 'gdT3'], confirm: true });
-    await expect(box.locator('.fx-trash-name')).toHaveText(['가짜 지운 폴더']);
+    expect(edge(server, 'untrash')[0].body).toEqual({ action: 'untrash', source: 'gd', ids: ['gdT2'], confirm: true });
+    await expect(box.locator('.tr-name')).toHaveText(['가짜 지운 초안.pdf', '가짜 지운 표.xlsx']);
+    // Ctrl+클릭(PC 고르기 방식)으로 둘을 고르면 아래 막대 'N개 선택 · 되살리기'(영구 삭제 없음) — 막대로 한 번에.
+    await box.locator('[data-tr-row="gdT1"] .tr-name').click({ modifiers: ['Control'] });
+    await box.locator('[data-tr-row="gdT3"] .tr-name').click();
+    await expect(box.locator('[data-tr-bar] .kptu-sb-count')).toHaveText('2개 선택');
+    await expect(box.locator('[data-tr-bar]').getByRole('button')).toHaveText(['되살리기']);
+    await expect(box.locator('[data-tr-restore]')).toHaveCount(0);
+    await box.locator('[data-tr-bulk-restore]').click();
+    await expect.poll(() => edge(server, 'untrash').length).toBe(2);
+    expect(edge(server, 'untrash')[1].body).toEqual({ action: 'untrash', source: 'gd', ids: ['gdT1', 'gdT3'], confirm: true });
+    await expect(box.locator('.tr-name')).toHaveCount(0);
     await expect(page.locator('#kptuNotice')).toContainText('2개를 되살렸어요');
+    expect(server.items.some(i => i.source === 'gd' && i.item_id === 'gdT2' && !i.trashed)).toBe(true);
     // 창을 닫으면 구글 드라이브 맨 위에 되살린 파일이 다시 보인다(목록을 다시 읽음).
     await box.locator('[data-fx-trash-close]').click();
     await expect(sheet(page)).toHaveCount(0);
