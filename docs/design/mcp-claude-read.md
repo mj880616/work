@@ -467,6 +467,8 @@ create policy app_mcp_no_delegated_storage on storage.objects
 | `web2_family_list` 가족 방 목록 | 가족 방 잊지 말기 줄(가족 표: 종류·글 150자·말한 때·확실한 정도·출처 종류·날짜·상태)과 가족 '잊지 말기'·'과거 기록' 노트(metadata `family_list`·`family_past`)의 제목·앞 200자 | 가족 대화 원문(DB에 없음), 출처 위치·Drive 주소 |
 | `web2_family_get` 가족 노트 한 건 | 가족 노트 본문(쪽 나눔) | 위와 같음 |
 
+- DB 읽기 함수(도구와 1:1, `public`·INVOKER): `app_mcp_day_list`·`app_mcp_day_get`·`app_mcp_calls_list`·`app_mcp_call_get`·`app_mcp_recordings_list`·`app_mcp_recording_get`·`app_mcp_basket_search`·`app_mcp_basket_get`·`app_mcp_family_list`·`app_mcp_family_get`. 입력 칸 이름은 도구 칸 앞에 `p_`(예: `web2_call_get`의 `call_id` → `p_call_id`).
+- 거절 코드 하나 더: `AREA_OFF`(그 영역 스위치가 꺼졌거나 앱 잠금 영역) — "Web2 설정에서 이 영역이 꺼져 있습니다."
 - `ai_export_allowed`: 일기는 DB 규칙상 늘 `false`라(일기 보호용 표시) 하루 기록 도구는 이 칸을 보지 않고 **영역 스위치**로 판단한다. 가족 노트도 늘 `false`라 가족 도구는 영역 스위치로 판단한다. 정리함·노트는 사용자가 행마다 정한 표시이므로 계속 따른다(D6 추천).
 - 기존 `web2_notes_search`(노트만)는 그대로 둔다. 설명 글만 "일기·정리함·통화·녹음·가족 방은 각 영역 도구로"로 고친다.
 
