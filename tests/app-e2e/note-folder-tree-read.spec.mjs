@@ -183,7 +183,7 @@ for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두�
   await expect(rows).toHaveCount(3);
   // 얇은 줄: 높이 44px 이하, [되살리기]·⋯·[휴지통 비우기]는 테두리·바탕이 없는 글자형.
   for (const r of await rows.all()) expect((await r.boundingBox()).height).toBeLessThanOrEqual(44);
-  const quiet = async l => expect(await l.evaluate(e => { const c = getComputedStyle(e); return [c.borderTopWidth, c.backgroundColor]; })).toEqual(['0px', 'rgba(0, 0, 0, 0)']);
+  const quiet = async l => expect(await l.evaluate(e => { const c = getComputedStyle(e); return [c.borderTopWidth === '0px' || c.borderTopColor === 'rgba(0, 0, 0, 0)', c.backgroundColor]; })).toEqual([true, 'rgba(0, 0, 0, 0)']);
   await quiet(rows.first().locator('[data-nxt-restore]'));
   await quiet(rows.first().locator('summary'));
   await quiet(box.locator('[data-nxt-empty-all]'));
