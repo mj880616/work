@@ -899,7 +899,7 @@ async function takeAsked(){
     if(b?.status!=='done'||!b.brief||!state.docs.some(d=>d.id===ask.id)){toast(BRIEF_GONE,true);return}
     openDoc(ask.id);
     await loadHighlights().catch(()=>{});drawDetail();
-    revealMark(view()?.querySelector('[data-br-zone]'),ask.highlight);
+    void revealMark(view()?.querySelector('[data-br-zone]'),ask.highlight,{final:true});
     return;
   }
   const b=state.briefs.get(ask.id);

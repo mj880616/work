@@ -289,7 +289,7 @@ function openMark(h) {
 // ---------- 보기 ----------
 let detailBox = null;
 function closeDetail({fromBack = false} = {}) {
-  state.open = null; state.body = null; state.bodyFor = null; state.editing = null; state.editNote = ''; state.editBusy = false;
+  state.open = null; state.reveal = null; state.body = null; state.bodyFor = null; state.editing = null; state.editNote = ''; state.editBusy = false;
   if (!fromBack && layer) { const l = layer; layer = null; void l.close(); }
   layer = null;
   draw();
@@ -301,7 +301,7 @@ function openLayer(id) {
 async function openItem(id, {highlight = null, auto = false} = {}) {
   if (!isId(id)) return;
   if (state.editing !== id) { state.editing = null; state.editNote = ''; state.editBusy = false; }
-  state.open = id; state.body = null; state.bodyFor = null;
+  state.open = id; state.body = null; state.bodyFor = null; state.reveal = highlight; state.revealing = false; // HL-밑줄위치로: 본문·밑줄이 그려진 뒤 drawDetail 끝에서 한 번 옮긴다(여기서 미리 부르지 않는다)
   openLayer(id);
   draw();
   if (!auto) void markOpened(id);
@@ -310,7 +310,6 @@ async function openItem(id, {highlight = null, auto = false} = {}) {
   draw();
   const cur = rowOf(id);
   if (cur && cur.body_state === 'pending' && !fetching(id)) void startFetch(cur);
-  if (highlight) queueMicrotask(() => revealMark(detailBox?.querySelector('[data-rd-prose]'), highlight));
 }
 function drawDetail() {
   detailBox ||= view()?.querySelector('[data-rd-detail]');
@@ -373,7 +372,21 @@ function drawDetail() {
   box.hidden = false;
   if (split()) { followPane(box, {narrow: !wide(), reset: followed !== row.id}); followed = row.id; }
   paintTextSize(box);
-  if (state.bodyFor === row.id) paintMarks(prose, marks);
+  if (state.bodyFor === row.id) { paintMarks(prose, marks); settleReveal(prose, row); }
+}
+// HL-밑줄위치로: 밑줄 줄에서 연 글은 본문을 그리고 밑줄을 칠한 바로 이 자리에서 한 번 그 밑줄로 옮긴다(공용 revealMark). 본문·밑줄 목록이 아직 안 왔으면 다음 그리기에서 다시.
+function settleReveal(prose, row) {
+  const id = state.reveal;
+  if (!id || state.revealing || state.open !== row.id) return;
+  const final = !!highlightsNow() && row.body_state !== 'pending' && !fetching(row.id);
+  state.revealing = true;
+  void revealMark(prose, id, {final}).then(r => {
+    state.revealing = false;
+    if (state.reveal !== id) return;
+    if (r || (final && r === false)) { state.reveal = null; return; }
+    const again = detailBox?.querySelector('[data-rd-prose]'); // 기다리는 사이 다시 그려졌으면 새 칸에서 한 번 더
+    if (r === null && again && again !== prose && state.open === row.id) settleReveal(again, row);
+  });
 }
 
 // 직접 넣은 줄 [수정] 칸: 제목·매체(사이트) 두 칸 + [취소][저장]. 칸 글자는 다시 그려도 그대로(쓰던 값·초점 유지).
