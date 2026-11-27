@@ -1251,7 +1251,7 @@ function setListFor(t, list) {
 function repaintShown() { if (tab === 'folders') { if (gdAt !== null) paintGdFolderGrid(); else paintFolderGrid(); } else if (tab === 'albums') renderAlbums(); else if (tab === 'trash') renderTrash(); else paintList({full:true}); }
 function paintStars() {
   root.querySelectorAll('[data-photos-open]').forEach(b => {
-    const item = shownList()[Number(b.dataset.photosOpen)]; if (!item) return;
+    const item = shownList()[cellIndex(b)]; if (!item) return;
     const on = isStarred(item), mark = b.querySelector('.diary-star-mark'); if (mark) mark.hidden = !on;
     b.setAttribute('aria-label', cellLabel(item, on));
   });
@@ -1629,7 +1629,7 @@ function paintSelect() {
   root.classList.toggle('is-selecting', on);
   const list = shownList();
   root.querySelectorAll('[data-photos-open]').forEach(b => {
-    const item = list[Number(b.dataset.photosOpen)];
+    const item = list[cellIndex(b)];
     const picked = on && !!item && select.has(item.id);
     b.classList.toggle('is-picked', picked); b.classList.toggle('photo-picked', picked); // S69-24: 고른 칸 표시는 공용(base-ui.css 'UI-사진고르기표시')
     if (on) b.setAttribute('aria-pressed', String(picked)); else b.removeAttribute('aria-pressed');
@@ -2043,7 +2043,13 @@ async function purgeAsk(anchor, ids) {
 // 꾹 눌러 선택 모드를 켠 그 손가락을 떼지 않고 끌어도 꾹 누른 칸부터 이어 고른다(위아래로 끌어도 고르기, PHOTO-꾹누르고끌기).
 // 두 번째 손가락이 닿으면(핀치) 꾹 누르기·끌어 고르기를 바로 취소하고, 손가락을 모두 뗄 때까지 다시 걸지 않는다(공용 지킴이 photo-grid-size.js).
 let hold = null, ateClick = false, drag = null, rowHold = null; // rowHold: 폴더 줄·앨범 카드 꾹 누르기(아래)
-const itemOf = b => shownList()[Number(b?.dataset.photosOpen)];
+// PHOTO-크게보기정렬(S73-12): 칸의 주인은 사진 id(data-photos-id) 하나. 칸 번호(data-photos-open)는 빠른 길일 뿐이라, 그 자리 사진이 칸 id와 다르면(목록이 그린 뒤 바뀜) id로 다시 찾는다.
+function cellIndex(b) {
+  const list = shownList(), n = Number(b?.dataset.photosOpen), id = b?.dataset.photosId;
+  if (!id) return list[n] ? n : -1;
+  return list[n]?.id === id ? n : list.findIndex(x => x.id === id);
+}
+const itemOf = b => shownList()[cellIndex(b)];
 body.addEventListener('pointerdown', e => {
   ateClick = false;
   if (multiTouchActive()) return cancelGestures();
@@ -3747,7 +3753,7 @@ root.addEventListener('click', event => {
     const item = itemOf(b); if (!item) return;
     if (select.active) { if (event.shiftKey) select.range(shownList().map(x => x.id), item.id); else select.toggle([item.id]); paintSelect(); return; }
     if (tab === 'trash') return startSelect(item);
-    return openViewer(Number(b.dataset.photosOpen));
+    return openViewer(cellIndex(b));
   }
   if (odHost.contains(b) && settings.click(b, odHost)) return;
   if (b.matches('[data-photos-tab]')) return setTab(b.dataset.photosTab);
