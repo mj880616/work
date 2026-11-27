@@ -468,7 +468,7 @@ test('PC 1280: 버튼은 마우스 올린 줄·초점 줄에만 전부 보이고
   await a.locator('.nbx-meta').click({button:'right'});
   const menu=page.locator('#forgetRowMenu');
   await expect(menu).toBeVisible();
-  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시','수정해서 할 일로','이미 할 일에 있음','내 일 아님']);
+  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시','내 일 아님']);
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   // 텔레그램 줄 ⋯ 메뉴: 기존 셋 없이 접힌 다섯. [무시] = ×와 같은 길(무시로 빼고 되돌리기).
