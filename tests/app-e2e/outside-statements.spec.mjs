@@ -368,6 +368,38 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각�
   expect(errors).toEqual([]);
 });
 
+// NEWS-수집처늘리기(사용자 요청 2026-11-28: AI 코딩·축구 전술 글): [매체 ▾]에 'AI 코딩'·'축구' 묶음 — 고르면 그 묶음 글만. 폰 412·PC 1280.
+for (const width of [412, 1280]) test(`읽을 거리 ${width}: [매체 ▾] AI 코딩·축구 묶음으로 거르기`, async ({ page }) => {
+  test.setTimeout(90000);
+  const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-tech', name: 'Fake Coding Notes', region: 'tech', lang: 'en', on: true }, { key: 'news-fake-ball', name: 'Fake Tactics Blog', region: 'football', lang: 'en', on: true }];
+  const base = { lane: 'media', lang: 'en', summary: null, body_kind: null, starred_at: null, scrapped_at: null, state: 'ok' };
+  const news = [...NEWS,
+    { ...base, id: 'k1', url: 'https://example.org/k1', title: 'A fake note on coding agents', title_ko: '코딩 에이전트에 관한 가짜 글', publisher: 'Fake Coding Notes', source_key: 'news-fake-tech', published_at: '2026-10-06T00:40:00Z', created_at: '2026-10-06T00:45:00Z' },
+    { ...base, id: 'b1', url: 'https://example.org/b1', title: 'Fake pressing shape review', title_ko: '가짜 전방 압박 분석', publisher: 'Fake Tactics Blog', source_key: 'news-fake-ball', published_at: '2026-10-06T00:20:00Z', created_at: '2026-10-06T00:25:00Z' },
+  ];
+  const { errors, server } = await start(page, width, null, { newsCatalog, news });
+  server.newsRows.push({ source_key: 'news-fake-tech', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }, { source_key: 'news-fake-ball', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null });
+  await openOutside(page, width);
+  await expect(row(page, 'news:k1')).toBeVisible();
+  await expect(row(page, 'news:b1')).toBeVisible();
+  const dd = page.locator('.sf-tools [data-nw-media]');
+  await dd.click();
+  const pick = page.locator('#nwMediaPicker');
+  await expect(pick.locator('.lu-move-item')).toContainText(['언론 국내', '가짜일보', 'AI 코딩', 'Fake Coding Notes', '축구', 'Fake Tactics Blog', '언론 국제']);
+  await pick.locator('[data-lu-move-folder="r:tech"]').click();
+  await expect(dd).toHaveText('매체: AI 코딩 ▾');
+  await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+  await expect(row(page, 'news:k1')).toBeVisible();
+  expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-tech)');
+  await dd.click();
+  await pick.locator('[data-lu-move-folder="r:football"]').click();
+  await expect(dd).toHaveText('매체: 축구 ▾');
+  await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+  await expect(row(page, 'news:b1')).toBeVisible();
+  expect(await noWideScroll(page)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 // S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함 … 못읽으면 차라리 목록에서 빠지는게 나음"): 폰 390 읽을 거리.
 // 제목을 끝내 못 얻은 기사(동아일보 공유 주소 꼴 — 주소 조각도 없음)는 '못 읽은 기사 · 도메인' 카드로 보이지 않고 '새 글 N'에도 세지 않는다.
 // 서버가 나중에 제목을 얻으면(같은 기사 RSS 줄 등) 다시 읽을 때 보인다. 보관한 글(공유로 넣은 글)은 [직접 넣기]를 위해 남는다.

@@ -57,10 +57,11 @@ test('카탈로그: 노동 전문지는 beat=labor, 종합지 섹션은 lists와
   for (const k of labor) assert.equal(newsSourceByKey(k)?.beat, 'labor', k);
   for (const s of NEWS_CATALOG) {
     if (s.beat === 'labor') continue;
+    if (s.beat === 'tech' || s.beat === 'football') { assert.equal(s.sections, undefined, `${s.key}: 주제 묶음은 섹션 없이 거르지 않음`); continue; } // NEWS-수집처늘리기
     if (s.sections) {
       assert.equal(s.sections.length, s.lists.length, s.key);
       s.lists.forEach((l, i) => {
-        if (s.region === 'opinion') { assert.equal(listSection(s, l), 'opinion', `${s.key} ${l}`); return; }
+        if (s.region === 'opinion' || s.sections[i] === 'opinion') { assert.equal(listSection(s, l), 'opinion', `${s.key} ${l}`); return; }
         const want = /society|national|50400012|sectionId=03|S1N4/.test(l) ? 'society' : /economy|30100041|sectionId=02|S1N3/.test(l) ? 'economy' : /S1N8/.test(l) ? 'opinion' : 'politics';
         assert.equal(listSection(s, l), want, `${s.key} ${l}`);
       });
