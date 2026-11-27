@@ -37,6 +37,17 @@ export const isDelegatedToken = token => {
   return !!c && c.client_id !== undefined && c.client_id !== null && c.client_id !== '';
 };
 
+// 3판(설계 15.2): 읽을 영역 스위치. 칸은 설정 행의 area_* 다섯 개, 가족 방만 기본 꺼짐. 실제 판정은 DB 문지기가 한다.
+export const AREAS = Object.freeze([
+  {key: 'diary', label: '하루 기록', desc: '그날 쓴 글·업무일지 줄·사진 이름'},
+  {key: 'calls', label: '통화', desc: '요약·전사'},
+  {key: 'recordings', label: '녹음', desc: '회의록 전문·회의 결과'},
+  {key: 'basket', label: '정리함 원문', desc: 'AI 재료에서 뺀 것은 빼고'},
+  {key: 'family', label: '가족 방', desc: '기본은 꺼짐 — 켜야 읽어요'},
+]);
+export const AREA_COLUMNS = AREAS.map(a => `area_${a.key}`);
+const areaOn = (row, key) => key === 'family' ? row[`area_${key}`] === true : row[`area_${key}`] !== false;
+
 // 내 프로필 칸에서 쓰는 설정 행. 행이 없으면(운영자 작업공간 말고는 SQL로 넣지 않음, 설계 7.6) 칸을 보이지 않는다.
 export function settingsState(rows) {
   const row = Array.isArray(rows) ? rows[0] : null;
@@ -46,6 +57,7 @@ export function settingsState(rows) {
     enabled: row.enabled === true,
     revokedBefore: row.revoked_before || null,
     allowedClientId: typeof row.allowed_client_id === 'string' ? row.allowed_client_id : null,
+    areas: Object.fromEntries(AREAS.map(a => [a.key, areaOn(row, a.key)])),
   };
 }
 
@@ -90,6 +102,9 @@ export function consentRefusal({details, owner, settings}) {
 export const TOOL_LABELS = Object.freeze({
   web2_org_status: word('조직 현황'), web2_business_reports: word('사업 보고'), web2_project_status: '프로젝트 현황',
   ledger_search: '원장 검색', ledger_get: '원장 한 건', web2_notes_search: '노트 검색', google_where: '할 일·일정 찾는 길',
+  web2_day_list: '하루 기록 목록', web2_day_get: '하루 기록', web2_calls_list: '통화 목록', web2_call_get: '통화 한 건',
+  web2_recordings_list: '녹음 목록', web2_recording_get: '녹음 한 건', web2_basket_search: '정리함 검색', web2_basket_get: '정리함 한 건',
+  web2_family_list: '가족 방 목록', web2_family_get: '가족 노트',
 });
 export const STATUS_LABELS = Object.freeze({ok: '읽음', limited: '잠깐 멈춤', denied: '막음', error: '오류'});
 export const toolLabel = t => TOOL_LABELS[t] || TOOL_LABELS[String(t || '').replace(/^app_mcp_/, '')] || String(t || '도구');
