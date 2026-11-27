@@ -98,9 +98,9 @@ test('거르기 네 가지·칸 수(폰 3~6·PC 5~12)·photo_view 읽기(결정 
   assert.equal(colsFor(false, null), 4); assert.equal(colsFor(true, null), 8);
   assert.equal(colsFor(false, 10), 6, 'PC에서 고른 값도 폰 범위로'); assert.equal(colsFor(true, 3), 5);
   assert.equal(stepPhotoCols(false, 3, 1), 3, '끝이면 그대로'); assert.equal(stepPhotoCols(false, 4, -1), 5); assert.equal(stepPhotoCols(true, 12, -1), 12);
-  assert.deepEqual(parsePhotoView({filter: 'shot', cols: 7}), {filter: 'shot', cols: 7, sort: 'taken_desc'});
-  assert.deepEqual(parsePhotoView({filter: 'bad', cols: 2}), {filter: 'all', cols: null, sort: 'taken_desc'});
-  assert.deepEqual(parsePhotoView(null), {filter: 'all', cols: null, sort: 'taken_desc'});
+  assert.deepEqual(parsePhotoView({filter: 'shot', cols: 7}), {filter: 'shot', cols: 7, sort: 'taken_desc', burst: true});
+  assert.deepEqual(parsePhotoView({filter: 'bad', cols: 2}), {filter: 'all', cols: null, sort: 'taken_desc', burst: true});
+  assert.deepEqual(parsePhotoView(null), {filter: 'all', cols: null, sort: 'taken_desc', burst: true});
   assert.equal(validValue('photo_view', {filter: 'video', cols: 12}), true);
   for (const bad of [{cols: 13}, {cols: 2}, {filter: 'x'}, {other: 1}, [], 'all', {cols: 4.5}]) assert.equal(validValue('photo_view', bad), false, JSON.stringify(bad));
 });
@@ -278,4 +278,35 @@ test('연도 막대: 글자끼리 최소 간격, 몰린 해는 생략, 막대 �
   assert.equal(yearLabels(monthBar({'2026-10': 3, '2026-08': 1}), 300).length, 1);
   assert.deepEqual(yearLabels([], 300), []);
   assert.deepEqual(yearLabels(bar, 0), []);
+});
+
+// PHOTO-연속묶기: 묶음 계산(한 곳)·photo_view.burst 읽기·쓰기·검사
+import {burstGroups, BURST_GAP_MS, BURST_MIN, photoViewValue} from '../app/photos-model.mjs';
+const shot = (id, at, extra = {}) => ({id, day: at.slice(0, 10), taken_at: at, source: 'onedrive', video: false, screenshot: false, approx: false, ...extra});
+test('연속 사진 묶음: 2분 이내로 이어진 3장 이상만 묶고 대표는 화면 순서 첫 장', () => {
+  assert.equal(BURST_GAP_MS, 120000); assert.equal(BURST_MIN, 3);
+  const list = [shot('d', '2026-11-26T05:03:30Z'), shot('c', '2026-11-26T05:02:00Z'), shot('b', '2026-11-26T05:01:10Z'), shot('a', '2026-11-26T05:00:00Z'), shot('z', '2026-11-26T01:00:00Z')];
+  const g = burstGroups(list);
+  assert.deepEqual([...g.keys()], ['d', 'c', 'b', 'a']); // 이어 달리기: 첫 장과 끝 장 사이 3분 30초여도 한 묶음
+  for (const id of ['d', 'c', 'b', 'a']) assert.deepEqual(g.get(id), {leader: 'd', size: 4});
+  assert.equal(g.has('z'), false);
+});
+test('연속 사진 묶음: 2장·간격 초과·동영상·화면 캡처·짐작한 시각·다른 날·다른 출처는 묶지 않고, 묶음이 끊긴다', () => {
+  const t = (m, s = 0) => `2026-11-26T05:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}Z`;
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(1))]).size, 0); // 2장
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(3)), shot('c', t(6))]).size, 0); // 간격 3분
+  const mid = shot('v', t(1), {video: true});
+  assert.equal(burstGroups([shot('a', t(0)), mid, shot('b', t(2)), shot('c', t(2, 30))]).size, 0); // 동영상이 사이에 끼면 끊김(a 홀로 · b·c 2장)
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(1), {screenshot: true}), shot('c', t(1, 30))]).size, 0);
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(1), {approx: true}), shot('c', t(1, 30))]).size, 0);
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(1), {source: 'phone'}), shot('c', t(1, 30))]).size, 0);
+  assert.equal(burstGroups([shot('a', '2026-11-26T14:59:30Z'), shot('b', '2026-11-26T15:00:10Z', {day: '2026-11-27'}), shot('c', '2026-11-26T15:00:40Z', {day: '2026-11-27'})]).size, 0);
+  assert.equal(burstGroups([shot('a', t(0)), shot('b', t(1)), shot('c', t(2)), shot('d', t(10)), shot('e', t(11)), shot('f', t(12))]).get('f').leader, 'd');
+  assert.equal(burstGroups(null).size, 0); assert.equal(burstGroups([{id: 'x'}]).size, 0);
+});
+test('photo_view.burst: 기본 켜짐 · 끈 것만 저장 · 검사', () => {
+  assert.equal(parsePhotoView({}).burst, true); assert.equal(parsePhotoView({burst: false}).burst, false); assert.equal(parsePhotoView({burst: 'x'}).burst, true);
+  assert.deepEqual(photoViewValue({burst: true}), {filter: 'all'}); assert.deepEqual(photoViewValue({burst: false, cols: 5}), {filter: 'all', cols: 5, burst: false});
+  assert.equal(validValue('photo_view', {burst: false}), true); assert.equal(validValue('photo_view', {burst: true, sort: 'name_asc'}), true);
+  for (const bad of [{burst: 'no'}, {burst: 0}, {burst: null}]) assert.equal(validValue('photo_view', bad), false, JSON.stringify(bad));
 });

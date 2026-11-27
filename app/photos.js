@@ -96,7 +96,7 @@ import {fillGestureArea, settleGestureAreas} from './gesture-fill.js';
 import {originKey} from './diary-list-model.mjs';
 import {SELECT_MAX, PAGE_SIZE, STAR_CHUNK, FILTER_TEXT, DOWNLOAD_MAX, SHARE_MAX, validTab, TABS, TAB_TEXT, validFilter, monthKey, prevMonth, nextMonth, groupByDay, dayHead, starPlan,
   colsFor, stepPhotoCols, parsePhotoView, toItem, appendItems, durationLabel, monthBar, monthAt, parseMonth, monthLabelKo, yearTicks, yearLabels, monthCursor, dayCursor, calendarFromDays, chunks, dragRange,
-  takeItems, putItems, DEFAULT_SORT, SORT_TEXT, sortCompare, sortByDay, sortChoices, photoViewValue} from './photos-model.mjs';
+  takeItems, putItems, DEFAULT_SORT, SORT_TEXT, sortCompare, sortByDay, sortChoices, photoViewValue, burstGroups} from './photos-model.mjs';
 import {word} from './brand/brand.mjs';
 import {setDragGhostImage} from './drag-ghost.js'; // S70-79 STD-끌기모양: 끄는 사진은 공용 이름 조각 하나
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
@@ -155,7 +155,7 @@ const rail = $('[data-photos-rail]'), bubble = $('[data-photos-rail-bubble]'), t
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let owner = ownerScope(rt), run = 0;
 let od = {...OD_NONE}, odFault = false, odReady = false, odMessage = '';
-let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEFAULT_SORT;
+let tab = 'all', filter = 'all', colsSaved = null, prefsRead = false, sort = DEFAULT_SORT, burst = true;
 // S70-57: 맨 위 칸 '사진에서 찾기' = 보이는 사진 칸(그림 이름)·앨범 이름 거르기. 화면 메모리만(새 서버 찾기 없음).
 // photoQ = 다듬은 소문자 글자(빈 글자 = 거르지 않음), photoQRaw = 칸에 친 그대로.
 let photoQ = '', photoQRaw = '';
@@ -382,13 +382,13 @@ function readPrefs() {
   if (prefsRead) return;
   prefsRead = true;
   const v = parsePhotoView(viewPrefs.get('photo_view'));
-  filter = v.filter; colsSaved = v.cols; sort = v.sort;
+  filter = v.filter; colsSaved = v.cols; sort = v.sort; burst = v.burst;
   sources = readDeviceSources();
   level = zoomOf(viewPrefs.getPhotoZoom?.(zoomDevice()));
   phoneOff = parsePhoneOff(viewPrefs.get('phone_folders_off'));
   h$('[data-photos-filter]').value = filter; paintSortButton();
 }
-const savePrefs = () => viewPrefs.set('photo_view', photoViewValue({filter, cols:colsSaved, sort}), {rejectable:true});
+const savePrefs = () => viewPrefs.set('photo_view', photoViewValue({filter, cols:colsSaved, sort, burst}), {rejectable:true});
 // ---- 정렬(PHOTO-정렬, view_prefs.photo_view.sort 하나 — 사진·폴더·앨범 같은 기준) ----
 // [사진]에서 달·날로 건너뛴 목록(from)은 찍은 날 최근 먼저로 본다(그 자리부터 이어 보는 기능이라).
 const listSort = () => (from ? DEFAULT_SORT : sort);
@@ -707,7 +707,7 @@ function srcNotes() {
   else { if (odNeed) out.push(gate()); out.push(gdLine); }
   return out.join('');
 }
-const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}${contentOnly(item) ? `, ${CONTENT_MARK_TEXT}` : ''}`;
+const cellLabel = (item, on) => `${dayHead(item.day)} ${item.video ? '동영상' : '사진'}${on ? ', 별표' : ''}${marks() && item.source !== 'onedrive' ? `, ${SOURCE_TEXT[item.source]}` : ''}${contentOnly(item) ? `, ${CONTENT_MARK_TEXT}` : ''}${burstMap?.get(item.id)?.leader === item.id ? `, 연속 사진 ${burstMap.get(item.id).size}장 묶음` : ''}`;
 const CONTENT_MARK_TEXT = '설명으로 찾음';
 const photoEl = (item, size, opts = {}) => (item.kind === 'phone' ? phone.element(item, size, opts)
   : item.kind === 'gdrive' ? gdPhotoElement(item, size, {...opts, rt, owner}) : odPhotoElement(item, size, {...opts, rt}));
@@ -1609,7 +1609,29 @@ function runBarItem(id, btn) {
 function selectMoreRows(group, on = true) {
   return PHOTO_BAR_MENUS.selectBar.more.flatMap(id => { const a = actAvail(id, group, on); return a.hidden ? [] : [{id, disabled:!!a.disabled && !a.why, ...(a.why ? {why:a.why} : {})}]; });
 }
+// PHOTO-연속묶기: [사진] 목록(찍은 날 순서·월 이하 아닌 날 보기·찾는 중 아님·고르는 중 아님)에서만 연달아 찍은 사진을 대표 한 장 + 장수로 묶어 보인다.
+// 보기만 묶는다 — 목록(items)·칸 번호·크게 보기 순서는 그대로라 대표를 누르면 크게 보기에서 묶음 안 사진이 이어서 넘어간다. 묶음 계산은 photos-model.mjs burstGroups 한 곳,
+// 칸에 칠하는 곳은 이 함수 하나(그릴 때마다 목록에서 다시 계산해 칠한다: 늦게 온 사진·출처가 묶음을 바꿔도 같은 결과).
+const burstOn = () => burst && tab === 'all' && level === 'day' && sortByDay(listSort()) && !photoQ && !select.active;
+let burstMap = null; // paintBursts가 마지막에 계산한 묶음(칸 이름 cellLabel이 읽음 — 별표 칠하기가 이름을 다시 써도 묶음 안내가 남게)
+function paintBursts() {
+  const list = body.querySelector('[data-photos-list]'); if (!list) return;
+  burstMap = burstOn() ? burstGroups(items) : null;
+  const byId = new Map(items.map(it => [it.id, it]));
+  list.querySelectorAll('[data-photos-id]').forEach(b => {
+    const id = b.dataset.photosId, g = burstMap?.get(id), lead = !!g && g.leader === id, item = byId.get(id);
+    b.hidden = !!g && !lead;
+    let m = b.querySelector('[data-photos-burst-mark]');
+    if (!lead) { m?.remove(); delete b.dataset.photosBurst; } else {
+      b.dataset.photosBurst = String(g.size);
+      if (!m) { m = document.createElement('span'); m.className = 'photos-burst-mark'; m.dataset.photosBurstMark = ''; m.setAttribute('aria-hidden', 'true'); b.append(m); }
+      m.textContent = `${g.size}장`;
+    }
+    if (item) b.setAttribute('aria-label', cellLabel(item, isStarred(item)));
+  });
+}
 function paintSelect() {
+  paintBursts();
   const on = select.active && tab !== 'calendar', inTrash = tab === 'trash';
   $('[data-photos-sel]').hidden = !on; $('[data-photos-act]').hidden = !on || inTrash; $('[data-photos-trash-act]').hidden = !on || !inTrash;
   $('[data-photos-sel-count]').textContent = `${select.size}개 선택됨`;
@@ -3850,10 +3872,22 @@ srcMenu = createAnchoredMenu({id:'photosSrcMenu', className:'od-link-menu photos
 // ⋯ 사진 메뉴: 크기 [－][＋](달력 빼고) · [새 앨범](앨범 목록만). [－][＋]는 눌러도 메뉴가 닫히지 않는다(여러 번 바꾸기).
 headMenu = createAnchoredMenu({id:'photosHeadMenu', className:'od-link-menu photos-head-menu', label:'사진 메뉴', historyKey:'kptuPhotosHeadMenu',
   key:() => 'more',
-  render:() => (tab === 'calendar' ? '' : `<div class="photos-menu-size"><span class="photos-menu-size-label" aria-hidden="true">크기</span>${SIZE_BUTTONS}</div>`)
+  render:() => (tab === 'all' && level === 'day' ? `<button type="button" data-photos-burst-toggle role="menuitemcheckbox" aria-checked="${burst}"><span class="photos-sort-ck" aria-hidden="true">${burst ? '✓' : ''}</span>연속 사진 묶어 보기</button>` : '')
+    + (tab === 'calendar' ? '' : `<div class="photos-menu-size"><span class="photos-menu-size-label" aria-hidden="true">크기</span>${SIZE_BUTTONS}</div>`)
     + (albumSizing() ? menuBtn('data-photos-al-new', '새 앨범') : ''),
   onOpen:() => paintSize(),
-  onAction:b => { if (b.matches('[data-photos-al-new]')) newAlbum(); }});
+  onAction:b => { if (b.matches('[data-photos-al-new]')) newAlbum(); else if (b.matches('[data-photos-burst-toggle]')) setBurst(!burst); }});
+// PHOTO-연속묶기 스위치: 서버 view_prefs.photo_view.burst(사람별, 폰·PC 같음). 목록은 다시 받지 않고 칸 모양만 바꾼다.
+function setBurst(on) {
+  if (burst === on) return;
+  burst = on; savePrefs(); paintSelect();
+}
+window.addEventListener('kptu:view-prefs-rejected', e => {
+  if (!(e.detail?.paths || []).includes('photo_view')) return;
+  const was = burst; burst = parsePhotoView(viewPrefs.get('photo_view')).burst;
+  if (was !== burst && window.KPTURouter?.current === 'photos') paintSelect();
+  if (was !== burst) notify('연속 사진 묶어 보기를 저장하지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true});
+});
 document.getElementById('photosHeadMenu')?.addEventListener('click', event => {
   const b = event.target.closest?.('[data-photo-size]'); if (!b) return;
   event.stopPropagation();
@@ -3911,7 +3945,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt);
   closePhotoStrip({fromBack:true, restore:false});
-  batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; paintSortButton(); calCursor = null;
+  batch = null; resetList(); syncAt = 0; od = {...OD_NONE}; odReady = false; odFault = false; odMessage = ''; tab = 'all'; filter = 'all'; colsSaved = null; prefsRead = false; sort = DEFAULT_SORT; burst = true; paintSortButton(); calCursor = null;
   trash = null; calData.clear(); starSet.clear(); starDay.clear(); starsReady = null; shareReady = null; settings.drop(); sources = parseSources(null); phStarItems = null;
   kept = null; keptLoading = null; pFolders = null; pFoldersFailed = ''; pAt = null; pFor = null; pItems = []; phoneOff = new Set(); pPending = []; manageAsked = false;
   descById.clear(); descAsked.clear();

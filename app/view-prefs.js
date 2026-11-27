@@ -37,6 +37,7 @@ export const PHOTO_COLS = Object.freeze([2, 3, 4, 6]), PHOTO_COLS_WIDE = Object.
 export const DIARY_VIEWS = Object.freeze(['calendar', 'list']); // 일기 [달력|목록] (JOURNAL-일기목록, migration 20261028100000). 적용 전에는 쓰기가 400이라 달력 그대로
 // PHOTO-사진메뉴 2차: photo_view = 사진 메뉴 거르기·칸 수 {filter: all|star|video|shot, cols: 3~12}(둘 다 선택, 명진 결정 6 — 일기 photo_cols와 따로). migration 20261028220000
 export const PHOTO_VIEW_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
+// PHOTO-연속묶기: photo_view.burst = 연속 사진 묶어 보기 켜기·끄기(boolean, 없으면 켜짐). migration 20261127040000(적용 전에는 끄기 쓰기가 400이라 rejectable로 되돌리고 알린다).
 // PHOTO-정렬: photo_view.sort = 사진·폴더·앨범 정렬 기준(없으면 찍은 날 최근 먼저). migration 20261030150000. 뜻은 photos-model.mjs SORTS. 적용 전에는 쓰기가 400이라 rejectable로 되돌리고 알린다.
 export const PHOTO_VIEW_SORTS = Object.freeze(['taken_desc', 'taken_asc', 'uploaded_desc', 'name_asc', 'size_desc', 'duration_desc']);
 // OD-연결아이콘: diary_onedrive = 일기에서 원드라이브 사진 보이기(참·거짓, 기본 참). migration 20261028150000. 적용 전에는 쓰기가 400이라 이번 접속만 기억
@@ -285,7 +286,8 @@ export function validValue(key, value) {
     case 'photo_sources': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => PHOTO_SOURCE_NAMES.includes(name) && typeof value[name] === 'boolean');
     case 'photo_view': return !!value && typeof value === 'object' && !Array.isArray(value)
-      && Object.keys(value).every(name => name === 'filter' || name === 'cols' || name === 'sort')
+      && Object.keys(value).every(name => name === 'filter' || name === 'cols' || name === 'sort' || name === 'burst')
+      && (!('burst' in value) || typeof value.burst === 'boolean')
       && (!('filter' in value) || PHOTO_VIEW_FILTERS.includes(value.filter))
       && (!('sort' in value) || PHOTO_VIEW_SORTS.includes(value.sort))
       && (!('cols' in value) || (Number.isInteger(value.cols) && value.cols >= 3 && value.cols <= 12));

@@ -12,7 +12,7 @@ const N = 24;
 const pad = (n, w = 3) => String(n).padStart(w, '0');
 const MEDIA = Array.from({ length: N }, (_, i) => {
   const day = `2026-10-${pad(30 - Math.floor(i / 12), 2)}`;
-  return { id: 'P' + pad(i), name: 'p.jpg', day, taken_at: `${day}T03:00:${pad(12 - (i % 12), 2)}.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null };
+  return { id: 'P' + pad(i), name: 'p.jpg', day, taken_at: `${day}T${pad(3 + (12 - (i % 12)), 2)}:00:00.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null };
 });
 
 async function fixture(page, width) {

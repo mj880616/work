@@ -14,7 +14,7 @@ test('기준 여섯 가지·글자·저장 모양(기본은 적지 않음)', () 
   assert.equal(DEFAULT_SORT, 'taken_desc'); assert.equal(SORT_SHORT.taken_desc, '찍은 날 ↓');
   assert.deepEqual(SORTS.map(s => SORT_TEXT[s]), ['찍은 날 최근 먼저', '찍은 날 오래된 먼저', '올린 날 최근 먼저', '파일 이름 가나다', '크기 큰 것 먼저', '동영상 길이 긴 것 먼저']);
   assert.equal(validSort('bad'), 'taken_desc');
-  assert.deepEqual(parsePhotoView({filter: 'video', sort: 'size_desc'}), {filter: 'video', cols: null, sort: 'size_desc'});
+  assert.deepEqual(parsePhotoView({filter: 'video', sort: 'size_desc'}), {filter: 'video', cols: null, sort: 'size_desc', burst: true});
   assert.equal(parsePhotoView({sort: 'zzz'}).sort, 'taken_desc');
   assert.deepEqual(photoViewValue({filter: 'all', cols: 7, sort: 'taken_desc'}), {filter: 'all', cols: 7});
   assert.deepEqual(photoViewValue({filter: 'star', sort: 'name_asc'}), {filter: 'star', sort: 'name_asc'});
