@@ -89,3 +89,35 @@ export function withBoardPlace(metadata, boardId, place) {
 export function dropPlace(noteId, point, places) {
   return {x:clampPos(point.x - CARD_W / 2, CARD_W), y:clampPos(point.y - CARD_H / 2, CARD_H), r:tiltFor(noteId), z:Math.min(Z_MAX, topZ(places) + 1)};
 }
+
+// S71-50 NOTE-보드배경색(사용자 2026-11-26 19:51 "보드 배경색상도 지정가능하게 해줘요"): 보드마다 바탕색 하나.
+// - 저장: 서버 화면 기억 view_prefs.note_board_bg = {보드 id: 색 이름}(12개까지). 없는 보드 = '기본'(지금 바탕 그대로). 기기 저장 없음.
+//   보드 목록(note_boards)의 칸에 넣지 않고 따로 둔 까닭: 이미 열려 있던 옛 화면은 note_boards 칸에 모르는 이름(bg)이 있으면 그 보드를 버리고,
+//   그 상태로 보드를 만들거나 이름을 바꾸면 그 보드가 목록에서 사라진다. 따로 두면 옛 화면은 색만 모르고 보드는 그대로다.
+// - 색은 아래 정해진 이름만. DB 검사(migration 20261126220000_profile_view_prefs_note_board_bg)도 같은 목록만 받는다(화면 값을 그대로 믿지 않음).
+// - 실제 색 값은 app/theme-tokens.css --ds-board-bg-<이름>(밝은·어두운 화면 각각, 글자 대비 4.5:1 이상 — tests/note-board-bg.test.mjs).
+export const BOARD_BGS = Object.freeze(['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);
+export const BOARD_BG_NAMES = Object.freeze({sand:'모래', sage:'쑥', sky:'하늘', lilac:'연보라', peach:'살구', mint:'민트', rose:'장미', gray:'회색'});
+export const boardBgOk = v => typeof v === 'string' && BOARD_BGS.includes(v);
+// 서버 값 → {보드 id: 색}(모양이 틀린 칸은 버린다). boards를 주면 목록에 있는 보드만 남긴다.
+export function parseBoardBgs(value, boards = null) {
+  if (!plain(value)) return {};
+  const out = {};
+  for (const [id, bg] of Object.entries(value)) {
+    if (!BOARD_ID_RE.test(id) || !boardBgOk(bg) || (boards && !boards.some(b => b.id === id))) continue;
+    out[id] = bg;
+    if (Object.keys(out).length >= BOARD_LIMITS.count) break;
+  }
+  return out;
+}
+export const boardBgOf = (bgs, id) => (plain(bgs) && Object.hasOwn(bgs, id) && boardBgOk(bgs[id]) ? bgs[id] : null);
+// 바꾼 새 객체. bg가 null·'' = 기본(그 보드 칸을 지움). 목록 밖 색은 받지 않는다.
+export function withBoardBg(bgs, id, bg) {
+  if (!BOARD_ID_RE.test(String(id))) throw new Error('보드를 찾지 못했어요.');
+  if (bg != null && bg !== '' && !boardBgOk(bg)) throw new Error('목록에 없는 색이에요.');
+  const next = {...parseBoardBgs(bgs)};
+  if (bg) next[id] = bg; else delete next[id];
+  return next;
+}
+// 서버에 보낼 값: 비면 null(칸 지우기).
+export const boardBgsToPrefs = bgs => { const v = parseBoardBgs(bgs); return Object.keys(v).length ? v : null; };
