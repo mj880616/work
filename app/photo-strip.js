@@ -13,8 +13,9 @@
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
 import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFill, hintDue, hintNext, hintSeen, HINT_TEXT, loadTimeText,
-  ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform, isGifPhoto, slideAt} from './photo-viewer-model.mjs';
+  isGifPhoto, slideAt} from './photo-viewer-model.mjs';
 import {slotTimingOf} from './img-slot.js';
+import {attachPhotoZoom} from './photo-zoom-gesture.js';
 import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
 import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
@@ -350,31 +351,14 @@ export function openPhotoStrip(opts) {
   // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기][업데이트로 보내기]).
   // 세로 밀기·넘기기·두 손가락 확대는 손가락이 움직이면 꾹 누르기를 취소하므로 겹치지 않는다. 동영상은 메뉴 없음(바이트가 이 화면에 없음).
   attachPhotoLongPress(box, {
-    photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pinch,
+    photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pz.pinching(),
     open:(x, y) => { if (viewer?.box === box && items[at] && !items[at].video) shareCurrent(pointAnchor(box, x, y), {menu:true}); }});
   // ---- PHOTO-전체화면확대: 사진 안 확대·축소 ----
-  // zoom = 보는 장의 배율·옮긴 거리(메모리만). 변형은 그 장의 .diary-photo(그림 칸)에 건다(세로 밀기는 바깥 .diary-slide라 서로 겹치지 않음).
-  let zoom = {...ZOOM_ONE}, zoomEl = null, pinch = null, pan = null, tapStart = null, lastTap = null, lastTouchAt = -Infinity, mouse = null;
-  const zoomedNow = () => zoomed() || isZoomed(zoom) || !!pinch;
-  const zoomable = () => !!items[at] && !items[at].video && !!slidePhoto(at);
-  const centerOf = () => { const r = strip.getBoundingClientRect(); return {cx:r.left + r.width / 2, cy:r.top + r.height / 2}; };
-  const focal = (x, y) => { const {cx, cy} = centerOf(); return {x:x - cx, y:y - cy}; };
-  const zoomBox = () => {
-    const el = slidePhoto(at), pic = el?.querySelector('img.diary-viewer-hires') || el?.querySelector('img:not(.img-slot-preview):not(.diary-viewer-hires)');
-    return {W:strip.clientWidth, H:strip.clientHeight, nw:pic?.naturalWidth || 0, nh:pic?.naturalHeight || 0};
-  };
-  function applyZoom(z, animate = false) {
-    const el = slidePhoto(at);
-    if (zoomEl && zoomEl !== el) { zoomEl.style.transform = ''; zoomEl.style.transition = ''; }
-    zoom = z; zoomEl = el;
-    if (el) { el.style.transition = animate && !still() ? 'transform .2s ease-out' : 'none'; el.style.transform = zoomTransform(z); }
-    if (isZoomed(z)) { box.dataset.stripZoom = ''; loadHires(); } else delete box.dataset.stripZoom;
-  }
-  function resetZoom() {
-    pinch = pan = mouse = tapStart = lastTap = null;
-    if (zoomEl) { zoomEl.style.transform = ''; zoomEl.style.transition = ''; }
-    zoom = {...ZOOM_ONE}; zoomEl = null; delete box.dataset.stripZoom;
-  }
+  // 손동작은 공용 photo-zoom-gesture.js(글 읽기 크게 보기와 같은 것). 변형은 보는 장의 .diary-photo(그림 칸)에 건다(세로 밀기는 바깥 .diary-slide라 서로 겹치지 않음).
+  const pz = attachPhotoZoom(strip, {photo:() => slidePhoto(at), can:() => !!items[at] && !items[at].video,
+    onZoom:on => { if (on) { box.dataset.stripZoom = ''; loadHires(); } else delete box.dataset.stripZoom; }});
+  const zoomedNow = () => zoomed() || pz.zoomed();
+  const resetZoom = () => pz.reset();
   // 원본 해상도: 확대한 장마다 한 번 받아 칸 위에 겹친다. 메모리를 아끼려고 최근 HIRES_KEEP장만 둔다.
   const HIRES_KEEP = 2, held = [];
   const forget = h => { h.img.remove(); if (h.revoke) URL.revokeObjectURL(h.url); if (h.slide?.isConnected) delete h.slide.dataset.stripHires; };
@@ -395,76 +379,13 @@ export function openPhotoStrip(opts) {
         el.append(img); slide.dataset.stripHires = 'shown';
         held.push({img, url, revoke, slide});
         while (held.length > HIRES_KEEP) forget(held.shift());
-        if (i === at) applyZoom(clampPan(zoom, zoomBox()));
+        if (i === at) pz.reclamp();
       };
       img.onload = () => done(true); img.onerror = () => done(false);
       img.src = url;
     }).catch(() => { if (slide.isConnected) slide.dataset.stripHires = 'failed'; });
   }
   const onControl = target => !!target?.closest?.('button,a,video,[data-img-retry]');
-  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-  const mid = t => focal((t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
-  strip.addEventListener('touchstart', event => {
-    lastTouchAt = Date.now();
-    const t = event.touches;
-    if (t.length === 2 && zoomable() && !onControl(event.target)) { pinch = {z0:{...zoom}, d0:dist(t), m0:mid(t)}; pan = tapStart = null; }
-    else if (t.length === 1 && zoomable() && !onControl(event.target)) {
-      tapStart = {x:t[0].clientX, y:t[0].clientY, t:Date.now()};
-      pan = isZoomed(zoom) ? {z0:{...zoom}, x:t[0].clientX, y:t[0].clientY} : null;
-    } else { pinch = pan = tapStart = null; }
-  }, {passive:true});
-  strip.addEventListener('touchmove', event => {
-    const t = event.touches;
-    if (pinch && t.length === 2) { if (event.cancelable) event.preventDefault(); applyZoom(pinchTo(pinch.z0, pinch.d0, pinch.m0, dist(t), mid(t), zoomBox())); }
-    else if (pan && t.length === 1) { if (event.cancelable) event.preventDefault(); applyZoom(panBy(pan.z0, t[0].clientX - pan.x, t[0].clientY - pan.y, zoomBox())); }
-  }, {passive:false});
-  strip.addEventListener('touchend', event => {
-    lastTouchAt = Date.now();
-    const t = event.touches;
-    if (pinch) {
-      if (t.length >= 2) return;
-      pinch = null; tapStart = lastTap = null;
-      applyZoom(settleZoom(zoom, zoomBox()), true);
-      pan = t.length === 1 && isZoomed(zoom) ? {z0:{...zoom}, x:t[0].clientX, y:t[0].clientY} : null;
-      return;
-    }
-    if (t.length) return;
-    pan = null;
-    const s = tapStart, p = event.changedTouches[0]; tapStart = null;
-    if (!s || !p) return;
-    const cur = {x:p.clientX, y:p.clientY, t:Date.now()};
-    if (!isTap({dx:cur.x - s.x, dy:cur.y - s.y, dt:cur.t - s.t})) { lastTap = null; return; }
-    if (isDoubleTap(lastTap, cur)) {
-      lastTap = null;
-      if (event.cancelable) event.preventDefault(); // 두 번째 톡이 누르기·더블클릭으로 또 오지 않게
-      const f = focal(cur.x, cur.y);
-      applyZoom(zoomToggle(zoom, f.x, f.y, zoomBox()), true);
-    } else lastTap = cur;
-  }, {passive:false});
-  strip.addEventListener('touchcancel', () => { pinch = pan = tapStart = null; if (isZoomed(zoom)) applyZoom(settleZoom(zoom, zoomBox())); }, {passive:true});
-  // PC: 휠 = 마우스 아래 점을 확대·축소(트랙패드 가로 밀기는 그대로 넘기기), 더블클릭 = 확대 ↔ 원래 크기, 확대 중 끌기 = 사진 안 움직이기.
-  strip.addEventListener('wheel', event => {
-    if (!zoomable() || (!event.ctrlKey && Math.abs(event.deltaX) > Math.abs(event.deltaY))) return;
-    event.preventDefault();
-    const f = focal(event.clientX, event.clientY), s = wheelScale(zoom.s, event.deltaY, event.deltaMode);
-    applyZoom(s < 1.02 ? {...ZOOM_ONE} : zoomAt(zoom, s, f.x, f.y, zoomBox()));
-  }, {passive:false});
-  strip.addEventListener('dblclick', event => {
-    if (Date.now() - lastTouchAt < 800 || !zoomable() || onControl(event.target)) return;
-    event.preventDefault();
-    const f = focal(event.clientX, event.clientY);
-    applyZoom(zoomToggle(zoom, f.x, f.y, zoomBox()), true);
-  });
-  strip.addEventListener('pointerdown', event => {
-    if (event.pointerType !== 'mouse' || event.button !== 0 || !isZoomed(zoom) || onControl(event.target)) return;
-    event.preventDefault();
-    mouse = {z0:{...zoom}, x:event.clientX, y:event.clientY, id:event.pointerId};
-    try { strip.setPointerCapture(event.pointerId); } catch { /* 잡지 못해도 끌기는 된다 */ }
-  });
-  strip.addEventListener('pointermove', event => { if (mouse && event.pointerId === mouse.id) applyZoom(panBy(mouse.z0, event.clientX - mouse.x, event.clientY - mouse.y, zoomBox())); });
-  const mouseUp = event => { if (mouse && event.pointerId === mouse.id) mouse = null; };
-  strip.addEventListener('pointerup', mouseUp); strip.addEventListener('pointercancel', mouseUp);
-  strip.addEventListener('dragstart', event => { if (event.target?.tagName === 'IMG') event.preventDefault(); });
   box.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closePhotoStrip(); }
     else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }

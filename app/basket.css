@@ -451,7 +451,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); opacity:.85; }
 .nb-text.nb-pending { opacity:.6; }
 /* 놓을 곳 강조: 가운데 = 그 아래 가지로, 위·아래 끝 = 앞·뒤 형제로. 잇는 중 놓을 끝(nb-target)은 노트 카드도 같이. */
-.nb-text.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-drop-in, .nb-card.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
 .nb-text.nb-drop-before { box-shadow:0 -3px 0 0 var(--nb-link-on); }
 .nb-text.nb-drop-after { box-shadow:0 3px 0 0 var(--nb-link-on); }
 /* 글 고치기: 상자 안 글(.nb-tx)은 보이지 않게 폭·높이만 잡고, 입력칸이 그 위에 겹친다(상자가 글 길이만큼 늘고 줄어듦). */

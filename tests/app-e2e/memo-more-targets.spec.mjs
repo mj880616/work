@@ -150,6 +150,10 @@ for (const width of [390, 1280]) {
     await expect(page.locator('#wdUpMenu').getByRole('button', { name: '메모 1', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.evaluate(() => document.querySelector('#wdModal [data-wd-close="wdModal"]')?.click());
+    // 조직 창은 닫을 때 뒤로가기 한 걸음(popstate)을 따로 받는다. 그 걸음이 끝나기 전에 노트로 가면 늦게 온 걸음이 새 화면 앞뒤를 건드려
+    // 노트 화면이 열리지 않을 수 있다(간헐 실패). 창이 닫히고 기록(history)에 창 표시가 없어진 것을 기다린 뒤 이동한다.
+    await expect(page.locator('#wdModal')).toBeHidden();
+    await page.waitForFunction(() => !history.state?.kptuOverlay && !history.state?.kptuMobileMenu);
 
     await fromCollection(page, width, { src: '담당조직', title: '가상 지회 · 가상 조직 첫 기록', body: '기록에 남긴 메모' });
     await expect(page.locator('#teamView')).toBeVisible();
