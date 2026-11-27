@@ -260,20 +260,15 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 // 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
-// 11/28 NEWS-수집처늘리기(사용자 요청 '바이브 코딩·축구 전술·사회·정치 양질 글'): 아래 후보. 홈 주소는 피드 링크(feedlinks)를 찾는 줄이다.
+// 11/28 NEWS-수집처늘리기(사용자 요청 '바이브 코딩·축구 전술·사회·정치 양질 글'): 1차 35곳 결과는 PR #3285 본문 표. 아래는 2차(1차에서 다른 주소를 찾은 곳 + 더 찾은 곳).
+//   홈 주소는 피드 링크(feedlinks)를 찾는 줄이다.
 const CANDIDATE_FEEDS = [
-  // AI 코딩
-  "https://simonwillison.net/atom/everything/", "https://www.latent.space/feed", "https://addyo.substack.com/feed", "https://addyosmani.com/rss.xml",
-  "https://www.anthropic.com/engineering", "https://harper.blog/index.xml", "https://news.hada.io/rss/news", "https://lucumr.pocoo.org/feed.atom",
-  "https://www.oneusefulthing.org/feed", "https://mitchellh.com/feed.xml", "https://martinfowler.com/feed.atom", "https://www.interconnects.ai/feed",
-  // 축구 전술·아스날
-  "https://spielverlagerung.com/feed/", "https://totalfootballanalysis.com/feed", "https://www.coachesvoice.com/feed/", "https://statsbomb.com/feed/",
-  "https://theanalyst.com/feed", "https://arseblog.com/feed/", "https://arseblog.news/feed/", "https://betweentheposts.net/feed/",
-  "https://themastermindsite.com/feed/", "https://breakingthelines.com/feed/", "https://www.footballist.co.kr/rss/allArticle.xml",
-  // 사회·정치·경제(국내·국제)
-  "https://slownews.kr/feed", "https://www.ildaro.com/", "https://www.dissentmagazine.org/feed", "https://www.bostonreview.net/feed/",
-  "https://www.opendemocracy.net/en/", "https://www.phenomenalworld.org/feed/", "https://www.noahpinion.blog/feed", "https://newleftreview.org/sidecar",
-  "https://www.theguardian.com/uk/commentisfree/rss", "https://lpeproject.org/feed/", "https://lab2050.org/", "https://www.peoplepower21.org/",
+  "https://latent.space/feed", "https://latentspace.substack.com/feed", "https://feeds.feedburner.com/geeknews-feed", "https://steipete.me/rss.xml",
+  "https://blog.fsck.com/feed.xml", "https://www.swyx.io/rss.xml",
+  "https://totalfootballanalysis.com/feed/", "https://coachesvoice.com/feed/", "https://www.tifofootball.com/feed/", "https://analyticsfc.co.uk/feed/",
+  "https://www.thefalse9.com/feed",
+  "https://www.bostonreview.net/home/feed/", "https://www.opendemocracy.net/rss/", "https://phenomenalworld.org/feed/", "https://newleftreview.org/feed",
+  "https://newleftreview.org/sidecar/feed", "https://www.eroun.net/rss/allArticle.xml",
 ];
 async function checkCandidate(list) {
   const host = new URL(list).host;
