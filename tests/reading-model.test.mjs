@@ -158,7 +158,7 @@ test('메뉴: [저장한 글](옛 이름 읽을 거리, S68-34)은 모든 사람
   assert.deepEqual(DEFAULT_REST.slice(0, 2), ['basket', 'reading']);
   assert.ok(withFeatures(defaultLayout(), []).rest.includes('reading'), '운영자 기능이 없어도 보인다');
   const loader = read('app/view-loader.js');
-  assert.match(loader, /async function reading\(\)\{ await module\('\.\/reading\.js'\); return \{ok:true\} \}/);
+  assert.match(loader, /async function reading\(\)\{ await screen\('\.\/reading\.js','__KPTU_READING_READY__'\); return \{ok:true\} \}/);
   assert.match(loader, /reading:\['\.\/feed\.css',[^\]]*'\.\/reading\.css'/);
   assert.match(read('app/index.html'), /data-view="reading" href="\.\/\?view=reading">저장한 글</);
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');

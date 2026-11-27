@@ -4514,13 +4514,24 @@ folderLook.onChange(() => { if (root && visible()) { paintTree(); paintLists(); 
 window.addEventListener('pagehide', upStop);
 
 // ---------- 들어오기 ----------
+// RULE-한번에그리기: 나무·출처 줄·칸 머리(무엇이 연결됐나)는 연결 상태(서버 status·이 폰·내 PC 문)를 받아야 정해진다.
+// 전에는 상태를 받기 전에 기본 모양(모든 출처)을 먼저 그렸다가 상태가 오면 다시 그려 메뉴가 덮였다. 이제 모듈을 불러올 때 상태 받기를 시작하고
+// (prime), 화면 불러오기 도구(view-loader.js screen)가 그 약속을 기다린 뒤 화면을 보인다 — 첫 그림부터 최종 모양이다.
+// 내 PC 문은 저절로 한 번 두드린다(크롬 허락 창이 뜰 수 있으면 두드리지 않고 '눌러서 연결'로 둔다).
+let priming = null;
+function prime() {
+  resetIfOwnerChanged();
+  if (state.status) return Promise.resolve();
+  return priming ||= Promise.all([loadStatus(), phone.hello(), pc.usable ? pc.hello({auto: true}) : null]).finally(() => { priming = null; });
+}
 async function enter(force = false) {
   resetIfOwnerChanged();
   lookLoad();
   if (entering && !force) return entering;
   entering = (async () => {
-    // 내 PC 문은 저절로 한 번 두드린다(크롬 허락 창이 뜰 수 있으면 두드리지 않고 '눌러서 연결'로 둔다).
-    if (!state.status || force) { paint(); await Promise.all([loadStatus(), phone.hello(), pc.usable ? pc.hello({auto: true}) : null]); }
+    // [새로 고침](force)만 지금 모양을 둔 채 다시 받는다. 처음 들어올 때는 받은 뒤 한 번 그린다(기본 모양을 먼저 그리지 않음).
+    if (force) await Promise.all([loadStatus(), phone.hello(), pc.usable ? pc.hello({auto: true}) : null]);
+    else if (!state.status) await prime();
     const place = whereOf(window.KPTURouter?.place?.('files') || {});
     const first = onSources(), a = state.panes[0];
     if (!a.where && first.length) {
@@ -4571,5 +4582,6 @@ PHONE.addEventListener?.('change', () => { if (state.status) { twoCheck(); if (!
 WIDE.addEventListener?.('change', () => { if (state.status) { twoCheck(); paint(); } });
 window.KPTURouter?.on?.('files', () => { enter(); });
 window.KPTUFiles = {refresh: () => enter(true)};
+window.__KPTU_FILES_READY__ = prime();
 if (window.KPTURouter?.current === 'files') enter();
 })();

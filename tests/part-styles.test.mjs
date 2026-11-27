@@ -149,7 +149,8 @@ function routeModules() {
   for (const [route, fn = route] of map) {
     // background(...) 줄은 첫 화면을 보인 뒤 받는 묶음이라 뺀다(그때 부품이 스스로 모양을 붙이고, 화면을 기다리게 하지 않음).
     const body = (bodies[fn || route] || '').split('\n').filter(line => !/^\s*background\(/.test(line)).join('\n');
-    const mods = [...body.matchAll(/module\('\.\/([\w.-]+\.m?js)'/g)].map(m => m[1]);
+    // screen()(RULE-한번에그리기: 첫 그림 약속을 기다리는 module())도 같은 첫 프로그램이다.
+    const mods = [...body.matchAll(/(?:module|screen)\('\.\/([\w.-]+\.m?js)'/g)].map(m => m[1]);
     if (body.includes('organizationOrder()')) mods.push('organization-order.js');
     if (body.includes('projectCatalog()')) mods.push('project-catalog.js');
     out[route] = mods;

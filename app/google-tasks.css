@@ -168,6 +168,10 @@ div.gt-main{cursor:default}
      '지남·오늘'·'일주일 안'(나중·완료 접기 포함) 모든 묶음이 위아래로 화면 폭 전부를 써서 제목이 잘리지 않는다. 고르면 지금처럼 왼쪽 목록 | 오른쪽 상세,
      닫으면 다시 넓은 목록. 상태 주인은 google-tasks.js paintPane 하나(.gt-wide·hidden). 경계선(split-resize)은 상세 칸이 있을 때만. */
   #appView #tasksView #gtTaskSection.gt-pc.gt-wide{grid-template-columns:minmax(0,1fr)}
+  /* TASK-처음부터두칸(2026-11-27 명진 "걍 애초부터 나눠놔요"): 넓은 화면(.gt-pc)에서는 고르기 전에도 오른쪽 칸이 있어, 항목을 눌러도 목록 폭이 바뀌지 않는다.
+     고르기 전 오른쪽 칸은 짧은 안내 한 줄뿐(칸 모양은 위 상세 칸 규칙 그대로). gt-wide는 .gt-pc가 아닐 때(연결·오류·연결 안 된 목록)만 남는다. */
+  #gtDetailPane>.gt-pane-empty{margin:0;color:var(--kptu-muted,var(--ds-muted));font-size:var(--ds-text-meta)}
+  #gtDetailPane.has-task>.gt-pane-empty{display:none}
   /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{flex:0 0 168px;min-width:0}
