@@ -757,7 +757,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   /* ② 머리 줄 오른쪽 끝 작은 ⋯ = '보일 칸' 메뉴(줄의 ⋯ 자리와 같은 세로 줄). */
   .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); }
   .nl-cols .nl-made, .nl-cols .nl-memo, .nl-cols .nl-chars { text-align:right; }
-  .nl-head > [role="columnheader"] > .col-grip { right:-8px; }
+  /* NOTE-목록머리겹침: 너비 금은 칸 사이 틈(column-gap 8px) 한가운데에 선다(손잡이 16px = 왼쪽 칸 안 4px + 틈 8px + 오른쪽 칸 안 4px, 가운데 선은 틈 안).
+     오른쪽 맞춤 칸(수정일 등)의 글자·▲▼가 칸 오른쪽 끝에 닿아도 금과 겹치지 않고, 줄 값 칸과 머리 칸이 같은 오른쪽 끝을 쓴다. 글자 단추는 자기 칸 안(max-width:100%)에서만 줄어든다. */
+  .nl-head > [role="columnheader"] > .col-grip { width:16px; right:-12px; }
   #appView #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nx-note.nl-cols .note-row { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; }
   #appView #basketView .nx-note.nl-cols .note-row .nl-c:empty { display:block; }
   .nl-cols .nl-day, .nl-cols .nl-clip { text-align:right; }

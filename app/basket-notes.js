@@ -415,7 +415,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const listGrid = cols => ['var(--nl-w-title,minmax(0,1fr))', ...cols.map(k => `var(--nl-w-${k},${LIST_COL_WIDTH[k]}px)`)].join(' ');
   // ①-2: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 태그·공유 칸은 정렬하지 않는다. 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
   const LIST_HEAD_SORT = {title:'title', folder:'folder', day:'changed', made:'created', clip:'clip', memo:'memo', chars:'chars'};
-  const COLS_BTN = `<button type="button" class="icon-btn nl-cols-btn" data-nl-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
+  // NOTE-목록머리겹침: '보일 칸' 진입 단추 = 보이기 뜻의 눈 아이콘(tree-icons.js show, 줄 밀기 [다시 보이기]와 같은 그림). 칸 이름 줄의 ⋯(줄 메뉴)와 헷갈리지 않게.
+  const COLS_BTN = `<button type="button" class="icon-btn nl-cols-btn" data-nl-cols-menu aria-label="보일 칸" title="보일 칸" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${iconSvg('show', {size: 16})}</button>`;
   const listHeadHtml = (cols = listCols(), {cur:shown} = {}) => { const cur = shown === undefined ? listSort() : shown, all = [['title', LIST_COL_NAMES.title], ...cols.map(k => [k, LIST_COL_NAMES[k]])]; return `<div class="nl-head" data-nl-head role="row" aria-label="노트 목록 칸">`
     + all.map(([key, label], i) => headCellHtml({key:LIST_HEAD_SORT[key] || key, label, cur, sortable:!!LIST_HEAD_SORT[key], extra:i < all.length - 1 ? gripHtml(key, label) : ''})
       .replace('<span role="columnheader"', `<span data-nl-col="${key}" role="columnheader"`)).join('') + COLS_BTN + '</div>'; };

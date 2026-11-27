@@ -119,3 +119,38 @@ test('PC 1440: 찾기 결과에도 같은 머리줄(이름·위치·바뀐 날·
   await expect(head(page)).toContainText('위치');
   expect(errors).toEqual([]);
 });
+
+// NOTE-목록머리겹침 전수(명진 11/27 노트 목록 수정일 머리 겹침 → 같은 표 부품을 쓰는 [파일] 표도 같은 검사): 머리 칸마다 글자·▲▼·너비 금(가운데 선)이 서로 다른 자리,
+// 칸 범위는 서로 겹치지 않는다. PC 폭 여러 개, 바뀐 날·크기(오른쪽 맞춤) 칸을 가장 좁게 줄인 뒤에도.
+for (const width of [1100, 1400, 1750]) test(`PC ${width}: [파일] 큰 파일 표 머리 칸의 글자·화살표·금이 서로 겹치지 않음(기본 폭과 좁힌 폭)`, async ({ page }) => {
+  test.setTimeout(90000);
+  await installViewPrefsServer(page);
+  const { errors } = await start(page, width);
+  await openBig(page, width);
+  const parts = () => head(page).evaluate(h => {
+    const r = el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right }; };
+    return [...h.querySelectorAll('[role="columnheader"]')].map(c => {
+      const btn = c.querySelector('.hs-btn'), grip = c.querySelector('.col-grip'), gr = grip && r(grip), mid = gr && (gr.l + gr.r) / 2;
+      return { name: c.textContent.trim(), cell: r(c), btn: btn && r(btn), line: gr && { l: mid - 1, r: mid + 1 } };
+    });
+  });
+  const hit = (a, b) => !!a && !!b && a.l < b.r && b.l < a.r;
+  const check = async when => {
+    const p = await parts(), why = `${width} ${when}`;
+    for (let i = 1; i < p.length; i++) expect(p[i - 1].cell.r, `${why}: ${p[i - 1].name}·${p[i].name} 칸`).toBeLessThanOrEqual(p[i].cell.l + 0.5);
+    for (const a of p) {
+      if (a.btn) { expect(a.btn.l, `${why}: ${a.name} 글자 왼쪽`).toBeGreaterThanOrEqual(a.cell.l - 0.5); expect(a.btn.r, `${why}: ${a.name} 글자 오른쪽`).toBeLessThanOrEqual(a.cell.r + 0.5); }
+      for (const b of p) expect(hit(a.line, b.btn), `${why}: ${a.name} 금이 ${b.name} 글자 위`).toBe(false);
+    }
+  };
+  await check('기본');
+  for (const key of ['day', 'size']) {
+    const grip = head(page).locator(`[data-col-grip="${key}"]`);
+    if (!(await grip.count())) continue;
+    await grip.focus();
+    for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowLeft');
+  }
+  await settle(page);
+  await check('좁힘');
+  expect(errors).toEqual([]);
+});
