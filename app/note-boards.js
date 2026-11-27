@@ -33,6 +33,7 @@ import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78)
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
@@ -282,26 +283,26 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const place = () => placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
     place();
     menu = {id, chip, stop:followAnchor(el, chip, {place, lost:() => closeMenu()})};
+    menu.release = holdMenu(el, {close:reason => closeMenu({focus:reason === 'esc'}), keep:t => !!t && chip.contains(t), back:'note-board-chip-menu'});
     chip.setAttribute('aria-expanded', 'true');
     el.querySelector('button')?.focus({preventScroll:true});
   }
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
-    const m = menu, el = menuEl(); menu = null; m.stop(); el.hidden = true; clearAnchored(el);
+    const m = menu, el = menuEl(); menu = null; m.stop(); m.released = m.release?.() || null; el.hidden = true; clearAnchored(el);
     m.chip.setAttribute('aria-expanded', 'false'); if (focus) m.chip.focus({preventScroll:true});
     return m;
   }
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
-    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-bg')) setBg(m.id, b.dataset.nbbBg || null); else if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
+    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; void Promise.resolve(m.released).then(() => { if (b.hasAttribute('data-nbb-bg')) setBg(m.id, b.dataset.nbbBg || null); else if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); }); return; } // 메뉴 겹 뒤로가기 뒤에 실행
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
     if (b.dataset.nbbBoard) select(b.dataset.nbbBoard);
     else if (b.hasAttribute('data-nbb-new')) void create(b);
     else if (b.hasAttribute('data-nbb-pick')) openPicker(b);
   });
-  document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.chip.contains(e.target)) closeMenu(); });
   bar.parentElement.addEventListener('keydown', e => {
     if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
     const chip = e.target.closest?.('[data-nbb-board]');

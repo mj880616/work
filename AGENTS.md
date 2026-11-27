@@ -22,6 +22,14 @@
 - 급한 DB migration·비밀값 변경·Edge 삭제는 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다(기존 임시 절에서 옮김).
 - Windows에서 supabase CLI는 `npx.cmd supabase`로 실행한다.
 
+### 새 세션·새 계정이 시작할 때 확인할 것
+
+2026-11-27 사용자 결정(이유: 계정·도구마다 쪽 지침이 조금씩 달라, 이어받은 세션이 이 저장소 규칙을 따라잡지 못하는 일을 막기 위해).
+
+1. Claude Code는 `/memory`로 `CLAUDE.md`가 이 파일(`AGENTS.md`)을 불러왔는지 본다. Codex는 이 파일을 직접 읽는다.
+2. 계정·프로젝트 쪽 지침과 이 파일이 다르면 이 파일이 우선이다. 다른 점은 첫 보고에 한 줄로 적는다.
+3. 열린 'main 시험 깨짐' 이슈가 있는지(없으면 main의 최근 'App browser E2E check' 결과) 본다. 깨져 있으면 그 고침이 다른 일보다 먼저다(9절).
+
 ### 폰 경로
 
 #### A. 원칙
@@ -107,6 +115,8 @@
 - UI 변경: 기존 컴포넌트를 재사용하고, 모바일·데스크톱을 함께 확인한다. 키보드·터치 접근성을 유지하고, 요청 없는 대규모 디자인 변경을 하지 않는다.
 - 목록·나무·고르기·끌기 화면은 `docs/design/standard-interactions.md` 기준표를 모두 지킨다(2026-11-24 사용자 요청). 새 화면은 `tests/app-e2e/standard-interactions.spec.mjs` 화면 표에 더한다.
 - 화면 글자(버튼·메뉴·안내·알림)는 `docs/design/ui-words.md` 용어 기준표를 따른다.
+- **땜질 금지, 구조로 고친다**(2026-11-27 사용자 결정 "땜질 처방 안 된다고 했잖아"): 한 화면에서 보인 문제는 같은 종류가 다른 화면에도 있는지부터 보고, 공용 부품·화면 진입 구조 같은 공통 원인에서 한 번에 고친다. 화면마다 따로 고치는 작업 지시를 만들지 않는다(커맨드센터도 화면별 세션을 따로 띄우지 않는다). 공통 구조로 풀리지 않는 화면별 잔여만 별도 PR로 줄 세운다.
+- **화면은 열 때 한 번에 최종 모양으로 그린다**: 자료(서버 설정·연결 상태·늦게 오는 모듈)가 오기 전에 기본 모양을 먼저 그렸다가 나중에 덮어쓰거나 항목 수·자리를 바꾸는 깜박임을 만들지 않는다. 필요한 값을 다 받은 뒤 한 번에 그리거나, 늦는 값의 자리·폭을 미리 잡는다(위 5절 시작 순서와 같은 원칙). 지연 덮어쓰기·`setTimeout`·`display:none` 땜질로 가리지 않는다. 새 화면·고친 화면은 화면을 열 때 메뉴·드롭다운 구성이 바뀌지 않는지를 공통 시험 표에 더한다.
 - 사용자에게 묻기 전에 결정 장부(동작 `docs/design/standard-interactions.md`, 모양 `docs/design-decisions.md`, 글자 `docs/design/ui-words.md`)를 먼저 찾는다. 확정 동작을 만드는 PR은 그 ID의 시험을 넣는다. 같은 영역(폴더·목록·끌기 / 밀기·막대·메뉴 / 글 읽기 / 노트 / 찾기 / 자료실 서버 등)은 한 번에 한 작업만 돈다(2026-11-26 사용자 결정, `docs/command-center-ops.md` 1-1~1-3절).
 - Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
@@ -192,7 +202,9 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
 - 같은 E2E 시험이 서로 다른 실행에서 두 번 이상 간헐 실패하면 재실행으로 넘기지 않고 안정화 작업을 원장에 올려 원인을 고친다. 재시도 횟수 증가·대기 시간만 늘리기·skip은 해결로 인정하지 않는다(2026-10-19 사용자 결정).
 - If a security or authorization issue remains unresolved, do not describe the task as fully complete.
-- **시험 양 줄이기**(2026-11-25 사용자 결정 "규칙에 아예 박아버려"): PR마다 도는 브라우저 E2E는 그 PR이 고친 파일과 관련된 시험만 돌린다(고친 파일 → 관련 시험 대응표 한 곳, 대응을 못 찾으면 전체). 앱 전체 E2E는 main에 들어갈 때마다(push)와 하루 한 번 돈다. merge queue는 개인 계정 저장소라 쓸 수 없다(2026-11-25 확인, 사용자 결정 'main에서 전체'). main 전체 시험이 깨지면 CC가 다른 앱 PR merge를 멈추고 그것부터 고친다(보호 장치는 낮추지 않음). workflow의 merge_group 설정은 나중에 단체 계정으로 옮길 때를 위해 둔다. 공용 부품·공용 CSS·시험 도구를 고친 PR은 전체를 돌린다.
+- **시험 양 줄이기**(2026-11-25 사용자 결정 "규칙에 아예 박아버려"): PR마다 도는 브라우저 E2E는 그 PR이 고친 파일과 관련된 시험만 돌린다(고친 파일 → 관련 시험 대응표 한 곳, 대응을 못 찾으면 전체). 앱 전체 E2E는 main에 들어갈 때마다(push)와 하루 한 번 돈다. merge queue는 개인 계정 저장소라 쓸 수 없다(2026-11-25 확인, 사용자 결정 'main에서 전체'). main 전체 시험이 깨지면 CC가 다른 앱 PR merge를 멈추고 그것부터 고친다(보호 장치는 낮추지 않음). 깨짐은 `.github/workflows/main-e2e-watch.yml`이 'main 시험 깨짐' 이슈로 바로 알리고(다시 통과하면 저절로 닫힘), **그 이슈가 열려 있으면 CC는 앱 PR merge를 멈추고 그것부터 고친다**(2026-11-27 사용자 결정, 이유: 사람이 점검하다 80분 늦게 알아 PR 여럿이 같은 실패로 막혔다). workflow의 merge_group 설정은 나중에 단체 계정으로 옮길 때를 위해 둔다. 공용 부품·공용 CSS·시험 도구를 고친 PR은 전체를 돌린다.
+- **시험 고르기는 계산 한 곳이 구조로 정한다**(2026-11-27 사용자 결정, 이유: 공용 메뉴 파일을 고친 PR에서 그 메뉴를 쓰는 사진 화면 시험이 빠지거나 운 좋게 통과해, main이 깨진 채 하루를 넘겼다). 고르기는 `scripts/ci/e2e-select.mjs`가 자동으로 계산한다. 앱 시작 때 모든 화면에 붙는 파일(`app/index.html`·`app.js`·`loader-v2.js`가 바로 부르는 파일), 많은 화면이 함께 쓰는 공용 부품, 그 공용 부품이 정적 import로 부르는 파일(공용 부품의 속)을 고친 PR은 저절로 전체를 돈다. PR마다 대응표를 손으로 늘리지 않는다. 이름으로 못 찾는 화면 공용 시험만 그 파일의 `SCREEN_SPECS` 표에 한 줄 더한다. 고르기에서 빠지던 경우를 찾으면 고르기 계산을 고치고 `tests/ci-e2e-select.test.mjs`에 그 경우의 시험(고치기 전 실패·고친 뒤 통과)을 넣는다.
+- **공용 부품 PR은 바뀐 동작 시험을 여러 번 돌려 본다**(2026-11-27 사용자 결정, 이유: 위 회귀는 PR 검사에서 전체 시험이 돌았는데도 운 좋게 통과했다 — 로컬에서는 8번 중 5번 실패). 공용 부품을 고친 PR은 바뀐 동작을 지키는 시험 파일을 로컬에서 `--repeat-each=5` 이상으로 돌리고 결과(통과 수/돈 수)를 PR 본문 5항에 적는다.
 
 ## 10. 보고
 

@@ -134,13 +134,14 @@ test('폰 390: 한 칸(목록 → 보기, 뒤로 = 목록), 줄 높이 = [파일
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-for (const [label, width, height] of [['pc-1280', 1280, 860], ['phone-390', 390, 844]]) {
+for (const [label, width, height] of [['phone-390', 390, 844]]) {
   test(`폴더: [폴더로 옮기기…] 창에서 새 폴더 → 옮기기, 폴더 이름 누르기 = 그 자리 펼치기, 폴더 없음 (${label})`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const { db } = await open(page);
     await expect(list(page).locator('.ft-row')).toHaveCount(0); // 폴더가 없으면 지금까지처럼 한 목록
-    await row(page, 3).locator('[data-br-more]').click();
-    await page.locator('#brRowMenu [data-br-act="move"]').click();
+    // ⋯ 단추가 없어졌다: 폰은 오른쪽 밀기로 고르고 막대 [옮기기](PC는 끌어 옮기기).
+    await swipeRow(row(page, 3), 80);
+    await page.locator('#briefView .row-swipe-pickbar [data-row-pick-act="move"]').click();
     const sheet = folderSheet(page);
     await expect(sheet).toBeVisible();
     await sheet.locator('[data-fx-dest-pick][data-fx-dest-name="폴더 없음"]').click();
@@ -148,6 +149,9 @@ for (const [label, width, height] of [['pc-1280', 1280, 860], ['phone-390', 390,
     await page.locator('.kptu-ask input').fill('예시 회의');
     await page.locator('.kptu-ask .kptu-ask-actions button', { hasText: '만들기' }).click();
     await pickInSheet(page, [], { go: true });
+    // 막대 [옮기기]를 누르면 일이 끝난 뒤 고르기가 저절로 끝난다(막대는 지우지 않고 숨김) — 끝난 것(숨김 + 고르기 뒤로가기 정리)을 보고 다음 단계로.
+    await expect(page.locator('#briefView .row-swipe-pickbar')).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.querySelector('#briefView [data-row-picking]') === null)).toBe(true);
     // 폴더는 '브리핑 요청함' 아래 자료실 폴더로 만들어지고, 자료 연결 줄 하나가 그 폴더로 바뀐다.
     await expect.poll(() => db.folders.find(f => f.name === '예시 회의')?.parent_id).toBe('f-brief');
     const made = db.folders.find(f => f.name === '예시 회의');
@@ -283,7 +287,7 @@ async function swipeRow(locator, dx) {
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
 }
-test('S71-30 폰 390: 브리핑 룸 줄 왼쪽 밀기 = 메뉴 칸 [옮기기][⋯][삭제], 오른쪽 밀기 = 여러 개 선택', async ({ page }) => {
+test('BRIEF-밀기메뉴 폰 390: 브리핑 룸 줄 왼쪽 밀기 = 메뉴 칸 [수정][삭제], 오른쪽 밀기 = 여러 개 선택', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   const { db } = await open(page);
@@ -292,46 +296,35 @@ test('S71-30 폰 390: 브리핑 룸 줄 왼쪽 밀기 = 메뉴 칸 [옮기기][�
   const ends = list(page).locator('[data-row-swipe-act="end"]');
   // 끝까지 밀어도 칸만 펼쳐진다.
   await expect(async () => { await swipeRow(row(page, 2), -430); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
-  await expect(ends.locator('.row-swipe-tx')).toHaveText(['옮기기', '⋯', '삭제']);
+  await expect(ends.locator('.row-swipe-tx')).toHaveText(['수정', '삭제']);
   await page.waitForTimeout(400);
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
   expect(briefDeletes).toEqual([]);
-  // [⋯] = 그 줄 ⋯ 메뉴.
-  await list(page).locator('[data-row-swipe-key="more"]').click();
-  await expect(page.locator('#brRowMenu')).toBeVisible();
-  await expect(page.locator('#brRowMenu button')).toContainText(['선택', '폴더로 옮기기…', '브리핑만 삭제', '자료까지 삭제']);
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#brRowMenu')).toBeHidden();
-  // [삭제] = 브리핑만 삭제(확인 한 번) — 취소하면 그대로.
+  // [삭제] = 브리핑 + 자료(확인 한 번) — 취소하면 그대로.
   await expect(async () => { await swipeRow(row(page, 2), -200); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
   await list(page).locator('[data-row-swipe-key="delete"]').click();
   const ask = page.locator('.kptu-ask');
-  await expect(ask).toContainText('브리핑만 삭제할까요?');
+  await expect(ask).toContainText('브리핑과 자료를 삭제할까요?');
   await ask.locator('.kptu-ask-actions button').first().click();
   await expect(ask).toHaveCount(0);
   expect(briefDeletes).toEqual([]);
-  // [옮기기] = 공용 '옮길 곳' 창.
-  await expect(async () => { await swipeRow(row(page, 3), -200); await expect(ends.first()).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
-  await list(page).locator('[data-row-swipe-key="move"]').click();
-  await expect(folderSheet(page)).toBeVisible();
-  await page.keyboard.press('Escape');
-  // 오른쪽 밀기 = 그 줄이 골라진 채 여러 개 선택(칸이 열려 남지 않음), 막대 [전체 선택][옮기기][브리핑만 삭제].
+  // 오른쪽 밀기 = 그 줄이 골라진 채 여러 개 선택(칸이 열려 남지 않음), 막대 [전체 선택][옮기기][삭제].
   const bar = page.locator('#briefView .row-swipe-pickbar');
   await swipeRow(row(page, 1), 80);
   await expect(bar).toBeVisible();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await expect(list(page).locator('.row-swipe-acts')).toHaveCount(0);
   await expect(bar.locator('[data-row-pick-all]')).toContainText('전체 선택');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['옮기기', '브리핑만 삭제']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['옮기기', '삭제']);
   await row(page, 3).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
   await expect(detail(page)).toBeHidden(); // 고르는 중 줄 누르기는 열지 않는다
   await bar.locator('[data-row-pick-act="delete"]').click();
-  await expect(ask).toContainText('2개');
-  await ask.locator('.kptu-ask-actions button').nth(1).click(); // [삭제](확인 쪽)
-  await expect.poll(() => briefDeletes.map(b => b.p_document_id).sort()).toEqual([D(1), D(3)].sort());
-  await expect(bar).toBeHidden();
-  expect(db.writes.filter(w => w.table === 'items' && w.method === 'DELETE').length).toBe(2);
+  await expect(ask).toContainText('2개 브리핑과 자료를 삭제할까요?'); // 지우는 길은 brief-room-delete.spec.mjs가 본다
+  await ask.locator('.kptu-ask-actions button').first().click(); // 취소
+  await expect(ask).toHaveCount(0);
+  expect(briefDeletes).toEqual([]);
+  expect(db.writes.filter(w => w.table === 'items' && w.method === 'DELETE').length).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: 'docs/design/screens/s71-30/phone-390-swipe.png', fullPage: false });
   expect(errors).toEqual([]);

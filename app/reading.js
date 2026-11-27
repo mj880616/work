@@ -15,7 +15,7 @@
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
 import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
-import {loadHighlights, highlightsNow, sourceHighlights, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu} from './text-highlights.js';
+import {loadHighlights, highlightsNow, sourceHighlights, sourceMarks, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu, markActions} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
 import {visibleMarks, marksNewsOn} from './note-news-marks-model.mjs';
@@ -229,7 +229,11 @@ function drawList() {
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
+  // 다시 그려도(다시 들어와 새로 읽은 목록) 자판 초점이 있던 줄은 같은 글 줄에 그대로 둔다 — 위 주소 칸과 같은 규칙.
+  // 그러지 않으면 초점이 화면 밖(body)으로 빠져 바로 누른 Enter가 사라진다(같은 줄을 그대로 다시 그리는 것뿐이라 다른 동작은 없다).
+  const focusedId = box.contains(document.activeElement) ? document.activeElement.closest?.('[data-rd-open]')?.dataset.rdOpen : '';
   box.replaceChildren(...parts);
+  if (focusedId) [...list.querySelectorAll('[data-rd-open]')].find(r => r.dataset.rdOpen === focusedId)?.focus({preventScroll: true});
   if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
 
@@ -350,7 +354,7 @@ function drawDetail() {
   }
   // News에서 온 줄은 그 기사·성명에 News에서 그은 밑줄도 같이 칠한다(같은 원문 사본 — 글자로 찾아 칠함).
   const lk = linkOf(row);
-  const marks = [...sourceHighlights('reading', row.id), ...(lk ? sourceHighlights(lk.type, lk.id) : [])];
+  const marks = [...sourceMarks('reading', row.id), ...(lk ? sourceMarks(lk.type, lk.id) : [])]; // S70-80: 밑줄 + 형광펜(글 안 표시)
   const prose = el('div', 'rd-prose');
   prose.dataset.rdProse = '1';
   prose.dataset.textSizeTarget = '';
@@ -734,7 +738,7 @@ function bind() {
   if (listBox) { bindSwipe(v); bindRows(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
-  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection});
+  bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection, marks: markActions}); // S70-80: 형광펜 켬
   onHighlights(() => { if (window.KPTURouter?.current === 'reading') draw(); });
   // 노트 폴더 잠금이 풀리거나 잠기면 [밑줄] 탭의 노트 밑줄이 바뀐다(노트 › 밑줄과 같게).
   window.addEventListener('kptu:feature-lock-changed', () => { if (window.KPTURouter?.current === 'reading') drawList(); });
@@ -768,6 +772,17 @@ function takeAsked() {
 
 install(); bind();
 state.filter = filterFromUrl();
-window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(보기 탭 줄·목록)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가 기다린 뒤 화면을 보인다.
+// 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 두 칸 폭 맨 위 글 저절로 열기(autoOpenTop)·옛 실패 줄 자동 다시 가져오기(autoRefetch)는 이 화면이 지금 화면일 때만이라,
+// 처음 보이는 그 자리(라우터 진입)에서 한 번 부른다.
+const firstDraw = refresh();
+let firstShown = false;
+window.KPTURouter?.on?.('reading', () => {
+  const filter = filterFromUrl(), changed = filter !== state.filter;
+  state.filter = filter;
+  if (!firstShown) { firstShown = true; if (changed && state.loaded) drawList(); autoOpenTop(); if (state.loaded && !state.failed) void autoRefetch(); void firstDraw.then(takeAsked, takeAsked); return; }
+  if (state.loaded) drawList(); void refresh().then(takeAsked);
+});
+window.__KPTU_READING_READY__ = firstDraw.then(takeAsked);
 window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

@@ -639,7 +639,7 @@ import {addTip} from './calendar-tip.js';
   window.addEventListener('resize',scheduleRerender,{passive:true});
   const forceRerender=()=>{if(last&&!document.querySelector('#calendarView')?.classList.contains('hidden')){cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(rerender)}};
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
-  document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
+  document.addEventListener('kptu:google-panel-toggle',forceRerender); // CAL-머리한줄: 구글 캘린더 칸 열고 닫기(calendar-google-panel.js)
 
   window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag,setExpanded,isExpanded:()=>expanded,zoom:()=>zoomMode?zoom:1};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);

@@ -3,7 +3,7 @@
    옛 먹(#4a4a46 회색)을 고른 사람도 이 먹으로 보인다. 올리브는 고르는 색 하나로 남는다. */
 :root,[data-theme="ink"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
-  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236e6c60'/%3E%3C/svg%3E");--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#22262b;--kptu-primary-hover:#343a42;--kptu-primary-ink:#22262b;
   --kptu-primary-soft:#e7e5df;--kptu-on-primary:#f3f1ea;--kptu-link:#22262b;
@@ -13,28 +13,28 @@
 /* 올리브(옛 기본): 바탕·글자는 기본(먹)과 같은 오트밀, 강조만 올리브. */
 [data-theme="olive"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
-  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236e6c60'/%3E%3C/svg%3E");--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
   --kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;--kptu-link:#47532a;
 }
 [data-theme="navy"]{
   --kptu-bg:#f5f6f7;--kptu-surface:#ffffff;--kptu-surface-subtle:#f8f9fa;
-  --kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-ink:#1f2933;--kptu-muted:#66727f;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%2366727f'/%3E%3C/svg%3E");--kptu-faint:#8a949e;
   --kptu-border:#dfe4e8;--kptu-border-strong:#c9d1d8;
   --kptu-primary:#263f5f;--kptu-primary-hover:#1f354f;--kptu-primary-ink:#355f86;
   --kptu-primary-soft:#eef4f8;--kptu-on-primary:#ffffff;--kptu-link:#355f86;
 }
 [data-theme="lavender"]{
   --kptu-bg:#f5f3f8;--kptu-surface:#fefdfe;--kptu-surface-subtle:#faf9fc;
-  --kptu-ink:#211d2b;--kptu-muted:#625a72;--kptu-faint:#888198;
+  --kptu-ink:#211d2b;--kptu-muted:#625a72;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%23625a72'/%3E%3C/svg%3E");--kptu-faint:#888198;
   --kptu-border:#e0dde7;--kptu-border-strong:#ccc6d6;
   --kptu-primary:#61537f;--kptu-primary-hover:#574b72;--kptu-primary-ink:#61537f;
   --kptu-primary-soft:#eceaf0;--kptu-on-primary:#ffffff;--kptu-link:#61537f;
 }
 [data-theme="teal"]{
   --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
-  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--kptu-faint:#7b9093;
+  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%235a6f72'/%3E%3C/svg%3E");--kptu-faint:#7b9093;
   --kptu-border:#d7e2e4;--kptu-border-strong:#bdced1;
   --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
   --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
@@ -45,7 +45,7 @@
    레몬은 노랑 위에 흰 글자가 안 읽혀 버튼·선택 표시 글자를 진한 갈색(--kptu-on-primary)으로 둔다. 레몬 강조색 자체는 밝은 바탕과 3:1이 안 되므로 글자·링크·구역 제목에는 쓰지 않고 진한 노랑(--kptu-primary-ink·--kptu-link)을 쓴다. */
 [data-theme="sky"]{
   --kptu-bg:#eef6fd;--kptu-surface:#fcfeff;--kptu-surface-subtle:#f5fafe;
-  --kptu-ink:#15283a;--kptu-muted:#4f6479;--kptu-faint:#7a8da0;
+  --kptu-ink:#15283a;--kptu-muted:#4f6479;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%234f6479'/%3E%3C/svg%3E");--kptu-faint:#7a8da0;
   --kptu-border:#d5e4f2;--kptu-border-strong:#b9d0e6;
   --kptu-primary:#2c77c4;--kptu-primary-hover:#2569b0;--kptu-primary-ink:#1f64ad;
   --kptu-primary-soft:#e1eefb;--kptu-on-primary:#ffffff;--kptu-link:#1f64ad;
@@ -53,7 +53,7 @@
 }
 [data-theme="mint"]{
   --kptu-bg:#eaf8f4;--kptu-surface:#fbfffd;--kptu-surface-subtle:#f3fbf8;
-  --kptu-ink:#123027;--kptu-muted:#44695d;--kptu-faint:#72948a;
+  --kptu-ink:#123027;--kptu-muted:#44695d;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%2344695d'/%3E%3C/svg%3E");--kptu-faint:#72948a;
   --kptu-border:#cfe9e1;--kptu-border-strong:#b0d6cb;
   --kptu-primary:#14846e;--kptu-primary-hover:#117560;--kptu-primary-ink:#0e6e5c;
   --kptu-primary-soft:#d9f2ea;--kptu-on-primary:#ffffff;--kptu-link:#0e6e5c;
@@ -61,7 +61,7 @@
 }
 [data-theme="coral"]{
   --kptu-bg:#fff2ec;--kptu-surface:#fffdfb;--kptu-surface-subtle:#fff8f4;
-  --kptu-ink:#38201a;--kptu-muted:#7a5448;--kptu-faint:#a28378;
+  --kptu-ink:#38201a;--kptu-muted:#7a5448;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%237a5448'/%3E%3C/svg%3E");--kptu-faint:#a28378;
   --kptu-border:#f5ddd2;--kptu-border-strong:#e8c3b3;
   --kptu-primary:#b8553a;--kptu-primary-hover:#a94c33;--kptu-primary-ink:#a83a1f;
   --kptu-primary-soft:#ffe6db;--kptu-on-primary:#ffffff;--kptu-link:#a83a1f;
@@ -69,7 +69,7 @@
 }
 [data-theme="lemon"]{
   --kptu-bg:#fbf8ec;--kptu-surface:#fffef5;--kptu-surface-subtle:#fcfaf1;
-  --kptu-ink:#2e2800;--kptu-muted:#6b5f1f;--kptu-faint:#938a55;
+  --kptu-ink:#2e2800;--kptu-muted:#6b5f1f;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236b5f1f'/%3E%3C/svg%3E");--kptu-faint:#938a55;
   --kptu-border:#ece5cc;--kptu-border-strong:#dccf9f;
   --kptu-primary:#e3c25a;--kptu-primary-hover:#e6c766;--kptu-primary-ink:#7a5c00;
   --kptu-primary-soft:#f6efd4;--kptu-on-primary:#3d3100;--kptu-link:#7a5c00;
@@ -77,7 +77,7 @@
 }
 [data-theme="red"]{
   --kptu-bg:#fff1f0;--kptu-surface:#fffcfc;--kptu-surface-subtle:#fff7f6;
-  --kptu-ink:#331412;--kptu-muted:#7a4a47;--kptu-faint:#a07c79;
+  --kptu-ink:#331412;--kptu-muted:#7a4a47;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%237a4a47'/%3E%3C/svg%3E");--kptu-faint:#a07c79;
   --kptu-border:#f6d9d6;--kptu-border-strong:#e8bab6;
   --kptu-primary:#b23a2e;--kptu-primary-hover:#a1342a;--kptu-primary-ink:#a3352a;
   --kptu-primary-soft:#ffe3e0;--kptu-on-primary:#ffffff;--kptu-link:#a3352a;
@@ -93,6 +93,9 @@
    새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
   /* S67-64 UI-윗줄한줄(명진 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
+  /* S73-06 UI-스크롤막대잡기(명진 11/27): 막대는 창 끝에 붙이고, 평소엔 가늘게·마우스를 올리면 굵게. 막대 칸 = --ds-scrollbar-size(늘 같음, 글 안 흔들림),
+     보이는 굵기 = size - inset. 폰·터치는 예전 그대로(6px·안쪽 비움 0). 마우스가 있는 화면(PC)만 칸 14px · 평소 4px(inset 10) · 올리면 10px(inset 4). 모양 규칙은 base-ui.css 한 곳. */
+  --ds-scrollbar-size:6px;--ds-scrollbar-inset-rest:0px;--ds-scrollbar-inset-hover:0px;--ds-scrollbar-radius:999px;
   --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
@@ -276,7 +279,7 @@
   :root{
     color-scheme:dark;
     --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
-    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%23b1aea2'/%3E%3C/svg%3E");--kptu-faint:#938f84;
     --kptu-border:#34332d;--kptu-border-strong:#4a4840;
     --kptu-on-primary:#22262b;
     --ds-press-tint:rgb(255 255 255 / 18%);
@@ -413,3 +416,4 @@
     --kptu-primary:#d88272;--kptu-primary-hover:#e09486;--kptu-primary-ink:#e8a397;--kptu-primary-soft:#3d1f1d;--kptu-link:#e8a397;
   }
 }
+@media (hover:hover) and (pointer:fine){:root{--ds-scrollbar-size:14px;--ds-scrollbar-inset-rest:10px;--ds-scrollbar-inset-hover:4px}}

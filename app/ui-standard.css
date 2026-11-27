@@ -27,7 +27,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. 노트 [달력]의 날짜 칸(.rv-table)은 사업 관리 달력과 같은 month-cal.css 모양. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn,.nxt-q),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-save,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -1486,14 +1486,15 @@ button.secondary:not(.icon-btn){ border-color:var(--ds-line); }
 }
 /* ▾ 그림은 base-ui.css 칸 기본(select{background:…} 줄임 표기)보다 한 단계 강하게 둔다(S52-22에서 발견: :where 강도 0이라 ▾가 어디서도 그려지지 않았다).
    화면이 #id로 바탕을 따로 정한 상자는 그 규칙이 그대로 이긴다. 오른쪽 여백 26px은 아래 ③ 규칙.
+   UI-화살표선명(S71): ▾는 그라데이션 반쪽 두 장(계단·흐림·이음매 어긋남) 대신 벡터 세모 한 장(--ds-select-arrow, 테마마다 --kptu-muted 색으로 theme-tokens.css에 둠).
+   data: 그림 안에서는 var()·currentColor를 못 쓰므로 색마다 토큰을 둔다. 같은 8×4 세모 모양·자리 그대로. 재발 방지: tests/select-arrow.test.mjs.
    S56-11: 고르기 창을 여는 단추라도 '고르기 상자' 자리에 놓이면 같은 ▾ 그림을 쓴다(자료실 [분류 ▾] — 옆 [폴더 ▾]와 한 모양). 쉼표 목록이라 select 쪽 강도는 그대로다. */
 select:not([multiple],[size]),#libraryView button.lu-cat-pick,#reportTop button.report-filter-chip{
-  background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%);
-  background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat;
+  background-image:var(--ds-select-arrow); background-position:right 9px center; background-size:8px 4px; background-repeat:no-repeat;
 }
 .date-field{ position:relative; display:inline-flex; max-width:100%; min-width:0; vertical-align:middle; }
 .date-field.is-block{ display:flex; width:100%; }
-.date-field::before{ content:""; position:absolute; inset:0; box-sizing:border-box; border:var(--date-field-line,var(--ds-line-width) solid var(--ds-line)); border-radius:var(--date-field-radius,var(--ds-radius-control)); background-color:var(--date-field-bg,var(--kptu-surface)); background-image:linear-gradient(45deg,transparent 50%,var(--kptu-muted) 50%),linear-gradient(135deg,var(--kptu-muted) 50%,transparent 50%); background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%; background-size:4px 4px,4px 4px; background-repeat:no-repeat; pointer-events:none; }
+.date-field::before{ content:""; position:absolute; inset:0; box-sizing:border-box; border:var(--date-field-line,var(--ds-line-width) solid var(--ds-line)); border-radius:var(--date-field-radius,var(--ds-radius-control)); background-color:var(--date-field-bg,var(--kptu-surface)); background-image:var(--ds-select-arrow); background-position:right 9px center; background-size:8px 4px; background-repeat:no-repeat; pointer-events:none; }
 .date-field>input[type="date"]{ position:relative; z-index:1; flex:1 1 auto; min-width:0; opacity:0; cursor:pointer; }
 .date-field>input[type="date"]::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:auto; height:auto; margin:0; padding:0; opacity:0; cursor:pointer; }
 .date-field::after{ content:attr(data-date-text); position:absolute; z-index:2; left:var(--date-field-pad,10px); right:22px; top:50%; transform:translateY(-50%); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2; font-size:var(--date-field-size,1em); color:var(--kptu-ink); font-weight:var(--ds-weight-regular); pointer-events:none; }
