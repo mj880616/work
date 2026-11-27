@@ -5,7 +5,8 @@
 // - 고친 파일 → 관련 시험 대응은 이 파일 한 곳에서 계산한다. 손으로 쓴 표는 아래 FULL·IGNORE·SCREEN_SPECS 목록뿐이고,
 //   나머지는 앱 파일끼리 부르는 관계(import·import()·'./x.js' 문자열·HTML src/href·CSS @import)와
 //   시험 파일이 부르는 앱 파일 이름, 파일 이름 규칙(시험 이름이 앱 파일 이름으로 시작)으로 자동으로 찾는다.
-// - 대응을 못 찾으면, 공용 부품(첫 화면이 바로 부르는 파일·많은 화면이 함께 쓰는 파일)·시험 도구·workflow를 고쳤으면 전체.
+// - 대응을 못 찾으면, 공용 부품(첫 화면이 바로 부르는 파일·많은 화면이 함께 쓰는 파일·모든 화면에 먼저 실려 화면 전체에
+//   이벤트를 거는 파일)·시험 도구·workflow를 고쳤으면 전체.
 // - 문서 등 앱·시험과 상관없는 파일만 고쳤으면 시험 없음.
 // - merge queue(merge_group)·main push·매일 정기 실행은 이 계산 없이 늘 전체다(workflow가 정함).
 //
@@ -63,6 +64,8 @@ export function screenSpecsFor(file, testFiles) {
 }
 // 이 파일이 부르는 쪽을 따라 올라갈 때 멈추는 첫 화면 사슬(모든 화면을 부르므로 따라가면 늘 전체가 된다).
 export const ROOTS = new Set(['app/index.html', 'app/app.js', 'app/loader-v2.js', 'app/view-loader.js']);
+// 로그인 뒤 모든 화면에서 먼저 실리는 파일을 부르는 첫 화면 사슬(view-loader.js는 화면마다 따로 부르므로 뺀다).
+export const BOOT_LOADERS = ['app/app.js', 'app/loader-v2.js'];
 
 const CODE_EXT = /\.(m?js|css|html)$/i;
 const REF = /(?:['"`(]|@import\s+)(\.{0,2}\/?[\w@.+\-/]+?\.(?:m?js|css|html|json|svg))(?:[?#][^'"`)]*)?['"`)]/g;
@@ -102,6 +105,32 @@ export function ancestors(file, importers, stops = ROOTS) {
     }
   }
   return seen;
+}
+
+// 모든 화면에 걸리는 공용 동작 부품(TEST-시험선택구멍, 2026-11-27 명진 결정 "main 깨짐을 PR에서 잡기").
+// = 첫 화면 사슬(BOOT_LOADERS)이 바로 부르는 파일과 그 파일들이 정적 import로 함께 싣는 파일 가운데
+//   문서·창 전체(document·window)에 이벤트를 거는 파일(예: 메뉴 바깥 닫기 menu-dismiss.js, ⋯ 메뉴 뒤로가기 details-menu-back.js).
+// 이런 파일은 그 이름을 부르지 않는 화면(사진 크게 보기 ⋯ 등)의 동작도 바꾸는데, 부르는 파일 한 층만 보는 계산으로는
+// 그 화면 시험이 빠졌다. 그래서 손으로 목록을 늘리지 않고 이 계산으로 찾아 전체를 돌린다.
+const STATIC_IMPORT = /^\s*(?:import|export)\s+(?:[^'"`;]*?\sfrom\s*)?['"](\.{1,2}\/[^'"?#]+)(?:[?#][^'"]*)?['"]/gm;
+const GLOBAL_LISTENER = /\b(?:document|window|globalThis)\s*\.\s*addEventListener\s*\(/;
+export function bootFiles(files, importers) {
+  const out = new Set();
+  const stack = [...importers].filter(([f, by]) => !ROOTS.has(f) && BOOT_LOADERS.some(b => by.has(b))).map(([f]) => f);
+  while (stack.length) {
+    const cur = stack.pop();
+    if (out.has(cur) || ROOTS.has(cur)) continue;
+    out.add(cur);
+    if (!/\.m?js$/.test(cur)) continue;
+    for (const m of (files.get(cur) || '').matchAll(STATIC_IMPORT)) {
+      const target = posix.normalize(posix.join(posix.dirname(cur), m[1]));
+      if (files.has(target) && !out.has(target)) stack.push(target);
+    }
+  }
+  return out;
+}
+export function globalBehaviorFiles(files, importers) {
+  return new Set([...bootFiles(files, importers)].filter(f => /\.m?js$/.test(f) && GLOBAL_LISTENER.test(files.get(f) || '')));
 }
 
 const stemOf = file => basename(file).replace(/\.[^.]+$/, '');
@@ -169,6 +198,7 @@ export function select(changed, appFiles, testFiles) {
   const indexRefs = new Set([...importers].filter(([, by]) => by.has('app/index.html')).map(([f]) => f));
   // 첫 화면 사슬·첫 화면이 바로 부르는 파일·공용 부품(FULL 목록)에서는 위로 따라가지 않는다
   // (그 파일들은 모든 화면을 부르므로, 따라가면 무엇을 고쳐도 전체가 된다. 그 파일 자체를 고치면 전체).
+  const globalFiles = globalBehaviorFiles(appFiles, importers);
   const stops = new Set([...ROOTS, ...indexRefs, ...appFiles.keys()].filter(f => ROOTS.has(f) || indexRefs.has(f) || FULL_PATTERNS.some(re => re.test(f))));
   const picked = new Set();
   for (const file of changed) {
@@ -189,6 +219,7 @@ export function select(changed, appFiles, testFiles) {
     }
     if (!file.startsWith('app/')) continue; // 문서·서버·다른 도구: 화면 시험 무관(전과 같음)
     if (indexRefs.has(file)) return full(`${file}: 첫 화면이 바로 부르는 파일`);
+    if (globalFiles.has(file)) return full(`${file}: 모든 화면에 먼저 실려 화면 전체에 동작을 거는 공용 부품`);
     // 앱 파일들은 서로 돌아가며 부르는 곳이 많아(바구니 ↔ 자료실 ↔ 노트 등) 끝까지 따라가면 모두가 걸린다.
     // 그래서 바로 부르는 파일 한 층만 본다(그 파일을 부르는 화면의 시험).
     const plain = [...(importers.get(file) || [])].filter(f => !stops.has(f));

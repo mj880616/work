@@ -6,7 +6,11 @@ import {select, parseChanged, shardsFor, loadRepo} from '../scripts/ci/e2e-selec
 const app = new Map([
   ['app/index.html', '<link href="./base-ui.css"><script src="./app.js"></script>'],
   ['app/app.js', "import('./loader-v2.js')"],
-  ['app/loader-v2.js', "import('./view-loader.js')"],
+  ['app/loader-v2.js', "import('./view-loader.js'); import('./menu-back.js'); import('./boot-model.mjs');"],
+  // 모든 화면에 먼저 실리는 파일: menu-back.js → (정적 import) menu-guard.js가 문서 전체에 이벤트를 건다.
+  ['app/menu-back.js', "import {hold} from './menu-guard.js';\nexport const back = hold;"],
+  ['app/menu-guard.js', "export function hold() {}\ndocument.addEventListener('keydown', () => {});"],
+  ['app/boot-model.mjs', 'export const words = 1;'],
   ['app/view-loader.js', "const routes={calendar:'./calendar.js', basket:'./basket.js'}"],
   ['app/base-ui.css', 'body{}'],
   ['app/calendar.js', "import {drag} from './calendar-drag.js'; import './util-core.mjs';"],
@@ -23,6 +27,8 @@ const tests = new Map([
   ['tests/app-e2e/basket.spec.mjs', "import {f} from './helpers/basket-kind.mjs';"],
   ['tests/app-e2e/helpers/basket-kind.mjs', 'export const f = 1;'],
   ['tests/app-e2e/model.spec.mjs', "import {u} from '../../app/util-core.mjs'; page.goto('./calendar-fixture.html')"],
+  ['tests/app-e2e/menu-guard-keys.spec.mjs', "// app/menu-guard.js 단독 시험"],
+  ['tests/app-e2e/boot-model-words.spec.mjs', "test('words', () => {});"],
   ['tests/app-e2e/calendar-fixture.html', '<script type=module src="/app/calendar-drag.js"></script>'],
 ]);
 
@@ -40,6 +46,20 @@ test('공용 부품 → 전체', () => {
   // 첫 화면이 바로 부르는 파일, 많은 파일이 바로 부르는 파일도 전체.
   assert.equal(select(['app/base-ui.css'], app, tests).mode, 'full');
   assert.equal(select(['app/hub.mjs'], app, tests).mode, 'full');
+});
+
+// TEST-시험선택구멍(2026-11-27): 모든 화면에 먼저 실려 문서 전체에 이벤트를 거는 파일은 이름을 부르지 않는 화면의 동작도 바꾼다.
+// 전에는 그 파일을 부르는 파일 한 층(menu-back.js)과 이름을 부르는 시험만 골라, 다른 화면 시험이 빠졌다.
+test('모든 화면에 먼저 실려 화면 전체에 이벤트를 거는 파일 → 전체', () => {
+  for (const file of ['app/menu-guard.js']) {
+    const sel = select([file], app, tests);
+    assert.equal(sel.mode, 'full', file);
+    assert.match(sel.reasons.at(-1), /모든 화면에 먼저 실려/);
+  }
+  // 먼저 실리지만 이벤트를 걸지 않는 파일(낱말 표 등)은 지금처럼 관련 시험만.
+  assert.deepEqual(select(['app/boot-model.mjs'], app, tests).specs, ['tests/app-e2e/boot-model-words.spec.mjs']);
+  // 화면이 따로 부르는 파일(view-loader 아래)은 이벤트를 걸어도 그 화면 시험만.
+  assert.equal(select(['app/calendar-drag.js'], app, tests).mode, 'some');
 });
 
 test('시험 도구·workflow → 전체', () => {
@@ -104,4 +124,17 @@ test('실제 저장소: 화면 파일 → 공용 동작 기준표·사각형 고
     const sel = select([f], appFiles, testFiles);
     for (const s of lib) assert.ok(sel.mode === 'full' || sel.specs.includes(s), `${f} → ${s}`);
   }
+});
+
+// TEST-시험선택구멍(2026-11-27): main을 깨뜨린 report-photo-row 회귀의 고침(#3245)은 menu-dismiss.js·details-menu-back.js만 고쳤는데
+// 사진 크게 보기 시험을 고르지 않았다(details-menu-back.js → 시험 1개, menu-dismiss.js → 66개, 둘 다 report-photo-row 없음).
+test('실제 저장소: 메뉴 바깥 닫기·⋯ 메뉴 뒤로가기 공용 부품을 고치면 전체(사진 크게 보기 시험 포함)', () => {
+  const {appFiles, testFiles} = loadRepo('.');
+  for (const file of ['app/menu-dismiss.js', 'app/details-menu-back.js', 'app/context-menu.js', 'app/select-menu.js', 'app/mobile-modal-history.js']) {
+    assert.ok(appFiles.has(file), file);
+    assert.equal(select([file], appFiles, testFiles).mode, 'full', file);
+  }
+  assert.equal(select(['app/details-menu-back.js', 'app/menu-dismiss.js', 'tests/app-e2e/report-photo-row.spec.mjs'], appFiles, testFiles).mode, 'full');
+  // 화면 하나만 쓰는 파일은 전처럼 관련 시험만(전체로 번지지 않음).
+  assert.equal(select(['app/photo-view-swipe.js'], appFiles, testFiles).mode, 'some');
 });

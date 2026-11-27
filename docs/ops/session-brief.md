@@ -4,6 +4,7 @@
 
 ## 1. 시작
 
+0. 새 세션·새 계정 확인: `AGENTS.md` 1절 '새 세션·새 계정이 시작할 때 확인할 것' 세 줄.
 1. 저장소 연결: `add_repo(owner=mj880616, repo=work, access=push)` (이미 연결돼 있으면 건너뜀).
 2. 새 폴더에 받기: `git clone --depth 50 https://github.com/mj880616/work <새 폴더>`. 기억한 SHA를 믿지 말고 받은 `origin/main`을 기준으로 한다.
 3. 커밋 작성자 메일: `git config user.email "172895968+mj880616@users.noreply.github.com"`(GitHub noreply 주소. 개인 메일 금지, `AGENTS.md` 3절).
