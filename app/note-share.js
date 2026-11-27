@@ -4,6 +4,7 @@
 // - 파일(HTML·PDF): 폰 = 기기 공유 창에 파일로(못 하면 내려받기), PC = 내려받기. 폰 앱 화면의 PDF는 앱 다리(app-share.js)로 안드로이드 공유 창.
 // 공유는 사용자가 누를 때만 시작한다. 파일은 이 기기 메모리에서만 만들고(서버 사본 없음), 기기 저장소에 두지 않는다.
 import {createChoiceSheet} from './choice-sheet.js';
+import {menusSettling} from './menu-dismiss.js';
 import {copyText} from './copy-text.js';
 import {notify} from './small-notice.js';
 import {wideShare} from './link-share-model.mjs';
@@ -62,5 +63,8 @@ export function openNoteShareChoices(trigger, {canLink = true, onPick} = {}) {
       void (async () => { const el = document.getElementById('noteShareSheet'); for (let i = 0; i < 80 && el?.open; i++) await new Promise(r => setTimeout(r, 25)); p?.onPick?.(value); })();
     }});
   pending = {canLink, onPick};
-  return sheet.open('share', trigger);
+  // ⋯ 메뉴 항목은 그 메뉴 겹의 뒤로가기(popstate)를 받은 바로 그 자리(같은 사건의 microtask)에서 불린다. 거기서 바로 열면 고르기 창이
+  // 기록 칸을 넣은 뒤 같은 popstate를 늦게 받아 '내 칸이 아닌 뒤로가기'로 보고 곧장 닫힌다. 그래서 메뉴 닫기가 끝나고(menu-dismiss.js),
+  // 그 사건 처리가 다 끝난 다음 차례(setTimeout 0)에 연다.
+  return Promise.resolve(menusSettling()).then(() => new Promise(r => setTimeout(r, 0))).then(() => (pending ? sheet.open('share', trigger) : undefined));
 }
