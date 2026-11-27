@@ -261,3 +261,16 @@ test('주입: 원문 속 지시문은 records 값 안에만 있고, 추가 요�
   assert.equal(list.result.tools.length, 17);
   assert.doesNotMatch(JSON.stringify(list), /evil|지워라/);
 });
+
+test('mcp-read는 구현한 판만 내세운다 — 2025-11-25를 물으면 그대로, 모르는 판엔 2025-11-25', async () => {
+  const { createHandler, PROTOCOL_VERSIONS } = await import('../../supabase/functions/mcp-read/core.mjs');
+  assert.deepEqual([...PROTOCOL_VERSIONS], ['2025-11-25', '2025-06-18', '2025-03-26']);
+  const h = createHandler({ env: { supabaseUrl: 'https://x.supabase.co', anonKey: 'a', resourceUrl: 'https://x.supabase.co/functions/v1/mcp-read' },
+    fetchImpl: async () => new Response(JSON.stringify({ sub: 'u' }), { status: 200 }) });
+  const tok = 'h.' + Buffer.from(JSON.stringify({ sub: 'u', client_id: 'c' })).toString('base64url') + '.s';
+  for (const [asked, want] of [['2025-11-25', '2025-11-25'], ['2025-06-18', '2025-06-18'], ['2099-01-01', '2025-11-25']]) {
+    const res = await h(new Request('https://x/functions/v1/mcp-read', { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: asked } }) }));
+    assert.equal((await res.json()).result.protocolVersion, want);
+  }
+});
