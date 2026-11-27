@@ -46,6 +46,7 @@ import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; /
 import {gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
   gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear, gdContentFind, gdDescGet} from './gdrive-photos.js';
 import {ownerScope, requestDiaryDay} from './diary-data.js';
+import {takePhotoDay} from './photo-day-request.mjs'; // HOME-오늘사진은사진으로: 홈 '오늘 사진'이 보낸 "그날·그 사진" 요청
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, isWide, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
 import {filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
@@ -1366,13 +1367,25 @@ function jumpTo(prefix, cursor, label) {
     const mine = up = {cursor, ended:false, loading:null, failed:'', ready:false};
     paintList({full:true});
     const p = loadMore();
-    Promise.resolve(p).then(() => {
+    return Promise.resolve(p).then(() => {
       if (!current(r) || tab !== 'all') return;
       requestAnimationFrame(() => { (find() || body).scrollIntoView({block:'start'}); if (up === mine) { mine.ready = true; watchTop(); } });
     });
-    return;
   }
   requestAnimationFrame(() => find()?.scrollIntoView({block:'start'}));
+  return Promise.resolve();
+}
+// HOME-오늘사진은사진으로(S73-07): 홈 '오늘 사진'에서 온 요청 — [사진] 전체 목록의 그날로 가고, 눌렀던 사진이 있으면 크게 보기로 바로 연다.
+// 뒤로가기는 크게 보기 겹 → [사진] 화면 → 홈(들어올 때 쌓은 기록) 순서로 돌아간다.
+async function showRequestedDay({day, key}) {
+  if (tab !== 'all') setTab('all');
+  if (filter !== 'all') { h$('[data-photos-filter]').value = 'all'; setFilter('all'); }
+  if (level !== 'day') zoomSave('day');
+  const r = run;
+  await jumpTo(day, dayCursor(day), dayHead(day));
+  if (!key || !current(r) || tab !== 'all') return;
+  const index = items.findIndex(x => x.key === key && x.day === day);
+  if (index >= 0) openViewer(index);
 }
 const jumpMonth = key => jumpTo(key, monthCursor(key), key.replace('-', '.'));
 
@@ -3897,6 +3910,8 @@ async function enter() {
   paintSources();
   ensureStars(run).then(() => { if (tab === 'all') paintStars(); });
   render();
+  const wanted = takePhotoDay(ownerScope(rt));
+  if (wanted) await showRequestedDay(wanted);
   if (back) settings.finishReturn(back).then(render);
   startSync(run);
   startGdSync(run);

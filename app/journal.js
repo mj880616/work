@@ -121,6 +121,8 @@ const $ = selector => root.querySelector(selector);
 const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 // HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).
+// HOME-오늘사진은사진으로(S73-07): '오늘 사진' 칸의 썸네일·+n·[사진 보기 ›]는 일기가 아니라 [사진] 화면의 그날로 간다(썸네일은 그 사진 크게 보기).
+const openPhotoDay = (day, key = '') => import('./photo-day-request.mjs').then(req => { req.requestPhotoDay(day, {key, scope:ownerScope(rt)}); window.KPTURouter?.go?.('photos', {source:'delegated'}); }).catch(() => {});
 const openDiaryDay = day => import('./diary-data.js').then(diary => { diary.requestDiaryDay(day); window.KPTURouter?.go?.('diary', {source:'delegated'}); }).catch(() => {});
 // ③ [일기 쓰기]: 그날 일기 쓰기 창을 제안 한 줄이 채워진 채로 연다. 저장하면 그 제안을 서버 표에서 '썼음'으로(다른 기기에서도 사라짐).
 const writeDiary = (day, text, id) => import('./diary-data.js').then(diary => {
@@ -144,7 +146,7 @@ function dropSuggest(day, id) {
     return setSuggestDone(day, id, false, rt);
   }});
 }
-const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:writeDiary, onDrop:dropSuggest});
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openPhotoDay, onWrite:writeDiary, onDrop:dropSuggest});
 // 칸을 끄거나 다시 켜면 그 자리를 다시 그린다(켰으면 서버에 다시 묻는다 — 끈 동안은 기록 제안을 고르지 않았으므로).
 window.addEventListener(HOME_OFF_EVENT, () => { if (!fillReady) return; if (dayPicks.askedSlot && !homeCardOff('suggests')) dayPicks.askedSlot = ''; renderFill(); });
 
