@@ -21,7 +21,7 @@ begin;
 --   그리고 손으로 넣은 본문 블록(rule manual@1)이 있는 기사, 아직 읽기 전(state 'pending')인 기사는 고르지 않는다.
 -- 읽지도 고치지도 않는 것: 사회운동 글(2개월 보관 그대로), 사람별 읽음·표시·자세히·반응, 내가 고친 원문(app_feed_body_edits), 텔레그램·통화·가족 표, rtw_*.
 -- 권한: 새 함수 실행권은 service_role만(PUBLIC·anon·authenticated 회수). 표·칸·검사·정책·표 권한·트리거 변경 없음.
--- 되돌리기: 짝 rollback(새 함수와 기록 1행 지움 — 승인형 workflow rollback 모드). 먼저 매일 정리를 이전 본문으로(docs/ops/news-body-trim-daily.rollback.sql).
+-- 되돌리기: 짝 rollback(SQL Editor 전용 — 새 함수와 기록 1행 지움). 먼저 매일 정리를 이전 본문으로(docs/ops/news-body-trim-daily.rollback.sql).
 --   비운 본문은 되살릴 수 없다. 글 보기 ⋯ [원문 다시 가져오기]로 사람이 다시 읽으면 그 글만 다시 채워진다.
 -- 짝: docs/20261127180000_news_body_trim.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
@@ -98,6 +98,7 @@ begin
     select p.id, '[]'::jsonb, 'failed', 'no_body', 'trim@1', 0, 0, v_at, v_at from picked p
     on conflict (article_id) do update
       set blocks = '[]'::jsonb, state = 'failed', reason = 'no_body', rule = 'trim@1', chars = 0, images = 0, updated_at = v_at
+      where b.rule is distinct from 'trim@1'
     returning b.article_id
   )
   update public.app_news_articles a

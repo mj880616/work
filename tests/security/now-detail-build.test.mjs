@@ -120,6 +120,11 @@ test('S69-01 body fingerprint: content only (whitespace·case ignored), none whe
   assert.equal(B.bodyChanged(item,{...made,body_key:null},k),true,'지문 없는 옛 저장본만 시각 비교');
   assert.equal(B.bodyChanged({...item,bodyAt:'2026-11-19T00:00:00Z'},{...made,body_key:null},k),false);
   assert.equal(B.bodyChanged(item,null,k),false);
+  // S73-01 NEWS-본문하루: 본문을 비운 지난 기사(지금 지문 none) — 본문으로 만든 저장본은 그대로, 본문 없이 만든 저장본은 그대로 none.
+  assert.equal(B.bodyChanged(item,{...made,body_key:k},'none'),false,'본문이 비워져도 본문으로 만든 저장본은 그대로');
+  assert.equal(B.bodyChanged(item,{...made,body_key:'none'},'none'),false);
+  assert.equal(B.madeFromBody({body_key:k}),true);
+  assert.equal(B.madeFromBody({body_key:'none'}),false);assert.equal(B.madeFromBody({body_key:null}),false);assert.equal(B.madeFromBody(null),false);
 });
 
 test('stored row shapes match the app_now_details columns',()=>{
