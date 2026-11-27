@@ -264,121 +264,6 @@ test('[폴더] 보기 ⋯ 메뉴에는 [목록] 정렬 줄이 없다(폴더 보�
   expect(s.errors).toEqual([]);
 });
 
-// ---------- ② 보일 칸(결정 ⑦가 메뉴 이름 '보일 칸', ⑤가 칸 차례 고정). 서버 view_prefs.note_cols ----------
-const colsMenu = page => page.locator('#noteDocMenu');
-const openCols = async page => { await head(page).locator('[data-nl-cols-menu]').click(); await expect(colsMenu(page)).toBeVisible(); await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸'); };
-const headNames = page => head(page).locator('[role="columnheader"]').evaluateAll(els => els.map(e => e.dataset.nlCol));
-
-test('PC 1280: 칸을 켜면 머리·줄에 칸이 생기고 끄면 사라짐, 새로 열어도 같음(서버)', async ({ page }) => {
-  test.setTimeout(90000);
-  const s = await fixture(page, 1280);
-  const saved = () => s.server.value?.note_cols ?? null;
-  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
-  await openCols(page);
-  await expect(colsMenu(page).locator('[data-nl-col-toggle]')).toHaveText(['✓폴더', '✓태그', '✓수정일', '작성일', '✓첨부', '메모', '글자 수', '공유']);
-  // 제목은 끌 수 없다(목록에 없음).
-  await expect(colsMenu(page).locator('[data-nl-col-toggle="title"]')).toHaveCount(0);
-  // 작성일·글자 수 켜기(메뉴는 열린 채) → 칸 차례는 고정(제목 | 폴더 | 태그 | 수정일 | 작성일 | 첨부 | 글자 수).
-  await colsMenu(page).locator('[data-nl-col-toggle="made"]').click();
-  await expect(colsMenu(page)).toBeVisible();
-  await expect(colsMenu(page).locator('[data-nl-col-toggle="made"]')).toHaveAttribute('aria-checked', 'true');
-  await colsMenu(page).locator('[data-nl-col-toggle="chars"]').click();
-  // 폴더 끄기.
-  await colsMenu(page).locator('[data-nl-col-toggle="folder"]').click();
-  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
-  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell]')).toHaveCount(5);
-  await expect(rowsBox(page).locator('[data-nl-cell="folder"]')).toHaveCount(0);
-  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]')).toHaveText(String([...'가짜 노트 1 본문 #준비 #회의 #가짜 #넷째'].length));
-  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="made"]')).toHaveText('11.20');
-  // 머리 칸과 줄 칸 자리가 맞는다(그리드 하나).
-  const hx = (await headCell(page, 'chars').boundingBox()), cx = await rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]').boundingBox();
-  expect(Math.abs(hx.x + hx.width - (cx.x + cx.width))).toBeLessThan(3);
-  await expect.poll(saved).toEqual(['tags', 'day', 'made', 'clip', 'chars']);
-  await page.keyboard.press('Escape');
-  // 새로 열어도 같은 칸.
-  await page.reload(); await s.show();
-  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
-  // [기본으로] = 서버 값 지움, 기본 넷.
-  await openCols(page);
-  await colsMenu(page).locator('[data-nl-cols-reset]').click();
-  await expect.poll(saved).toBeNull();
-  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
-  // 작성일 칸 머리를 누르면 작성일 정렬(①-2와 같은 정렬 값).
-  await openCols(page); await colsMenu(page).locator('[data-nl-col-toggle="made"]').click(); await page.keyboard.press('Escape');
-  await sortBtn(page, 'created').click();
-  await expect(sortCell(page, 'created')).toHaveAttribute('aria-sort', 'descending');
-  await expect.poll(() => s.server.value?.note_list_sort ?? null).toEqual({ key: 'created', dir: 'desc' });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-  expect(s.errors).toEqual([]);
-});
-
-test('제목만 남겨도(모두 끄기) 줄이 그려지고, 폰 390도 ⋯ [보일 칸…]으로 같은 값', async ({ page }) => {
-  test.setTimeout(90000);
-  const s = await fixture(page, 390, { prefs: { note_cols: ['day'] } });
-  // 폰: 아래 작은 줄에 켠 칸(수정일)만.
-  const one = rowsBox(page).locator('[data-nx-note="n1"]');
-  await expect(one.locator('[data-nl-cell]')).toHaveCount(1);
-  await expect(one.locator('[data-nl-cell="day"]')).toBeVisible();
-  await page.locator('.sf-tools [data-note-folder-more]').click();
-  await colsMenu(page).locator('[data-nl-cols-open]').click();
-  await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸');
-  await colsMenu(page).locator('[data-nl-col-toggle="day"]').click();
-  await expect.poll(() => s.server.value?.note_cols ?? null).toEqual([]);
-  await expect(one.locator('[data-nl-cell]')).toHaveCount(0);
-  await expect(one.locator('.basket-title-text')).toHaveText('가짜 노트 1');
-  expect(s.errors).toEqual([]);
-});
-
-test('PC 1280: 잠긴 노트는 메모·글자 수·공유 칸이 빈칸', async ({ page }) => {
-  const s = await fixture(page, 1280, { locked: true, prefs: { note_cols: ['folder', 'tags', 'day', 'clip', 'memo', 'chars', 'pub'] } });
-  const lockedRow = rowsBox(page).locator('[data-nx-note="n1"]'), open = rowsBox(page).locator('[data-nx-note="n2"]');
-  await expect(lockedRow.locator('.basket-title-text')).toHaveText('잠김');
-  for (const key of ['memo', 'chars', 'pub', 'tags']) await expect(lockedRow.locator(`[data-nl-cell="${key}"]`)).toBeEmpty();
-  // 잠기지 않은 노트는 글자 수가 보인다.
-  await expect(open.locator('[data-nl-cell="chars"]')).not.toBeEmpty();
-  expect(s.errors).toEqual([]);
-});
-
-// ---------- ③ 태그 칸(칸 너비 기준 +N, 결정 ⑥가 태그 누르기 = 노트 열기) ----------
-const tagsOf = row => row.locator('[data-nl-cell="tags"]').evaluate(el => ({ shown: [...el.querySelectorAll('.nl-tag')].filter(t => !t.hidden).length, more: el.querySelector('.nl-more')?.hidden ? '' : el.querySelector('.nl-more')?.textContent || '' }));
-
-test('PC 1280: 태그 4개 노트 — 칸 너비를 줄이면 보이는 태그가 줄고 +N이 늘어남', async ({ page }) => {
-  const s = await fixture(page, 1280, { prefs: { col_widths: { notes: { tags: 400 } } } });
-  const row = rowsBox(page).locator('[data-nx-note="n1"]');
-  await expect.poll(() => tagsOf(row)).toEqual({ shown: 4, more: '' });
-  // 글자로는 모든 태그('태그: #준비 #회의 …', 지금 [태그] 칸 글자와 같은 꼴).
-  await expect(row.locator('[data-nx-tags]')).toHaveText('태그: #준비 #회의 #가짜 #넷째');
-  // 금을 끌어 칸을 줄이면(서버 저장) 보이는 태그가 줄고 +N.
-  const grip = head(page).locator('[data-col-grip="tags"]');
-  const g = await grip.boundingBox(), y = g.y + g.height / 2, x = g.x + g.width / 2;
-  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 150, y, { steps: 5 }); await page.mouse.move(x - 300, y, { steps: 5 }); await page.mouse.up(); await settle(page);
-  await expect.poll(async () => (await tagsOf(row)).shown).toBeLessThan(4);
-  const narrow = await tagsOf(row);
-  expect(narrow.shown).toBeGreaterThanOrEqual(1);
-  expect(narrow.more).toBe(`+${4 - narrow.shown}`);
-  await expect(row.locator('.nl-more')).toHaveAttribute('aria-label', `외 ${4 - narrow.shown}개`);
-  // 칸 안에 넘치지 않는다.
-  expect(await row.locator('[data-nl-cell="tags"]').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-  // 태그를 누르면 줄 누르기와 같다(노트 열기).
-  await row.locator('.nl-tag').first().click();
-  await expect(page.locator('#basketView [data-note-detail]')).toBeVisible();
-  expect(s.errors).toEqual([]);
-});
-
-test('PC 1280: 태그 칸 끄면 줄에 #태그 0개', async ({ page }) => {
-  const s = await fixture(page, 1280, { prefs: { note_cols: ['folder', 'day'] } });
-  await expect(rowsBox(page).locator('[data-nx-note="n1"]')).toBeVisible();
-  await expect(rowsBox(page).locator('.nl-cols [data-nx-tags], .nl-cols .nl-tag')).toHaveCount(0);
-  expect(await rowsBox(page).locator('[data-nx-note="n1"] .note-row').innerText()).not.toContain('#');
-  expect(s.errors).toEqual([]);
-});
-
-test('폰 390: 태그는 앞 두 개 + N(아래 작은 줄)', async ({ page }) => {
-  const s = await fixture(page, 390);
-  await expect.poll(() => tagsOf(rowsBox(page).locator('[data-nx-note="n1"]'))).toEqual({ shown: 2, more: '+2' });
-  expect(s.errors).toEqual([]);
-});
-
 // ---------- NOTE-폰머리줄(2026-11-28 사용자 시안 '가', docs/design/approved/note-list-phone-head.md) ----------
 // 폰(600 미만) [목록]·[폴더] 맨 위 얇은 머리 줄: 왼쪽 '노트 N', 오른쪽 '수정한 날 순 ▾'(정렬 메뉴 = ⋯ 메뉴 정렬과 같은 값·서버 저장)·'칸'(보일 칸).
 // 앱 위 줄과 첫 노트 사이 빈 띠(빈 .note-list-head 여백)가 없고, 목록을 내려도 위에 붙는다. PC에는 이 줄이 없다.
@@ -506,5 +391,120 @@ test('폰 412: 폴더 줄 ⋯(공용 .ft-dots)도 세로 점이고 머리·도�
   expect(await folderDots.evaluate(el => el.getBoundingClientRect().width)).toBeLessThanOrEqual(28.5);
   // 맨 위 줄 단추 상자의 화면 ⋯는 가로 점.
   expect(await page.locator('.sf-tools [data-note-folder-more] .more-dots').evaluate(el => getComputedStyle(el).transform)).toBe('none');
+  expect(s.errors).toEqual([]);
+});
+
+// ---------- ② 보일 칸(결정 ⑦가 메뉴 이름 '보일 칸', ⑤가 칸 차례 고정). 서버 view_prefs.note_cols ----------
+const colsMenu = page => page.locator('#noteDocMenu');
+const openCols = async page => { await head(page).locator('[data-nl-cols-menu]').click(); await expect(colsMenu(page)).toBeVisible(); await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸'); };
+const headNames = page => head(page).locator('[role="columnheader"]').evaluateAll(els => els.map(e => e.dataset.nlCol));
+
+test('PC 1280: 칸을 켜면 머리·줄에 칸이 생기고 끄면 사라짐, 새로 열어도 같음(서버)', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 1280);
+  const saved = () => s.server.value?.note_cols ?? null;
+  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
+  await openCols(page);
+  await expect(colsMenu(page).locator('[data-nl-col-toggle]')).toHaveText(['✓폴더', '✓태그', '✓수정일', '작성일', '✓첨부', '메모', '글자 수', '공유']);
+  // 제목은 끌 수 없다(목록에 없음).
+  await expect(colsMenu(page).locator('[data-nl-col-toggle="title"]')).toHaveCount(0);
+  // 작성일·글자 수 켜기(메뉴는 열린 채) → 칸 차례는 고정(제목 | 폴더 | 태그 | 수정일 | 작성일 | 첨부 | 글자 수).
+  await colsMenu(page).locator('[data-nl-col-toggle="made"]').click();
+  await expect(colsMenu(page)).toBeVisible();
+  await expect(colsMenu(page).locator('[data-nl-col-toggle="made"]')).toHaveAttribute('aria-checked', 'true');
+  await colsMenu(page).locator('[data-nl-col-toggle="chars"]').click();
+  // 폴더 끄기.
+  await colsMenu(page).locator('[data-nl-col-toggle="folder"]').click();
+  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell]')).toHaveCount(5);
+  await expect(rowsBox(page).locator('[data-nl-cell="folder"]')).toHaveCount(0);
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]')).toHaveText(String([...'가짜 노트 1 본문 #준비 #회의 #가짜 #넷째'].length));
+  await expect(rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="made"]')).toHaveText('11.20');
+  // 머리 칸과 줄 칸 자리가 맞는다(그리드 하나).
+  const hx = (await headCell(page, 'chars').boundingBox()), cx = await rowsBox(page).locator('[data-nx-note="n1"] [data-nl-cell="chars"]').boundingBox();
+  expect(Math.abs(hx.x + hx.width - (cx.x + cx.width))).toBeLessThan(3);
+  await expect.poll(saved).toEqual(['tags', 'day', 'made', 'clip', 'chars']);
+  await page.keyboard.press('Escape');
+  // 새로 열어도 같은 칸.
+  await page.reload(); await s.show();
+  expect(await headNames(page)).toEqual(['title', 'tags', 'day', 'made', 'clip', 'chars']);
+  // [기본으로] = 서버 값 지움, 기본 넷.
+  await openCols(page);
+  await colsMenu(page).locator('[data-nl-cols-reset]').click();
+  await expect.poll(saved).toBeNull();
+  expect(await headNames(page)).toEqual(['title', 'folder', 'tags', 'day', 'clip']);
+  // 작성일 칸 머리를 누르면 작성일 정렬(①-2와 같은 정렬 값).
+  await openCols(page); await colsMenu(page).locator('[data-nl-col-toggle="made"]').click(); await page.keyboard.press('Escape');
+  await sortBtn(page, 'created').click();
+  await expect(sortCell(page, 'created')).toHaveAttribute('aria-sort', 'descending');
+  await expect.poll(() => s.server.value?.note_list_sort ?? null).toEqual({ key: 'created', dir: 'desc' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  expect(s.errors).toEqual([]);
+});
+
+test('제목만 남겨도(모두 끄기) 줄이 그려지고, 폰 390도 ⋯ [보일 칸…]으로 같은 값', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 390, { prefs: { note_cols: ['day'] } });
+  // 폰: 아래 작은 줄에 켠 칸(수정일)만.
+  const one = rowsBox(page).locator('[data-nx-note="n1"]');
+  await expect(one.locator('[data-nl-cell]')).toHaveCount(1);
+  await expect(one.locator('[data-nl-cell="day"]')).toBeVisible();
+  await page.locator('.sf-tools [data-note-folder-more]').click();
+  await colsMenu(page).locator('[data-nl-cols-open]').click();
+  await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸');
+  await colsMenu(page).locator('[data-nl-col-toggle="day"]').click();
+  await expect.poll(() => s.server.value?.note_cols ?? null).toEqual([]);
+  await expect(one.locator('[data-nl-cell]')).toHaveCount(0);
+  await expect(one.locator('.basket-title-text')).toHaveText('가짜 노트 1');
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 잠긴 노트는 메모·글자 수·공유 칸이 빈칸', async ({ page }) => {
+  const s = await fixture(page, 1280, { locked: true, prefs: { note_cols: ['folder', 'tags', 'day', 'clip', 'memo', 'chars', 'pub'] } });
+  const lockedRow = rowsBox(page).locator('[data-nx-note="n1"]'), open = rowsBox(page).locator('[data-nx-note="n2"]');
+  await expect(lockedRow.locator('.basket-title-text')).toHaveText('잠김');
+  for (const key of ['memo', 'chars', 'pub', 'tags']) await expect(lockedRow.locator(`[data-nl-cell="${key}"]`)).toBeEmpty();
+  // 잠기지 않은 노트는 글자 수가 보인다.
+  await expect(open.locator('[data-nl-cell="chars"]')).not.toBeEmpty();
+  expect(s.errors).toEqual([]);
+});
+
+// ---------- ③ 태그 칸(칸 너비 기준 +N, 결정 ⑥가 태그 누르기 = 노트 열기) ----------
+const tagsOf = row => row.locator('[data-nl-cell="tags"]').evaluate(el => ({ shown: [...el.querySelectorAll('.nl-tag')].filter(t => !t.hidden).length, more: el.querySelector('.nl-more')?.hidden ? '' : el.querySelector('.nl-more')?.textContent || '' }));
+
+test('PC 1280: 태그 4개 노트 — 칸 너비를 줄이면 보이는 태그가 줄고 +N이 늘어남', async ({ page }) => {
+  const s = await fixture(page, 1280, { prefs: { col_widths: { notes: { tags: 400 } } } });
+  const row = rowsBox(page).locator('[data-nx-note="n1"]');
+  await expect.poll(() => tagsOf(row)).toEqual({ shown: 4, more: '' });
+  // 글자로는 모든 태그('태그: #준비 #회의 …', 지금 [태그] 칸 글자와 같은 꼴).
+  await expect(row.locator('[data-nx-tags]')).toHaveText('태그: #준비 #회의 #가짜 #넷째');
+  // 금을 끌어 칸을 줄이면(서버 저장) 보이는 태그가 줄고 +N.
+  const grip = head(page).locator('[data-col-grip="tags"]');
+  const g = await grip.boundingBox(), y = g.y + g.height / 2, x = g.x + g.width / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 150, y, { steps: 5 }); await page.mouse.move(x - 300, y, { steps: 5 }); await page.mouse.up(); await settle(page);
+  await expect.poll(async () => (await tagsOf(row)).shown).toBeLessThan(4);
+  const narrow = await tagsOf(row);
+  expect(narrow.shown).toBeGreaterThanOrEqual(1);
+  expect(narrow.more).toBe(`+${4 - narrow.shown}`);
+  await expect(row.locator('.nl-more')).toHaveAttribute('aria-label', `외 ${4 - narrow.shown}개`);
+  // 칸 안에 넘치지 않는다.
+  expect(await row.locator('[data-nl-cell="tags"]').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  // 태그를 누르면 줄 누르기와 같다(노트 열기).
+  await row.locator('.nl-tag').first().click();
+  await expect(page.locator('#basketView [data-note-detail]')).toBeVisible();
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 태그 칸 끄면 줄에 #태그 0개', async ({ page }) => {
+  const s = await fixture(page, 1280, { prefs: { note_cols: ['folder', 'day'] } });
+  await expect(rowsBox(page).locator('[data-nx-note="n1"]')).toBeVisible();
+  await expect(rowsBox(page).locator('.nl-cols [data-nx-tags], .nl-cols .nl-tag')).toHaveCount(0);
+  expect(await rowsBox(page).locator('[data-nx-note="n1"] .note-row').innerText()).not.toContain('#');
+  expect(s.errors).toEqual([]);
+});
+
+test('폰 390: 태그는 앞 두 개 + N(아래 작은 줄)', async ({ page }) => {
+  const s = await fixture(page, 390);
+  await expect.poll(() => tagsOf(rowsBox(page).locator('[data-nx-note="n1"]'))).toEqual({ shown: 2, more: '+2' });
   expect(s.errors).toEqual([]);
 });
