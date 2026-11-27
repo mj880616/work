@@ -121,7 +121,8 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 /* 사진 상자는 칸(슬라이드)을 절대 위치로 꽉 채워 높이가 확정된 상태에서 contain으로 맞춘다.
    예전에는 img의 max-height:100%가 높이 미확정 상자(grid 안 height:100%) 안에서 풀리지 않아 폭만 제한됐고,
    넓은 화면(폴드 펼침·PC)에서는 폭 기준으로 커진 사진이 화면 높이를 넘어 위아래가 잘렸다. */
-#appView :is(#diaryView,#photosView) .diary-viewer .diary-slide{ position:relative; flex:0 0 100%; margin:0; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; }
+/* PHOTO-크게보기정렬(S73-12): 확대한 사진이 옆 칸 위로 넘쳐 '다른 사진이 확대된' 것처럼 보이지 않게 칸 밖은 자른다. */
+#appView :is(#diaryView,#photosView) .diary-viewer .diary-slide{ position:relative; flex:0 0 100%; margin:0; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; overflow:hidden; }
 #appView :is(#diaryView,#photosView) .diary-viewer .diary-photo{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 #appView :is(#diaryView,#photosView) .diary-viewer .diary-slide img{ display:block; flex:1 1 auto; min-width:0; min-height:0; width:100%; height:100%; object-fit:contain; }
 #appView :is(#diaryView,#photosView) .diary-viewer .diary-photo-link{ color:var(--ds-photo-ink); font-size:var(--ds-text-read); }

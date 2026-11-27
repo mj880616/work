@@ -3,7 +3,7 @@
 // 자료실 그 폴더에서도 보인다. 기록에서 첨부를 빼도 자료실 자료는 남는다(삭제는 자료실에서만, 이 모듈은 삭제하지 않음).
 // 규칙은 org-files-folder-model.mjs 한 곳. 저장은 모두 서버: 부모 폴더 = 내 프로필 org_files_folder 칸(받는 폴더와 같은 내 행 PATCH, owner RLS),
 // 조직 ↔ 폴더 짝 = 폴더 줄 organization_id(서버 함수 app_library_folder_set_org, 내 작업공간 폴더·조직만). 기기 저장 없음.
-// 드라이브 사본은 따로 옮기지 않는다: 자료실 폴더 = 드라이브 폴더 맞추기(S69-20/40, workspace-drive drive-mirror auto)가 폴더 연결이 바뀌면 그 폴더의 드라이브 폴더로 옮긴다.
+// 드라이브 사본은 따로 옮기지 않는다: 폴더 연결을 저장하면 그 자리에서 drive-follow.mjs(S70-76, workspace-drive drive-mirror auto)가 그 폴더의 드라이브 폴더로 옮긴다.
 // 남의 기록 안 보기(AGENTS.md 3절): 내 로그인·내 작업공간만. 남의 작업공간 조직(공유로 보이는 조직)은 내 조직 표에 없으므로 넣지 않는다(서버 함수도 거절).
 import {readLibraryFolders, readLibraryFolderItems, createLibraryFolder, putDocumentInFolder, readFolderOrgLinks, setFolderOrganization} from './library-folder-data.js';
 import {folderSiblings, nextSortOrder} from './library-tree.js';

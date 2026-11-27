@@ -13,7 +13,7 @@
 // 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
 // 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. 기기 저장 없음.
 import {swipeKind, shareFileName, UNDO_MS, dragAxis, dragEnd, dragOffset, starFill, hintDue, hintNext, hintSeen, HINT_TEXT, loadTimeText,
-  ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform, isGifPhoto} from './photo-viewer-model.mjs';
+  ZOOM_ONE, isZoomed, clampPan, zoomAt, pinchTo, panBy, zoomToggle, wheelScale, isTap, isDoubleTap, settleZoom, zoomTransform, isGifPhoto, slideAt} from './photo-viewer-model.mjs';
 import {slotTimingOf} from './img-slot.js';
 import {viewPrefs} from './view-prefs.js';
 import {preparePhotoBlob, sharePhotoElement, photoFilesFor, paintPhotoNote, quietNote, PHOTO_WAIT} from './photo-share.js';
@@ -213,9 +213,16 @@ export function openPhotoStrip(opts) {
   const note = (text, ms = 0) => { clearTimeout(noteTimer); noteText(text); if (ms) noteTimer = setTimeout(() => { if (!pending) noteText(''); }, ms); };
   // 보는 장의 그림이 뜨면(load는 거품이 없어 잡기 단계로 듣는다) 그 그림의 바이트를 미리 준비해 [공유]를 바로 넘긴다.
   strip.addEventListener('load', event => { setTimeout(prepareShown, 0); if (event.target?.closest?.('.diary-slide') === strip.children[at]) paintInfo(); }, true);
-  strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { resetZoom(); at = next; show(); } }, {passive:true});
+  // PHOTO-크게보기정렬(S73-12): 보이는 칸 = at 하나(별표·공유·편집·지우기·확대·큰 판 받기가 모두 at을 쓴다). 칸 자리는 실제 칸 폭(소수)으로 재고 실제 칸 위치로 간다.
+  // 예전에는 정수 clientWidth × 번호로 계산해 폭이 소수인 폰(폴드)에서 뒤 칸일수록 보이는 사진과 at이 한두 장 어긋났다.
+  const slideW = () => strip.children[0]?.getBoundingClientRect().width || strip.clientWidth || 1;
+  const shownAt = () => slideAt(strip.scrollLeft, slideW(), items.length);
+  const leftOf = i => { const c = strip.children[i]; return c ? strip.scrollLeft + c.getBoundingClientRect().left - strip.getBoundingClientRect().left : 0; };
+  const goTo = (i, behavior = 'instant') => { const left = leftOf(i); if (behavior === 'smooth') strip.scrollTo({left, behavior}); else strip.scrollLeft = left; };
+  const sync = () => { const next = shownAt(); if (next !== at && items[next]) { resetZoom(); at = next; show(); } };
+  strip.addEventListener('scroll', sync, {passive:true});
   const step = dir => { resetZoom(); stepTo(dir); };
-  const stepTo = dir => strip.scrollTo({left:Math.max(0, Math.min(items.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
+  const stepTo = dir => goTo(Math.max(0, Math.min(items.length - 1, at + dir)), 'smooth');
   // 목록이 바뀐 뒤(지우기·되돌리기) 다시 짠다. id가 주어지면 그 사진으로 간다.
   const reload = id => {
     if (viewer?.box !== box) return;
@@ -223,7 +230,7 @@ export function openPhotoStrip(opts) {
     if (!items.length) { closePhotoStrip(); return; }
     const found = id ? items.findIndex(x => x.kind === 'od' && x.id === id) : -1;
     at = found >= 0 ? found : Math.min(at, items.length - 1);
-    resetZoom(); dropHires(); buildSlides(); strip.scrollLeft = at * strip.clientWidth; show();
+    resetZoom(); dropHires(); buildSlides(); goTo(at); show();
   };
   // 크게 보기 밖에서 이 사진이 이 목록에서 빠졌다(옮기기·앨범에서 빼기·구글 지우기 뒤): 이 화면의 사본에서만 빼고 다음 사진으로 넘어간다. 마지막 장이면 닫는다.
   const dropById = id => {
@@ -232,7 +239,7 @@ export function openPhotoStrip(opts) {
     items = items.filter((_, i) => i !== k);
     if (!items.length) { closePhotoStrip(); return; }
     at = Math.min(k < at ? at - 1 : at, items.length - 1);
-    resetZoom(); dropHires(); buildSlides(); strip.scrollLeft = at * strip.clientWidth; show();
+    resetZoom(); dropHires(); buildSlides(); goTo(at); show();
   };
   function deleteCurrent() {
     const item = items[at];
@@ -461,9 +468,10 @@ export function openPhotoStrip(opts) {
   box.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closePhotoStrip(); }
     else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }
-    else if ((event.key === 's' || event.key === 'S') && !event.target.closest('input,textarea')) { event.preventDefault(); toggleHere(); }
+    else if ((event.key === 's' || event.key === 'S') && !event.target.closest('input,textarea')) { event.preventDefault(); sync(); toggleHere(); }
   });
   box.addEventListener('click', event => {
+    sync(); // 넘기는 중 누른 단추도 지금 보이는 사진에 걸리게(at = 화면 사진)
     if (event.target.closest('[data-diary-viewer-close]')) closePhotoStrip();
     else if (event.target.closest('[data-diary-star]')) toggleHere();
     else if (event.target.closest('[data-diary-share]')) shareCurrent(event.target.closest('[data-diary-share]'), {menu:!!acts});
@@ -483,7 +491,7 @@ export function openPhotoStrip(opts) {
   viewer = {box, trigger, refresh, reload, dropById, paintBar, current:() => items[at] || null, note, onClose, dispose:() => { resetZoom(); dropHires(); }, starChanged:false, undoShown:on => { undoBtn.hidden = !on; if (!on && !pending) noteText(''); },
     layer:window.KPTURouter?.layer?.open(layerName, {close:() => { closePhotoStrip({fromBack:true}); return true; }}) || null};
   document.documentElement.classList.add('diary-viewer-open');
-  strip.scrollLeft = index * strip.clientWidth; show();
+  goTo(index); show();
   box.querySelector('[data-diary-viewer-close]').focus();
   showHint();
   return viewer;

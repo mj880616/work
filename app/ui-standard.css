@@ -66,8 +66,9 @@
 #appView #basketView .basket-more{ position:relative; }
 #appView #basketView .basket-more-menu{ position:absolute; z-index:20; top:calc(100% + 4px); right:0; display:grid; min-width:200px; padding:4px; box-sizing:border-box; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
 #appView #basketView .basket-more-menu[hidden]{ display:none; }
-#appView #basketView .basket-more-menu :is(button,a){ display:flex; align-items:center; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 12px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular); justify-content:flex-start; text-align:left; white-space:nowrap; text-decoration:none; }
-#appView #basketView .basket-more-menu :is(button,a):hover,#appView #basketView .basket-more-menu :is(button,a):focus-visible{ background:var(--kptu-surface-subtle); }
+/* S71-50: 메뉴 안 색 칸(공용 ui-swatch)은 메뉴 줄 모양을 입히지 않는다(색 칸 모양은 아래 UI-색고르기통일 한 곳). :where로 감싸 이 규칙의 우선순위는 전과 같다. */
+#appView #basketView .basket-more-menu :is(button:where(:not(.ui-swatch)),a){ display:flex; align-items:center; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 12px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular); justify-content:flex-start; text-align:left; white-space:nowrap; text-decoration:none; }
+#appView #basketView .basket-more-menu :is(button:where(:not(.ui-swatch)),a):hover,#appView #basketView .basket-more-menu :is(button:where(:not(.ui-swatch)),a):focus-visible{ background:var(--kptu-surface-subtle); }
 #appView #basketView .basket-more-menu button:focus-visible{ outline-offset:-2px; }
 /* 필터 [미분류]의 메모 수는 폰에서만 보인다. */
 #appView #basketView .basket-filter-count{ display:none; }

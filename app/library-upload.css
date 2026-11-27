@@ -253,6 +253,9 @@
 #appView #libraryView #libraryPath > .lu-drive-here{flex:none;margin-left:auto;padding:0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4}
 #appView #libraryView #libraryPath > .lu-drive-note.lu-drive-here{margin-left:6px}
 .lu-drive-note::before{content:"· ";}
+/* S70-76: 드라이브 쪽이 밀리면 줄 끝 '드라이브에 못 옮겼어요 [다시]' — 공용 글자 버튼(row-act), 여기서는 줄 글자 크기만 */
+.lu-drive-retry{flex:none;font-size:var(--ds-text-meta,12px)}
+#appView #libraryView #libraryPath > .lu-drive-retry.lu-drive-here{margin-left:0}
 .lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
 .lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
 .lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
