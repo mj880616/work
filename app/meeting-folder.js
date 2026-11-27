@@ -3,7 +3,7 @@
 // 사업 보고(회의)에 올린 회의자료·첨부를 그 회의명과 짝인 자료실 폴더에 넣는다. 짝이 없으면 이름이 같은 폴더 하나, 그것도 없으면 지금처럼.
 // 자료는 하나(복사 아님) — 사업 보고에는 지금처럼 붙어 보이고 자료실 그 폴더에서도 보인다. 이 모듈은 자료를 지우지 않는다.
 // 규칙은 meeting-folder-model.mjs 한 곳. 짝 = 폴더 줄 meeting_key(서버 함수 app_library_folder_set_meeting, 내 작업공간 폴더만). 기기 저장 없음.
-// 드라이브 사본은 따로 옮기지 않는다: 자료실 폴더 = 드라이브 폴더 맞추기(S69-20/40, workspace-drive drive-mirror auto)가 폴더 연결이 바뀌면 그 폴더의 드라이브 폴더로 옮긴다.
+// 드라이브 사본은 따로 옮기지 않는다: 폴더 연결을 저장하면 그 자리에서 drive-follow.mjs(S70-76, workspace-drive drive-mirror auto)가 그 폴더의 드라이브 폴더로 옮긴다.
 // 남의 기록 안 보기(AGENTS.md 3절): 내 로그인·내 작업공간의 사업 보고·폴더만 읽는다.
 import {readLibraryFolders, putDocumentInFolder, readFolderMeetingLinks, setFolderMeeting} from './library-folder-data.js';
 import {notify} from './small-notice.js';
