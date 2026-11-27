@@ -19,7 +19,7 @@ const R1 = 'c1000000-0000-4000-8000-000000000011', RN1 = 'c1000000-0000-4000-800
 const CATALOG = [{ key: 'kctu', name: '가짜총연맹', group: 'labor', lang: 'ko' }];
 const POST = { id: P1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 가짜 보관 성명', title_ko: null, url: 'https://example.org/s/1', published_at: '2026-10-05T00:30:00Z', fetched_at: '2026-10-05T00:40:00Z', summary_ko: null, key_sentences: [], has_body: false };
 const line = extra => ({ url: '', title: null, site: null, read_at: '2026-10-06T06:00:00Z', body_state: 'ok', body_at: '2026-10-05T05:00:10Z', business_area_id: null, updated_at: '2026-10-05T06:00:00Z', origin: 'direct', news_article_id: null, outside_article_id: null, ...extra });
-// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 보관한 기사 줄 RN1(N1)·RN2(N2).
+// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 저장한 기사 줄 RN1(N1)·RN2(N2).
 const READING = () => [
   line({ id: R1, url: 'https://example.org/s/1', title: '읽을 거리에 넣은 같은 성명', site: 'example.org', saved_at: '2026-10-05T05:00:00Z', outside_article_id: P1 }),
   line({ id: RN1, url: 'https://example.org/n/11', title: '가짜 매체 기사 하나', site: '가짜일보', saved_at: '2026-10-06T00:00:00Z', origin: 'news', news_article_id: N1 }),

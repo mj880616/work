@@ -198,6 +198,21 @@ test('저장 원문: 블록은 글자·https 사진만, 상태마다 까닭 한 
   // 글자 크기 단계는 공용 text-size-model.mjs(tests/text-size-model.test.mjs).
 });
 
+// S73-01 NEWS-본문하루: 매일 정리가 본문을 비운 기사(블록 줄 rule trim@1) — 까닭 한 줄만, 다시 가져오기·직접 넣기 단추 없음, 열 때 저절로 다시 읽지 않음.
+test('본문을 비운 지난 기사: 까닭 한 줄, 다시 읽기·직접 넣기 없음', async () => {
+  const {bodyView, canRefetch, canHandFill, reopenBody, TRIM_RULE, TRIM_TEXT} = await import('../app/now-model.mjs');
+  const row = {state: 'failed', reason: 'no_body', rule: TRIM_RULE, blocks: []};
+  assert.equal(TRIM_RULE, 'trim@1');
+  assert.deepEqual(bodyView(row), {state: 'failed', blocks: [], reason: TRIM_TEXT, trimmed: true});
+  assert.equal(canRefetch(row, 'news'), false);
+  assert.equal(reopenBody(row), false);
+  assert.equal(canHandFill({type: 'news'}, bodyView(row)), false);
+  // 그냥 못 읽은 글은 그대로 단추가 있다.
+  const plain = {state: 'failed', reason: 'no_body', rule: null, blocks: []};
+  assert.equal(canRefetch(plain, 'news'), true);
+  assert.equal(canHandFill({type: 'news'}, bodyView(plain)), true);
+});
+
 test('S51-17 P5: 잠깐의 오류(늦은 답·사이트 오류)로 실패한 저장 원문만 누를 때 다시 읽는다(설계 7.1)', async () => {
   const {reopenBody} = await import('../app/now-model.mjs');
   assert.equal(reopenBody({state: 'failed', reason: 'timeout'}), true);
