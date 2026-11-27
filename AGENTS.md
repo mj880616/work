@@ -107,6 +107,8 @@
 - UI 변경: 기존 컴포넌트를 재사용하고, 모바일·데스크톱을 함께 확인한다. 키보드·터치 접근성을 유지하고, 요청 없는 대규모 디자인 변경을 하지 않는다.
 - 목록·나무·고르기·끌기 화면은 `docs/design/standard-interactions.md` 기준표를 모두 지킨다(2026-11-24 사용자 요청). 새 화면은 `tests/app-e2e/standard-interactions.spec.mjs` 화면 표에 더한다.
 - 화면 글자(버튼·메뉴·안내·알림)는 `docs/design/ui-words.md` 용어 기준표를 따른다.
+- **땜질 금지, 구조로 고친다**(2026-11-27 사용자 결정 "땜질 처방 안 된다고 했잖아"): 한 화면에서 보인 문제는 같은 종류가 다른 화면에도 있는지부터 보고, 공용 부품·화면 진입 구조 같은 공통 원인에서 한 번에 고친다. 화면마다 따로 고치는 작업 지시를 만들지 않는다(커맨드센터도 화면별 세션을 따로 띄우지 않는다). 공통 구조로 풀리지 않는 화면별 잔여만 별도 PR로 줄 세운다.
+- **화면은 열 때 한 번에 최종 모양으로 그린다**: 자료(서버 설정·연결 상태·늦게 오는 모듈)가 오기 전에 기본 모양을 먼저 그렸다가 나중에 덮어쓰거나 항목 수·자리를 바꾸는 깜박임을 만들지 않는다. 필요한 값을 다 받은 뒤 한 번에 그리거나, 늦는 값의 자리·폭을 미리 잡는다(위 5절 시작 순서와 같은 원칙). 지연 덮어쓰기·`setTimeout`·`display:none` 땜질로 가리지 않는다. 새 화면·고친 화면은 화면을 열 때 메뉴·드롭다운 구성이 바뀌지 않는지를 공통 시험 표에 더한다.
 - 사용자에게 묻기 전에 결정 장부(동작 `docs/design/standard-interactions.md`, 모양 `docs/design-decisions.md`, 글자 `docs/design/ui-words.md`)를 먼저 찾는다. 확정 동작을 만드는 PR은 그 ID의 시험을 넣는다. 같은 영역(폴더·목록·끌기 / 밀기·막대·메뉴 / 글 읽기 / 노트 / 찾기 / 자료실 서버 등)은 한 번에 한 작업만 돈다(2026-11-26 사용자 결정, `docs/command-center-ops.md` 1-1~1-3절).
 - Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
