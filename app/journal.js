@@ -152,7 +152,7 @@ const openRead = id => Promise.all([import('./news-request.mjs'), import('./sour
 // ② 칸 ⋯ [관심 주제]: News '관심 주제'와 같은 서버 표(app_now_interests)를 고치는 작은 창 + 기본 주제(home-read-topics.mjs). 다음 고르기부터 쓴다.
 const openReadTopics = trigger => Promise.all([import('./small-form-modal.js'), import('./now-interests.js'), import('./home-read-topics.mjs')])
   .then(([modal, ni, topics]) => modal.openFormModal({id:'homeReadTopics', title:'관심 주제', okLabel:'닫기', cancel:false, className:'hrt-modal', trigger,
-    foot:'읽을 만한 글은 이 주제로 고릅니다. 바꾼 주제는 다음 고르기부터 씁니다.',
+    foot:'읽을 만한 글은 이 주제에 맞춰 선택해요. 바꾼 주제는 다음 선택부터 써요.',
     fill: body => { body.innerHTML = '<div class="now-interests hrt-box" data-home-read-topics></div>'; ni.createNowInterests({box:body.firstElementChild, defaults:topics.DEFAULT_READ_TOPIC_NAMES}).load(); return null; },
     onSubmit: async () => true})).catch(() => {});
 const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openPhotoDay, onWrite:writeDiary, onDrop:dropSuggest, onOpenRead:openRead, onReadTopics:openReadTopics});
