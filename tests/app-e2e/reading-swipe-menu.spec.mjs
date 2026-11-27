@@ -29,7 +29,8 @@ test('읽을 거리 390: 줄 밀기 [수정][저장][숨기기] — [수정]은 
   const { errors } = await start(page, 390);
   await openNews(page, 390);
   await swipe(item(page, 'c1'), -50);
-  const cells = page.locator('#newsRoot [data-row-swipe-act="end"]');
+  // HOME-읽을거리평가(W4): 세 칸 왼쪽에 평가 칸(그림만 [좋아요]·[별로예요])이 따로 하나 — 세 칸 글자·순서는 그대로.
+  const cells = page.locator('#newsRoot [data-row-swipe-act="end"]:not(.row-swipe-half)');
   await expect(cells).toHaveCount(3);
   await expect(cells).toHaveText(['수정', '저장', '숨기기']);
   await expect(cells.nth(0)).toHaveAttribute('data-row-swipe-key', 'edit');
