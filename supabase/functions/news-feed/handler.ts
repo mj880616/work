@@ -856,6 +856,8 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   // raw: 피드에 든 글 칸(item·entry) 수, listed: 그 가운데 주소·제목 검사를 통과한 글 수, dropped: 거르기로 받지 않은 글 수(건수만).
   //   raw와 listed가 크게 다르면 링크 호스트·https 문제다(NEWS-새매체글없음).
   let raw = 0, listed = 0, dropped = 0;
+  // 하루 상한(daily, NEWS-수집처늘리기): 주제 묶음 매체는 하루(서울 날짜)에 새 글 daily건까지만 받는다. 이미 받은 글(최근 KEEP_HOURS 안)은 세지 않고 그대로 지나간다.
+  const room = source.daily ? await dailyRoom(db, source, source.daily, nowMs, log) : null;
   for (const list of source.lists) {
     const got = await reader.get(list, listAccept(source));
     if (!got.ok) { status = got.code; continue; }
@@ -870,6 +872,10 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
       if (tooOldForNews(it.published_at, nowMs)) { dropped++; continue; }
       const rank = newsRank({ source, list, title: it.title, summary: it.summary, url: clean, category: it.category, words: rankWords });
       if (rank === null) { dropped++; continue; }
+      if (room && !room.known.has(urlKey(clean))) {
+        if (room.left <= 0) { dropped++; continue; }
+        room.left--; room.known.add(urlKey(clean));
+      }
       // S69-02(명진 11/24 06:43 철도망 기사): 피드 글 끝의 '더 보기' 링크 줄('전체 내용보기' 등)은 본문이 아니다 — 떼어 내고,
       // 그 줄이 붙어 있던 피드 본문은 앞부분뿐이라는 뜻이라 전문(full)으로 치지 않는다(사람이 열 때 글 쪽을 읽게).
       const fc = dropMoreLinks(it.content), sc = dropMoreLinks(it.summary);
@@ -916,6 +922,19 @@ async function runMedia(db: Db, readers: Readers, ai: AiDeps, source: NewsSource
   try { await readers.gap(); bodies = await runMediaBodies(db, readers.page(source), ai, source, nowMs, startMs, clock); } catch { log("bodies_failed", { source: source.key }); }
   log("media_done", { source: source.key, inserted, status, raw, listed, dropped, bodies: bodies.done, bodies_deferred: bodies.deferred });
   return { ok: true, step: "media", source: source.key, status, raw, listed, dropped, inserted, bodies: bodies.done, bodies_deferred: bodies.deferred };
+}
+
+// 하루 상한 자리: 그 매체의 최근 KEEP_HOURS 안 공용 기사 주소(이미 받은 글은 다시 세지 않음)와 오늘 남은 칸. 읽기에 실패하면 이번 실행만 daily건까지(넘치지 않게).
+export async function dailyRoom(db: Db, source: NewsSource, daily: number, nowMs: number, log: FeedLog): Promise<{ known: Set<string>; left: number }> {
+  try {
+    const since = encodeURIComponent(new Date(nowMs - KEEP_HOURS * 3600000).toISOString());
+    const rows = await db.get(`app_news_articles?source_key=eq.${source.key}&created_at=gte.${since}&select=url_key,kst_day&order=created_at.desc&limit=${daily * 6 + 50}`);
+    const today = kstDay(nowMs);
+    return { known: new Set(rows.map((r) => String(r.url_key))), left: Math.max(0, daily - rows.filter((r) => r.kst_day === today).length) };
+  } catch {
+    log("daily_room_failed", { source: source.key });
+    return { known: new Set(), left: daily };
+  }
 }
 
 // 확정한 관심 주제(app_now_interests state=confirmed)의 주제 글자: 언론 거르기 낱말로만 쓴다(저장·로그에 남기지 않음 — 건수도 남기지 않음).

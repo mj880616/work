@@ -15,6 +15,10 @@
 //   분야 피드(sections)는 그 피드의 분야. 섞인 피드(전체 피드)는 분야 칸(category)·기사 주소로 알아보고, 다섯 분야 밖(국제·문화·생활·IT·과학 등)으로
 //   보이면 받지 않는다. 알아볼 정보가 없으면 매체 기본(mixedAs, 없으면 사회). 노동 전문지와 노동 낱말 글은 '노동'.
 //   분야 피드는 지금처럼 피드를 믿는다(등급·받기가 바뀌지 않게). 지금 피드 실측(article-extract-live-check 분야 진단)은 PR 본문 표.
+// 주제 묶음(NEWS-수집처늘리기, 사용자 요청 2026-11-28 "바이브 코딩쪽 양질의 글 … 아스날 및 해외축구 전술 분석 및 리뷰"):
+//   beat "tech"(AI 코딩)·"football"(축구 전술)은 그 주제만 쓰는 블로그·뉴스레터라 거르지 않고 받는다(위 늘 빼는 규칙의 '스포츠·축구·IT'는 종합지용).
+//   등급은 3(노동·사회 글 뒤 — 하루 목록에서 언론 기사를 밀어내지 않게), 분야 칸은 비운다(다섯 분야 밖 — DB 검사 app_news_articles_news_field_check 그대로).
+//   하루에 받는 수는 매체마다 카탈로그 daily로 막는다(news-feed runMedia — 양이 많은 피드가 하루 목록을 덮지 않게, 외국어 제목 번역도 그만큼만).
 import type { NewsSource } from "./news-catalog.ts";
 
 export type NewsSection = "society" | "politics" | "economy" | "mixed" | "opinion";
@@ -95,9 +99,10 @@ function guessSection(category: string, path: string, fallback: Exclude<NewsSect
   return fallback;
 }
 
-// 받을 글이면 { rank, field }, 받지 않으면 null. 거르기·등급·분야를 한 번에 정한다(같은 규칙 한 곳).
-export function newsPick(input: RankInput): { rank: NewsRank; field: NewsField } | null {
+// 받을 글이면 { rank, field }, 받지 않으면 null. 거르기·등급·분야를 한 번에 정한다(같은 규칙 한 곳). field null = 분야 칸 비움(주제 묶음).
+export function newsPick(input: RankInput): { rank: NewsRank; field: NewsField | null } | null {
   if (input.source.beat === "labor") return { rank: RANK_LABOR, field: "labor" };
+  if (input.source.beat === "tech" || input.source.beat === "football") return { rank: RANK_RELATED, field: null };
   const title = String(input.title ?? "");
   const text = `${title}\n${input.summary ?? ""}`;
   const category = String(input.category ?? "");

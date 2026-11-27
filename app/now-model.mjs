@@ -286,13 +286,13 @@ export function dateText(iso) {
 }
 
 // ---- [매체: 전체 ▾](S51-8 NEWS-전면개편 P4b, 설계 6.1): 자료실 분류 창과 같은 부품(library-move-picker.js)에 넣을 줄과 거르기 ----
-// 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 지역 domestic|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
+// 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 묶음 domestic|opinion|tech|football|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
 // 입력: oc = 사회운동 카탈로그 [{key,name,group}], on = 켠 단체 키, nc = 뉴스 카탈로그 [{key,name,region}], non = 켠 news- 키.
 export const MEDIA_ALL = 'all';
 export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '국제'});
-export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', opinion: '사설·칼럼', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
+export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', opinion: '사설·칼럼', tech: 'AI 코딩', football: '축구', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
 const OUTSIDE_GROUPS = Object.freeze(['labor', 'party', 'movement', 'foreign']);
-const PRESS_REGIONS = Object.freeze(['domestic', 'opinion', 'foreign']); // S69 NEWS-사설칼럼: 신문 사설·칼럼 묶음(서버 카탈로그 region 'opinion')
+const PRESS_REGIONS = Object.freeze(['domestic', 'opinion', 'tech', 'football', 'foreign']); // NEWS-수집처늘리기: 주제 묶음 AI 코딩·축구(서버 카탈로그 region tech·football) // S69 NEWS-사설칼럼: 신문 사설·칼럼 묶음(서버 카탈로그 region 'opinion')
 const side = pick => (pick === MEDIA_ALL ? 'all' : /^[gs]:/.test(pick || '') ? 'outside' : /^[rn]:/.test(pick || '') ? 'news' : '');
 // 이 탭에서 쓸 수 있는 고른 값인가. [보관]은 거르지 않는다.
 export function mediaFits(tab, pick) {

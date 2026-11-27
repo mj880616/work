@@ -33,8 +33,12 @@ export const OPEN_ARTICLE_KEY = "open";
 //   종합지·방송사·통신사의 거르기·등급 규칙은 news-rank.ts 한 곳(S63-10 NEWS-언론거르기, 11/16 명진 결정).
 // region "opinion"(S69 NEWS-사설칼럼, 명진 11/24 "주요 신문 사설 칼럼도 추가해줘요"): 신문의 사설·칼럼(오피니언) 피드. 화면 매체 고르기에서 '사설·칼럼' 묶음 하나로 모인다.
 //   켬·끔은 다른 매체처럼 사람마다(app_outside_sources), 기본 켬(on). 새 저장 구조 없음.
-export type NewsSource = OutsideSource & { region: "domestic" | "foreign" | "opinion"; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
-  beat?: "labor"; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy";
+// region "tech"·"football"(NEWS-수집처늘리기, 사용자 2026-11-28): 주제 묶음 'AI 코딩'·'축구'. 화면 매체 고르기에서 묶음 하나씩(국내·외국어 함께).
+//   beat도 같은 이름 — 거르지 않고 받되 등급 3·분야 칸 비움(news-rank.ts). daily = 그 매체에서 하루(서울 날짜)에 새로 받는 글 수 상한(news-feed runMedia).
+export type NewsRegion = "domestic" | "foreign" | "opinion" | "tech" | "football";
+export const NEWS_REGIONS: readonly NewsRegion[] = Object.freeze(["domestic", "opinion", "tech", "football", "foreign"] as NewsRegion[]);
+export type NewsSource = OutsideSource & { region: NewsRegion; paid?: boolean; take?: "all" | "keywords"; on?: true; linkOut?: true; httpsLinks?: true;
+  beat?: "labor" | "tech" | "football"; daily?: number; sections?: readonly ("society" | "politics" | "economy" | "mixed" | "opinion")[]; mixedAs?: "society" | "politics" | "economy";
   // S70-17b NEWS-제목꼭얻기: 같은 기사 알아보기(공유·모바일·amp 주소처럼 모양이 달라도 기사 번호가 같으면 같은 기사). _shared/same-article.ts가 쓴다.
   // site = 그 매체 주소의 도메인(그 도메인과 하위 도메인만 본다), ref = 주소 → 기사 번호(모르면 null).
   sameArticle?: { site: string; ref: (u: URL) => string | null } };
@@ -273,6 +277,81 @@ export const NEWS_CATALOG: readonly NewsSource[] = Object.freeze([
     // 같은 매체 피드 꼴 hankyung.com/feed/<섹션>의 opinion.
     extract: false,
     lists: ["https://www.hankyung.com/feed/opinion"], hosts: ["www.hankyung.com", "hankyung.com"], kindOf: article },
+  // ---- 주제 묶음·양질 블로그(NEWS-수집처늘리기, 사용자 2026-11-28 06:58 "바이브 코딩쪽 양질의 글 … 아스날 및 해외축구 전술 분석 및 리뷰 … 사회운동이나 정치 경제 사회
+  //   … 국내 국제 양질의 글 / 꼭 단체나 언론 매체 아니더라도 … 블로그나 사이트"). 맨 끝에 둔다(앞선 매체 키 순서·돌려쓰기 색 칸 그대로).
+  //   넣은 기준: 자기 RSS/Atom이 있고, 운영과 같은 robots 판정으로 허용되고, 무료로 읽히는 곳만 — 원문 점검(article-extract-live-check '새 수집처 후보', GitHub 러너, 11/28 [사실]).
+  //   뺀 곳·까닭(robots 금지·접속 거절·피드 없음·유료)은 PR #3285 본문 표와 설계 news-clipping.md 3.4절.
+  //   규칙은 사설·칼럼과 같다: take 'all'·기본 켬·extract:false(수집 때 글 쪽은 읽지 않음 — 피드의 제목·소개·날짜·링크, 피드에 전문이 있으면 그것만).
+  //   외국어 글은 지금처럼 제목·소개만 한국어로(제목 번역 묶음, 하루 상한 그대로), 전문 번역은 사람이 [번역]을 누를 때만.
+  //   daily: 하루(서울 날짜)에 새로 받는 글 수 상한(news-feed runMedia dailyRoom) — 양 많은 피드가 하루 목록·제목 번역 몫을 덮지 않게.
+  // AI 코딩(region·beat "tech") — 거르지 않고 받되 등급 3(노동·사회 기사 뒤), 분야 칸 비움(news-rank.ts).
+  { key: "news-simonwillison", name: "Simon Willison", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 6,
+    // Atom(글·링크·인용 모두) [사실, 11/28 점검: 30건·최근 3일 6건, 링크 simonwillison.net]. robots 허용 [사실].
+    extract: false, lists: ["https://simonwillison.net/atom/everything/"], hosts: ["simonwillison.net"], kindOf: article },
+  { key: "news-lucumr", name: "Armin Ronacher", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 개인 블로그(에이전트 코딩 글) Atom [사실, 11/28: 10건·전문, 최근 30일 3건].
+    extract: false, lists: ["https://lucumr.pocoo.org/feed.atom"], hosts: ["lucumr.pocoo.org"], kindOf: article },
+  { key: "news-mitchellh", name: "Mitchell Hashimoto", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 개인 블로그 RSS [사실, 11/28: 55건(받는 것 50)·최근 30일 1건].
+    extract: false, lists: ["https://mitchellh.com/feed.xml"], hosts: ["mitchellh.com"], kindOf: article },
+  { key: "news-addyosmani", name: "Addy Osmani", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 개인 블로그 RSS [사실, 11/28: 10건, 에이전트 코딩 글]. 피드 날짜를 못 읽어 최근 글 수는 0으로 나옴 — 날짜 없는 글은 받은 날로 정렬된다.
+    //   Substack(addyo.substack.com)은 robots 금지 [사실] — 넣지 않음.
+    extract: false, lists: ["https://addyosmani.com/rss.xml"], hosts: ["addyosmani.com"], kindOf: article },
+  { key: "news-harperreed", name: "Harper Reed", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 개인 블로그 RSS [사실, 11/28: 20건, 최근 30일 0건 — 글이 드묾].
+    extract: false, lists: ["https://harper.blog/index.xml"], hosts: ["harper.blog"], kindOf: article },
+  { key: "news-martinfowler", name: "Martin Fowler", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 4,
+    // 사이트 Atom(생성형 AI·코딩 글 연재 포함) [사실, 11/28: 30건·전문 29, 최근 30일 10건].
+    extract: false, lists: ["https://martinfowler.com/feed.atom"], hosts: ["martinfowler.com"], kindOf: article },
+  { key: "news-latentspace", name: "Latent Space", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // AI 엔지니어 뉴스레터(Substack 자기 도메인 latent.space) [사실, 11/28 2차: 20건·전문, 최근 3일 4건]. www.latent.space는 러너에서 robots를 못 읽음 — www 없는 주소만.
+    extract: false, lists: ["https://latent.space/feed"], hosts: ["latent.space"], kindOf: article },
+  { key: "news-steipete", name: "Peter Steinberger", group: "foreign", region: "tech", beat: "tech", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 개인 블로그(에이전트 코딩 글) RSS [사실, 11/28 2차: 107건(받는 것 50)]. 피드 날짜를 못 읽어 최근 글 수 0 — 받은 날로 정렬.
+    extract: false, lists: ["https://steipete.me/rss.xml"], hosts: ["steipete.me"], kindOf: article },
+  { key: "news-geeknews", name: "GeekNews", group: "movement", region: "tech", beat: "tech", lang: "ko", mode: "rss", take: "all", on: true, daily: 6,
+    // 한국어 개발 소식 모음. news.hada.io/rss/news는 피드버너로 넘긴다(러너 결과 redirect_outside) [사실] → 넘긴 끝 주소를 바로 읽는다(2차: 20건, 글 링크 news.hada.io).
+    //   한국어라 제목 번역 없음. 양이 많아 하루 6건.
+    extract: false, lists: ["https://feeds.feedburner.com/geeknews-feed"], hosts: ["feeds.feedburner.com", "news.hada.io"], kindOf: article },
+  // 축구 전술·아스날(region·beat "football") — 종합지의 '스포츠·축구 빼기'는 이 묶음에 쓰지 않는다(news-rank.ts).
+  { key: "news-arseblog", name: "Arseblog", group: "foreign", region: "football", beat: "football", lang: "en", mode: "rss", take: "all", on: true, daily: 4,
+    // 아스날 블로그 RSS [사실, 11/28: 20건·전문, 최근 3일 5건].
+    extract: false, lists: ["https://arseblog.com/feed/"], hosts: ["arseblog.com"], kindOf: article },
+  { key: "news-arseblognews", name: "Arseblog News", group: "foreign", region: "football", beat: "football", lang: "en", mode: "rss", take: "all", on: true, daily: 5,
+    // 아스날 소식·경기 평 RSS [사실, 11/28: 20건·전문, 최근 3일 9건].
+    extract: false, lists: ["https://arseblog.news/feed/"], hosts: ["arseblog.news"], kindOf: article },
+  { key: "news-spielverlagerung", name: "Spielverlagerung", group: "foreign", region: "football", beat: "football", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 전술 분석 RSS [사실, 11/28: 25건·전문]. 최근 30일 글 0건(드물게 올림) — 글이 올라오면 받는다.
+    extract: false, lists: ["https://spielverlagerung.com/feed/"], hosts: ["spielverlagerung.com"], kindOf: article },
+  { key: "news-mastermind", name: "The Mastermind", group: "foreign", region: "football", beat: "football", lang: "en", mode: "rss", take: "all", on: true, daily: 3,
+    // 전술 분석 RSS [사실, 11/28: 8건, 최근 30일 8건].
+    extract: false, lists: ["https://themastermindsite.com/feed/"], hosts: ["themastermindsite.com"], kindOf: article },
+  { key: "news-analyticsfc", name: "Analytics FC", group: "foreign", region: "football", beat: "football", lang: "en", mode: "rss", take: "all", on: true, daily: 2,
+    // 축구 데이터 분석 블로그 RSS [사실, 11/28 2차: 10건·전문, 최근 30일 1건].
+    extract: false, lists: ["https://analyticsfc.co.uk/feed/"], hosts: ["analyticsfc.co.uk"], kindOf: article },
+  // 사회·정치·경제 양질 글 — 국내는 '사설·칼럼' 묶음(region opinion), 외국은 '언론 국제'(region foreign). 둘 다 섹션 opinion(등급 2, 분야 칼럼·사설).
+  { key: "news-slownews", name: "슬로우뉴스", group: "movement", region: "opinion", lang: "ko", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 8,
+    // 워드프레스 피드 [사실, 11/28: 20건·전문, 최근 3일 11건]. robots 허용 [사실].
+    extract: false, lists: ["https://slownews.kr/feed"], hosts: ["slownews.kr"], kindOf: article },
+  { key: "news-guardian-opinion", name: "The Guardian 칼럼", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 6,
+    // 의견(commentisfree) 섹션 RSS [사실, 11/28: 32건·최근 3일 21건 — 많아서 하루 6건]. 무료.
+    extract: false, lists: ["https://www.theguardian.com/uk/commentisfree/rss"], hosts: ["www.theguardian.com", "theguardian.com"], kindOf: article },
+  { key: "news-noahpinion", name: "Noahpinion", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 3,
+    // 경제 뉴스레터(Substack 자기 도메인) [사실, 11/28: 20건·최근 30일 18건]. 대부분 무료, 일부 유료 글은 피드에 앞부분만 [추정] — 유료벽은 넘지 않는다.
+    extract: false, lists: ["https://www.noahpinion.blog/feed"], hosts: ["www.noahpinion.blog", "noahpinion.blog"], kindOf: article },
+  { key: "news-lpeproject", name: "LPE Project", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 3,
+    // 법·정치경제 블로그 RSS [사실, 11/28: 10건·전문, 최근 30일 10건].
+    extract: false, lists: ["https://lpeproject.org/feed/"], hosts: ["lpeproject.org"], kindOf: article },
+  { key: "news-opendemocracy", name: "openDemocracy", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 4,
+    // 홈 머리 피드 링크 /rss/ [사실, 11/28 2차: 15건·전문, 최근 3일 6건].
+    extract: false, lists: ["https://www.opendemocracy.net/rss/"], hosts: ["www.opendemocracy.net", "opendemocracy.net"], kindOf: article },
+  { key: "news-phenomenalworld", name: "Phenomenal World", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 3,
+    // 정치경제 분석 RSS [사실, 11/28 2차: 24건·전문, 최근 30일 8건]. www 주소는 러너에서 robots를 못 읽음 — www 없는 주소만.
+    extract: false, lists: ["https://phenomenalworld.org/feed/"], hosts: ["phenomenalworld.org"], kindOf: article },
+  { key: "news-nlr-sidecar", name: "NLR Sidecar", group: "foreign", region: "foreign", lang: "en", mode: "rss", take: "all", on: true, sections: ["opinion"], daily: 3,
+    // New Left Review의 무료 블로그(Sidecar) 피드 [사실, 11/28 2차: 30건, 최근 30일 13건, 글 주소 /sidecar/posts/…]. 본지 피드(/feed)는 유료 호 글이라 넣지 않음.
+    extract: false, lists: ["https://newleftreview.org/sidecar/feed"], hosts: ["newleftreview.org"], kindOf: article },
 ] as NewsSource[]);
 
 export const NEWS_SOURCE_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.map((s) => s.key));

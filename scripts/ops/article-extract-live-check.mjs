@@ -260,16 +260,9 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 // 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
-// 11/28 NEWS-수집처늘리기(사용자 요청 '바이브 코딩·축구 전술·사회·정치 양질 글'): 1차 35곳 결과는 PR #3285 본문 표. 아래는 2차(1차에서 다른 주소를 찾은 곳 + 더 찾은 곳).
-//   홈 주소는 피드 링크(feedlinks)를 찾는 줄이다.
-const CANDIDATE_FEEDS = [
-  "https://latent.space/feed", "https://latentspace.substack.com/feed", "https://feeds.feedburner.com/geeknews-feed", "https://steipete.me/rss.xml",
-  "https://blog.fsck.com/feed.xml", "https://www.swyx.io/rss.xml",
-  "https://totalfootballanalysis.com/feed/", "https://coachesvoice.com/feed/", "https://www.tifofootball.com/feed/", "https://analyticsfc.co.uk/feed/",
-  "https://www.thefalse9.com/feed",
-  "https://www.bostonreview.net/home/feed/", "https://www.opendemocracy.net/rss/", "https://phenomenalworld.org/feed/", "https://newleftreview.org/feed",
-  "https://newleftreview.org/sidecar/feed", "https://www.eroun.net/rss/allArticle.xml",
-];
+// 11/28 NEWS-수집처늘리기: 1차 35곳·2차 17곳을 이 줄로 확인해 21곳을 카탈로그에 넣었다(결과 표는 docs/design/news-clipping.md 3.4절·PR #3285). 다 쓴 뒤 비웠다.
+//   줄마다 d30·d3 = 최근 30일·3일 글 수(날짜를 읽은 글만), full = 피드 안 본문 200자 넘는 글 수, hosts = 글 링크 호스트.
+const CANDIDATE_FEEDS = [];
 async function checkCandidate(list) {
   const host = new URL(list).host;
   const base = { doFetch: fetch, sleep, log: quiet, userAgent: N.USER_AGENT, robotsAgent: N.ROBOTS_AGENT, gapMs: N.GAP_MS, now: Date.now };
