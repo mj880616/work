@@ -60,9 +60,10 @@ test('설정 행·이번 달 시작(서울)·호출 수 글', () => {
   assert.equal(M.statusLabel('limited'), '잠깐 멈춤');
 });
 
-test('화면 파일 경계: 설정 칸은 enabled·revoked_before만 PATCH, 기록은 읽기만, 기기 저장 없음', () => {
+test('화면 파일 경계: 설정 칸은 enabled·revoked_before·영역 칸(area_*)만 PATCH, 기록은 읽기만, 기기 저장 없음', () => {
   const src = read('app/mcp-read-settings.js');
-  assert.match(src, /patch\(\{enabled: want\}\)/);
+  assert.match(src, /patch\(area \? \{\[`area_\$\{area\}`\]: want\} : \{enabled: want\}\)/);
+  assert.match(src, /if \(area && !AREAS\.some\(a => a\.key === area\)\) return;/);
   assert.match(src, /patch\(\{revoked_before: now\(\)\.toISOString\(\)\}\)/);
   assert.equal((src.match(/method: 'PATCH'/g) || []).length, 1);
   assert.doesNotMatch(src, /method: '(POST|DELETE|PUT)'/);
@@ -73,4 +74,14 @@ test('화면 파일 경계: 설정 칸은 enabled·revoked_before만 PATCH, 기�
   assert.match(consent, /safeClaudeRedirect/);
   assert.doesNotMatch(consent, /location\.(assign|replace|href\s*=)\((?!url\)|window\.KPTUAuth\.loginUrl)/);
   assert.match(read('app/profile-settings.js'), /import\('\.\/mcp-read-settings\.js'\)\.then\(m=>m\.mountMcpReadSettings/);
+});
+
+test('3판 영역: 다섯 칸, 가족 방만 기본 꺼짐, 칸이 없으면 기본값, 기록 도구 이름', () => {
+  assert.deepEqual(M.AREAS.map(a => a.key), ['diary', 'calls', 'recordings', 'basket', 'family']);
+  assert.deepEqual(M.AREA_COLUMNS, ['area_diary', 'area_calls', 'area_recordings', 'area_basket', 'area_family']);
+  assert.deepEqual(M.settingsState([{workspace_id: 'w', enabled: false}]).areas, {diary: true, calls: true, recordings: true, basket: true, family: false});
+  assert.deepEqual(M.settingsState([{workspace_id: 'w', enabled: true, area_diary: false, area_family: true}]).areas,
+    {diary: false, calls: true, recordings: true, basket: true, family: true});
+  assert.equal(M.toolLabel('web2_call_get'), '통화 한 건');
+  assert.equal(M.toolLabel('web2_family_list'), '가족 방 목록');
 });
