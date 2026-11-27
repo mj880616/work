@@ -191,9 +191,11 @@ for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // 취소: 아무것도 지우지 않는다.
   await press(box.locator('[data-nxt-empty-all]'));
-  const ask = await askText(page, false);
-  expect(ask).toContain('3개');
-  expect(ask).toContain('되돌릴 수 없');
+  await page.locator('.kptu-ask').waitFor({ state: 'visible' });
+  const full = (await page.locator('.kptu-ask').textContent()) || '';
+  expect(full).toContain('3개');
+  expect(full).toContain('되돌릴 수 없');
+  await askText(page, false);
   await expect(rows).toHaveCount(3);
   expect(f.trash.purged).toEqual([]);
   // 확인: 건수만큼 영구 삭제, 목록 비고 '휴지통 비어 있음'.
