@@ -523,6 +523,8 @@ bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemO
   canDelete: item => canDeleteNews(itemById(item.id)),
   // S70-62: 줄 [수정] = 그 기사 글 보기 + 기존 ⋯ [수정] 창(껍데기 KPTUNow.edit — 다른 탭과 같은 길).
   canEdit: item => !!itemById(item.id), onEdit: item => { const it = itemById(item.id); if (it) window.KPTUNow?.edit?.(item, window.KPTUNow.describe('news', it)); },
+  // S71-69 SHARE-글공유: 줄 밀기·⋯·우클릭 [공유] = 제목 + 원래 주소(link-share.js).
+  shareOf: item => { const it = itemById(item.id); return it && window.KPTUNow?.describe ? window.KPTUNow.describe('news', it) : null; },
   changed: rowChanged});
 async function putInFolder(id, folderId) {
   const w = workspaceOf(), it = state.items.find(x => x.id === id), scope = state.scope;

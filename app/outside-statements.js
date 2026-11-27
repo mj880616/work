@@ -1031,7 +1031,13 @@ for (const sel of ['[data-os-list]', '[data-nw-all]']) {
   bindNowRows(root?.querySelector(sel), {row: '[data-nw-key]', itemOf: itemOfRow,
     isSaved: item => (item.type === 'news' ? !!(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id))?.starred_at : markOf(item.id).starred),
     canDelete: item => item.type === 'news' && canDeleteNews(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id)), changed: rowChanged,
-    canEdit: item => item.type === 'news', onEdit: item => editRow(item)});
+    canEdit: item => item.type === 'news', onEdit: item => editRow(item),
+    // S71-69 SHARE-글공유: 줄 밀기·⋯·우클릭 [공유] = 제목 + 원래 주소(link-share.js).
+    shareOf: item => { const row = rowById(item.type, item.id); return row ? describe(item.type, row) : null; }});
+}
+// 목록에 있는 글 하나(뉴스·사회운동, 찾기 결과 포함).
+function rowById(type, id) {
+  return type === 'news' ? state.news.find(x => x.id === id) || findNews().find(x => x.id === id) || null : state.posts.find(x => x.id === id) || findPosts().find(x => x.id === id) || null;
 }
 // S70-62 READ-밀기메뉴: 줄 [수정] = 그 글 보기를 열고 기존 ⋯ [수정] 창(now-detail edit — 뉴스 기사만: 제목·매체·본문). 사회운동 글은 수집한 그대로라 [수정]이 없다.
 function editRow(item, head = null) {

@@ -51,7 +51,7 @@ test('저장한 글 글 보기: 테두리 단추 줄·안내문 없음, 동작�
   await expect(t).toHaveText(long);
   expect(await t.evaluate(el => el.scrollWidth <= el.clientWidth && getComputedStyle(el).textOverflow !== 'ellipsis' && getComputedStyle(el).whiteSpace !== 'nowrap')).toBe(true);
   await detail.locator('[data-rd-head-more]').click();
-  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '노트로 만들기', '밑줄을 노트로', '안 읽음으로', '사업에 연결', '삭제']);
+  await expect(page.locator('#rdRowMenu button')).toHaveText(['수정', '노트로 만들기', '밑줄을 노트로', '안 읽음으로', '사업에 연결', '폴더로 옮기기', '공유', '삭제']);
   expect(errors).toEqual([]);
 });
 

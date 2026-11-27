@@ -11,12 +11,15 @@ import {textSizeHtml, textSize} from './text-size.js';
 import {textScale} from './text-size-model.mjs';
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
+import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
+import {shareArticleLink} from './link-share.js';
+import {iconHtml} from './tree-icons.js';
 import {notify, askText, askConfirm} from './small-notice.js';
 import {openOnScreen} from './source-open.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
 import {paintMarks, bindMarks, sourceMarks, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark, markActions} from './text-highlights.js';
-import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, handShort, noMaterialLine, SHORT_SUMMARY_TEXT, canRefetch, canRefetchMenu, unreadLead, isNoMaterial, handBodyRequest, HAND_BODY_MAX, sameDetail, savedUsable} from './now-model.mjs';
+import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, handShort, noMaterialLine, SHORT_SUMMARY_TEXT, canRefetch, canRefetchMenu, unreadLead, isNoMaterial, handBodyRequest, HAND_BODY_MAX, sameDetail, savedUsable} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 import {draftOf, editBlocks, editView, sameBlocks, lostMarks, lostNote, textRows, EDIT_LABEL} from './body-edit-model.mjs';
 import {readEdit, saveEdit as saveEditRow, dropEdit, marksOf, dropMarks} from './body-edit-data.js';
@@ -120,6 +123,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
   // ---------- 그리기(칸마다 따로 — 요약이 와도 원문 칸은 그대로) ----------
   // S70-40b READ-글보기머리: 이름은 저장한 글과 같은 '원래 페이지'(ui-words.md). 글 머리 첫 줄 오른쪽 ↗ 아이콘(공용 .ds-doc-icon)이 기본 자리,
   // 원문을 못 받은 까닭 줄 끝 글자 링크(…원래 사이트 ↗)는 그 줄 안내라 그대로 둔다.
+  // S71-69 SHARE-글공유: 머리 줄 ↗ 옆 [공유] 아이콘(공용 share 그림). 주소가 http·https인 글만.
+  const shareIconHtml = h => (articleShare(h) ? `<button type="button" class="ds-doc-icon icon-btn nd-share" data-nd-share title="${SHARE_LABEL}" aria-label="${SHARE_LABEL}">${iconHtml('share')}</button>` : '');
   const siteLink = (label = '원래 사이트 ↗', cls = 'nd-link', name = '원래 사이트') => (cur.head.url ? `<a class="${cls}" data-nd-link href="${esc(cur.head.url)}" target="_blank" rel="noopener noreferrer" title="${esc(name)}" aria-label="${esc(name)} (새 창)">${esc(label)}</a>` : '');
   const langAttr = () => (cur.head.lang && cur.head.lang !== 'ko' ? ` lang="${esc(cur.head.lang)}"` : '');
   const boxHead = (title, note = '') => `<p class="nd-bh"><b>${title}</b>${note ? `<span class="nd-bh-note" role="status">${esc(note)}</span>` : ''}</p>`;
@@ -345,7 +350,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const hit = interestHit([h.title, h.origTitle], topics());
     const imp = impHtml();
     box.innerHTML = `<article class="nd" data-nd="${esc(itemKey(cur.item))}" data-text-size-target data-text-size="${textSize()}" style="--txs:${textScale(textSize())}" aria-label="글 상세">
-<div class="ds-doc-top nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="ds-doc-meta nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p>${h.url ? `<span class="ds-doc-icons">${siteLink('↗', 'ds-doc-icon nd-link nd-site', '원래 페이지')}</span>` : ''}</div>
+<div class="ds-doc-top nd-top"><button type="button" class="nd-back" data-nd-close aria-label="목록으로"><span aria-hidden="true">‹</span></button><p class="ds-doc-meta nd-meta">${h.meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join('')}${h.manual ? '<span class="nd-hand-mark" data-nd-manual>직접 넣음</span>' : ''}${hit ? `<span class="now-hit">${esc(hit)}</span>` : ''}</p>${h.url ? `<span class="ds-doc-icons">${shareIconHtml(h)}${siteLink('↗', 'ds-doc-icon nd-link nd-site', '원래 페이지')}</span>` : ''}</div>
 <h3 class="ds-doc-title nd-title" tabindex="-1"${h.titleLang ? ` lang="${esc(h.titleLang)}"` : ''}>${esc(h.title)}</h3>${h.origTitle ? `<p class="nd-orig" lang="${esc(h.lang || 'en')}">${esc(h.origTitle)}</p>` : ''}
 <section class="nd-box nd-orig-box" data-nd-body aria-label="원문 전체">${bodyHtml()}</section>
 <section class="nd-box" data-nd-summary aria-label="요약">${sumHtml()}</section>
@@ -868,6 +873,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     range.selectNodeContents(prose);
     sel.addRange(range);
   }
+  // S71-69 SHARE-글공유: 머리 줄 [공유] 아이콘·원문 ⋯ [공유] = 제목 + 원래 주소(link-share.js — 폰 공유 창 · PC 복사). 주소가 http·https인 글만.
+  const canShare = () => !!(cur && articleShare(cur.head));
   // ---------- 원문 직접 수정(S71-68 ②) ----------
   function openEdit() {
     const c = cur;
@@ -947,20 +954,18 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     }
     await refetchBody(true);
   }
-  const canShare = () => typeof navigator.share === 'function';
   // S69-02: ⋯ [원문 다시 가져오기] — 원문 칸이 그려진 글(불러오기 실패·손 본문·다시 읽는 중이 아닌 것). 뉴스·사회운동 모두.
   // S71-68 ②: 직접 수정한 글도 늘(누르면 직접 수정본을 지우고 처음 가져온 원문으로 — 한 줄 확인).
   const canMenuRefetch = () => { const k = cur && itemKey(cur.item), b = cur && bodies.get(k); return (cur?.item.type === 'news' || cur?.item.type === 'outside') && !cur.refetching && !cur.hand?.open && !cur.edit?.open && (edited.has(k) || (!!b && !b.failedLoad && !b.hand && canRefetchMenu(b))); };
   // ⋯ [수정](S71-68 ②): 원문 블록이 그려진 모든 글(뉴스·사회운동). 번역해서 보는 중·다른 칸을 연 중에는 없음.
   const canEdit = () => { const b = cur && viewNow(itemKey(cur.item)); return (cur?.item.type === 'news' || cur?.item.type === 'outside') && !!b && !b.failedLoad && b.state !== 'failed' && b.blocks?.length > 0 && !cur.tr.busy && !cur.hand.open && !cur.edit.open && !cur.refetching; };
   async function shareArticle() {
-    const data = cur && shareArticleData(cur.head);
-    if (!data || !canShare()) return;
-    try { await navigator.share(data); } catch (e) { if (e?.name !== 'AbortError') notify('공유 창을 열지 못했어요', {error: true, record: false}); }
+    if (!canShare()) return;
+    await shareArticleLink(cur.head);
   }
   const obMenu = createAnchoredMenu({id: 'ndObMenu', className: 'topline-add-menu os-menu nd-ob-menu', label: '원문 메뉴', historyKey: 'kptuNowDetailMenu', key: () => (cur ? itemKey(cur.item) : ''),
     canOpen: () => !!cur,
-    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() && shareArticleData(cur?.head) ? '<button type="button" class="row-act" data-nd-menu="share">공유</button>' : ''}${canMenuRefetch() ? '<button type="button" class="row-act" data-nd-menu="refetch">원문 다시 가져오기</button>' : ''}${canEdit() ? '<button type="button" class="row-act" data-nd-menu="edit">수정</button>' : ''}`,
+    render: () => `${part('[data-nd-prose]') ? '<button type="button" class="row-act" data-nd-menu="select">모두 선택</button>' : ''}<button type="button" class="row-act" data-nd-menu="copy">복사</button>${canShare() ? `<button type="button" class="row-act" data-nd-menu="share">${SHARE_LABEL}</button>` : ''}${canMenuRefetch() ? '<button type="button" class="row-act" data-nd-menu="refetch">원문 다시 가져오기</button>' : ''}${canEdit() ? '<button type="button" class="row-act" data-nd-menu="edit">수정</button>' : ''}`,
     onAction: (button, active) => {
       if (!cur || active.id !== itemKey(cur.item)) return;
       const a = button.dataset.ndMenu;
@@ -999,6 +1004,7 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-memo-go]')) { const t = part('[data-nd-memos] [data-cm-text]'); part('[data-nd-memos]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'}); t?.focus({preventScroll: true}); return; }
     if (b.matches('[data-nd-oldmemo-open]')) { if (cur?.memo?.id) { requestNoteDocOpen(cur.memo.id); void openOnScreen('basket'); } return; }
     if (b.matches('[data-nd-delete]')) { removeCur(); return; }
+    if (b.matches('[data-nd-share]')) { void shareArticle(); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }
     if (b.matches('[data-nd-related]')) { const r = detailView(cur.detail).related[Number(b.dataset.ndRelated)]; if (r) onRelated?.(r); }
   });

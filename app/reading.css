@@ -49,3 +49,6 @@
 #readingView .rd-edit-f > span{flex:none;width:3em}
 #readingView .rd-edit-end{display:flex;justify-content:flex-end;align-items:center;gap:4px}
 #readingView .rd-edit-end .rd-faint{margin-right:auto}
+/* S70-83 READ-저장한글폴더: 왼쪽 목록 위 폴더 상자 — 상자·줄 모양은 공용 folder-tree.css(.ft-*) 그대로, 여기는 목록과의 간격만. */
+#readingView .rd-folders .ft-box{margin:0 0 var(--ds-view-tabs-below,6px)}
+#readingView .rd-row[draggable="true"]{-webkit-user-drag:element}

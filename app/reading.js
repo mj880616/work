@@ -14,7 +14,10 @@
 //   키가 없거나 답을 모르면 News 쪽 길은 부르지 않는다(연결된 줄도 이 화면 보기로 열고, 삭제는 읽을 거리 지우기).
 // - S68-33 READ-글자크기(명진 11/23 02:30 "+ - 버튼 텍스트 크기"): 글 보기 머리 단추줄 끝 [−][+] — 공용 text-size.js(News 글 상세와 같은 다섯 단계·서버 값 news_font).
 import {DEFAULT_FILTER, keepFilter, filterEntries, filterOptions, nextFilter, entriesOf, linkOf, emptyText, lineOf, stateLine, canRetry, requestLine, paragraphs, sourceOf, readingUrl, isId, refetchBatches, stopsAuto, readingNote} from './reading-model.mjs';
-import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching} from './reading-data.js';
+import {CHANGED, listItems, getItem, addItem, removeItem, setRead, setArea, setTitle, fixLinkedTitles, fetchBody, fetching, folderColumn, readFolders, createFolder, renameFolder, deleteFolder, moveItems} from './reading-data.js';
+import {OUTSIDE, OUTSIDE_NAME, NAME_MAX, keepFolder, folderOfRow, inFolder, folderRows, sortFolders, nextSort, folderName, nameTaken} from './reading-folders-model.mjs';
+import {ftBoxHtml, ftFolderRowHtml} from './folder-tree-ui.mjs';
+import {setDragGhostImage} from './drag-ghost.js';
 import {loadHighlights, highlightsNow, sourceHighlights, sourceMarks, highlightById, onHighlights, paintMarks, bindMarks, saveFromSelection, noteFromSelection, noteWithNotice, revealMark, openMarkMenu, markActions} from './text-highlights.js';
 import {highlightRowHtml} from './now-highlights.js';
 import {sourceTag} from './text-highlights-model.mjs';
@@ -28,10 +31,13 @@ import {renderFilterChips} from './filter-chips.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {openAreaOrgPicker, usedKeysNow, catalogAreas, areaTree, areaChipText} from './area-org-picker.js';
 import {waitHtml, failHtml, emptyEl} from './wait-state.js';
-import {notify, askConfirm} from './small-notice.js';
+import {notify, askConfirm, askText} from './small-notice.js';
 import {word, APP_NAME} from './brand/brand.mjs';
 import {myFeaturesOrNull} from './my-features.js';
 import {bindRowSwipe, claimedSince, PICK, EDIT} from './row-swipe.js';
+import {articleShare, SHARE_LABEL} from './link-share-model.mjs';
+import {shareArticleLink} from './link-share.js';
+import {iconNode} from './tree-icons.js';
 import {textSizeHtml, paintTextSize} from './text-size.js';
 import {copyText} from './copy-text.js';
 import {isPhoneApp} from './phone-push-model.mjs';
@@ -66,9 +72,14 @@ function install() {
 }
 
 const state = {rows: [], loaded: false, failed: false, filter: DEFAULT_FILTER, open: null, body: null, bodyFor: null, adding: false, addError: '', lines: new Map(), scope: '',
-  newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: '', noteBusy: null};
+  newsOn: false, marksNewsOn: true, editing: null, editBusy: false, editNote: '', noteBusy: null,
+  // S70-83 폴더: folders(서버 app_reading_folders), foldersReady(표·칸이 있는 서버 — 아니면 '폴더 없음' 한 줄만), folder(고른 곳: ''·OUTSIDE·폴더 id), boxOpen(폴더 상자 접기 — 화면 메모리만).
+  folders: [], foldersReady: false, folder: '', boxOpen: true};
 const scopeNow = () => { const c = window.KPTURuntime?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 const rowOf = id => state.rows.find(r => r.id === id) || null;
+// S71-69 SHARE-글공유(사용자 결정 2026-11-26 "기사는 링크로 공유"): 저장한 글 하나 → 공유할 제목·원래 주소(http·https 아니면 null — 칸을 두지 않음).
+const shareOf = id => { const row = rowOf(id); return row ? articleShare({title: lineOf(row).title, url: row.url}) : null; };
+const shareRow = id => { const d = shareOf(id); return d ? shareArticleLink(d) : null; };
 // S70-24 READ-저장한글기본전체(명진 11/25 "전체를 기본으로 / 탭 누르면 전체가 나오는"): 보기 탭 상태 주인은 state.filter 하나.
 // 메뉴로 들어오면(라우터가 주소의 자리 값을 지움) 늘 [전체], 주소에 ?tab=이 적혀 들어오면(뒤로가기·새로고침·링크) 그 보기.
 // 고른 보기는 주소에만 적는다(replaceState — 기록 칸을 늘리지 않음). 기기·서버에 '마지막 보기'를 따로 두지 않는다.
@@ -77,6 +88,14 @@ function setFilter(v) {
   state.filter = keepFilter(v);
   window.KPTURouter?.setPlace?.('reading', {tab: state.filter === DEFAULT_FILTER ? null : state.filter});
 }
+// S70-83 고른 폴더도 보기 탭과 같은 방식(주소 ?folder=에만, 기록 칸 늘리지 않음). 폴더 목록을 읽기 전에는 주소 값을 그대로 들고 있다가 읽은 뒤 맞춘다.
+const folderFromUrl = () => String(window.KPTURouter?.place?.('reading')?.folder || '');
+function setFolder(v) {
+  state.folder = v || '';
+  window.KPTURouter?.setPlace?.('reading', {folder: state.folder || null});
+}
+const folderNow = () => (state.foldersReady ? keepFolder(state.folder, state.folders) : '');
+const folderById = id => state.folders.find(f => f.id === id) || null;
 // S69-04 MARK-밑줄한목록(명진 11/24 "노트 밑줄에 있는 것들 저장한 글 밑줄에 없음 두개 동기화"): [밑줄] 탭은 글 줄 거르기가 아니라
 // 내가 그은 밑줄 전부(저장한 글에 있든 없든) — 노트 › 밑줄과 같은 원본(text-highlights.js 목록)·같은 규칙(visibleMarks)이라 같은 목록·같은 개수.
 // 잠근 노트 폴더가 있고 안 풀렸으면 노트 밑줄은 뺀다(이 화면은 노트 목록을 모른다 — 풀리면 노트 › 밑줄과 같아진다).
@@ -105,13 +124,17 @@ const editKind = id => { const l = newsLinkOf(id); return !l ? 'own' : l.type ==
 let layer = null;
 
 async function load() {
-  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; state.marksNewsOn = true; autoTried.clear(); }
+  if (state.scope !== scopeNow()) { state.scope = scopeNow(); state.rows = []; state.loaded = false; state.open = null; state.body = null; state.bodyFor = null; state.lines.clear(); state.newsOn = false; state.marksNewsOn = true; state.folders = []; state.foldersReady = false; autoTried.clear(); }
   const scope = state.scope;
   // newsOn: News 기능 키가 있다는 답일 때만 true(모르면 false — 그 사람에게 서버가 거절할 수 있는 길을 부르지 않는다).
   // marksNewsOn: [밑줄] 탭에 News·텔레그램 밑줄을 넣을지 — 노트 › 밑줄과 같은 규칙(marksNewsOn, 모르면 넣음).
   const news = myFeaturesOrNull().catch(() => null).then(features => { if (scope !== state.scope) return; state.newsOn = Array.isArray(features) && features.includes('outside'); state.marksNewsOn = marksNewsOn(features); });
+  // S70-83: 폴더 표(app_reading_folders)는 목록과 함께 읽는다. 표나 글의 폴더 칸이 없는 서버(DB 적용 전)면 폴더 없이 지금처럼.
+  const folders = readFolders().catch(() => ({ready: false, folders: []}));
   try { state.rows = await listItems(); state.failed = false; state.loaded = true; }
   catch { state.failed = true; }
+  const got = await folders;
+  if (scope === state.scope) { state.folders = sortFolders(got.folders); state.foldersReady = !!got.ready && folderColumn() === true; }
   await news;
   if (state.newsOn && state.loaded) void fixTitles(scope);
   void loadHighlights().then(() => draw()).catch(() => {});
@@ -158,6 +181,7 @@ function rowEl(e) {
   const row = e.row, l = lineOf(row);
   const r = el('div', 'rd-row');
   r.dataset.rdOpen = row.id; r.dataset.rdPick = row.id; r.tabIndex = 0; r.setAttribute('role', 'button');
+  if (state.foldersReady) r.draggable = true; // S70-83: PC 마우스로 끌어 왼쪽 위 폴더 줄에 놓기(손가락 꾹 누르기는 고르기 그대로 — 폰은 ⋯ [폴더로 옮기기])
   if (state.open === row.id) r.classList.add('is-open');
   if (l.unread) r.classList.add('is-unread');
   const dot = el('span', 'rd-dot'); dot.setAttribute('aria-hidden', 'true');
@@ -223,11 +247,12 @@ function drawList() {
   parts.unshift(switchHost);
   if (keepFilter(state.filter) === 'marks') { parts.push(marksEl(marks && ranked(marks, h => [h.quote, h.memo, h.source_title]))); box.replaceChildren(...parts); return; }
   if (keepFilter(state.filter) === 'memos') { parts.push(memosEl()); box.replaceChildren(...parts); return; }
-  const shown = ranked(filterEntries(entries, state.filter, state.open || ''), e => { const l = lineOf(e.row); return [l.title, l.site]; });
+  parts.push(folderBoxEl(entries));
+  const shown = ranked(shownEntries(), e => { const l = lineOf(e.row); return [l.title, l.site]; });
   const list = el('div', 'rd-rows');
   list.dataset.rdRows = '1';
   for (const e of shown) list.append(rowEl(e));
-  if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
+  if (!shown.length) list.append(emptyEl(folderNow() && entries.length ? '이 폴더에 글이 없어요 · 글 ⋯ [폴더로 옮기기]나 끌어 놓기로 넣어요' : emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
   // 다시 그려도(다시 들어와 새로 읽은 목록) 자판 초점이 있던 줄은 같은 글 줄에 그대로 둔다 — 위 주소 칸과 같은 규칙.
   // 그러지 않으면 초점이 화면 밖(body)으로 빠져 바로 누른 Enter가 사라진다(같은 줄을 그대로 다시 그리는 것뿐이라 다른 동작은 없다).
@@ -236,6 +261,156 @@ function drawList() {
   if (focusedId) [...list.querySelectorAll('[data-rd-open]')].find(r => r.dataset.rdOpen === focusedId)?.focus({preventScroll: true});
   if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
+
+// 지금 보기 탭 + 고른 폴더에 드는 글(keep: 열어 둔 줄은 [안 읽음]에서 그 자리에 남김 — filterEntries 규칙).
+const shownEntries = (keep = state.open || '') => { const sel = folderNow(); return filterEntries(entriesNow(), state.filter, keep).filter(e => inFolder(e.row, sel, state.folders)); };
+
+// ---------- S70-83 READ-저장한글폴더: 폴더 상자 ----------
+// 왼쪽 목록 위 공용 폴더 상자([파일]·노트·자료실과 같은 folder-tree-ui.mjs 상자·줄 — 모양은 folder-tree.css 한 곳). 폴더(순서대로) + 맨 아래 '폴더 없음'.
+// 이름 누르기 = 그 폴더 글만(다시 누르면 전체 — 표준 S1). 폴더는 한 단계라 펼치기 꺾쇠가 없다. ⋯ = [이름 바꾸기][삭제], 머리 ＋ = 새 폴더.
+// 글 줄을 끌어(PC 마우스) 폴더 줄에 놓으면 그 폴더로 옮긴다(놓을 곳 강조 nx-drop — 표준 D2, Esc = 브라우저 끌기 취소 D4). 폰·손가락은 글 ⋯ [폴더로 옮기기](공용 옮길 곳 창 — 표준 F1).
+// DB 적용 전(표·칸 없음)에는 '폴더 없음' 한 줄만(만들기·옮기기 없음). 접기는 화면 메모리만.
+let folderHost = null;
+function folderBoxEl(entries) {
+  folderHost ||= el('div', 'rd-folders');
+  folderHost.dataset.rdFolders = '1';
+  const sel = folderNow(), rows = state.foldersReady ? folderRows(state.folders, entries.map(e => e.row)) : [{key: OUTSIDE, name: OUTSIDE_NAME, count: entries.length, folder: null}];
+  const body = rows.map(r => ftFolderRowHtml({name: r.name, count: r.count, countLabel: `글 ${r.count}개`, depth: 0, hasContent: false, current: sel === r.key,
+    className: r.folder ? '' : 'rd-folder-out', rowAttrs: {'data-rd-drop': state.foldersReady ? r.key : null},
+    mainAttrs: {'data-rd-folder': r.key, title: sel === r.key ? '다시 누르면 전체' : null},
+    more: r.folder ? {attrs: {'data-rd-folder-more': r.key}, label: `${r.name} 폴더 메뉴`} : null})).join('');
+  const add = state.foldersReady ? `<button type="button" class="icon-btn ft-box-add rd-folder-add" data-rd-folder-add="1" data-ctx-screen-item="새 폴더" aria-label="새 폴더" title="새 폴더">＋</button>` : '';
+  // 폴더 이름은 ftFolderRowHtml이 이스케이프한다(공용 부품). 상자는 통째로 다시 그린다.
+  const boxHtml = ftBoxHtml({head: '폴더', collapsible: true, caret: true, open: state.boxOpen, toggleAttrs: {'data-rd-fbox': '1'}, tail: add, body,
+    attrs: {'data-rd-fbox-wrap': ''}, label: '저장한 글 폴더'});
+  folderHost.replaceChildren();
+  folderHost.insertAdjacentHTML('beforeend', boxHtml);
+  return folderHost;
+}
+function pickFolder(key) {
+  const next = folderNow() === key ? '' : key;
+  setFolder(next);
+  drawList();
+  // 두 칸에서 열린 글이 고른 폴더 밖이면 그 폴더 맨 위 글로 바꾼다(목록과 오른쪽 칸이 어긋나지 않게).
+  if (split() && state.open && !shownEntries('').some(e => e.key === state.open)) { const first = shownEntries('')[0]; if (first) void openItem(first.key, {auto: true}); else closeDetail(); }
+}
+async function addFolder(anchor) {
+  if (!state.foldersReady) return;
+  const v = await askText(anchor, {text: `새 폴더 이름 (${NAME_MAX}자까지)`, value: '', ok: '만들기', max: NAME_MAX});
+  if (v === null) return null;
+  return makeFolder(v);
+}
+async function makeFolder(text) {
+  const got = folderName(text);
+  if (!got.ok) { notify(got.message, {error: true, record: false}); return null; }
+  if (nameTaken(state.folders, got.name)) { notify('같은 이름 폴더가 있어요', {error: true, record: false}); return null; }
+  try {
+    const made = await createFolder({name: got.name, sort_order: nextSort(state.folders)});
+    state.folders = sortFolders([...state.folders, made]);
+    drawList();
+    return made;
+  } catch { notify('폴더를 만들지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return null; }
+}
+async function renameFolderAt(id, anchor) {
+  const f = folderById(id);
+  if (!f) return;
+  const v = await askText(anchor, {text: `폴더 이름 (${NAME_MAX}자까지)`, value: f.name, ok: '저장', max: NAME_MAX});
+  if (v === null) return;
+  const got = folderName(v);
+  if (!got.ok) { notify(got.message, {error: true, record: false}); return; }
+  if (got.name === f.name) return;
+  if (nameTaken(state.folders, got.name, id)) { notify('같은 이름 폴더가 있어요', {error: true, record: false}); return; }
+  try { Object.assign(f, await renameFolder(id, got.name)); }
+  catch { notify('이름을 바꾸지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return; }
+  drawList();
+}
+// 폴더 삭제: 글은 지우지 않고 '폴더 없음'으로(서버가 칸만 비움). [되돌리기]가 있으니 묻지 않고 바로(표준 K1) — 같은 id로 다시 만들고 그 글들을 다시 넣는다.
+async function removeFolder(id) {
+  const f = folderById(id);
+  if (!f) return;
+  const inside = state.rows.filter(r => r.folder_id === id).map(r => r.id);
+  try { await deleteFolder(id); }
+  catch { notify('폴더를 삭제하지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return; }
+  state.folders = state.folders.filter(x => x.id !== id);
+  for (const r of state.rows) if (r.folder_id === id) r.folder_id = null;
+  if (state.folder === id) setFolder('');
+  drawList();
+  notify(inside.length ? `폴더를 삭제했어요 · 글 ${inside.length}개는 폴더 없음으로` : '폴더를 삭제했어요', {record: false, undo: async () => {
+    try {
+      const back = await createFolder({id: f.id, name: f.name, sort_order: f.sort_order});
+      state.folders = sortFolders([...state.folders.filter(x => x.id !== back.id), back]);
+      if (inside.length) await placeRows(inside, back.id, {quiet: true});
+    } catch { notify('되돌리지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); }
+    drawList();
+  }});
+}
+// 글 옮기기(서버 한 번) → 화면 줄 맞춤. folderId null = 폴더 없음.
+async function placeRows(ids, folderId, {quiet = false} = {}) {
+  const list = ids.filter(id => rowOf(id) && (rowOf(id).folder_id || null) !== (folderId || null));
+  if (!list.length) return 0;
+  let got;
+  try { got = await moveItems(list, folderId); }
+  catch { notify('옮기지 못했어요 · 잠시 뒤 다시', {error: true, record: false}); return 0; }
+  for (const r of got) Object.assign(rowOf(r.id) || {}, {folder_id: r.folder_id ?? null});
+  if (!quiet) notify(`${got.length === 1 ? '' : got.length + '개 '}${folderId ? `'${folderById(folderId)?.name || '폴더'}'로 옮겼어요` : '폴더 없음으로 옮겼어요'}`, {record: false});
+  draw();
+  return got.length;
+}
+// 글 ⋯ [폴더로 옮기기]: 공용 '옮길 곳' 창(표준 F1). 맨 위(저장한 글) = 폴더 없음. [새 폴더]는 맨 위에 만든다(한 단계).
+async function moveToSheet(id, anchor) {
+  const row = rowOf(id);
+  if (!row || !state.foldersReady) return;
+  const {openFolderSheet} = await import('./folder-dest-sheet.js');
+  const cur = folderOfRow(row, state.folders);
+  openFolderSheet({anchor, title: '옮길 곳', rootName: '저장한 글', note: '맨 위 = 폴더 없음', folders: () => state.folders.map(f => ({...f, parent_id: null})),
+    current: cur === OUTSIDE ? null : cur, start: cur === OUTSIDE ? null : cur,
+    mkdir: async (_parent, name) => { const made = await makeFolder(name); if (!made) throw new Error('폴더를 만들지 못했어요.'); return {...made, parent_id: null}; },
+    onGo: async to => { await placeRows([id], to); }});
+}
+
+// 끌어 놓기(PC 마우스): 글 줄 → 폴더 줄. 끄는 동안 반투명 조각(공용 drag-ghost.js), 놓을 줄 강조.
+const DRAG_TYPE = 'application/x-kptu-reading';
+let dragIds = null;
+function bindFolderDrag(box) {
+  const clearDrop = () => { for (const n of box.querySelectorAll('.nx-drop')) n.classList.remove('nx-drop'); };
+  box.addEventListener('dragstart', e => {
+    const row = e.target.closest?.('.rd-row[draggable="true"]');
+    if (!row || !state.foldersReady) return;
+    const id = row.dataset.rdPick;
+    dragIds = [id];
+    try { e.dataTransfer.setData(DRAG_TYPE, id); e.dataTransfer.setData('text/plain', lineOf(rowOf(id)).title); e.dataTransfer.effectAllowed = 'move'; } catch { /* 끌기 자료를 못 쓰는 브라우저 */ }
+    setDragGhostImage(e.dataTransfer, lineOf(rowOf(id)).title);
+  });
+  box.addEventListener('dragover', e => {
+    const drop = dragIds && e.target.closest?.('[data-rd-drop]');
+    clearDrop();
+    if (!drop) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch { /* 그대로 */ }
+    drop.classList.add('nx-drop');
+  });
+  box.addEventListener('dragleave', e => { if (!box.contains(e.relatedTarget)) clearDrop(); });
+  box.addEventListener('drop', e => {
+    const drop = dragIds && e.target.closest?.('[data-rd-drop]');
+    clearDrop();
+    if (!drop) return;
+    e.preventDefault();
+    const ids = dragIds; dragIds = null;
+    const key = drop.dataset.rdDrop;
+    void placeRows(ids, key === OUTSIDE ? null : key);
+  });
+  box.addEventListener('dragend', () => { dragIds = null; clearDrop(); });
+}
+
+const folderMenu = createAnchoredMenu({id: 'rdFolderMenu', className: 'feed-menu', label: '폴더 메뉴', historyKey: 'kptuReadingFolderMenu',
+  key: t => t.dataset.rdFolderMore || '',
+  row: t => t.closest('.ft-row'),
+  render: id => (folderById(id) ? '<button type="button" class="row-act" data-rd-fact="rename">이름 바꾸기</button><button type="button" class="row-act feed-menu-danger" data-rd-fact="delete">삭제</button>' : ''),
+  onAction: (button, active) => {
+    const id = active.id, at = (active.trigger?.isConnected ? active.trigger : null) || view()?.querySelector(`[data-rd-folder-more="${CSS.escape(id)}"]`) || null;
+    if (button.dataset.rdFact === 'rename') void renameFolderAt(id, at);
+    else if (button.dataset.rdFact === 'delete') void removeFolder(id);
+  }});
 
 // [밑줄] 탭 목록: 노트 › 밑줄과 같은 줄 부품(highlightRowHtml)·같은 출처 꼬리표(sourceTag). 밑줄 줄 ⋯ = 공용 밑줄 메뉴(지우면 두 화면 모두에서 사라짐).
 function marksEl(marks) {
@@ -334,6 +509,12 @@ function drawDetail() {
   const icons = el('span', 'ds-doc-icons');
   const src = el('a', 'ds-doc-icon rd-src', '↗');
   src.href = row.url; src.target = '_blank'; src.rel = 'noopener noreferrer'; src.title = '원래 페이지'; src.setAttribute('aria-label', '원래 페이지 (새 창)');
+  // S71-69 SHARE-글공유: ↗ 옆 [공유] 아이콘 = 제목 + 원래 주소(link-share.js — 폰 공유 창 · PC 복사). 주소가 http·https인 글만.
+  if (shareOf(row.id)) {
+    const share = btn('ds-doc-icon rd-share', '', {rdShare: row.id});
+    share.append(iconNode('share')); share.title = SHARE_LABEL; share.setAttribute('aria-label', SHARE_LABEL);
+    icons.append(share);
+  }
   icons.append(src);
   // S68-33 READ-글자크기: [−][+](공용 text-size.js — News 글 상세와 같은 단추·같은 서버 값). 본문 칸만 커지고 작아진다.
   icons.insertAdjacentHTML('beforeend', textSizeHtml());
@@ -419,7 +600,7 @@ function autoOpenTop() {
   if (!split() || !here() || !state.loaded || state.open) return;
   const f = keepFilter(state.filter);
   if (f === 'marks' || f === 'memos') return;
-  const first = filterEntries(entriesNow(), state.filter, '')[0];
+  const first = shownEntries('')[0];
   if (first) void openItem(first.key, {auto: true});
 }
 
@@ -631,7 +812,7 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     const note = headMenu ? `${making}<button type="button" class="row-act" data-rd-act="note">${n ? `밑줄을 노트로 ${n}` : '밑줄을 노트로'}</button>` : '';
     // S70-58: 두 칸에서는 News에서 온 줄도 오른쪽 칸에 열므로, 글 보기 머리 ⋯에 [읽을 거리에서 보기](요약·시사점·[저장됨 ✓]이 있는 읽을 거리 글 보기 — 뒤로 = 저장한 글).
     const toNews = headMenu && split() && newsLinkOf(id) ? '<button type="button" class="row-act" data-rd-act="news">읽을 거리에서 보기</button>' : '';
-    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${toNews}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
+    return `${editKind(id) ? '<button type="button" class="row-act" data-rd-act="edit">수정</button>' : ''}${toNews}${note}<button type="button" class="row-act" data-rd-act="read">${row.read_at ? '안 읽음으로' : '읽음'}</button><button type="button" class="row-act" data-rd-act="area">${headMenu && areaText(lineOf(row).area) ? word('사업영역 바꾸기') : '사업에 연결'}</button>${state.foldersReady ? '<button type="button" class="row-act" data-rd-act="folder">폴더로 옮기기</button>' : ''}${canRetry(row) ? '<button type="button" class="row-act" data-rd-act="fetch">원문 다시 가져오기</button>' : ''}${shareOf(id) ? `<button type="button" class="row-act" data-rd-act="share">${SHARE_LABEL}</button>` : ''}<button type="button" class="row-act feed-menu-danger" data-rd-act="delete">삭제</button>`;
   },
   onAction: (button, active) => {
     const id = active.id, act = button.dataset.rdAct, at = (active.trigger?.isConnected ? active.trigger : null) || view()?.querySelector(`[data-rd-more="${CSS.escape(id)}"]`) || null;
@@ -640,10 +821,12 @@ const menu = createAnchoredMenu({id: 'rdRowMenu', className: 'feed-menu', label:
     if (act === 'edit') void startEdit(id);
     else if (act === 'read') void toggleRead(id, !row.read_at);
     else if (act === 'area' && at) void pickArea(at, id);
+    else if (act === 'folder') void moveToSheet(id, at);
     else if (act === 'fetch') void startFetch(row);
     else if (act === 'note') void marksToNote(id);
     else if (act === 'make' && state.open === id) void makeNote(id);
     else if (act === 'news') { const l = newsLinkOf(id); if (l) void openNews(l); }
+    else if (act === 'share') void shareRow(id);
     else if (act === 'delete') void removeAny(id, at);
   }});
 
@@ -705,11 +888,21 @@ function bind() {
     if (mo) { openMemoLine(mo.dataset.memoOpen); return; }
     const more = t.closest?.('[data-rd-more]');
     if (more) { headMenu = more.dataset.rdHeadMore === '1'; menu.open(more); return; }
+    // S70-83 폴더 상자: 머리(접기)·＋(새 폴더)·폴더 ⋯·폴더 이름(그 폴더 글만, 다시 누르면 전체).
+    const fmore = t.closest?.('[data-rd-folder-more]');
+    if (fmore) { folderMenu.open(fmore); return; }
+    const fadd = t.closest?.('[data-rd-folder-add]');
+    if (fadd) { void addFolder(fadd); return; }
+    if (t.closest?.('[data-rd-fbox]')) { state.boxOpen = !state.boxOpen; drawList(); view()?.querySelector('[data-rd-fbox]')?.focus({preventScroll: true}); return; }
+    const fpick = t.closest?.('[data-rd-folder]');
+    if (fpick) { pickFolder(fpick.dataset.rdFolder); view()?.querySelector(`[data-rd-folder="${CSS.escape(fpick.dataset.rdFolder)}"]`)?.focus({preventScroll: true}); return; }
     if (t.closest?.('[data-rd-add-close]')) { state.adding = false; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-bm-link]')) { e.preventDefault(); notify('즐겨찾기 막대로 끌어 놓아 쓰세요', {record: false}); return; }
     if (t.closest?.('[data-rd-bm-copy]')) { void copyText(bookmarklet()).then(ok => notify(ok ? '한 줄 복사했어요 · 즐겨찾기 막대 오른쪽 클릭 → 페이지 추가 → URL에 붙여 넣기' : '복사하지 못했어요', {record: false, error: !ok})); return; }
     if (t.closest?.('[data-rd-retry]')) { void refresh(); return; }
     if (t.closest?.('[data-rd-back]')) { closeDetail(); return; }
+    const sh = t.closest?.('[data-rd-share]');
+    if (sh) { void shareRow(sh.dataset.rdShare); return; }
     const f = t.closest?.('[data-rd-fetch]');
     if (f) { const row = rowOf(f.dataset.rdFetch); if (row) void startFetch(row); return; }
     const re = t.closest?.('[data-rd-reopen]');
@@ -735,7 +928,7 @@ function bind() {
   // S71-26: ＋는 화면 이름 줄 상자(이 화면 칸 밖)에 있어 같은 동작을 상자에도 붙인다(목록 안 [닫기]와 같은 상태·같은 그리기).
   tools.addEventListener('click', e => { if (e.target.closest?.('[data-rd-add]')) { state.adding = !state.adding; state.addError = ''; drawList(); } });
   const listBox = v.querySelector('[data-rd-list]');
-  if (listBox) { bindSwipe(v); bindRows(listBox); }
+  if (listBox) { bindSwipe(v); bindRows(listBox); bindFolderDrag(listBox); }
   detailBox = v.querySelector('[data-rd-detail]');
   bindMarks(detailBox);
   bindSelectZone(detailBox, {zone: '[data-rd-prose]', source: () => sourceOf(rowOf(state.open)), onSave: saveFromSelection, onNote: noteFromSelection, marks: markActions}); // S70-80: 형광펜 켬
@@ -771,7 +964,7 @@ function takeAsked() {
 }
 
 install(); bind();
-state.filter = filterFromUrl();
+state.filter = filterFromUrl(); state.folder = folderFromUrl();
 // RULE-한번에그리기: 첫 읽기·그리기(보기 탭 줄·목록)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가 기다린 뒤 화면을 보인다.
 // 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
 // 두 칸 폭 맨 위 글 저절로 열기(autoOpenTop)·옛 실패 줄 자동 다시 가져오기(autoRefetch)는 이 화면이 지금 화면일 때만이라,
@@ -779,8 +972,8 @@ state.filter = filterFromUrl();
 const firstDraw = refresh();
 let firstShown = false;
 window.KPTURouter?.on?.('reading', () => {
-  const filter = filterFromUrl(), changed = filter !== state.filter;
-  state.filter = filter;
+  const filter = filterFromUrl(), folder = folderFromUrl(), changed = filter !== state.filter || folder !== state.folder;
+  state.filter = filter; state.folder = folder;
   if (!firstShown) { firstShown = true; if (changed && state.loaded) drawList(); autoOpenTop(); if (state.loaded && !state.failed) void autoRefetch(); void firstDraw.then(takeAsked, takeAsked); return; }
   if (state.loaded) drawList(); void refresh().then(takeAsked);
 });
