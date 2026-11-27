@@ -79,3 +79,28 @@ test('PC 1280: 사진 두 장 기록 — ←/→ 키와 양옆 ‹ ›로 넘기
  await expect(view(page)).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
+
+// S73-13 PHOTO-글속사진확대(V2): 글 읽기 크게 보기(조직 기록·사업 보고·노트·하루 기록 공용 photo-view.js)도 [사진] 메뉴와 같은 사진 안 확대 —
+// 두 손가락 벌리기·두 번 톡. 확대한 채로는 밀어도 넘기지 않고, 원래 크기로 돌아오면 넘기기 그대로.
+test('폰 412: 조직 기록 사진 크게 보기 — 두 손가락 확대, 확대 중에는 안 넘김, 두 번 톡 원래 크기 뒤 넘김',async({page})=>{
+ const f=await fixture(page,412);
+ await f.row.locator('[data-record-photo]').first().click();
+ await expect(count(page)).toHaveText('1/2');
+ const shown=view(page).locator('.basket-photo-stage .diary-photo');
+ await expect(shown).toHaveAttribute('data-state','shown');
+ const b=await view(page).locator('.basket-photo-stage').boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);
+ const cdp=await page.context().newCDPSession(page),touch=(type,touchPoints)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints});
+ await touch('touchStart',[{x:x-30,y,id:0},{x:x+30,y,id:1}]);
+ for(let i=1;i<=8;i++)await touch('touchMove',[{x:x-30-i*12,y,id:0},{x:x+30+i*12,y,id:1}]);
+ await touch('touchEnd',[]);
+ await expect(view(page)).toHaveAttribute('data-photo-zoom','');
+ expect(await page.evaluate(()=>window.visualViewport?.scale||1)).toBe(1);
+ await cdp.detach();
+ await swipe(page,-150);await page.waitForTimeout(300);await expect(count(page)).toHaveText('1/2'); // 확대 중 한 손가락 = 사진 안 옮기기
+ const cdp2=await page.context().newCDPSession(page),tap=async()=>{await cdp2.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:0}]});await cdp2.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
+ await tap();await page.waitForTimeout(60);await tap();await cdp2.detach();
+ await expect(view(page)).not.toHaveAttribute('data-photo-zoom','');
+ await expect.poll(()=>shown.evaluate(el=>el.style.transform)).toBe('');
+ await swipe(page,-150);await expect(count(page)).toHaveText('2/2');
+ expect(f.errors).toEqual([]);
+});

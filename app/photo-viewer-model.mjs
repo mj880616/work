@@ -106,6 +106,9 @@ export function loadTimeText(t) {
 export const ZOOM_MIN = 1, ZOOM_MAX = 5, ZOOM_TAP = 2.5, ZOOM_EPS = 0.02;
 export const TAP_MS = 300, TAP_MOVE = 12, DOUBLE_TAP_MS = 320, DOUBLE_TAP_DIST = 40;
 export const ZOOM_ONE = Object.freeze({s: 1, x: 0, y: 0});
+// PHOTO-글속사진확대(S73-13): 글 속 사진 위 두 손가락을 처음 거리의 이만큼 벌리면 크게 보기를 열고 그 손가락으로 이어 확대한다(작게 벌리면 그대로).
+export const PINCH_OPEN = 1.15;
+export const pinchOpens = (d0, d) => d0 > 0 && d > 0 && d / d0 >= PINCH_OPEN;
 const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
 export const clampScale = s => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, num(s, 1)));
 export const isZoomed = z => num(z?.s, 1) > 1 + ZOOM_EPS;

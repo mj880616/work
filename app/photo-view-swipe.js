@@ -12,7 +12,10 @@ export function attachStageSwipe(stage, hooks, {closeNow}) {
   const photo = () => stage.querySelector('.diary-photo');
   const edges = () => ({hasPrev: hooks.at() > 0, hasNext: hooks.at() < hooks.count() - 1});
   const place = (x, y) => { const el = photo(); if (!el) return; el.style.transition = 'none'; el.style.transform = x || y ? `translate(${Math.round(x)}px, ${Math.round(y)}px)` : ''; };
+  // PHOTO-글속사진확대(S73-13): 사진 안을 확대한 동안(두 손가락 중 포함)은 밀기가 쉬고 그림 변형도 건드리지 않는다(확대 손동작 몫).
+  const zoomedIn = () => !!hooks.zoomed?.();
   const settle = () => {
+    if (zoomedIn()) return;
     const el = photo(); if (!el || !(el.style.transform || el.style.opacity)) return;
     el.style.transition = still() ? 'none' : 'transform .18s ease-out'; el.style.transform = ''; el.style.opacity = '';
     setTimeout(() => { if (el.isConnected) el.style.transition = ''; }, 200);
@@ -40,7 +43,7 @@ export function attachStageSwipe(stage, hooks, {closeNow}) {
     setTimeout(() => { busy = false; if (hooks.at() === from && hooks.goTo(to)) slideIn(dir * w); else settle(); }, 140);
   };
   const onStart = event => {
-    if (busy) { touch = null; return; }
+    if (busy || zoomedIn()) { touch = null; return; }
     // 화면 끝에서 시작한 밀기는 폰 뒤로가기 몫(fromScreenEdge) — 사진 넘기기·닫기로 받지 않는다.
     const edge = event.touches.length === 1 && fromScreenEdge(event.touches[0].clientX, globalThis.innerWidth);
     touch = event.touches.length === 1 && !edge && !onControl(event.target) ? {x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), fingers: 1, axis: null} : null;
@@ -48,6 +51,7 @@ export function attachStageSwipe(stage, hooks, {closeNow}) {
   };
   const onMove = event => {
     if (!touch) return;
+    if (zoomedIn()) { touch = null; return; }
     if (event.touches.length > 1) { touch.fingers = event.touches.length; touch.axis = 'none'; settle(); return; }
     const p = event.touches[0], dx = p.clientX - touch.x, dy = p.clientY - touch.y;
     if (touch.axis === null) touch.axis = dragAxis({dx, dy, fingers: touch.fingers, zoomed: pageZoomed()});
@@ -71,9 +75,10 @@ export function attachStageSwipe(stage, hooks, {closeNow}) {
   const opt = {passive: true};
   stage.addEventListener('touchstart', onStart, opt); stage.addEventListener('touchmove', onMove, opt);
   stage.addEventListener('touchend', onEnd, opt); stage.addEventListener('touchcancel', onCancel, opt);
-  // 브라우저는 두 손가락 확대만 맡고(touch-action) 한 손가락 끌기는 이 화면이 받는다. 화면을 이미 확대해 둔 때만 브라우저가 끌기도 맡는다.
+  // 한 손가락 끌기는 이 화면이 받는다. 화면을 이미 확대해 둔 때만 브라우저가 끌기도 맡는다.
   const vv = globalThis.visualViewport;
-  const area = () => { stage.style.touchAction = pageZoomed() ? 'auto' : 'pinch-zoom'; };
+  // PHOTO-글속사진확대(S73-13): 두 손가락은 이제 사진 안 확대(photo-zoom-gesture.js)라 브라우저 화면 확대에 넘기지 않는다(none).
+  const area = () => { stage.style.touchAction = pageZoomed() ? 'auto' : 'none'; };
   area(); vv?.addEventListener('resize', area);
   return () => { vv?.removeEventListener('resize', area); };
 }
