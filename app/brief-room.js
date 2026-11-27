@@ -280,7 +280,7 @@ function bindSwipe(root){
       else if(key==='delete')void removeMany([id],'auto',row)},
     select:{attr:'data-br-open',label:'선택한 자료',acts:()=>[{key:'move',label:'옮기기'},{key:'delete',label:'삭제',danger:true}],
       run:async(key,ids)=>{const at=view()?.querySelector(`.br-row[data-br-open="${CSS.escape(ids[0])}"]`)||null;
-        if(key==='move')openMoveSheet(at,{docs:ids});else if(key==='delete')await removeMany(ids,'auto',at)}}});
+        if(key==='move')await openMoveSheet(at,{docs:ids});else if(key==='delete')await removeMany(ids,'auto',at)}}});
 }
 
 // 쪽 링크(쪽을 아는 PDF는 원문 그 쪽, 원문 주소가 없으면 글자만).
@@ -585,13 +585,18 @@ async function moveDocs(ids,to,anchor=null){
   return done>0;
 }
 // [폴더로 옮기기…]: 공용 '옮길 곳' 창(표준 F1) — 맨 위 = 폴더 없음, [새 폴더]는 고른 폴더 안에. 폴더 옮기기도 같은 창(자기·자기 아래는 고를 수 없음).
+// 창이 닫히면(옮겼든 닫았든) 풀리는 약속을 돌려준다 — 막대 [옮기기]가 '일이 끝난 뒤' 고르기를 끝내게(창을 연 채 고르기 겹이 먼저 닫혀
+// 창 밑에 낡은 뒤로가기 칸이 남아, 뒤에 여는 입력창을 늦은 뒤로가기가 닫아 버리지 않게).
 function openMoveSheet(anchor,{docs=[],folder=null}={}){
+  return new Promise(done=>openMoveSheetNow(anchor,{docs,folder},done));
+}
+function openMoveSheetNow(anchor,{docs=[],folder=null},done){
   const subIds=new Set(state.sub.map(f=>f.id));
   const cur=folder?(state.sub.find(f=>f.id===folder)?.parent_id||null):docs.length===1?folderOfDoc(docs[0],state.itemFolder,subIds):undefined;
   openFolderSheet({anchor,title:folder?'폴더 옮길 곳':'옮길 폴더',rootName:NONE_LABEL,folders:sheetFolders,current:cur,start:cur??null,goLabel:'여기에 옮기기',
     blocked:id=>folder&&!canMoveFolder(state.sub,folder,id)?'자기 안으로는 옮길 수 없어요':'',
     mkdir:async(parent,typed)=>{const name=cleanFolderName(typed);if(!name)throw new Error('폴더 이름은 1~40자로 써 주세요');const made=await makeFolder(parent,name);await load();return made||null},
-    onGo:fid=>{if(folder)void moveFolder(folder,fid||null);else void moveDocs(docs,fid||NONE,anchor)}});
+    onGo:fid=>{if(folder)void moveFolder(folder,fid||null);else void moveDocs(docs,fid||NONE,anchor)},onClosed:done});
 }
 const folderMenu=createAnchoredMenu({id:'brFolderMenu',className:'feed-menu',label:'브리핑 폴더 메뉴',historyKey:'kptuBriefFolderMenu',
   key:t=>t.dataset.brFmore||'',row:t=>t.closest('.ft-row'),
