@@ -257,6 +257,9 @@ on:
       - 'scripts/ops/stalled-scan-ignore.json'
       - 'tests/ops-stalled-scan.test.mjs'
       - '.github/workflows/stalled-scan.yml'
+      - 'scripts/ops/main-e2e-watch.mjs'
+      - 'tests/ops-main-e2e-watch.test.mjs'
+      - '.github/workflows/main-e2e-watch.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -571,6 +574,9 @@ on:
       - 'scripts/ops/stalled-scan-ignore.json'
       - 'tests/ops-stalled-scan.test.mjs'
       - '.github/workflows/stalled-scan.yml'
+      - 'scripts/ops/main-e2e-watch.mjs'
+      - 'tests/ops-main-e2e-watch.test.mjs'
+      - '.github/workflows/main-e2e-watch.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -875,6 +881,8 @@ jobs:
         run: node --test tests/ops-work-timing.test.mjs
       - name: Check stalled work daily scan (QA-멈춘일자동점검)
         run: node --test tests/ops-stalled-scan.test.mjs
+      - name: Check main E2E break watch (OPS-main깨짐감시)
+        run: node --test tests/ops-main-e2e-watch.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 
