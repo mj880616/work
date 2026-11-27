@@ -198,6 +198,7 @@ jobs:
           for f in /tmp/visual-diff/*-actual.png; do [ -e "$f" ] || continue; b="$(basename "$f" -actual.png)"; cp "$f" "/tmp/visual-update/$b-chromium-linux.png"; done
           git ls-files --others --exclude-standard -- "$snap" | while read -r f; do cp "$f" /tmp/visual-update/; done
           ls /tmp/visual-diff /tmp/visual-update
+          for f in /tmp/visual-update/*.png; do [ -e "$f" ] || continue; echo "VBIMG $(basename "$f") $(base64 -w0 "$f")"; done # TEMP-BOOTSTRAP: 첫 기준 사진 받기용, 바로 되돌림
 
       - name: Upload visual baseline diffs
         if: failure()
