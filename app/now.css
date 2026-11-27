@@ -183,14 +183,12 @@
 #appView #outsideView .nd-edit{ display:flex; flex-direction:column; gap:6px; margin:0; padding:0; }
 #appView #outsideView .nd-edit-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-height:28px; font-size:var(--ds-text-meta,12px); }
 #appView #outsideView .nd-edit-bar > [data-nd-edit-info]{ margin-left:auto; }
-#appView #outsideView .nd-edit-list{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
-#appView #outsideView .nd-edit-row{ display:flex; align-items:flex-start; gap:6px; margin:0; padding:0; }
-#appView #outsideView .nd-edit-pick{ flex:none; width:18px; height:18px; margin:7px 0 0; }
-#appView #outsideView .nd-edit-text{ flex:1 1 auto; min-width:0; box-sizing:border-box; min-height:44px; margin:0; padding:4px 6px; font:inherit; font-size:14px; line-height:1.5; color:var(--kptu-ink); resize:vertical; }
-#appView #outsideView .nd-edit-text.nd-edit-h{ font-weight:var(--ds-weight-medium,500); }
-#appView #outsideView .nd-edit-img{ flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:6px; margin:0; font-size:12px; color:var(--kptu-muted); }
-#appView #outsideView .nd-edit-img img{ width:72px; height:54px; object-fit:cover; border-radius:4px; background:var(--kptu-line); }
-#appView #outsideView .nd-edit-x{ flex:none; width:28px; height:28px; margin-top:4px; }
+/* READ-수정한창: 원문 전체 한 창(공용 편집기, 서식 줄 없음). 글자 크기 [−][+]는 읽을 때와 같은 배율(--txs)을 따른다. */
+#appView #outsideView .nd-edit-doc{ --nd-ed-fs:calc(var(--kptu-text-subtitle,16px) * var(--txs,1)); min-width:0; border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); }
+#appView #outsideView .nd-edit-doc .ed-input{ min-height:8em; padding:8px 10px 24px; }
+#appView #outsideView .nd-edit-doc .ed-doc,#appView #outsideView .nd-edit-doc .ed-doc .ed-p{ font-size:var(--nd-ed-fs); line-height:1.8; }
+#appView #outsideView .nd-edit-doc .ed-doc .ed-h2{ font-size:var(--nd-ed-fs); }
+#appView #outsideView .nd-edit-doc .ed-photo-img{ max-height:240px; }
 #appView #outsideView .nd-fold{ margin-top:4px; font-size:13px; }
 #appView #outsideView .nd-fold > summary{ min-height:24px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); cursor:pointer; }
 #appView #outsideView .nd-sub{ margin:6px 0 2px; font-size:11px; color:var(--kptu-muted); }

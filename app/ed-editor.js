@@ -325,7 +325,12 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 //   row. on = start with it on; onToggle is told when the switch is pressed (the opener keeps the choice on the server). Off = the plain text.
 // slash: '/' on an empty line opens the list of blocks to put in (default: where shortcuts are on — notes and their big window).
 // forms: S71-65 — null, or {pick(anchor)}: [넣기 ▾] › [서식] calls pick with the [넣기 ▾] button (the opener puts the chosen form in).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null, forms = null} = {}) {
+// READ-수정한창(2026-11-28 사용자 "문단별로 창을 구분하지 말고 걍 원문 전체를 노트처럼"): two options for an opener whose saved form holds
+// letters only (읽을 거리 원문: 문단·소제목·인용·사진 블록, now-detail.js):
+// pictures: null, or {url(src) -> Promise<address|null>} — photos already in the text are shown (read-only: no [사진] button, nothing new put in;
+//   a photo can still be chosen and removed). Ignored where photos is given (photos.url is used).
+// tools: false leaves the button row out (the letters are the whole edit; the notes it shows go above the text box). Default true.
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, lead = null, photos = null, files = null, onFiles = null, onBox = null, shortcuts = false, lineWidth = false, blocks = null, slash = shortcuts, noteLinks = null, tasks = null, forms = null, pictures = null, tools: showTools = true} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -488,8 +493,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // Moving a node takes the focus off it: the 제목 칸 the opener focused keeps it (with its cursor).
   const leadFocus = lead && lead.contains(document.activeElement) ? document.activeElement : null;
   const leadSel = leadFocus && 'selectionStart' in leadFocus ? [leadFocus.selectionStart, leadFocus.selectionEnd] : null;
-  band.append(...(lead ? [lead] : []), bar, ...(head ? [head] : []));
-  root.append(band, uploads, box, status, ctx, measure);
+  band.append(...(lead ? [lead] : []), ...(showTools ? [bar] : []), ...(head ? [head] : []));
+  if (!showTools) bar.removeChild(note);
+  root.append(band, ...(showTools ? [] : [note]), uploads, box, status, ctx, measure);
   host.append(root);
   if (leadFocus?.isConnected) { leadFocus.focus({preventScroll: true}); if (leadSel) try { leadFocus.setSelectionRange(...leadSel); } catch {} }
 
@@ -1358,14 +1364,15 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       dom.replaceChildren(mark);
       if (node.attrs.alt) { const cap = document.createElement('figcaption'); cap.className = 'ed-photo-cap'; cap.textContent = node.attrs.alt; dom.append(cap); }
     };
-    if (!src || !photos) { place(src ? '사진' : '사진 자리'); return {dom}; }
+    const shown = photos || pictures;
+    if (!src || !shown) { place(src ? '사진' : '사진 자리'); return {dom}; }
     // 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
     let gone = false;
     const bare = () => { place(''); dom.querySelector('.ed-photo-mark')?.remove(); };
     const fail = () => { if (gone) return; bare(); slotFailed(dom, load, 'photo'); };
     function load() {
       bare(); slotLoading(dom);
-      photos.url(src).then(address => {
+      shown.url(src).then(address => {
         if (gone) return;
         if (!address) return fail();
         const img = document.createElement('img');
