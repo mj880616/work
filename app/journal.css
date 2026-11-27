@@ -730,7 +730,7 @@
 #appView #homeView .journal-read-line{ color:var(--kptu-ink); }
 #appView #homeView :is(.journal-read-meta,.journal-suggest-basis){ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 /* HOME-읽을글밀기: 글 줄 밀기(폰)·마우스 단추(PC) — News 글 줄과 같은 모양(now.css .now-hov, row-swipe.css). now.css는 News를 열 때만 불러와 홈 쪽 규칙을 여기 둔다. */
-#appView #homeView .journal-read{ position:relative; }
+#appView #homeView .journal-read{ position:relative; cursor:pointer; } /* HOME-읽을만한글넓힘: 줄을 누르면 글 보기 */
 #appView #homeView .journal-read .now-hov{ position:absolute; z-index:2; right:0; bottom:4px; display:none; gap:2px; }
 #appView #homeView .journal-read:hover > .now-hov,#appView #homeView .journal-read:focus-within > .now-hov{ display:inline-flex; }
 #appView #homeView .journal-read .now-hov-btn{ min-height:0; height:20px; padding:0 6px; font-size:11px; line-height:1; color:var(--kptu-muted); background:var(--kptu-surface); border:1px solid var(--kptu-line,currentColor); border-radius:var(--ds-radius-control,6px); cursor:pointer; }
@@ -766,3 +766,16 @@
 }
 /* WEEKLY-주간정리다듬기 ④: ⋯ [배운 것 보기]로 여는 맨 아래 '배운 것'(주간보고 기억·규칙·환류) — 머리 줄 = 제목 + 작은 [닫기]. */
 #appView #homeView .journal-weekly-learned-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0 4px; }
+
+/* HOME-읽을만한글넓힘: '읽을 만한 글' ⋯ [관심 주제] 창(small-form-modal 안 — 창은 body 아래라 #homeView 밖). 줄 모양은 News 관심 주제 칸(now.css)과 같은 값. */
+.hrt-modal .hrt-box{ display:flex; flex-direction:column; gap:6px; min-width:0; max-height:60vh; overflow:auto; }
+.hrt-modal .ni-note{ margin:0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); }
+.hrt-modal .ni-h{ margin:6px 0 2px; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium,500); color:var(--kptu-muted); }
+.hrt-modal .ni-row{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-height:var(--ds-compact-height); padding:2px 0; border-bottom:var(--ds-line-width,.5px) solid var(--ds-line); }
+.hrt-modal .ni-topic{ font-size:var(--ds-text-row); color:var(--kptu-ink); }
+.hrt-modal .ni-reason{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+.hrt-modal .ni-acts{ display:flex; gap:4px; margin-left:auto; }
+.hrt-modal .ni-btn{ min-height:0; height:var(--ds-compact-height-sm); padding:0 8px; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-ink); background:transparent;
+  border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
+.hrt-modal .ni-row input,.hrt-modal .ni-add input{ flex:1 1 auto; min-width:0; max-width:20em; height:var(--ds-compact-height); box-sizing:border-box; font-size:var(--ds-text-row); }
+.hrt-modal .ni-add{ display:flex; gap:6px; align-items:center; padding-top:4px; }
