@@ -260,7 +260,21 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 // 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
-const CANDIDATE_FEEDS = [];
+// 11/28 NEWS-수집처늘리기(사용자 요청 '바이브 코딩·축구 전술·사회·정치 양질 글'): 아래 후보. 홈 주소는 피드 링크(feedlinks)를 찾는 줄이다.
+const CANDIDATE_FEEDS = [
+  // AI 코딩
+  "https://simonwillison.net/atom/everything/", "https://www.latent.space/feed", "https://addyo.substack.com/feed", "https://addyosmani.com/rss.xml",
+  "https://www.anthropic.com/engineering", "https://harper.blog/index.xml", "https://news.hada.io/rss/news", "https://lucumr.pocoo.org/feed.atom",
+  "https://www.oneusefulthing.org/feed", "https://mitchellh.com/feed.xml", "https://martinfowler.com/feed.atom", "https://www.interconnects.ai/feed",
+  // 축구 전술·아스날
+  "https://spielverlagerung.com/feed/", "https://totalfootballanalysis.com/feed", "https://www.coachesvoice.com/feed/", "https://statsbomb.com/feed/",
+  "https://theanalyst.com/feed", "https://arseblog.com/feed/", "https://arseblog.news/feed/", "https://betweentheposts.net/feed/",
+  "https://themastermindsite.com/feed/", "https://breakingthelines.com/feed/", "https://www.footballist.co.kr/rss/allArticle.xml",
+  // 사회·정치·경제(국내·국제)
+  "https://slownews.kr/feed", "https://www.ildaro.com/", "https://www.dissentmagazine.org/feed", "https://www.bostonreview.net/feed/",
+  "https://www.opendemocracy.net/en/", "https://www.phenomenalworld.org/feed/", "https://www.noahpinion.blog/feed", "https://newleftreview.org/sidecar",
+  "https://www.theguardian.com/uk/commentisfree/rss", "https://lpeproject.org/feed/", "https://lab2050.org/", "https://www.peoplepower21.org/",
+];
 async function checkCandidate(list) {
   const host = new URL(list).host;
   const base = { doFetch: fetch, sleep, log: quiet, userAgent: N.USER_AGENT, robotsAgent: N.ROBOTS_AGENT, gapMs: N.GAP_MS, now: Date.now };
@@ -290,7 +304,12 @@ async function checkCandidate(list) {
   }
   const pseudo = { key: "candidate", name: "-", group: "movement", lang: "ko", mode: "rss", lists: [list], hosts: [host, host.replace(/^www\./, "")], kindOf: () => "article" };
   const parsed = parseFeed(pseudo, got.text, nowMs, 50);
-  return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
+  // 11/28: 최근 30일·3일 글 수(날짜 있는 글만), 피드 안 본문이 200자 넘는 글 수, 글 링크 호스트(허용 호스트와 다르면 parsed가 줄어든다).
+  const age = (it) => (it.published_at ? nowMs - Date.parse(it.published_at) : Infinity);
+  const d30 = parsed.filter((it) => age(it) <= 30 * 86400000).length, d3 = parsed.filter((it) => age(it) <= 3 * 86400000).length;
+  const full = parsed.filter((it) => chars(it.content ?? "") >= 200).length;
+  const linkHosts = tally([...got.text.matchAll(/<link\b[^>]*?(?:href\s*=\s*["']([^"']+)["'][^>]*)?>([^<]*)/gi)].map((m) => { try { return new URL((m[1] || m[2] || "").trim()).host; } catch { return "-"; } }).filter((h) => h !== "-"));
+  return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} d30=${d30} d3=${d3} full=${full} hosts[${linkHosts}] cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
 }
 if (DIAG) {
   console.log("\n## 분야 진단(피드마다 분야 칸·주소 경로 — 글 내용 없음)");
