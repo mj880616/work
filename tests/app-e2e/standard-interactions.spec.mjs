@@ -772,7 +772,7 @@ async function photoTiles(page, width) {
   await page.setViewportSize({ width, height: 900 });
   await openHome(page);
   await installViewPrefsServer(page);
-  const media = [0, 1, 2, 3].map(i => ({ id: 'P' + i, name: 'p.jpg', day: '2026-10-05', taken_at: `2026-10-05T03:00:0${4 - i}.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null }));
+  const media = [0, 1, 2, 3].map(i => ({ id: 'P' + i, name: 'p.jpg', day: '2026-10-05', taken_at: `2026-10-05T0${8 - i}:00:00.000Z`, approx: false, kind: 'photo', screenshot: false, duration_ms: null }));
   await page.route(u => u.origin === SB && ['/rest/v1/app_diary_stars', '/rest/v1/app_photo_tags', '/rest/v1/app_photo_tag_items'].includes(u.pathname), r => r.fulfill({ json: [] }));
   await page.route(u => u.origin === SB && u.pathname === '/functions/v1/onedrive-photos', async r => {
     const body = r.request().postDataJSON();

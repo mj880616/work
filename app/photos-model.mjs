@@ -140,14 +140,35 @@ export function sortCompare(sort) {
     default: return newestFirst;
   }
 }
-// 서버 값 photo_view({filter, cols, sort}) 읽기. 모양이 틀리면 그 칸만 버린다.
+// 서버 값 photo_view({filter, cols, sort, burst}) 읽기. 모양이 틀리면 그 칸만 버린다. burst(연속 사진 묶어 보기)는 기본 켜짐 — 꺼진 것(false)만 저장한다.
 export function parsePhotoView(v) {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
-  return {filter: validFilter(o.filter), cols: Number.isInteger(o.cols) && o.cols >= 3 && o.cols <= 12 ? o.cols : null, sort: validSort(o.sort)};
+  return {filter: validFilter(o.filter), cols: Number.isInteger(o.cols) && o.cols >= 3 && o.cols <= 12 ? o.cols : null, sort: validSort(o.sort), burst: o.burst !== false};
 }
-// 저장할 photo_view(기본 정렬은 적지 않는다: DB 적용 전에도 다른 칸 저장이 거절되지 않게).
-export const photoViewValue = ({filter = 'all', cols = null, sort = DEFAULT_SORT} = {}) =>
-  ({filter: validFilter(filter), ...(Number.isInteger(cols) ? {cols} : {}), ...(validSort(sort) !== DEFAULT_SORT ? {sort: validSort(sort)} : {})});
+// 저장할 photo_view(기본 정렬·기본 켜짐 묶어 보기는 적지 않는다: DB 적용 전에도 다른 칸 저장이 거절되지 않게).
+export const photoViewValue = ({filter = 'all', cols = null, sort = DEFAULT_SORT, burst = true} = {}) =>
+  ({filter: validFilter(filter), ...(Number.isInteger(cols) ? {cols} : {}), ...(validSort(sort) !== DEFAULT_SORT ? {sort: validSort(sort)} : {}), ...(burst === false ? {burst: false} : {})});
+
+// PHOTO-연속묶기(요청함 11/26): 짧은 시간에 연달아 찍은 사진을 [사진] 목록에서 한 장 모양(대표 + 장수)으로 묶어 보는 계산 — 묶음은 이 한 곳에서만 계산한다(그리기는 photos.js paintBursts 하나).
+// 보기만 묶는다: 목록(items)·원본·색인·설명은 그대로이고, 크게 보기에서는 묶음 안 사진이 이어서 넘어간다.
+export const BURST_GAP_MS = 2 * 60 * 1000; // 바로 앞 사진과 이 시간(2분) 이내로 이어지면 같은 묶음(이어 달리기: 첫 장과 끝 장 사이가 더 길어도 된다)
+export const BURST_MIN = 3; // 이 장수 이상일 때만 묶음(2장은 그대로 낱장)
+const burstTime = it => (it && it.approx !== true && !it.video && !it.screenshot ? Date.parse(it.taken_at) : NaN);
+// items(화면 순서 그대로) → Map<id, {leader, size}>. 대표 = 묶음 안 화면 순서 첫 장. 묶이지 않은 사진은 map에 없다.
+// 같은 날·같은 출처 · 동영상·화면 캡처·찍은 시각을 짐작한 사진은 묶지 않는다. 화면 순서에서 바로 이웃한 사진끼리만 이어 본다.
+export function burstGroups(items) {
+  const out = new Map();
+  let run = [];
+  const flush = () => { if (run.length >= BURST_MIN) for (const it of run) out.set(it.id, {leader: run[0].id, size: run.length}); run = []; };
+  for (const it of items || []) {
+    const t = burstTime(it), prev = run.at(-1);
+    if (Number.isNaN(t)) { flush(); continue; }
+    if (prev && prev.day === it.day && prev.source === it.source && Math.abs(burstTime(prev) - t) <= BURST_GAP_MS) run.push(it);
+    else { flush(); run = [it]; }
+  }
+  flush();
+  return out;
+}
 
 // 서버 한 쪽(odLibrary items) → 화면 칸. 같은 id가 다시 오면 빼고 잇는다.
 export const toItem = p => ({kind: 'od', source: 'onedrive', key: p.id, id: p.id, day: p.day, name: p.name || '', taken_at: p.taken_at || '', approx: p.approx === true,

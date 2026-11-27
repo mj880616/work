@@ -292,3 +292,8 @@
 .photo-desc-sheet .pd-word[aria-pressed="true"]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink,var(--kptu-primary))}
 .photo-desc-sheet .pd-foot .status{flex:1;margin:0;font-size:12px;color:var(--kptu-muted)}
 .photo-desc-sheet .pd-count{font-size:11px;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+
+/* PHOTO-연속묶기: 연달아 찍은 사진은 대표 한 장 + 장수 표시. 묶인 나머지 칸은 hidden(paintBursts 한 곳이 정함). */
+#appView #photosView .diary-grid-item[hidden]{ display:none; }
+#appView #photosView .photos-burst-mark{ position:absolute; left:3px; bottom:2px; z-index:1; padding:0 4px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
+#appView #photosView .diary-grid-item[data-photos-burst]{ box-shadow:2px 2px 0 -1px var(--ds-photo-scrim); }
