@@ -13,6 +13,17 @@ const FA = U(1), FB = U(2), FL = U(3);
 // 화면 사진: KPTU_SHOTS=폴더 이면 그 폴더에 남긴다(검토용, 저장소에 넣지 않음).
 const shot = (page, name) => process.env.KPTU_SHOTS ? page.screenshot({ path: `${process.env.KPTU_SHOTS}/${name}.png` }) : null;
 
+// NOTE-태그단추키움(2026-11-28 사용자 요청): [+ 태그] 글자는 본문 단추 크기(--ds-text-button), 누르는 높이는 --ds-compact-height 이상. 읽기·수정 같은 부품.
+async function expectTagAddBig(add) {
+  const { font, minH, token } = await add.evaluate(el => {
+    const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--ds-text-button)'; document.body.append(probe);
+    const token = parseFloat(getComputedStyle(probe).fontSize); probe.remove();
+    return { font: parseFloat(getComputedStyle(el).fontSize), minH: el.getBoundingClientRect().height, token };
+  });
+  expect(font).toBe(token);
+  expect(font).toBeGreaterThanOrEqual(13);
+  expect(minH).toBeGreaterThanOrEqual(32);
+}
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
   const errors = [], patches = [];
@@ -76,6 +87,7 @@ for (const width of [412, 1440]) {
     await expect(readChips(page)).toHaveCount(0);
     const add = page.locator('[data-note-meta-tags] [data-tag-add]');
     await expect(add).toHaveText('+ 태그');
+    await expectTagAddBig(add);
     await press(page, add, width);
     await expect(add).toHaveAttribute('aria-expanded', 'true');
     // 지금까지 쓴 태그: 많이 쓴 순, 잠긴 노트에만 있는 #비밀태그는 없음(잠긴 노트의 #교섭도 세지 않음).
@@ -125,6 +137,7 @@ for (const width of [412, 1440]) {
     await press(page, page.locator('#noteDocMenu [data-note-edit]'), width);
     const editAdd = page.locator('[data-note-edit-tag-chips] [data-tag-add]');
     await expect(page.locator('[data-note-edit-tag-chips] .note-meta-tag')).toHaveText(['#현장']);
+    await expectTagAddBig(editAdd);
     await press(page, editAdd, width);
     await press(page, page.locator('[data-note-edit-tag-pick] [data-tag-pick-item]').filter({ hasText: '#공항철도' }), width);
     await expect(page.locator('[data-note-edit-tag-chips] .note-meta-tag')).toHaveText(['#현장', '#공항철도']);

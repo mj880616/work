@@ -500,7 +500,7 @@
   #libraryFolderNav{float:left;box-sizing:border-box;width:var(--lu-fnav-w);margin-left:calc(-1 * var(--lu-fnav-w) - 12px)}
   #libraryFolderNav .lu-fnav-in{padding:0 6px 4px 0}
   /* S69-84: 나무·두 칸 칸 폴더 줄 ⋯(ft-dots)의 닿는 자리(::after)는 줄 높이 안으로만 — 위아래로 넓히면 맨 아래 줄 밖으로 나와 칸이 몇 px 굴러가고(스크롤 끝 자리가 흔들림) 옆 줄과 겹친다. */
-  #libraryFolderNav .ft-dots::after,#documentList .lu-pane-folder .ft-dots::after{inset:0 -4px}
+  #libraryFolderNav .ft-dots::after,#documentList .lu-pane-folder .ft-dots::after{inset:0 -8px}
 }
 
 /* ───────── LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html) ─────────
