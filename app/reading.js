@@ -229,7 +229,11 @@ function drawList() {
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
+  // 다시 그려도(다시 들어와 새로 읽은 목록) 자판 초점이 있던 줄은 같은 글 줄에 그대로 둔다 — 위 주소 칸과 같은 규칙.
+  // 그러지 않으면 초점이 화면 밖(body)으로 빠져 바로 누른 Enter가 사라진다(같은 줄을 그대로 다시 그리는 것뿐이라 다른 동작은 없다).
+  const focusedId = box.contains(document.activeElement) ? document.activeElement.closest?.('[data-rd-open]')?.dataset.rdOpen : '';
   box.replaceChildren(...parts);
+  if (focusedId) [...list.querySelectorAll('[data-rd-open]')].find(r => r.dataset.rdOpen === focusedId)?.focus({preventScroll: true});
   if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
 

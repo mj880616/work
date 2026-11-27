@@ -372,3 +372,19 @@ for (const width of [412, 1280]) {
     expect(errors).toEqual([]);
   });
 }
+
+// 흔들림 정리(2026-11-27): 저장한 글에 다시 들어오면 목록을 한 번 더 새로 읽어 그린다. 그때 자판 초점이 있던 줄이 새 줄로 바뀌면서
+// 초점이 화면 밖으로 빠져, 바로 누른 Enter가 사라지고 오른쪽 칸에 앞 글이 남았다(위 '보관 줄 → News 글 보기' 시험이 CI에서 10번 흔들림).
+// 다시 그려도 초점은 같은 글 줄에 남아야 한다(주소 칸과 같은 규칙).
+test('저장한 글 1280: 목록을 다시 그려도 자판 초점은 같은 줄 — 바로 누른 Enter가 그 글을 연다', async ({ page }) => {
+  const { errors } = await start(page, 1280);
+  await goReading(page, 1280);
+  await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+  await expect(row(page, T_N2)).toBeVisible();
+  await row(page, T_N2).focus();
+  await page.evaluate(() => window.KPTUReading.refresh());
+  await expect(row(page, T_N2)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(T_N2);
+  expect(errors).toEqual([]);
+});
