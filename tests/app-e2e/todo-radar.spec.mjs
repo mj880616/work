@@ -106,7 +106,7 @@ test('home: a candidate table that is not applied counts as 0; nothing else brea
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`정리함: the suggested due is in the small line; [할 일로] goes in with that due and moves to 보냄 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`정리함: the suggested due is in the small line; [할 일로] opens the task window, and saving moves the row to 보냄 ${width}`,async({page})=>{
  const creates=createsOf(page);
  const f=await fixture(page,{width});
  await openInbox(page);
@@ -115,18 +115,19 @@ for(const width of [390,1280])test(`정리함: the suggested due is in the small
  await expect(row.locator('.nbx-meta')).toHaveText('AI 제안업데이트에서 · 10/6 · 기한 10.9 (금)›');
  // No due → no due text.
  await expect(line(page,2).locator('.nbx-meta')).not.toContainText('기한');
- await tap(page,btn(row,'할 일로'),width);
- await expect.poll(()=>creates.length).toBe(1);
- await expect(page.locator('#basketView [data-forget-status]')).toHaveText('할 일로 보냈어요.');
- await expect(line(page,1)).toHaveCount(0);
- // Without a suggested due: today (2026-10-06 KST).
- await tap(page,btn(line(page,2),'할 일로'),width);
- await expect.poll(()=>creates.length).toBe(2);
- expect(creates).toEqual([{action:'create',task_id:null,title:'가상 의견 제출',notes:'',due:'2026-10-09',links:[]},{action:'create',task_id:null,title:'가상 조직 회신',notes:'',due:'2026-10-06',links:[{organization_id:ORG}]}]);
+ // 2026-11-27 사용자 결정: [할 일로]는 바로 만들지 않고 고쳐 쓰는 할 일 창을 연다(옛 ⋯ [수정해서 할 일로]와 합침). 저장해야 만들어지고 줄이 빠진다.
+ for(const [n,title,links] of [[1,'가상 의견 제출',[]],[2,'가상 조직 회신',[{organization_id:ORG}]]]){
+  await tap(page,btn(line(page,n),'할 일로'),width);
+  await expect(page.locator('#gtTaskModal:not(.hidden)')).toHaveCount(1);
+  await expect(page.locator('#gtEditTitle')).toHaveValue(title);
+  expect(creates.length).toBe(n-1);
+  await expect(line(page,n)).toBeVisible();
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>creates.length).toBe(n);
+  expect(creates[n-1]).toMatchObject({action:'create',title,links});
+  await expect(line(page,n)).toHaveCount(0);
+ }
  await expect.poll(()=>f.calls.patch.map(p=>[p.query.status,p.body.status])).toEqual([['eq.open','tasked'],['eq.open','tasked']]);
- expect(f.calls.patch[0].body).toMatchObject({task_due:'2026-10-09'});
- // S71-58 FORGET-처리전만: 보낸 줄은 목록에서 빠지고 보냄 보기는 없다.
- await expect(line(page,2)).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -147,7 +148,7 @@ test('정리함: [×] moves the row to 무시 with a 5 s [되돌리기] that bri
 
 // TODO-이미함·환류: [이미 함]은 할 일을 만들지 않고 빼며 결과 한 줄을 남긴다. [되돌리기]는 둘 다 되돌린다.
 // S52-20: 처리 전 위 '지난주 챙길 것 …' 숫자 줄은 없다(명진 11/07 '챙길 것 정리 숫자 안 보여줘도 돼'). ⋯ [고쳐서 할 일로]는 할 일 창.
-for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; ⋯ edit opens the task window ${width}`,async({page})=>{
+for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이미 함, logs one result, undo brings both back; [할 일로] opens the task window ${width}`,async({page})=>{
  const fb={posts:[],deletes:[]};
  const f=await fixture(page,{width,routes:async()=>{
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_feedback',async route=>{
@@ -174,9 +175,8 @@ for(const width of [390,1280])test(`정리함: [이미 함] moves the row to 이
  await expect.poll(()=>fb.deletes).toEqual(['eq.f0000000-0000-4000-8000-000000000001']);
  const back=line(page,2);
  await expect(back).toBeVisible();
- // ⋯ 안 [고쳐서 할 일로]: 할 일 창이 제목으로 채워져 열리고, 저장 전에는 상태를 바꾸지 않는다.
- await tap(page,back.locator('[data-forget-more]'),width);
- await page.locator('#forgetRowMenu [data-forget-menu="edit"]').click();
+ // [할 일로]: 할 일 창이 제목으로 채워져 열리고, 저장 전에는 상태를 바꾸지 않는다(⋯ 안 [수정해서 할 일로]는 없앴다).
+ await tap(page,btn(back,'할 일로'),width);
  await expect(page.locator('#gtTaskModal')).toBeVisible();
  await expect(page.locator('#gtEditTitle')).toHaveValue('가상 조직 회신');
  expect(f.calls.patch).toHaveLength(2);
@@ -232,39 +232,4 @@ for(const width of [412,884,1440])test(`정리함 telegram candidate: room in th
  expect(f.errors.filter(e=>!/telegram|feed/i.test(e))).toEqual([]);
 });
 
-// S49-19 TODO-이미할일읽기실패: 할 일 모듈(google-tasks.js)은 첫 화면 뒤에 불러온다. 앱을 막 열어 아직 안 불린 상태에서
-// 정리함 ⋯ [이미 할 일에 있음]을 눌러도 '읽지 못함'이 아니라 그 자리에서 불러와 비슷한 할 일이 떠야 한다. 정말 못 읽으면 [다시].
-for(const width of [412,1280])test(`정리함: 할 일 모듈이 아직 안 불린 채 ⋯ [이미 할 일에 있음] → 그 자리에서 불러와 비슷한 할 일이 나온다 ${width}`,async({page})=>{
- let release;const held=new Promise(r=>{release=r;});
- const f=await fixture(page,{width,rows:[cand(1,{summary:'오늘 항목 정리'})],routes:async()=>{
-  await page.route(/\/google-tasks(\.[0-9a-f]+)?\.js(\?.*)?$/,async route=>{await held;await route.continue();});
- }});
- await openInbox(page);
- expect(await page.evaluate(()=>typeof window.KPTUGoogleTasks)).toBe('undefined');
- const row=line(page,1);
- await tap(page,row.locator('[data-forget-more]'),width);
- await page.locator('#forgetRowMenu [data-forget-menu="already"]').click();
- const box=inbox(page).locator(`[data-forget-link="${id(1)}"]`);
- await expect(box).toBeVisible();
- await expect(box).not.toContainText('읽지 못했어요');
- release();
- await expect(box.locator('[data-forget-link-task]').first()).toHaveText('오늘 항목');
- await expect(box).not.toContainText('못 읽었어요');
- expect(await noWideScroll(page)).toBe(true);
- expect(f.errors).toEqual([]);
-});
-
-test('정리함: 할 일을 정말 못 읽으면 "할 일을 못 읽었어요 [다시]"가 뜨고 [다시]로 다시 읽는다',async({page})=>{
- const f=await fixture(page,{width:412,rows:[cand(1,{summary:'오늘 항목 정리'})]});
- await openInbox(page);
- await page.evaluate(()=>{window.__gtReal=window.KPTUGoogleTasks;window.KPTUGoogleTasks={peekTasks:()=>null,listTasks:async()=>window.__gtFail?{status:'error',tasks:[]}:window.__gtReal.listTasks()};window.__gtFail=true;});
- const row=line(page,1);
- await tap(page,row.locator('[data-forget-more]'),412);
- await page.locator('#forgetRowMenu [data-forget-menu="already"]').click();
- const box=inbox(page).locator(`[data-forget-link="${id(1)}"]`);
- await expect(box).toContainText('할 일을 못 읽었어요');
- await page.evaluate(()=>{window.__gtFail=false;});
- await box.getByRole('button',{name:'다시',exact:true}).click();
- await expect(box.locator('[data-forget-link-task]').first()).toHaveText('오늘 항목');
- expect(f.errors).toEqual([]);
-});
+// 옛 ⋯ [이미 할 일에 있음](이미 있는 할 일 고르기) 시험 둘은 그 단추와 함께 없앴다(2026-11-27 사용자 결정, 쳐내기는 [이미 함]).
