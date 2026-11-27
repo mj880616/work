@@ -96,7 +96,7 @@ async function drag(page, from, to, steps = 10) { await page.mouse.move(from.x, 
 
 test('PC: 주제 → Tab 하위·Enter 형제, 가로 글·자동 배치(양쪽·겹침 없음), 접기, 가지째 끌어 옮겨 붙이기·떼기 (1440)', async ({ page }) => {
   const { errors, textCalls, textRows } = await fixture(page, 1440);
-  await expect(page.locator('[data-nb-add-text]')).toHaveText('+ 주제');
+  await expect(page.locator('[data-nb-add-text]')).toHaveText('+ 상자');
   // 주제 하나 → Enter = 저장(고른 채로).
   await page.locator('[data-nb-add-text]').click();
   await expect(editor(page)).toBeFocused();
@@ -249,7 +249,7 @@ test('PC: 선택한 상자 막대로 색·모양·글자 크기, 다시 눌러 �
   expect(errors).toEqual([]);
 });
 
-test('폰: [+ 주제]·막대 [+ 하위]·[+ 형제], 누르면 고르기·다시 누르면 고치기, 꾹 눌러 끌어 옮겨 붙이기, 가로 넘침 없음 (412)', async ({ page }) => {
+test('폰: [+ 상자]·막대 [+ 하위]·[+ 형제], 누르면 고르기·다시 누르면 고치기, 꾹 눌러 끌어 옮겨 붙이기, 가로 넘침 없음 (412)', async ({ page }) => {
   const width = 412;
   const { errors, textRows } = await fixture(page, width);
   const cdp = await page.context().newCDPSession(page);

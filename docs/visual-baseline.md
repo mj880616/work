@@ -50,13 +50,13 @@
 1. 화면을 고친 PR을 올리면 CI의 기준 사진 시험이 틀린다. 실패한 갈래마다 artifact `visual-diff-<갈래 번호>`가 올라온다.
    - `visual-diff/`: `<화면>-expected.png`(기준), `-actual.png`(이번), `-diff.png`(차이 빨간 표시)
    - `visual-update/`: 이번 사진을 기준 사진 이름으로 바꾼 것(새로 더한 화면의 첫 사진 포함)
-2. 의도한 변경이 맞으면 저장소 맨 위에서 명령 한 줄로 받아 넣는다(`<run-id>`는 실패한 실행 번호):
+2. 의도한 변경이 맞으면 CC가 Actions에서 **`Visual baseline update`**(`.github/workflows/visual-baseline-update.yml`)를 main에서 실행한다(CI-기준사진갱신). 사람이 PC에서 명령을 칠 필요가 없다.
+   - 입력 `pr`: PR 번호(필수). `names`: 갱신할 사진 이름 목록(예: `home:phone,note:phone,library:pc`). 비우면 그 PR에서 기준과 다른 사진(과 없던 사진)만 갱신한다.
+   - 하는 일: 같은 저장소의 열린 PR인지·기본 브랜치가 아닌지 확인 → PR head SHA를 고정해 CI와 같은 러너·같은 설치 action(`setup-playwright`, Playwright 1.55.0)으로 찍기(`--update-snapshots=changed`) → 바뀐 파일이 기준 사진 PNG뿐인지 확인 → `기준 사진 갱신: <이름들> (workflow 실행 #번호)`로 PR 브랜치에 커밋(github-actions noreply, 강제 push 없음, 찍는 사이 PR에 새 커밋이 오면 멈춤) → 실행 요약에 바뀐 사진과 크기 차이 표.
+   - 이 커밋은 GitHub 규칙상 PR 검사를 저절로 다시 시작하지 않는다. workflow가 그 브랜치에서 `App browser E2E check`를 다시 시작하고, 나머지 PR 검사는 다음 push나 초안 전환 때 돈다.
+   - 예비 방법(workflow를 못 쓸 때, 실패 실행의 artifact를 받을 수 있는 PC에서만): `rm -rf /tmp/vd && gh run download <run-id> -R mj880616/work -p 'visual-diff-*' -D /tmp/vd && cp /tmp/vd/*/visual-update/*.png tests/app-e2e/visual-baseline.spec.mjs-snapshots/` 뒤 같은 PR에 커밋.
 
-   ```bash
-   rm -rf /tmp/vd && gh run download <run-id> -R mj880616/work -p 'visual-diff-*' -D /tmp/vd && cp /tmp/vd/*/visual-update/*.png tests/app-e2e/visual-baseline.spec.mjs-snapshots/
-   ```
-
-3. 바뀐 기준 사진을 같은 PR에 커밋한다. PR 본문 판정 칸에 전후 사진(`expected`·`actual`)을 붙인다.
+3. 검증 세션이 PR 본문 판정 칸에 전후 사진(`expected`·`actual`)을 붙인다.
 
 기준 사진은 CI 리눅스(ubuntu-24.04, Playwright 1.55.0 chromium)에서 만든 것만 넣는다. 다른 기기(맥·윈도·다른 Playwright 판)에서 `--update-snapshots`로 만든 사진은 글자 가장자리·그림 글자가 달라 CI에서 틀린다.
 

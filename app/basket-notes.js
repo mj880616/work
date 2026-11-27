@@ -247,8 +247,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!z || z.hidden || z.classList.contains('basket-read-empty')) return;
     paintMarks(z, sourceMarks('note', selected.id)); // S70-80: 밑줄 + 형광펜
     if (!hlReveal || !highlightById(hlReveal)) return;
-    if (!revealMark(z, hlReveal)) notify('원문이 바뀌었어요 · 밑줄은 노트 › 밑줄에 그대로 있어요', {record:false});
-    hlReveal = null;
+    const wanted = hlReveal; hlReveal = null;
+    void revealMark(z, wanted, {final:true}).then(r => { if (r === null && !hlReveal && selected) { hlReveal = wanted; noteMarksNow(); } }); // HL-밑줄위치로: 공용 이동(못 찾으면 같은 문장 → 그래도 없으면 맨 위 + 짧은 안내 한 번)
   }
   const hlSourceNow = () => (selected ? {type:'note', id:selected.id, title:selected.title || '제목 없음', media:'노트', date:selected.updated_at || selected.created_at || null, url:''} : null);
   bindSelectZone(detail, {zone:'[data-basket-read-text]', source:hlSourceNow, onSave:saveFromSelection, marks:markActions}); // S70-80: 형광펜 켬
@@ -637,7 +637,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),
       // S69-91 ①: 글자·도형·꾸미기(꾸미기 칸)·선 넣기(선 점 끝 칸) — 칸이 없는 서버면 단추를 빼고, 눌러도 '준비 중' 한 줄.
-      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
+      decorReady:() => boardLinks.decorReady(), canDecor:() => boardLinks.checkDecor(), branchReady:() => boardLinks.branchReady(), canBranch:() => boardLinks.checkBranch(), linesReady:() => boardLinks.linesReady(), canLines:() => boardLinks.checkLines(), toast:showToast,
       // S70-32 ②: 사진 끌어 놓기·붙여넣기·[이미지] → 사진 정보를 지우고 사진 한 장뿐인 노트로(노트 첨부, owner만) → 놓은 자리에 붙임.
       onImages:(files, point) => { if (!busy) void boardImages.add(files, point); }, photoUrl:(noteId, fileId) => diaryPhotoUrl(noteId, fileId, 'large', {rt}),
       // S71-49 [나]: 사진 카드 두 번 누름(폰은 고른 사진 한 번 더) = 보드 위 크게 보기(공용 photo-view.js — Esc·바깥·뒤로가기로 닫으면 보드 그대로). 노트 화면으로 가지 않는다.
@@ -1228,7 +1228,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
     // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
-    if (paintDoc(text, selected, {rt, onOpen:(file, el, files) => openPhotoView({row:selected, file, files, trigger:el}), tasks:noteTaskProvider(selected.id, {rt})})) { noteMarksNow(); return; }
+    if (paintDoc(text, selected, {rt, tasks:noteTaskProvider(selected.id, {rt})})) { noteMarksNow(); return; }
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';

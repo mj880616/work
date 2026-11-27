@@ -1,0 +1,230 @@
+name: Visual baseline update
+
+# CI-기준사진갱신: 화면을 일부러 바꾼 PR의 기준 사진(tests/app-e2e/visual-baseline.spec.mjs-snapshots/*.png)을
+# CI와 같은 러너·같은 Playwright 판으로 찍어 그 PR 브랜치에 커밋한다. 사람이 PC에서 명령을 칠 필요가 없다.
+# 실행: CC가 Actions에서 PR 번호로 수동 실행(main에서만). 갱신 절차는 docs/visual-baseline.md.
+#
+# 안전(공개 저장소):
+# - PR 이벤트로 시작하지 않음(수동 실행만), 비밀값 없음. 토큰은 job마다 최소 권한(쓰기는 commit job의 contents·recheck job의 actions만).
+# - 같은 저장소의 열린 PR만, main·기본 브랜치는 거절, head SHA를 고정해 찍고 그 SHA 위에만 커밋(강제 push 없음).
+# - PR 코드는 읽기 전용 토큰의 capture job에서만 돈다. 커밋 job은 PR 코드를 실행하지 않고 main 쪽 검사 스크립트만 쓴다.
+# - 바뀐 파일이 기준 사진 PNG 말고 하나라도 있으면 커밋하지 않고 실패.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR 번호(숫자)'
+        required: true
+        type: string
+      names:
+        description: "갱신할 기준 사진 이름(예: 'home:phone,note:phone,library:pc'). 비우면 그 PR에서 기준과 다른 사진만"
+        required: false
+        default: ''
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: visual-baseline-update-${{ inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pr: ${{ steps.input.outputs.pr }}
+      grep: ${{ steps.input.outputs.grep }}
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::이 workflow는 main에서만 실행합니다(지금: $GITHUB_REF)."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check inputs
+        id: input
+        env:
+          IN_PR: ${{ inputs.pr }}
+          IN_NAMES: ${{ inputs.names }}
+        run: node scripts/ops/visual-baseline-update.mjs check-input "$IN_PR" "$IN_NAMES"
+
+      - name: Check PR (open, same repository, not default branch)
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.input.outputs.pr }}
+          REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          node scripts/ops/visual-baseline-update.mjs check-pr /tmp/pr.json "$REPO" "$DEFAULT_BRANCH"
+
+  # PR head(고정 SHA)를 읽기 전용으로 받아 CI(app-e2e-check.yml)와 같은 설치 action·서버·명령으로 기준 사진을 찍는다.
+  capture:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # 같은 Playwright 판(setup-playwright 기본값). PR 코드가 도는 job이라 캐시는 복원만 한다(저장 안 함).
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
+        with:
+          save-cache: 'false'
+
+      - name: Start static app server
+        run: |
+          python3 tests/app-e2e/helpers/static-server.py 8123 >/tmp/kptu-e2e-http.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-e2e-http.log
+          exit 1
+
+      # 기준과 다른 사진(+ 없던 사진)만 새로 쓴다(--update-snapshots=changed). names가 있으면 그 시험만 고른다.
+      - name: Capture baselines
+        env:
+          GREP: ${{ needs.prepare.outputs.grep }}
+        run: |
+          set -euo pipefail
+          args=(tests/app-e2e/visual-baseline.spec.mjs --browser=chromium --workers=2 --reporter=line --update-snapshots=changed)
+          if [ -n "$GREP" ]; then args+=(--grep "$GREP"); fi
+          npx playwright test "${args[@]}"
+
+      - name: Collect changed baselines
+        run: |
+          set -euo pipefail
+          snap=tests/app-e2e/visual-baseline.spec.mjs-snapshots
+          mkdir -p /tmp/vb-out
+          git status --porcelain=v1 -z --untracked-files=all -- "$snap" | tr '\0' '\n' | while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            f="${line:3}"
+            case "$f" in "$snap"/*.png) [ -f "$f" ] && cp "$f" /tmp/vb-out/ ;; esac
+          done
+          ls -l /tmp/vb-out
+
+      - name: Upload changed baselines
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-baseline-new
+          path: /tmp/vb-out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # PR 코드를 실행하지 않는다: 검사 스크립트는 main 체크아웃(trusted/)에서, PR 브랜치(pr/)는 git으로만 다룬다.
+  commit:
+    needs: [prepare, capture]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    outputs:
+      pushed: ${{ steps.push.outputs.pushed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: trusted
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pr
+          ref: ${{ needs.prepare.outputs.head_sha }}
+          fetch-depth: 1
+
+      - name: Download captured baselines
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/vb-dl /tmp/vb-new
+          if gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[].name' | grep -qx visual-baseline-new; then
+            gh run download "$RUN_ID" -R "$REPO" -n visual-baseline-new -D /tmp/vb-dl
+          fi
+          node trusted/scripts/ops/visual-baseline-update.mjs pick /tmp/vb-dl /tmp/vb-new
+
+      - name: Put baselines and check only baseline PNGs changed
+        id: check
+        run: |
+          set -euo pipefail
+          snap=tests/app-e2e/visual-baseline.spec.mjs-snapshots
+          mkdir -p "pr/$snap"
+          find /tmp/vb-new -maxdepth 1 -type f -name '*.png' -exec cp {} "pr/$snap/" \;
+          git -C pr status --porcelain=v1 -z --untracked-files=all > /tmp/vb-status
+          node trusted/scripts/ops/visual-baseline-update.mjs check-changes /tmp/vb-status
+          node trusted/scripts/ops/visual-baseline-update.mjs summary pr /tmp/vb-status
+
+      - name: Commit and push to PR branch
+        id: push
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.prepare.outputs.pr }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
+          LABEL: ${{ steps.check.outputs.label }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          # 찍는 사이 PR이 닫혔거나 새 커밋이 올라왔으면 멈춘다(그 위에 덮어 올리지 않음).
+          gh api "repos/$REPO/pulls/$PR" --jq '[.state, .head.sha] | @tsv' > /tmp/pr-now
+          read -r state sha < /tmp/pr-now
+          if [ "$state" != "open" ] || [ "$sha" != "$HEAD_SHA" ]; then
+            echo "::error::찍는 사이 PR이 바뀌었습니다(state=$state, head=${sha:0:12}). 다시 실행하세요."
+            exit 1
+          fi
+          cd pr
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898299+github-actions[bot]@users.noreply.github.com'
+          git add -- tests/app-e2e/visual-baseline.spec.mjs-snapshots
+          git commit -q -m "기준 사진 갱신: ${LABEL//,/, } (workflow 실행 #$RUN_NUMBER)"
+          # 강제 push 없음: 브랜치가 그새 움직였으면 거절된다.
+          git push origin "HEAD:refs/heads/$HEAD_REF"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR 브랜치 \`$HEAD_REF\`에 커밋 \`$(git rev-parse --short=12 HEAD)\`을 올렸습니다." >> "$GITHUB_STEP_SUMMARY"
+
+  # GITHUB_TOKEN으로 올린 커밋은 PR 검사를 새로 시작하지 않는다. 화면 시험(App browser E2E check)만 그 브랜치에서 다시 시작한다.
+  recheck:
+    needs: [prepare, commit]
+    if: needs.commit.outputs.pushed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Start browser E2E on the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+        run: |
+          gh workflow run app-e2e-check.yml -R "$REPO" --ref "$HEAD_REF"
+          echo "브랜치 \`$HEAD_REF\`에서 App browser E2E check를 다시 시작했습니다. PR의 다른 검사는 다음 push나 초안 전환 때 다시 돕니다." >> "$GITHUB_STEP_SUMMARY"
