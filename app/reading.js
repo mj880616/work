@@ -254,7 +254,11 @@ function drawList() {
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(folderNow() && entries.length ? '이 폴더에 글이 없어요 · 글 ⋯ [폴더로 옮기기]나 끌어 놓기로 넣어요' : emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
+  // 다시 그려도(다시 들어와 새로 읽은 목록) 자판 초점이 있던 줄은 같은 글 줄에 그대로 둔다 — 위 주소 칸과 같은 규칙.
+  // 그러지 않으면 초점이 화면 밖(body)으로 빠져 바로 누른 Enter가 사라진다(같은 줄을 그대로 다시 그리는 것뿐이라 다른 동작은 없다).
+  const focusedId = box.contains(document.activeElement) ? document.activeElement.closest?.('[data-rd-open]')?.dataset.rdOpen : '';
   box.replaceChildren(...parts);
+  if (focusedId) [...list.querySelectorAll('[data-rd-open]')].find(r => r.dataset.rdOpen === focusedId)?.focus({preventScroll: true});
   if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
 
@@ -961,6 +965,17 @@ function takeAsked() {
 
 install(); bind();
 state.filter = filterFromUrl(); state.folder = folderFromUrl();
-window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); state.folder = folderFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(보기 탭 줄·목록)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가 기다린 뒤 화면을 보인다.
+// 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 두 칸 폭 맨 위 글 저절로 열기(autoOpenTop)·옛 실패 줄 자동 다시 가져오기(autoRefetch)는 이 화면이 지금 화면일 때만이라,
+// 처음 보이는 그 자리(라우터 진입)에서 한 번 부른다.
+const firstDraw = refresh();
+let firstShown = false;
+window.KPTURouter?.on?.('reading', () => {
+  const filter = filterFromUrl(), folder = folderFromUrl(), changed = filter !== state.filter || folder !== state.folder;
+  state.filter = filter; state.folder = folder;
+  if (!firstShown) { firstShown = true; if (changed && state.loaded) drawList(); autoOpenTop(); if (state.loaded && !state.failed) void autoRefetch(); void firstDraw.then(takeAsked, takeAsked); return; }
+  if (state.loaded) drawList(); void refresh().then(takeAsked);
+});
+window.__KPTU_READING_READY__ = firstDraw.then(takeAsked);
 window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

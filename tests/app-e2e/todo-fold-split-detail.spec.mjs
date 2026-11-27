@@ -42,9 +42,9 @@ for(const width of [690,884,1280]){
     const tasks=[task('late','2026-10-06'),task('a','2026-10-08',{notes:'첫 메모'}),task('b','2026-10-08'),task('soon','2026-10-10')];
     const calls=await open(page,width,tasks);
     const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
-    // TASK-넓게쓰기(2026-11-10 명진 B안): 아무것도 안 골랐을 때는 오른쪽 칸이 없고 목록이 화면 폭 전부(빈 오른쪽 상자 없음).
-    await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(1);await expect(pane).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);
-    {const [sec,list]=[await page.locator('#gtTaskSection').boundingBox(),await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox()];expect(Math.abs(sec.width-list.width)).toBeLessThanOrEqual(1)}
+    // TASK-처음부터두칸(2026-11-27 명진): 아무것도 안 골라도 오른쪽 칸이 있고(안내 한 줄), 누르기 전후 목록 폭이 같다.
+    await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(1);await expect(pane).toBeVisible();await expect(pane).not.toHaveClass(/has-task/);
+    const listBefore=(await page.locator('#gtTaskBody [data-gt-col="now"]').boundingBox()).width;
     // ① 줄을 누르면 오른쪽에 바로 열리고 고른 줄 표시. [저장] 버튼은 없다.
     const before=await historyLength(page);
     await page.locator('[data-gt-edit="a"]').click();
@@ -83,7 +83,7 @@ for(const width of [690,884,1280]){
     expect(calls.some(c=>c.action==='create')).toBe(false);
     // ③ 뒤로 키 = 상세 닫기(한 단계), 화면은 할 일 그대로, 요약이 다시 보인다.
     await page.goBack();
-    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('|0');
+    await expect(editor).toBeHidden();await expect(pane).not.toHaveClass(/has-task/);expect(await pane.evaluate(el=>el.textContent.trim()+'|'+el.children.length)).toBe('할 일을 선택하면 여기에 나와요|1');
     await expect(page.locator('#gtTaskBody .gt-row.is-selected')).toHaveCount(0);
     await expect(page.locator('#tasksView')).toBeVisible();
     // 고르기 창(S52-01)도 열 때 뒤로 기록 하나를 쌓고 닫을 때 거둔다(앞으로 칸에 남는 한 칸은 다음 기록이 지운다). 그래서 길이는 칸 하나 + 창 하나.

@@ -46,6 +46,7 @@ import {connectNoteFor, connectText, cloudNoneHtml} from './connect-note.mjs'; /
 import {gdStatus, gdFolders, gdFolderToggle, gdSync, gdList, gdRename, gdMove, gdTrash, gdFolderCreate, gdFolderRename, gdFolderTrash, gdReconnect,
   gdThumbBlob, gdMediaBlob, gdPhotoElement, gdForget, gdClear, gdContentFind, gdDescGet} from './gdrive-photos.js';
 import {ownerScope, requestDiaryDay} from './diary-data.js';
+import {takePhotoDay} from './photo-day-request.mjs'; // HOME-오늘사진은사진으로: 홈 '오늘 사진'이 보낸 "그날·그 사진" 요청
 import {seoulParts, seoulDateKey} from './meeting-time.js';
 import {SIZE_BUTTONS, WIDE_QUERY, attachPinch, createGridSizer, isWide, multiTouchActive, onMultiTouch} from './photo-grid-size.js';
 import {filesDeviceKind, PHONE_WIDTH_QUERY} from './files-sources-model.mjs';
@@ -1266,7 +1267,8 @@ let railSleepT = 0, railHover = false;
 function railWake(ms = RAIL_AWAKE_MS) {
   if (rail.hidden) return;
   rail.classList.add('is-awake'); clearTimeout(railSleepT);
-  if (!railDrag && !railHover) railSleepT = setTimeout(() => rail.classList.remove('is-awake'), ms);
+  // S73-11 PHOTO-빠른이동손잡이유지: 잡고 있는 동안(railDrag)은 숨김 예약을 하지 않고, 예약이 남아 있어도 그때 다시 본다.
+  if (!railDrag && !railHover) railSleepT = setTimeout(() => { if (!railDrag && !railHover) rail.classList.remove('is-awake'); }, ms);
 }
 // 맨 위 줄(폰 앱 머리 줄·PC 상단 줄) 아래 끝. S71-25: 화면 안 도구 줄이 없어져 그 줄 대신 맨 위 줄을 잰다.
 // 위 버튼 줄 아래끝. S71-59 UI-화면메뉴안으로: PC 틀은 단추 줄이 맨 위 줄이 아니라 화면 안 첫 줄(screen-tools.js lineSlot)이라
@@ -1284,14 +1286,15 @@ function paintRail() {
   const on = tab === 'all' && level === 'day' && anyUse() && bar.length > 1 && !select.active && listSort() === DEFAULT_SORT;
   rail.hidden = !on;
   rail.querySelectorAll('.photos-rail-year').forEach(el => el.remove());
-  if (!on) { rail.classList.remove('is-awake'); markOff(); return; }
-  placeRail();
+  if (!on) { railStop(); rail.classList.remove('is-awake'); markOff(); return; }
+  if (!railDrag) placeRail(); // 잡고 있는 동안은 막대 자리도 손가락 아래 그대로(놓은 뒤 다시 그릴 때 맞춘다)
   // PHOTO-연월이동 A: 막대 옆 연도 눈금(해마다 한 번, 그 해 가장 최근 달 자리). 눈금은 읽어 주는 말에서 뺀다. 겹치는 해는 생략(yearLabels).
   const h = rail.getBoundingClientRect().height;
   for (const t of yearLabels(bar, h)) rail.append(Object.assign(document.createElement('span'), {className:'photos-rail-year', textContent:String(t.year), style:`top:${Math.round(t.pos)}px`}));
   const top = items.length ? items[0].day.slice(0, 7) : (from ? from.cursor.t.slice(0, 7) : '');
   const at = bar.find(m => m.key === top) || bar[0];
-  railAt(bar.indexOf(at));
+  // 잡고 있는 동안 목록이 다시 그려져도(더 받기·달 눈금 도착·창 크기) 손잡이·말풍선은 손가락 자리 그대로 — 놓은 뒤에만 지금 달로.
+  if (railDrag) railPoint({clientY:railDrag.y}); else railAt(bar.indexOf(at));
   railWake(RAIL_AWAKE_MS + 700);
 }
 // 손잡이를 막대 위 y(px)에 둔다(위·아래 끝에서 삐져나오지 않게). 위치 줄·연월 이름표는 손잡이 가운데 높이.
@@ -1324,12 +1327,33 @@ function showBubble(m, y) {
   bubble.textContent = monthLabelKo(m.key); thumbTo(y - r.top); markOn();
   rail.setAttribute('aria-valuetext', monthLabelKo(m.key));
 }
-const railPoint = e => { const m = railMonth(e.clientY); if (m && railDrag && m.key !== railDrag.key) navigator.vibrate?.(6); railDrag = m; showBubble(m, e.clientY); };
-rail.addEventListener('pointerdown', e => { e.preventDefault(); rail.setPointerCapture?.(e.pointerId); rail.classList.add('is-drag'); railWake(); railPoint(e); });
-rail.addEventListener('pointermove', e => { if (railDrag) railPoint(e); });
-const railEnd = () => { const m = railDrag; railDrag = null; rail.classList.remove('is-drag'); markOn(); if (m) jumpMonth(m.key); railWake(); };
-rail.addEventListener('pointerup', railEnd);
-rail.addEventListener('pointercancel', () => { railDrag = null; rail.classList.remove('is-drag'); markOn(); railWake(); });
+// S73-11 PHOTO-빠른이동손잡이유지(사용자 11/27 "손으로 잡고 위아래로 움직이다보면 사라짐 … 내가 놓기 전까지"):
+// 잡고 있는 상태의 주인은 railDrag 하나({key, y, id} — 지금 달·손가락 높이·포인터). 누르는 순간 먼저 정하고(전에는 railWake가 먼저 불려
+// 1.8초 숨김 예약이 걸려, 끄는 도중 손잡이가 사라졌다), 놓기·취소·잡기 풀림에서만 지운다. 숨김 예약(railWake·markOn)은 railDrag가 있으면 걸지 않는다.
+const railPoint = e => {
+  const m = railMonth(e.clientY); if (!m || !railDrag) return;
+  if (m.key !== railDrag.key && railDrag.key) navigator.vibrate?.(6);
+  railDrag.key = m.key; railDrag.y = e.clientY; showBubble(m, e.clientY);
+};
+rail.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
+  e.preventDefault(); rail.setPointerCapture?.(e.pointerId);
+  railDrag = {key:'', y:e.clientY, id:e.pointerId};
+  rail.classList.add('is-drag'); railPoint(e); railWake();
+});
+rail.addEventListener('pointermove', e => { if (railDrag && e.pointerId === railDrag.id) railPoint(e); });
+// 놓으면(jump) 그 달로, 취소·잡기 풀림이면 그대로. 둘 다 그 뒤에야 기존 규칙대로 숨김 예약.
+function railStop(jump = false) {
+  const m = railDrag; if (!m) return;
+  railDrag = null; rail.classList.remove('is-drag');
+  if (!rail.hidden) placeRail();
+  if (rail.hasPointerCapture?.(m.id)) rail.releasePointerCapture(m.id);
+  markOn(); if (jump && m.key) jumpMonth(m.key); railWake();
+}
+const railOwn = e => railDrag && e.pointerId === railDrag.id;
+rail.addEventListener('pointerup', e => { if (railOwn(e)) railStop(true); });
+rail.addEventListener('pointercancel', e => { if (railOwn(e)) railStop(); });
+rail.addEventListener('lostpointercapture', e => { if (railOwn(e)) railStop(); });
 rail.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }); // 막대 위 누르기는 아래 사진을 열지 않는다
 rail.addEventListener('pointerenter', e => { if (e.pointerType !== 'mouse') return; railHover = true; railWake(); });
 rail.addEventListener('pointerleave', () => { railHover = false; railWake(); });
@@ -1366,13 +1390,25 @@ function jumpTo(prefix, cursor, label) {
     const mine = up = {cursor, ended:false, loading:null, failed:'', ready:false};
     paintList({full:true});
     const p = loadMore();
-    Promise.resolve(p).then(() => {
+    return Promise.resolve(p).then(() => {
       if (!current(r) || tab !== 'all') return;
       requestAnimationFrame(() => { (find() || body).scrollIntoView({block:'start'}); if (up === mine) { mine.ready = true; watchTop(); } });
     });
-    return;
   }
   requestAnimationFrame(() => find()?.scrollIntoView({block:'start'}));
+  return Promise.resolve();
+}
+// HOME-오늘사진은사진으로(S73-07): 홈 '오늘 사진'에서 온 요청 — [사진] 전체 목록의 그날로 가고, 눌렀던 사진이 있으면 크게 보기로 바로 연다.
+// 뒤로가기는 크게 보기 겹 → [사진] 화면 → 홈(들어올 때 쌓은 기록) 순서로 돌아간다.
+async function showRequestedDay({day, key}) {
+  if (tab !== 'all') setTab('all');
+  if (filter !== 'all') { h$('[data-photos-filter]').value = 'all'; setFilter('all'); }
+  if (level !== 'day') zoomSave('day');
+  const r = run;
+  await jumpTo(day, dayCursor(day), dayHead(day));
+  if (!key || !current(r) || tab !== 'all') return;
+  const index = items.findIndex(x => x.key === key && x.day === day);
+  if (index >= 0) openViewer(index);
 }
 const jumpMonth = key => jumpTo(key, monthCursor(key), key.replace('-', '.'));
 
@@ -3897,6 +3933,8 @@ async function enter() {
   paintSources();
   ensureStars(run).then(() => { if (tab === 'all') paintStars(); });
   render();
+  const wanted = takePhotoDay(ownerScope(rt));
+  if (wanted) await showRequestedDay(wanted);
   if (back) settings.finishReturn(back).then(render);
   startSync(run);
   startGdSync(run);

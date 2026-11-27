@@ -53,6 +53,8 @@ on:
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/button-unify.test.mjs'
       - 'tests/ui-check-unify.test.mjs'
+      - 'tests/select-arrow.test.mjs'
+      - 'tests/screen-open-once.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/ai-button-names.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
@@ -255,6 +257,9 @@ on:
       - 'scripts/ops/stalled-scan-ignore.json'
       - 'tests/ops-stalled-scan.test.mjs'
       - '.github/workflows/stalled-scan.yml'
+      - 'scripts/ops/main-e2e-watch.mjs'
+      - 'tests/ops-main-e2e-watch.test.mjs'
+      - '.github/workflows/main-e2e-watch.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -376,6 +381,8 @@ on:
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/button-unify.test.mjs'
       - 'tests/ui-check-unify.test.mjs'
+      - 'tests/select-arrow.test.mjs'
+      - 'tests/screen-open-once.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/ai-button-names.test.mjs'
       - 'tests/ui-audit-1030.test.mjs'
@@ -569,6 +576,9 @@ on:
       - 'scripts/ops/stalled-scan-ignore.json'
       - 'tests/ops-stalled-scan.test.mjs'
       - '.github/workflows/stalled-scan.yml'
+      - 'scripts/ops/main-e2e-watch.mjs'
+      - 'tests/ops-main-e2e-watch.test.mjs'
+      - '.github/workflows/main-e2e-watch.yml'
       - 'scripts/ci/e2e-shard.mjs'
       - 'tests/ci-e2e-shard.test.mjs'
       - 'scripts/ci/e2e-select.mjs'
@@ -751,6 +761,12 @@ jobs:
       - name: Check checkboxes share one small look (UI-체크칸통일)
         run: node --test tests/ui-check-unify.test.mjs
 
+      - name: Check select arrows are one crisp vector shape (UI-화살표선명)
+        run: node --test tests/select-arrow.test.mjs
+
+      - name: Check screens open once in their final shape (RULE-한번에그리기)
+        run: node --test tests/screen-open-once.test.mjs
+
       - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
         run: node --test tests/ui-cleanup-c.test.mjs
       - name: Check AI button names follow the UI words table (OPS-빠진일2차 4)
@@ -869,6 +885,8 @@ jobs:
         run: node --test tests/ops-work-timing.test.mjs
       - name: Check stalled work daily scan (QA-멈춘일자동점검)
         run: node --test tests/ops-stalled-scan.test.mjs
+      - name: Check main E2E break watch (OPS-main깨짐감시)
+        run: node --test tests/ops-main-e2e-watch.test.mjs
       - name: Check browser E2E shard plan covers every test once (OPS-작업속도)
         run: node --test tests/ci-e2e-shard.test.mjs
 

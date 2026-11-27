@@ -193,8 +193,13 @@ export async function bodyKey(item: Pick<DetailItem, "body">): Promise<string> {
 }
 // 저장본을 버리고 다시 만들 만큼 본문이 바뀌었는가. 지문이 있는 저장본은 지문만 본다(시각은 보지 않음).
 // 지문이 없는 옛 저장본(S69-01 전)만 예전 시각 비교(S68-43)를 한 번 쓴다 — 그대로 쓰면 부르는 쪽이 지금 지문을 적어 둔다.
+// S73-01 NEWS-본문하루: 받은 지 하루 지난 언론 기사는 매일 정리가 본문을 비운다(지금 지문 'none'). 본문으로 만든 저장본(지문 있음)은
+// 본문이 사라진 것이 새 재료가 아니므로 그대로 쓴다 — 버리면 요약만으로 다시 만들어(AI 비용) 더 얕은 요약이 된다.
+export const madeFromBody = (existing: Record<string, unknown> | null) =>
+  !!existing && typeof existing.body_key === "string" && !!existing.body_key && existing.body_key !== "none";
 export function bodyChanged(item: DetailItem, existing: Record<string, unknown> | null, key: string): boolean {
   if (!existing) return false;
+  if (key === "none" && madeFromBody(existing)) return false;
   const saved = existing.body_key;
   if (typeof saved === "string" && saved) return saved !== key;
   return detailOlderThanBody(item, existing);
