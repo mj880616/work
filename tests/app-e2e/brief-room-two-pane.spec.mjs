@@ -86,7 +86,7 @@ for (const [label, width, height] of [['pc-1280', 1280, 860], ['fold-690', 690, 
     const lb = await list(page).boundingBox(), db = await detail(page).boundingBox();
     expect(lb.x + lb.width).toBeLessThanOrEqual(db.x + 1);
     expect(Math.abs(lb.y - db.y)).toBeLessThanOrEqual(4);
-    await expect(page.locator('#briefView .ds-split-handle, #briefView [role="separator"]')).toHaveCount(1);
+    await expect(page.locator('#briefView .ds-split-handle, #briefView [role="separator"]:not(.col-grip)')).toHaveCount(1);
     // 목록 줄: 이름 한 줄 + 넣은 날·크기·종류, 한 줄 요지 없음.
     await expect(list(page).locator('.br-row .fx-name')).toHaveText(['가 예시 계획', '나 예시 공문', '예시 연구 보고서']);
     await expect(list(page)).not.toContainText(LEAD);

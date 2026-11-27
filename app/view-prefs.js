@@ -77,6 +77,8 @@ export const FILES_SOURCE_NAMES = Object.freeze(['od', 'gd']);
 export const FILES_SORT_KEYS = Object.freeze(['name', 'modified', 'size', 'kind']); // files_sort.key (DB 검사와 같음)
 export const NOTE_LIST_SORT_KEYS = Object.freeze(['title', 'folder', 'changed', 'created', 'clip', 'memo', 'chars']); // note_list_sort.key (DB 검사와 같음)
 export const NOTE_COLS = Object.freeze(['folder', 'tags', 'day', 'made', 'clip', 'memo', 'chars', 'pub']); // note_cols 칸 이름(DB 검사와 같음, 이 차례로 보인다)
+// BRIEF-열보이기: brief_cols = 브리핑 룸 목록 '보일 칸'으로 켠 칸(이름은 늘 켜짐이라 없음, 겹침 없음, 3개까지). migration 20261127120000. 적용 전에는 이번 접속만.
+export const BRIEF_COLS = Object.freeze(['day', 'size', 'kind']); // 이 차례로 보인다(DB 검사와 같음)
 export const FILES_SOURCE_DEVICES = Object.freeze(['app', 'phone', 'pc']);
 const filesFlagsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every(name => FILES_SOURCE_NAMES.includes(name) && typeof v[name] === 'boolean');
 // FILES-통합 2-③ 두 칸(S49-30, 명진 결정 H-2): files_two = [파일] 위 줄 [두 칸] 켬을 기기 종류별(app·phone·pc, files_sources와 같은 모양)로,
@@ -181,7 +183,7 @@ export const COL_WIDTH_MIN = 40, COL_WIDTH_MAX = 800;
 const colWidthsOk = v => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0 && Object.keys(v).every(k => COL_NAME_RE.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k]) && v[k] >= COL_WIDTH_MIN && v[k] <= COL_WIDTH_MAX);
 const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort']);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'brief_cols']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -255,6 +257,7 @@ export function validValue(key, value) {
     // migration 20261125100000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(수정일 내림)은 지운다(null).
     case 'note_list_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
       && NOTE_LIST_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');
+    case 'brief_cols': return Array.isArray(value) && value.length <= BRIEF_COLS.length && new Set(value).size === value.length && value.every(v => BRIEF_COLS.includes(v));
     // S70-35 NOTE-목록표머리 ②: note_cols = 노트 [목록] '보일 칸'으로 켠 칸 이름(제목은 늘 켜짐이라 없음, 겹침 없음, 8개까지). migration 20261125110000. 적용 전에는 이번 접속만.
     case 'note_cols': return Array.isArray(value) && value.length <= NOTE_COLS.length && new Set(value).size === value.length && value.every(v => NOTE_COLS.includes(v));
     case 'quiet_weeks': return Number.isInteger(value) && value >= 0 && value <= 12;
@@ -567,6 +570,8 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     getFilesSort: () => prefs.files_sort ?? null,
     getBriefSort: () => prefs.brief_sort ?? null,
     setBriefSort: value => set('brief_sort', value && !(value.key === 'name' && value.dir === 'asc') ? {key: value.key, dir: value.dir} : null, {rejectable: true}),
+    getBriefCols: () => prefs.brief_cols ?? null,
+    setBriefCols: value => set('brief_cols', value, {rejectable: true}),
     getNoteListSort: () => prefs.note_list_sort ?? null,
     getNoteCols: () => prefs.note_cols ?? null,
     setNoteCols: value => set('note_cols', value, {rejectable: true}),

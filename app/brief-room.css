@@ -21,10 +21,21 @@
    칸: 그림 · 이름 · 넣은 날 · 크기 · 종류 · 상태 · ⋯. 목록 칸이 좁으면(두 칸의 왼쪽) 크기·종류 → 넣은 날 순서로 칸을 뺀다(칸 폭 기준 container query). 폴더 줄은 공용 .ft-row. */
 #briefView .br-list{container-type:inline-size;min-width:0}
 #briefView .br-rows{border-top:.5px solid var(--kptu-border)}
-#briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) var(--br-w-day,76px) var(--br-w-size,56px) var(--br-w-kind,44px) auto;column-gap:8px}
+#briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:var(--br-grid,20px minmax(0,1fr) auto);column-gap:8px}
 #briefView .br-rows>.fx-row.br-row{padding-left:calc(8px + var(--br-depth,0) * var(--ft-indent,22px));cursor:default}
 #briefView .br-rows>.fx-row.br-row[role=button]{cursor:pointer}
-#briefView .br-fhead span:nth-child(4){text-align:right}
+/* BRIEF-열보이기: 머리 칸은 data-br-col로 알아본다(켠 칸 수가 달라져도 자리 번호에 기대지 않음). 크기 칸은 오른쪽 맞춤(금에서 12px 비킴). */
+#briefView .br-fhead span{text-align:left}
+#briefView .br-fhead [data-br-col=size]{text-align:right}
+#briefView .br-fhead [data-br-col=size]>.hs-btn{margin-right:12px}
+#briefView .br-fhead{padding:0 12px 0 8px} /* 줄(.br-row)과 같은 좌우 여백 — 머리 칸이 줄 칸과 같은 x */
+#briefView .br-fhead .br-fhead-end{display:flex;justify-content:flex-end;align-items:center;width:24px;min-width:0}
+#briefView .br-fhead .br-cols-btn{min-height:0;height:22px;width:24px;min-width:24px;padding:0;border:0;background:none;box-shadow:none;color:var(--kptu-muted)}
+#briefView .br-fhead .br-cols-btn::after{top:-4px;height:calc(100% + 8px);max-height:26px}
+/* 폭 합이 목록보다 넓어지면 목록을 옆으로 민다(머리·줄이 함께). */
+#briefView .br-list{overflow-x:auto;overscroll-behavior-x:contain}
+#briefView .br-list>.br-fhead,#briefView .br-list>.br-rows-host{min-width:min-content}
+#brColsMenu .br-check{display:inline-block;width:1.2em;color:var(--kptu-primary-ink,var(--kptu-primary))}
 #briefView .br-row .fx-size{text-align:right;color:var(--kptu-muted)}
 #briefView .br-row .fx-day,#briefView .br-row .fx-kind{color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #briefView .br-row .fx-sub{display:none}
@@ -32,12 +43,12 @@
 #briefView .br-row .br-st-retry{display:inline-flex;align-items:center;gap:6px;min-width:0}
 #briefView .br-rows>.ft-row{border-bottom:.5px solid var(--kptu-border)}
 @container (max-width:380px){
-  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) var(--br-w-day,64px) auto}
-  #briefView .br-row :is(.fx-size,.fx-kind),#briefView .br-fhead span:is(:nth-child(4),:nth-child(5)){display:none}
+  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:var(--br-grid-mid,20px minmax(0,1fr) auto)}
+  #briefView .br-row :is(.fx-size,.fx-kind),#briefView .br-fhead :is([data-br-col=size],[data-br-col=kind]){display:none}
 }
 @container (max-width:220px){
-  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:20px minmax(0,1fr) auto}
-  #briefView .br-row .fx-day,#briefView .br-fhead span:nth-child(3){display:none}
+  #briefView .br-rows>.fx-row.br-row,#briefView .br-fhead{grid-template-columns:var(--br-grid-min,20px minmax(0,1fr) auto)}
+  #briefView .br-row .fx-day,#briefView .br-fhead [data-br-col=day]{display:none}
 }
 #briefView .br-row[role=button]{cursor:pointer}
 #briefView .br-row.is-open{background:var(--kptu-surface-soft,var(--kptu-primary-soft))}
