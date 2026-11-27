@@ -15,7 +15,7 @@ import {notify, askText, askConfirm} from './small-notice.js';
 import {openOnScreen} from './source-open.js';
 import {flashDone} from './press-feedback.js';
 import {bindSelectZone} from './text-select-bar.js';
-import {paintMarks, bindMarks, sourceMarks, loadHighlights, onHighlights, saveFromSelection, noteFromSelection, revealMark, markActions} from './text-highlights.js';
+import {paintMarks, bindMarks, sourceMarks, loadHighlights, highlightsNow, onHighlights, saveFromSelection, noteFromSelection, revealMark, markActions} from './text-highlights.js';
 import {detailBody, detailView, detailError, itemKey, RELATED_LABEL, interestHit, needsRead, titlePending, hasMaterial, unreadReason, bodyView, legacyBody, reopenBody, canTranslate, translatedBlocks, translateError, TRANSLATE_FUNCTION, blocksBody, copyArticleText, shareArticleData, canHandFill, handInitial, handRequest, handError, HAND_LIMITS, handPhotoKind, handPhotoLine, insertPhotoLine, insertPhotoLines, ownPhotoOf, photoToken, tokensIn, photoFileError, HAND_PHOTOS_MAX, handPhotoCount, bodyFirstUrl, movedUrlValues, textWithUrls, handNoText, handShort, noMaterialLine, SHORT_SUMMARY_TEXT, canRefetch, canRefetchMenu, unreadLead, isNoMaterial, handBodyRequest, HAND_BODY_MAX, sameDetail, savedUsable} from './now-model.mjs';
 import {clipboardFiles} from './paste-files.mjs';
 import {draftOf, editBlocks, editView, sameBlocks, lostMarks, lostNote, textRows, EDIT_LABEL} from './body-edit-model.mjs';
@@ -327,7 +327,11 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const z = cur && !cur.tr.on ? part('[data-nd-prose]') : null;
     if (!z) return;
     paintMarks(z, sourceMarks(cur.item.type, cur.item.id)); // S70-80: 밑줄 + 형광펜
-    if (cur.reveal && revealMark(z, cur.reveal)) cur.reveal = null;
+    if (cur.reveal && !cur.revealing) { // HL-밑줄위치로: 사진·밑줄 목록이 다 온 뒤 한 번(공용 revealMark). 끝나기 전 다시 그려져도 두 번 부르지 않는다.
+      const c = cur, id = c.reveal, final = !!highlightsNow();
+      c.revealing = true;
+      void revealMark(z, id, {final}).then(r => { c.revealing = false; if (c.reveal !== id) return; if (r || (final && r === false)) c.reveal = null; else if (r === null && cur === c) marksNow(); });
+    }
   }
   function paintActs() {
     if (!cur) return;

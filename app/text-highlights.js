@@ -3,7 +3,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {copyText} from './copy-text.js';
 import {articleOf, knownArticleId} from './feed-shared.js';
 import {notify, askText, askConfirm} from './small-notice.js';
-import {highlightBody, edgesOf, markRanges, noteOf, copyOf, cleanMemo, draftOf, replyNoteOf, MEMO_MAX, MARK_COLORS, MARK_COLOR_NAMES, markColor, isHighlight, isCollected, lastColor, highlightAt} from './text-highlights-model.mjs';
+import {highlightBody, edgesOf, markRanges, spotOf, jumpDelta, noteOf, copyOf, cleanMemo, draftOf, replyNoteOf, MEMO_MAX, MARK_COLORS, MARK_COLOR_NAMES, markColor, isHighlight, isCollected, lastColor, highlightAt} from './text-highlights-model.mjs';
 import {partStyles} from './part-styles.js';
 import {swatchHtml} from './color-swatch.mjs';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
@@ -280,14 +280,65 @@ export function bindMarks(container) {
     markMenu.open(first(mark));
   });
 }
-// [밑줄] 탭에서 글을 열었을 때 그 자리로: 칠한 밑줄로 옮기고 잠깐 강조.
-export function revealMark(zoneEl, id) {
-  const m = zoneEl?.querySelector(`mark.hl-mark[data-hl-id="${CSS.escape(id)}"]`);
-  if (!m) return false;
-  m.scrollIntoView({block: 'center', behavior: 'smooth'});
-  m.focus?.({preventScroll: true});
-  // 잠깐 밝히기: 다른 화면에서 연 기록과 같은 공용 표시(base-ui.css [data-journal-flash], record-flash.js). 끝나면 노란 밑줄 그대로.
-  m.removeAttribute('data-journal-flash'); void m.offsetWidth; m.setAttribute('data-journal-flash', '');
-  m.addEventListener('animationend', () => m.removeAttribute('data-journal-flash'), {once: true});
-  return true;
+// HL-밑줄위치로(2026-11-28 사용자 "밑줄 위치로 자동 이동했으면 좋겠어 찾기 어려워서"): 밑줄 줄(노트 › 밑줄·저장한 글 [밑줄]·News [밑줄])에서 글을 열었을 때 그 자리로 가는 공용 길 하나.
+// 글 칸의 주인이 본문을 다 그리고 paintMarks까지 마친 뒤 한 번 부른다(늦게 오는 본문은 그 주인이 그린 뒤에 부름 — 여기서 기다리거나 setTimeout으로 다시 시도하지 않는다).
+// - 저장한 밑줄 정보(앞뒤 글 포함, markRanges)로 칠한 <mark>를 우선, 없으면 같은 문장을 찾아 가장 가까운 곳(spotOf), 그래도 없으면 false(맨 위 그대로 — final이면 짧은 안내 한 번).
+// - 가려지지 않는 자리로: 머리 줄(--kptu-stick-top) 아래·하단바(--kptu-mobile-tab-height) 위 띠 안(jumpDelta). 곧바로 옮기고(부드러운 스크롤은 도중에 끊긴다) 잠깐 밝힌다.
+// - 글 안 사진이 아직 안 왔으면 그 사진이 오기를 기다렸다가 한 번 옮긴다(오고 나면 자리가 밀리므로). 기다리는 동안 손가락·키로 스크롤하면 사용자 뜻이 먼저라 옮기지 않는다.
+// 답: 'exact'(저장한 자리) | 'near'(같은 문장) | false(못 찾음) | null(기다리는 사이 칸이 다시 그려져 못 옮김 — 새 칸에서 다시). final: 이제 더 기다릴 게 없다(본문·밑줄 목록 모두 도착) — 못 찾으면 안내를 띄운다.
+export const REVEAL_GONE = '원문이 바뀌었어요 · 밑줄 자리를 못 찾아 글 맨 위에서 열었어요 · 밑줄은 그대로 있어요';
+const probePx = (host, css) => { const p = document.createElement('span'); p.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;height:${css};width:0`; host.append(p); const v = p.getBoundingClientRect().height; p.remove(); return Number.isFinite(v) ? v : 0; };
+function scrollerOf(el) {
+  for (let n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
+  }
+  return null;
+}
+function imagesReady(zoneEl) {
+  const pending = [...zoneEl.querySelectorAll('img')].filter(img => !img.complete);
+  for (const img of pending) if (img.loading === 'lazy') img.loading = 'eager'; // 늦게 그려지는 사진도 지금 받게(받은 뒤 자리가 밀리지 않게)
+  return Promise.all(pending.map(img => new Promise(done => { img.addEventListener('load', done, {once: true}); img.addEventListener('error', done, {once: true}); })));
+}
+function textRect(zoneEl, start, end) {
+  const w = document.createTreeWalker(zoneEl, NodeFilter.SHOW_TEXT);
+  let pos = 0, from = null, to = null;
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    const len = n.data.length;
+    if (!from && start < pos + len) from = {n, o: start - pos};
+    if (end <= pos + len) { to = {n, o: Math.max(0, end - pos)}; break; }
+    pos += len;
+  }
+  if (!from || !to) return null;
+  const r = document.createRange();
+  try { r.setStart(from.n, from.o); r.setEnd(to.n, to.o); } catch { return null; }
+  return r.getClientRects()[0] || null;
+}
+export async function revealMark(zoneEl, id, {final = false} = {}) {
+  if (!zoneEl || !id) return false;
+  const marks = [...zoneEl.querySelectorAll(`mark.hl-mark[data-hl-id="${CSS.escape(id)}"]`)];
+  const row = highlightById(id);
+  const spot = marks.length || !row ? null : spotOf(zoneEl.textContent, row);
+  if (!marks.length && !spot) { if (final) notify(REVEAL_GONE, {record: false}); return false; }
+  let moved = true;
+  const stop = () => { moved = false; };
+  const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+  for (const t of events) window.addEventListener(t, stop, {passive: true, once: true});
+  try { await imagesReady(zoneEl); } finally { for (const t of events) window.removeEventListener(t, stop); }
+  if (!zoneEl.isConnected) return null; // 기다리는 사이 글 칸이 다시 그려졌다 — 부른 쪽이 새 칸에서 다시 부른다
+  const rect = marks.length ? marks[0].getClientRects()[0] || marks[0].getBoundingClientRect() : textRect(zoneEl, spot.start, spot.end);
+  if (!rect) { if (final) notify(REVEAL_GONE, {record: false}); return false; }
+  if (moved) {
+    const sc = scrollerOf(zoneEl), box = sc?.getBoundingClientRect();
+    const top = sc ? box.top : probePx(zoneEl, 'var(--kptu-stick-top,0px)'), bottom = sc ? box.bottom : innerHeight - probePx(zoneEl, 'calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom,0px))');
+    const d = jumpDelta({top: rect.top, height: rect.height, bandTop: top + 8, bandBottom: bottom - 8});
+    if (d) { if (sc) sc.scrollTop += d; else window.scrollBy({top: d, behavior: 'instant'}); }
+  }
+  marks[0]?.focus?.({preventScroll: true});
+  // 잠깐 밝히기: 다른 화면에서 연 기록과 같은 공용 표시(base-ui.css [data-journal-flash], record-flash.js). 끝나면 노란 밑줄 그대로. 한 밑줄이 여러 마디면 모두.
+  for (const m of marks) {
+    m.removeAttribute('data-journal-flash'); void m.offsetWidth; m.setAttribute('data-journal-flash', '');
+    m.addEventListener('animationend', () => m.removeAttribute('data-journal-flash'), {once: true});
+  }
+  return marks.length ? 'exact' : 'near';
 }

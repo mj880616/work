@@ -91,9 +91,11 @@ function world({gdConn={[WS]:'synthetic-gd-refresh'},gdScope=FULL,odScope='Files
   if(u.host==='oauth2.googleapis.com'&&u.pathname==='/token')return ok({access_token:GD_ACCESS,scope:gdScope,expires_in:3600});
   if(u.host==='login.microsoftonline.com'){const b=new URLSearchParams(init.body);assert.equal(b.get('scope'),'Files.ReadWrite offline_access User.Read');
    return ok({access_token:OD_ACCESS,refresh_token:'synthetic-refresh-2',expires_in:3600});}
-  // 구글 DELETE는 영구 삭제다: 어떤 경우에도 보내지 않는다. 원드라이브 DELETE는 items/{id}(휴지통)만.
-  if(u.host==='www.googleapis.com')assert.notEqual(method,'DELETE','Google DELETE is a permanent delete');
-  if(method==='DELETE')assert.match(u.pathname,/^\/v1\.0\/me\/drive\/items\/[^/]+$/,'only OneDrive recycle-bin delete');
+  // 구글 DELETE는 영구 삭제다: 휴지통에 있는 내 파일(내 드라이브, 지울 수 있음)에만 간다(FILES-휴지통영구삭제 purge). 원드라이브 DELETE는 items/{id}(휴지통)만.
+  if(u.host==='www.googleapis.com'&&method==='DELETE'){const gm=/^\/drive\/v3\/files\/([A-Za-z0-9_-]+)$/.exec(u.pathname);assert.ok(gm,'Google DELETE only on one file');
+   assert.equal(u.search,'','no query on Google DELETE (no supportsAllDrives)');const f=gdFile(gm[1]);
+   assert.ok(f&&f.trashed===true&&f.ownedByMe===true&&!f.driveId&&f.canDelete!==false,'Google DELETE only for my trashed deletable file');}
+  else if(method==='DELETE')assert.match(u.pathname,/^\/v1\.0\/me\/drive\/items\/[^/]+$/,'only OneDrive recycle-bin delete');
   if(method!=='GET')writes.push({method,host:u.host,path:u.pathname,search:u.search,body:typeof init.body==='string'?JSON.parse(init.body):null});
   if(method==='GET'&&u.host==='sn1.up.1drv.com'){assert.equal(h.Authorization,undefined,'upload status gets no token');const up=uploads[url];
    if(!up||up.gone)return ok({error:{}},404);return ok({nextExpectedRanges:[up.bytes.length+'-']});}
@@ -129,6 +131,9 @@ function world({gdConn={[WS]:'synthetic-gd-refresh'},gdScope=FULL,odScope='Files
     if(b.name)f.name=b.name;if(b.trashed===true)f.trashed=true;if(b.trashed===false)f.trashed=false;
     if(u.searchParams.get('addParents')){assert.deepEqual(u.searchParams.get('removeParents').split(','),f.parents);f.parents=[u.searchParams.get('addParents')];}
     return ok({...f});}
+   if(wm&&method==='DELETE'){const f=gdFile(wm[1]);if(gd.purgeFail===wm[1])return ok({error:{}},500);gd.trash=(gd.trash||[]).filter(x=>x.id!==f.id);(gd.purged||=[]).push(f.id);return new Response(null,{status:204});}
+   if(wm&&method==='GET'&&u.searchParams.get('fields')==='id,trashed,ownedByMe,driveId,capabilities(canDelete)'){const f=gdFile(wm[1]);if(!f)return ok({error:{}},404);
+    return ok({id:f.id,trashed:f.trashed===true,ownedByMe:f.ownedByMe,...(f.driveId?{driveId:f.driveId}:{}),capabilities:{canDelete:f.canDelete!==false}});}
    if(wm&&method==='GET'&&u.searchParams.get('fields')==='id,trashed,ownedByMe'){const f=gdFile(wm[1]);if(!f)return ok({error:{}},404);return ok({id:f.id,trashed:f.trashed===true,ownedByMe:f.ownedByMe});}
    if(P==='/files'&&u.searchParams.get('q')==="'me' in owners and trashed=true"){gd.trashLists=(gd.trashLists||0)+1;assert.equal(u.searchParams.get('pageSize'),'100');const tok=u.searchParams.get('pageToken');const all=(gd.trash||[]).filter(f=>f.trashed===true);const i=tok?Number(tok):0;
     return ok({files:all.slice(i,i+2),...(i+2<all.length?{nextPageToken:String(i+2)}:{})});}
@@ -354,17 +359,26 @@ test('helpers: rows, open url hosts, served types',()=>{
  for(const t of ['image/jpeg','video/mp4','application/pdf','text/plain; charset=utf-8'])assert.equal(servedType(t).inline,true,t);
 });
 
-test('static: no permanent delete, trash emptying, sharing links, permission or owner changes; Google never gets DELETE',()=>{
+test('static: no trash emptying, sharing links, permission or owner changes; Google DELETE only in purge after the trash check',()=>{
  const src=read('supabase/functions/cloud-files/handler.ts')+read('supabase/functions/cloud-files/index.ts');
  const code=src.split('\n').filter(l=>!l.trim().startsWith('//')).join('\n');
- for(const bad of [/permanentDelete/i,/emptyTrash/i,/createLink/i,/\/invite\b/i,/\/permissions/i,/transferOwnership/i,/files\.delete/i,/Files\.ReadWrite\.All/,
+ for(const bad of [/permanentDelete/i,/emptyTrash/i,/\/trash\b/,/createLink/i,/\/invite\b/i,/\/permissions/i,/transferOwnership/i,/Files\.ReadWrite\.All/,
   /\/restore\b/i,/supportsAllDrives/i])assert.doesNotMatch(code,bad,String(bad));
- // DELETE는 원드라이브 휴지통 한 곳(toTrash)에서만, 구글로는 PATCH trashed:true만.
- assert.equal((code.match(/"DELETE"\)/g)||[]).length,1,'one OneDrive recycle-bin DELETE call');
+ // DELETE는 원드라이브 휴지통 한 곳(toTrash)과 구글 휴지통 영구 삭제 한 곳(purge)뿐. 휴지통으로 보낼 때 구글은 PATCH trashed:true만.
+ assert.equal((code.match(/"DELETE"\)/g)||[]).length,2,'OneDrive recycle-bin DELETE + Google purge DELETE');
+ const purge=code.slice(code.indexOf('async purge('),code.indexOf('async across('));
+ assert.match(purge,/gd_purge", token, `\$\{DRIVE\}\/files\/\$\{encodeURIComponent\(id\)\}`, "DELETE"\)/,'Google DELETE is only the purge call');
+ assert.equal((code.match(/gd_purge", token/g)||[]).length,1);
+ const pickAt=purge.indexOf('gd_purge_pick'),delAt=purge.indexOf('"gd_purge", token');
+ assert.ok(pickAt>0&&pickAt<delAt,'purge asks Google about the file before DELETE');
+ assert.match(purge,/f\.trashed !== true \|\| f\.ownedByMe !== true \|\| f\.driveId !== undefined/);
+ assert.match(purge,/caps\?\.canDelete !== true/);
+ assert.match(purge,/ids\.length > PURGE_MAX/);
+ assert.doesNotMatch(purge,/log\([^)]*\bid\b/,'no file id in logs');
  assert.match(code,/od_trash", token, `\$\{GRAPH\}\/me\/drive\/items\/\$\{encodeURIComponent\(id\)\}`, "DELETE"\)/);
  assert.match(code,/gd_trash", token, `\$\{DRIVE\}\/files\/[^`]+`, "PATCH", \{ trashed: true \}\)/);
  // 모든 쓰기 action은 confirm:true를 먼저 본다.
- for(const a of ['rename','mkdir','move','trash','untrash','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
+ for(const a of ['rename','mkdir','move','trash','untrash','purge','across','copy','job_add','job_pause','job_resume'])assert.match(code,new RegExp(`async ${a}\\(\\{[^}]*\\}\\) \\{\\n\\s*mustConfirm\\(b\\);`),a);
  // S62-11: 운영자 기능 키·단 하나 작업공간 판정 없음. 구글 갱신 토큰은 작업공간별 연결 행에서만.
  assert.doesNotMatch(code,/app_my_features|app_operator_feature_workspace|DRIVE_WORKSPACE_SLUG|kptu-work|feature_required"\)/);
  assert.doesNotMatch(code,/public_policy_drive_config[^"`]*google_refresh_token/);
@@ -1199,4 +1213,62 @@ test('trash: Google trash list (mine, explicitly trashed, paged), untrash only m
  assert.deepEqual(sent.map(x=>[x.method,x.path,x.body]),[['PATCH','/drive/v3/files/GT1',{trashed:false}]]);
  assert.equal(w.gd.trash[0].trashed,false);
  assert.ok(w.db.items.some(x=>x.workspace_id===WS&&x.source==='gd'&&x.item_id==='GT1'&&x.parent_id==='GF1'&&x.trashed===false),'되살린 줄은 색인에 들어간다');
+});
+
+// FILES-휴지통영구삭제(사용자 결정 2026-11-28 "1 서버에 길을 둬요"): 구글 휴지통 영구 삭제는 confirm:true, 1~100개, 줄마다 구글에 다시 물어
+// 휴지통에 있고·내 것이고·내 드라이브이고·지울 수 있는 것만 DELETE. 휴지통 밖·남의 것·공유 드라이브·지울 수 없는 것은 그 줄만 실패. 원드라이브는 길 없음.
+test('purge: Google trash only — my trashed deletable My Drive files, confirm, cap 100; others refused per row',async()=>{
+ const w=world();
+ w.gd.trash=[
+  {id:'GP1',name:'지울 것.pdf',mimeType:'application/pdf',parents:['GF1'],size:'3',trashed:true,explicitlyTrashed:true,ownedByMe:true},
+  {id:'GP2',name:'지울 폴더',mimeType:'application/vnd.google-apps.folder',parents:['ROOTG'],trashed:true,explicitlyTrashed:true,ownedByMe:true},
+  {id:'GP3',name:'남의 것',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:false},
+  {id:'GP4',name:'공유 드라이브',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:true,driveId:'SD1'},
+  {id:'GP5',name:'못 지움',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:true,canDelete:false},
+ ];
+ await w.post({action:'sync'});
+ // 휴지통 밖 파일(GA는 내 드라이브 색인에 있는 보통 파일)은 지우지 않는다.
+ assert.ok(w.gd.pages.flat().some(x=>x.id==='GA'&&x.trashed!==true),'GA is a normal file');
+ // 남아 있던 옛 색인 줄(휴지통 줄)은 함께 빠진다.
+ w.db.items.push({workspace_id:WS,source:'gd',item_id:'GP1',parent_id:'GF1',name:'지울 것.pdf',is_folder:false,trashed:true});
+ assert.deepEqual(await j(await w.post({action:'purge',source:'gd',ids:['GP1']})),{status:400,body:{ok:false,error:'confirm_required'}});
+ assert.equal((await w.post({action:'purge',source:'od',ids:['OX!3'],confirm:true})).status,400,'OneDrive has no purge');
+ assert.equal((await w.post({action:'purge',source:'gd',ids:[],confirm:true})).status,400);
+ assert.equal((await w.post({action:'purge',source:'gd',ids:['bad id!'],confirm:true})).status,400);
+ assert.equal((await w.post({action:'purge',source:'gd',ids:['GP1','GP1'],confirm:true})).status,400,'no duplicates');
+ const many=Array.from({length:101},(_,i)=>'GZ'+i);
+ assert.deepEqual(await j(await w.post({action:'purge',source:'gd',ids:many,confirm:true})),{status:400,body:{ok:false,error:'ids_invalid'}},'cap 100');
+ assert.equal((await w.post({action:'purge',source:'gd',ids:['GP1'],confirm:true},'nope')).status,401);
+ // 다른 작업공간(구글 연결 없음)은 자기 연결이 없어 거절 — 이 작업공간 파일을 지우지 않는다.
+ const other=await j(await w.post({action:'purge',source:'gd',ids:['GP1'],confirm:true},JWT2));
+ assert.notEqual(other.status,200);
+ assert.equal(w.gd.purged,undefined,'nothing purged so far');
+ const n=w.writes.length;
+ const r=await j(await w.post({action:'purge',source:'gd',ids:['GP1','GP2','GP3','GP4','GP5','GA','GNONE'],confirm:true}));
+ assert.equal(r.status,200);
+ assert.deepEqual(r.body.removed.map(x=>x.id).sort(),['GP1','GP2']);
+ assert.ok(r.body.removed.every(x=>x.source==='gd'));
+ assert.deepEqual(r.body.failed.map(x=>[x.id,x.error]).sort(),[['GA','not_in_trash'],['GNONE','not_found'],['GP3','not_in_trash'],['GP4','not_in_trash'],['GP5','cannot_delete']]);
+ assert.deepEqual(r.body.left,[]);
+ assert.deepEqual(w.gd.purged.sort(),['GP1','GP2']);
+ const sent=w.writes.slice(n).filter(x=>x.host==='www.googleapis.com');
+ assert.deepEqual(sent.map(x=>[x.method,x.path]).sort(),[['DELETE','/drive/v3/files/GP1'],['DELETE','/drive/v3/files/GP2']],'only DELETE on the two checked files');
+ assert.ok(!w.db.items.some(x=>x.workspace_id===WS&&x.source==='gd'&&x.item_id==='GP1'),'stale index row removed');
+ assert.ok(w.db.items.some(x=>x.workspace_id===WS&&x.source==='gd'&&x.item_id==='GA'),'GA stays');
+ // 구글이 실패하면 그 줄만 실패(지운 것으로 치지 않음).
+ w.gd.trash.push({id:'GP6',name:'x',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:true});
+ w.gd.purgeFail='GP6';
+ const f=await j(await w.post({action:'purge',source:'gd',ids:['GP6'],confirm:true}));
+ assert.deepEqual(f.body.removed,[]);
+ assert.deepEqual(f.body.failed,[{id:'GP6',error:'cloud_unavailable'}]);
+});
+
+test('purge: logs carry stage codes only (no file id or name)',async()=>{
+ const w=world();
+ w.gd.trash=[{id:'GLOGSECRET1',name:'비밀 이름.pdf',mimeType:'application/pdf',parents:['X'],trashed:true,explicitlyTrashed:true,ownedByMe:true}];
+ w.gd.purgeFail='GLOGSECRET1';
+ const seen=[];const orig=console.error;console.error=(...a)=>{seen.push(a.join(' '));};
+ try{await w.post({action:'purge',source:'gd',ids:['GLOGSECRET1'],confirm:true});}finally{console.error=orig;}
+ assert.ok(seen.some(x=>x.includes('gd_purge_500')),'stage code logged');
+ assert.ok(!seen.some(x=>x.includes('GLOGSECRET1')||x.includes('비밀 이름')),'no id or name in logs');
 });
