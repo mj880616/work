@@ -23,7 +23,7 @@
 1. **빠른 까닭 = 서버 색인**. 두 클라우드의 파일 목록(이름·부모 폴더·크기·바뀐 날·종류·해시)을 Web2 DB 색인 표에 미리 두고, 화면은 색인에서 바로 그린다. 폴더 이동·정렬·검색은 클라우드를 부르지 않는다. 바뀐 것만 따라가는 길(원드라이브 delta, 구글 changes)로 색인을 갱신한다. 파일 **본문은 열 때만** 원본에서 받는다. 색인에 내용은 넣지 않는다.
 2. **새 Edge 함수 `cloud-files` 하나**(`verify_jwt=true`). 사진 함수(`onedrive-photos`·`gdrive-photos`)를 넓히지 않는다 — 두 함수의 보안 경계는 "고른 사진 폴더 안만"이라 파일 전체 탐색과 경계가 다르다. 토큰 읽기·Graph·Drive 호출 코드는 `_shared/`로 옮겨 함께 쓴다(복사 금지).
 3. **새 OAuth 권한은 필요 없다** [사실]. 원드라이브는 이미 `Files.ReadWrite offline_access User.Read`(`onedrive-photos/graph.ts:3`), 구글은 이미 `https://www.googleapis.com/auth/drive`(`public-policy-drive`가 요청, `gdrive-photos`가 `scopeHas`로 확인). 넓히는 것은 OAuth 범위가 아니라 **우리 함수 코드의 경계**(사진 폴더 → 드라이브 전체)이고, 그래서 새 기능 키 `files`로 운영자 작업공간에만 연다.
-4. **지우기는 그 클라우드의 휴지통으로만**, 영구 삭제·휴지통 비우기·외부 공유 링크 만들기는 함수에 아예 넣지 않는다. 폰 '공유'는 파일을 받아 폰 공유 창으로 넘기는 것(클라우드 공유 링크 아님).
+4. **지우기는 그 클라우드의 휴지통으로만**, 영구 삭제·휴지통 비우기·외부 공유 링크 만들기는 함수에 아예 넣지 않는다. (2026-11-28 사용자 결정 FILES-휴지통영구삭제: 구글 휴지통에 이미 있는 내 파일만 서버 확인 뒤 영구 삭제 가능 — 7절 `purge`.) 폰 '공유'는 파일을 받아 폰 공유 창으로 넘기는 것(클라우드 공유 링크 아님).
 5. **폴더 나무는 사진과 같은 부품**. PHOTO-드라이브폴더통일이 사진의 원드라이브·구글 폴더 나무를 한 부품으로 모으므로, 파일 메뉴는 그 부품을 그대로 쓴다(그 PR 뒤에 줄 세움).
 6. PR은 8개로 나눈다(6절). DB(②)·Edge(③) 직전에 정지.
 
@@ -47,7 +47,7 @@
 - **누가**: 운영자 작업공간 owner만. `cloud-files`는 매 요청마다 ① 로그인 확인 ② owner ③ 로그인 토큰으로 `app_my_features()`에 `files` ④ (구글) `app_operator_feature_workspace('files')`가 Drive 연결 작업공간과 같음 ⑤ (원드라이브) 그 작업공간의 `app_onedrive_connections` 행. 화면 숨김은 권한이 아니다 — 메뉴는 `app_my_features()`에 `files`가 있을 때만 그리되, 막는 것은 서버다.
 - **무엇을**: 사용자 본인 연결의 드라이브 전체(내 파일). 구글 '공유 문서함'(남이 공유한 파일)은 1단계 색인에서 뺀다(`'me' in owners` 또는 내 드라이브 부모 기준, [추정] 결정 Q6). 공유 드라이브(팀 드라이브)도 뺀다.
 - **새 범위**: 없음(1절 3). 만약 원드라이브 휴지통 되살리기를 앱 안에서 하려면 `Files.ReadWrite.All`이 필요 [사실, photo-menu.md 2.3] → **하지 않는다**. 되살리기는 각 클라우드 화면에서(Q1).
-- **함수에 넣지 않는 것**: 영구 삭제(`files.delete`·Graph permanentDelete), 휴지통 비우기, 공유 링크·권한 만들기(Graph `createLink`·`invite`, Drive `permissions.create`), 소유자 바꾸기. 시험(`tests/security/`)에서 이 호출 문자열이 함수 코드에 없음을 검사한다.
+- **함수에 넣지 않는 것**: 휴지통 밖 파일의 영구 삭제·원드라이브 영구 삭제(Graph permanentDelete), 휴지통 비우기(`emptyTrash`), 공유 링크·권한 만들기(Graph `createLink`·`invite`, Drive `permissions.create`), 소유자 바꾸기. 시험(`tests/security/`)에서 이 호출 문자열이 함수 코드에 없음을 검사한다.
 - **쓰기 규칙**: 이름 바꾸기·새 폴더·옮기기·휴지통은 `confirm:true` 한 번 + 한 번에 최대 200개. 자동·예약 쓰기 없음. 휴지통으로 보내기는 화면에서 '되돌리기는 원드라이브/구글 드라이브 휴지통에서' 한 줄을 확인 창에 보임.
 - **색인 표**: RLS 켬. 화면은 owner 읽기만(정책: `private.app_is_workspace_owner(workspace_id)` + `private.app_workspace_has_feature(workspace_id,'files')`). 쓰기는 service role(`cloud-files`)만. anon·PUBLIC 권한 없음.
 - **토큰**: 서버에서만. 화면에는 토큰·임시 받기 주소를 오래 남기지 않는다. 올리기(5절)만 예외로 클라우드가 준 한 파일짜리 올리기 주소를 화면이 쓴다 — 그 주소는 그 파일 하나에만 쓰이고 몇 시간 안에 끝난다 [추정]. 로그·PR에 남기지 않는다.
@@ -160,6 +160,7 @@ F1 원드라이브 자체 휴지통 / F2 열 때 + 2분마다 바뀐 것만 + �
 - Edge `cloud-files` 쓰기 action 5개(모두 `confirm:true`, 대상은 그 작업공간 색인 안·휴지통 아님, 결과 줄을 같은 요청 안에서 색인에 반영):
   `rename`(같은 폴더 같은 이름 거절) · `mkdir` · `move`(같은 클라우드, 1~200개, 4개씩 동시·40초 안, 남은 것은 `left`로 돌려주고 화면이 이어 부름, 폴더를 자기 아래로 금지)
   · `trash`(F1: 원드라이브 `DELETE /me/drive/items/{id}` = 원드라이브 휴지통, 구글 `trashed:true`. 폴더면 색인에서 그 아래까지 뺌)
+  · (FILES-휴지통영구삭제, 사용자 결정 2026-11-28 "1 서버에 길을 둬요") `purge`: 구글 휴지통의 내 파일만 영구 삭제. `confirm:true`, 1~100개, 줄마다 구글에 `trashed`·`ownedByMe`·`driveId` 없음(내 드라이브)·`capabilities.canDelete`를 다시 물은 뒤에만 `DELETE /files/{id}`. 기존 `drive` 범위 그대로(새 범위 없음), 로그는 단계·상태 숫자만
   · `across`(F8: 파일 1개·200MB, 구글 문서류·폴더 안 됨. 원본을 받는 대로 이어 올리기 10MiB 조각으로 보내며 MD5·SHA-1을 세고,
   보낸 크기 = 원본 크기 = 새 파일 크기, 원본 색인 해시·새 파일 해시가 맞을 때만 원본을 휴지통으로. 안 맞으면 새 것을 휴지통으로 보내고 원본은 그대로).
 - 이름 규칙은 자료실 이름 고치기와 같은 `_shared/file-rename-name.mjs`(화면도 같은 파일로 미리 막음).
