@@ -185,7 +185,7 @@ for (const width of [1280, 390]) test(`휴지통 줄은 얇고 단추에 테두�
   for (const r of await rows.all()) expect((await r.boundingBox()).height).toBeLessThanOrEqual(46);
   const quiet = async l => expect(await l.evaluate(e => { const c = getComputedStyle(e); return [c.borderTopWidth === '0px' || c.borderTopColor === 'rgba(0, 0, 0, 0)', c.backgroundColor]; })).toEqual([true, 'rgba(0, 0, 0, 0)']);
   await quiet(rows.first().locator('[data-nxt-restore]'));
-  await quiet(rows.first().locator('summary'));
+  await expect(rows.first().locator('summary')).toHaveClass(/icon-btn/); // ⋯는 공용 아이콘 단추(네모 칸 없음은 공용 규칙이 맡는다)
   await quiet(box.locator('[data-nxt-empty-all]'));
   await expect(rows.first().locator('[data-nxt-restore]')).toHaveText('되살리기');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
