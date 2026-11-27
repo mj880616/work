@@ -5,7 +5,7 @@
 // ① 사진: 일기와 같은 목록(일기에 넣은 사진 + 원드라이브 그날 사진 + 폰 앱이면 폰 사진, 이 기기 사진 출처 설정 그대로)을 읽어
 //    home-day-photos-model.mjs 규칙(별표 → 일정 시간 → 나머지 → 캡처, 연속 촬영 하나만)으로 늘어놓는다. AI·서버 저장 없음.
 //    목록·그림은 이 탭 메모리에만 있다. 일기 쪽 저장 코드(사진 넣기·지우기·별표 바꾸기)는 부르지 않는다(읽기만).
-//    칸은 공용 사진 칸(.act-photo-thumb, ui-standard.css) — 화면 폭에 들어가는 만큼 한 줄, 넘치면 마지막 칸 '+n'. 누르면 그날 일기(사진 보기).
+//    칸은 공용 사진 칸(.act-photo-thumb, ui-standard.css) — 화면 폭에 들어가는 만큼 한 줄, 넘치면 마지막 칸 '+n'. 누르면 [사진] 화면의 그날(썸네일은 그 사진 크게 보기).
 // ②·③: 서버(ai-assist)가 고른 결과를 받아 그리기만 한다(home-day-picks-model.mjs로 거름). 결과가 없으면 칸째 없다.
 //    AI 한도에 닿았으면(limit) ② 칸 머리에 기존 한도 알림 한 줄을 보인다(고른 것이 없어도 칸째 숨기지 않음). 일기를 쓴 제안(done)은 그리지 않는다.
 //    [일기 쓰기]는 공용 ② 작은 버튼(button.secondary). 누르면 부르는 화면이 일기 쓰기를 연다(onWrite).
@@ -124,7 +124,7 @@ function thumbOf(k, item, rt) {
   return k.diary.photoElement(item.row, item.file, 'small', opts);
 }
 
-// host: 세 칸이 들어갈 자리. onOpenDay(day): 그날 사진 보기(일기). onWrite(day, text, id): 일기 쓰기 열기.
+// host: 세 칸이 들어갈 자리. onOpenDay(day, key): [사진] 화면의 그날(key가 있으면 그 사진 크게 보기). onWrite(day, text, id): 일기 쓰기 열기.
 export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, onDrop = () => {}, readPhotos = readDayPhotos, readMarks = readReadMarks} = {}) {
   // HOME-오늘사진빨리 ③: '오늘 사진' 칸은 [하루]를 그릴 때 처음부터 자리(제목 + 사진 한 줄 높이)를 차지하고, 사진은 받는 대로 그 자리에 채운다.
   host.innerHTML = '<section class="journal-group journal-photos" data-journal-photos>'
@@ -318,7 +318,8 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
   host.addEventListener('click', event => {
     if (!last) return;
     if (event.target.closest('[data-journal-photos-retry]')) { ensurePhotos(last.day, {force:true}); return; }
-    if (event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]')) { onOpenDay(last.day); return; }
+    const photoBtn = event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]');
+    if (photoBtn) { onOpenDay(last.day, photoBtn.matches('[data-journal-photo]') ? photoBtn.dataset.journalPhotoKey || '' : ''); return; } // 썸네일 = 그 사진 크게 보기, +n·[사진 보기] = 그날 목록
     const offMore = event.target.closest('[data-home-off-more]');
     if (offMore) { openHomeOffMenu(offMore, offMore.dataset.homeOffMore); return; }
     const drop = event.target.closest('[data-journal-suggest-drop]');

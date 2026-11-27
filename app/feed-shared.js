@@ -67,7 +67,7 @@ export async function readNewsOne(id, cols) {
   const w = workspaceOf();
   return flatNews(first(await rt().api(`/rest/v1/${T.news.art}?id=eq.${q(aid)}&select=${articleCols(cols)},${mine(w)}&limit=1`, {singleFlight: false})));
 }
-// 내가 보관한 기사(읽을 거리 줄이 가리키는 것, 최근 보관 먼저). 별표 폴더 칸·보관 목록이 쓴다.
+// 내가 저장한 기사(읽을 거리 줄이 가리키는 것, 최근 보관 먼저). 별표 폴더 칸·보관 목록이 쓴다.
 const R = '/rest/v1/app_reading_items';
 export async function readNewsStarred(cols, limit = 300, offset = 0) {
   const w = workspaceOf();
@@ -80,7 +80,7 @@ export async function readNewsKeywordHits(word, cols, limit) {
   const rows = await rt().api(`/rest/v1/${T.news.mark}?workspace_id=eq.${q(w)}&hidden_at=is.null&keywords=cs.${q(pgTextArray([word]))}&select=folder_id,hidden_at,keywords,${T.news.art}(${articleCols(cols)},${SAVED_EMBED})&${T.news.art}.app_reading_items.workspace_id=eq.${q(w)}&order=created_at.desc,article_id.desc&limit=${limit}`, {singleFlight: false});
   return (Array.isArray(rows) ? rows : []).map(flatNewsMark).filter(Boolean);
 }
-// S63-11 서버 찾기([전체]·[언론] 위 찾기 칸, news-find-model.mjs): 최근 기사(since 뒤 받은 것) + 내가 보관한 기사(읽을 거리 줄, 기간 없음)에서 제목·한국어 제목·요약.
+// S63-11 서버 찾기([전체]·[언론] 위 찾기 칸, news-find-model.mjs): 최근 기사(since 뒤 받은 것) + 내가 저장한 기사(읽을 거리 줄, 기간 없음)에서 제목·한국어 제목·요약.
 // keys: 고른 매체(news- 키, null = 모두). 숨긴 것은 뺀다. 돌려줌: {recent, kept}(옛 뉴스 줄 모양).
 export async function findNewsArticles(words, cols, {since, limit, keys = null}) {
   const w = workspaceOf(), or = q(ilikeAny(NEWS_FIND_COLS, words));

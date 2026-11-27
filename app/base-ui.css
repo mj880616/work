@@ -569,11 +569,18 @@ textarea[data-autogrow][data-enter-field]{line-height:1.4}
    표준 속성만 쓴다(크롬 121+·삼성 인터넷은 표준 속성이 있으면 ::-webkit-scrollbar를 무시). 마우스를 올린 칸만 조금 진하게. 막대를 숨긴 곳(scrollbar-width:none)은 그대로. */
 /* 11/24 명진 "위아래 삼각형 너무 별로": 윈도 크롬·앱은 표준 속성(scrollbar-width/color)을 쓰면 위아래 화살표 단추가 붙는다.
    그래서 ::-webkit-scrollbar를 아는 곳(크롬·엣지·삼성 인터넷·폰 앱)은 화살표 없는 가는 막대로 그리고, 표준 속성은 그 밖(파이어폭스)에만 쓴다. */
-:where(html, body, *)::-webkit-scrollbar{width:6px;height:6px;background:transparent}
+:where(html, body, *)::-webkit-scrollbar{width:var(--ds-scrollbar-size,6px);height:var(--ds-scrollbar-size,6px);background:transparent}
 :where(html, body, *)::-webkit-scrollbar-button{display:none;width:0;height:0}
 :where(html, body, *)::-webkit-scrollbar-track,:where(html, body, *)::-webkit-scrollbar-corner{background:transparent}
-:where(html, body, *)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--kptu-muted) 28%,transparent);border-radius:3px}
-:where(*):hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--kptu-muted) 55%,transparent)}
+/* S73-06(명진 11/27 정정): 막대는 창 오른쪽 끝에 붙인 채, 평소엔 가늘고 톤다운 · 마우스를 막대 위에 올리면 굵어지고 진해진다.
+   막대 칸(--ds-scrollbar-size)은 늘 같아 글이 흔들리지 않는다. 손잡이 칸 전체가 잡히는 범위이고, 보이는 굵기만 투명 테두리(안쪽 쪽만, 끝쪽 틈 없음)로 바꾼다. */
+:where(html, body, *)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--kptu-muted) 28%,transparent);background-clip:padding-box;border:0 solid transparent;border-radius:var(--ds-scrollbar-radius,999px)}
+:where(html, body, *)::-webkit-scrollbar-thumb:vertical{border-left-width:var(--ds-scrollbar-inset-rest,0px)}
+:where(html, body, *)::-webkit-scrollbar-thumb:horizontal{border-top-width:var(--ds-scrollbar-inset-rest,0px)}
+:where(*):hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--kptu-muted) 40%,transparent);background-clip:padding-box}
+:where(html, body, *)::-webkit-scrollbar-thumb:hover,:where(html, body, *)::-webkit-scrollbar-thumb:active{background:color-mix(in srgb,var(--kptu-muted) 72%,transparent);background-clip:padding-box}
+:where(html, body, *)::-webkit-scrollbar-thumb:vertical:hover,:where(html, body, *)::-webkit-scrollbar-thumb:vertical:active{border-left-width:var(--ds-scrollbar-inset-hover,0px)}
+:where(html, body, *)::-webkit-scrollbar-thumb:horizontal:hover,:where(html, body, *)::-webkit-scrollbar-thumb:horizontal:active{border-top-width:var(--ds-scrollbar-inset-hover,0px)}
 @supports not selector(::-webkit-scrollbar){
   :where(html, body, *){scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--kptu-muted) 28%,transparent) transparent}
   :where(*):hover{scrollbar-color:color-mix(in srgb,var(--kptu-muted) 55%,transparent) transparent}

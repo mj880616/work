@@ -44,5 +44,34 @@ export async function emptySpot(page, items, gap = 40) {
     return { x: Math.round(innerWidth / 2), y: Math.round(bottom + g), barTop: bar?.getBoundingClientRect().top ?? innerHeight };
   }, [items, gap]);
 }
+// 흔들림 정리(2026-11-27): 빈 곳을 재고(emptySpot) 그 자리가 손짓 칸 안인지(spotIn) 따로 물으면, 그 사이에 화면이 늦게 오는 줄을 그리거나
+// 손짓 칸 높이(app/gesture-fill.js, 다음 그림 틀에 정함)를 다시 잡아 두 값이 서로 다른 그림을 본다(empty-space-gestures CI 7번 흔들림).
+// 여기서는 기다릴 대상을 '그림이 멈춤'이라는 상태로 둔다: 내용 아래 끝·손짓 칸 위치·높이·아래 바 위치가 그림 틀 3번 연속 같으면,
+// 그 같은 틀에서 빈 곳 좌표와 '손짓 칸 안' 여부를 함께 잰다(정한 시간만큼 기다리지 않는다. 5초 안에 멈추지 않으면 그때 값으로 실패하게 둔다).
+export async function settledEmptySpot(page, items, host, gap = 40) {
+  return page.evaluate(([sel, h, g]) => new Promise(resolve => {
+    const fixed = el => { for (let e = el; e; e = e.parentElement) if (getComputedStyle(e).position === 'fixed') return true; return false; };
+    const read = () => {
+      const bottom = Math.max(...[...document.querySelectorAll(sel)].filter(e => e.getClientRects().length && !fixed(e)).map(e => e.getBoundingClientRect().bottom));
+      const bar = document.querySelector('nav.mobile-tabs'), hb = document.querySelector(h);
+      const hr = hb?.getBoundingClientRect();
+      const spot = { x: Math.round(innerWidth / 2), y: Math.round(bottom + g), barTop: bar?.getBoundingClientRect().top ?? innerHeight };
+      return { spot, key: [bottom, hr?.top, hr?.bottom, hb?.style.minHeight, spot.barTop, scrollY].join('|') };
+    };
+    const t0 = performance.now();
+    let last = '', same = 0;
+    const tick = () => {
+      const { spot, key } = read();
+      same = key === last ? same + 1 : 0;
+      last = key;
+      if (same >= 2 || performance.now() - t0 > 5000) {
+        resolve({ ...spot, inside: !!document.elementFromPoint(spot.x, spot.y)?.closest(h) });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), [items, host, gap]);
+}
 // 그 자리 요소가 손짓 칸(sel) 안인가.
 export const spotIn = (page, { x, y }, sel) => page.evaluate(([px, py, s]) => !!document.elementFromPoint(px, py)?.closest(s), [x, y, sel]);

@@ -6,6 +6,8 @@
 //   나머지는 앱 파일끼리 부르는 관계(import·import()·'./x.js' 문자열·HTML src/href·CSS @import)와
 //   시험 파일이 부르는 앱 파일 이름, 파일 이름 규칙(시험 이름이 앱 파일 이름으로 시작)으로 자동으로 찾는다.
 // - 대응을 못 찾으면, 공용 부품(첫 화면이 바로 부르는 파일·많은 화면이 함께 쓰는 파일)·시험 도구·workflow를 고쳤으면 전체.
+// - 앱 시작 때 모든 화면에 붙는 파일(index.html·app.js·loader-v2.js가 바로 부르는 파일)과, 공용 부품이 정적 import로
+//   끌어오는 파일(공용 부품의 속 — 예: anchored-menu.js·details-menu-back.js가 부르는 menu-dismiss.js)도 전체(OPS-시험선택구멍, 2026-11-27).
 // - 문서 등 앱·시험과 상관없는 파일만 고쳤으면 시험 없음.
 // - merge queue(merge_group)·main push·매일 정기 실행은 이 계산 없이 늘 전체다(workflow가 정함).
 //
@@ -55,6 +57,8 @@ export const SCREEN_SPECS = [
   [/^app\/photos?[^/]*\.(m?js|css)$/, ['standard-interactions.spec.mjs']],
   // RULE-한번에그리기: 화면을 열 때 머리 줄 구성이 한 번에 최종 모양인지(공통 시험 화면 표). 표에 화면을 더하면 그 화면 파일도 여기에.
   [/^app\/(team|files|report-filter-chip)[^/]*\.(m?js|css)$/, ['screen-open-once.spec.mjs']],
+  // DESIGN-검증하네스 ③(S73-04): 화면 CSS를 고치면 주요 화면 기준 사진도 함께(공용 CSS는 위 FULL_PATTERNS로 이미 전체).
+  [/^app\/[^/]+\.css$/, ['visual-baseline.spec.mjs']],
 ];
 export function screenSpecsFor(file, testFiles) {
   const out = new Set();
@@ -63,6 +67,10 @@ export function screenSpecsFor(file, testFiles) {
 }
 // 이 파일이 부르는 쪽을 따라 올라갈 때 멈추는 첫 화면 사슬(모든 화면을 부르므로 따라가면 늘 전체가 된다).
 export const ROOTS = new Set(['app/index.html', 'app/app.js', 'app/loader-v2.js', 'app/view-loader.js']);
+// 앱 시작 사슬: 이 파일들이 바로 부르는 파일은 로그인 뒤 모든 화면에 붙는다(view-loader.js는 화면을 고르는 곳이라 빼고, 그 자체는 FULL).
+// OPS-시험선택구멍(2026-11-27): 예전에는 index.html이 부르는 파일만 전체로 봐서, loader-v2.js가 부르는 details-menu-back.js(모든 ⋯ 메뉴의
+// Esc·뒤로가기)를 고쳐도 시험 1개만 돌았다(사진 크게 보기 ⋯ 시험 report-photo-row가 빠짐).
+export const STARTUP = new Set(['app/index.html', 'app/app.js', 'app/loader-v2.js']);
 
 const CODE_EXT = /\.(m?js|css|html)$/i;
 const REF = /(?:['"`(]|@import\s+)(\.{0,2}\/?[\w@.+\-/]+?\.(?:m?js|css|html|json|svg))(?:[?#][^'"`)]*)?['"`)]/g;
@@ -81,6 +89,23 @@ export function buildImporters(files) {
       if (/^[\w@]/.test(ref) && !ref.includes('/')) ref = './' + ref;
       if (!/^\.{0,2}\//.test(ref)) continue;
       const target = ref.startsWith('/') ? ref.slice(1) : posix.normalize(posix.join(posix.dirname(file), ref));
+      if (target === file || !files.has(target)) continue;
+      if (!importers.has(target)) importers.set(target, new Set());
+      importers.get(target).add(file);
+    }
+  }
+  return importers;
+}
+
+// 정적 import(`import … from './x.js'`·`import './x.js'`·`export … from`)만 본 부르는 관계. 공용 부품이 정적으로 부르는 파일은
+// 그 공용 부품이 실행되는 모든 곳에서 함께 실행된다(위 buildImporters는 주석·글자·import()까지 보므로 '속'을 가리기에는 너무 넓다).
+const STATIC_IMPORT = /(?:^|[\n;])[ \t]*(?:import|export)[ \t\n]+(?:[^'"`;]*?[ \t\n}*]from[ \t\n]*)?['"](\.{1,2}\/[^'"\n]+?\.m?js)['"]/g;
+export function buildStaticImporters(files) {
+  const importers = new Map();
+  for (const [file, text] of files) {
+    if (!/\.m?js$/i.test(file)) continue;
+    for (const m of text.matchAll(STATIC_IMPORT)) {
+      const target = posix.normalize(posix.join(posix.dirname(file), m[1]));
       if (target === file || !files.has(target)) continue;
       if (!importers.has(target)) importers.set(target, new Set());
       importers.get(target).add(file);
@@ -165,11 +190,38 @@ export function select(changed, appFiles, testFiles) {
     return out;
   };
   const importers = buildImporters(appFiles);
+  const staticImporters = buildStaticImporters(appFiles);
   const specs = specTexts(testFiles);
   const indexRefs = new Set([...importers].filter(([, by]) => by.has('app/index.html')).map(([f]) => f));
+  const startupRefs = new Set([...importers].filter(([f, by]) => !ROOTS.has(f) && [...by].some(p => STARTUP.has(p))).map(([f]) => f));
   // 첫 화면 사슬·첫 화면이 바로 부르는 파일·공용 부품(FULL 목록)에서는 위로 따라가지 않는다
   // (그 파일들은 모든 화면을 부르므로, 따라가면 무엇을 고쳐도 전체가 된다. 그 파일 자체를 고치면 전체).
   const stops = new Set([...ROOTS, ...indexRefs, ...appFiles.keys()].filter(f => ROOTS.has(f) || indexRefs.has(f) || FULL_PATTERNS.some(re => re.test(f))));
+  const plainOf = f => [...(importers.get(f) || [])].filter(p => !stops.has(p));
+  // 그 파일 자체가 공용 부품인가(고치면 전체). 이유 글을 돌려준다.
+  const sharedWhy = f => {
+    if (FULL_PATTERNS.some(re => re.test(f))) return '공용 부품·시험 도구·workflow';
+    if (indexRefs.has(f)) return '첫 화면이 바로 부르는 파일';
+    if (startupRefs.has(f)) return '앱 시작 때 모든 화면에 붙는 파일';
+    const n = plainOf(f).length;
+    if (n > SHARED_FAN_IN) return `앱 파일 ${n}개가 함께 쓰는 공용 부품`;
+    return '';
+  };
+  // 정적 import로 따라 올라가 공용 부품에 닿으면 그 이름(공용 부품의 속). 첫 화면 사슬에서는 멈춘다.
+  const sharedOwner = file => {
+    const seen = new Set([file]);
+    const stack = [file];
+    while (stack.length) {
+      const cur = stack.pop();
+      for (const parent of staticImporters.get(cur) || []) {
+        if (seen.has(parent) || ROOTS.has(parent)) continue;
+        seen.add(parent);
+        if (sharedWhy(parent)) return parent;
+        stack.push(parent);
+      }
+    }
+    return '';
+  };
   const picked = new Set();
   for (const file of changed) {
     if (FULL_PATTERNS.some(re => re.test(file))) return full(`${file}: 공용 부품·시험 도구·workflow`);
@@ -180,6 +232,13 @@ export function select(changed, appFiles, testFiles) {
         else reasons.push(`${file}: 지운 시험`);
         continue;
       }
+      // 기준 사진(<시험>.spec.mjs-snapshots/…png)을 고치면 그 시험(DESIGN-검증하네스 ③).
+      const snap = file.match(/^(.+\.spec\.mjs)-snapshots\//);
+      if (snap) {
+        if (testFiles.has(snap[1])) { picked.add(snap[1]); reasons.push(`${file}: 기준 사진`); }
+        else reasons.push(`${file}: 지운 시험의 기준 사진`);
+        continue;
+      }
       // fixture 등 시험 안 다른 파일: 그것을 부르는 시험.
       const hits = [...specs].filter(([, text]) => text.includes(basename(file))).map(([s]) => s);
       if (!hits.length) return full(`${file}: 부르는 시험을 못 찾음`);
@@ -188,11 +247,13 @@ export function select(changed, appFiles, testFiles) {
       continue;
     }
     if (!file.startsWith('app/')) continue; // 문서·서버·다른 도구: 화면 시험 무관(전과 같음)
-    if (indexRefs.has(file)) return full(`${file}: 첫 화면이 바로 부르는 파일`);
+    const why = sharedWhy(file);
+    if (why) return full(`${file}: ${why}`);
+    const owner = sharedOwner(file);
+    if (owner) return full(`${file}: 공용 부품 ${owner}의 속(정적 import)`);
     // 앱 파일들은 서로 돌아가며 부르는 곳이 많아(바구니 ↔ 자료실 ↔ 노트 등) 끝까지 따라가면 모두가 걸린다.
     // 그래서 바로 부르는 파일 한 층만 본다(그 파일을 부르는 화면의 시험).
-    const plain = [...(importers.get(file) || [])].filter(f => !stops.has(f));
-    if (plain.length > SHARED_FAN_IN) return full(`${file}: 앱 파일 ${plain.length}개가 함께 쓰는 공용 부품`);
+    const plain = plainOf(file);
     const names = new Set([file, ...plain]);
     // 하위 폴더 파일(arsenal/ 등)은 폴더 이름을 부르는 시험도 관련으로 본다.
     const hits = specsFor(names, specs);

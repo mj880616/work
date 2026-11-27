@@ -1549,6 +1549,8 @@ for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: �
   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review:{at,candidates:['가상 실시간 규칙 후보'],suggestions:[]}}});
  });
  await openJournal(page,width);await openWeekly(page);
+ // FIX-main시험(이슈 3270): 바탕 칸이 다 그려진 뒤 ⋯ 를 연다. 바탕이 늦게 그려지면 열린 메뉴가 화면 아래로 밀리고, 항목까지 스크롤하면 공용 규칙(바깥 스크롤 = 닫기)이 메뉴를 닫는다.
+ await openDraft(page);
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
  await expect.poll(()=>row().draft.picks.reviews?.length??0,{timeout:15000}).toBe(1);
  expect(ai.filter(k=>k==='weekly_review')).toHaveLength(1);

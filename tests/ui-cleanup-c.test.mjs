@@ -38,7 +38,7 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
   // NOTE-유튜브보기(S67-04): 글 속 영상 칸(.ed-video)의 ▶도 뺀다(모양은 ed-doc.css 한 곳).
   // S69-82: 노트 보드 생각 지도 상자 안·선택한 상자 막대(.nb-node-bar·.nb-text)도 뺀다(모양은 공용 icon-btn·ds-chip·ui-swatch).
   // S71-59 UI-화면메뉴안으로: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot)의 ⋯도 뺀다(맨 위 줄에 있을 때와 같은 공용 icon-btn).
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*(?:, \.nbb-bg \*)?)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.screen-line-slot \*)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?\) \{/);
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*(?:, \.nbb-bg \*)?)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.screen-line-slot \*)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.nxt-q)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {

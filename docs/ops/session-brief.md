@@ -4,6 +4,7 @@
 
 ## 1. 시작
 
+0. `AGENTS.md` 1절 '새 세션·새 계정이 시작할 때 확인할 것' 3가지를 먼저 한다.
 1. 저장소 연결: `add_repo(owner=mj880616, repo=work, access=push)` (이미 연결돼 있으면 건너뜀).
 2. 새 폴더에 받기: `git clone --depth 50 https://github.com/mj880616/work <새 폴더>`. 기억한 SHA를 믿지 말고 받은 `origin/main`을 기준으로 한다.
 3. 커밋 작성자 메일: `git config user.email "172895968+mj880616@users.noreply.github.com"`(GitHub noreply 주소. 개인 메일 금지, `AGENTS.md` 3절).
@@ -20,7 +21,7 @@
 - 전용 포트 밖 서버·`pkill`(자기 PID만 끈다), 손으로 쓴 `?v=`(`AGENTS.md` 4절 캐시 버전).
 - 범위 밖 수정·한 번 정리용 화면 버튼(`AGENTS.md` 4절). 찾은 것은 PR 본문 '범위 밖 발견사항'에.
 - 토큰·이메일·개인정보·남의 기록 내용을 코드·문서·로그·PR에 쓰기(`AGENTS.md` 3절).
-- 같은 명령이 두 번 실패하면 반복하지 말고 멈춰서 원인을 보고한다.
+- 같은 방법으로 두 번 실패하면 방법을 바꾸고, 고치기는 최대 4번, 그래도 안 되면 멈춰서 원인을 보고한다.
 
 ## 3. 끝
 
@@ -31,3 +32,7 @@
 5. 초안을 해제(ready)한다: `gh api -X POST repos/mj880616/work/pulls/<번호>/ccr/ready_for_review`.
 6. CC는 넣기 전에 `node scripts/cc/merge-check.mjs <PR 번호>`로 넣기 점검을 돌린다(쓰기 없음).
 x 명진 결정
+
+## 4. 사용량 (OPS-사용량규칙, 2026-11-27 사용자 결정)
+
+원문은 `CLAUDE.md` '사용량 절약'이다. 요점만: 조회는 하위 에이전트 `model: sonnet` 지정 / 구현 medium·마지막 검증·보안·DB·권한 판단 high / 같은 문제에서 두 번 막히면 `/compact` 뒤 더 센 모델 / 모델·MCP·빠른 모드는 시작할 때만 정하기 / 여러 파일 작업은 계획 모드 / 끝날 때 `/usage`에서 캐시 비중이 낮거나 출력이 유난히 많으면 완료보고에 한 줄.
