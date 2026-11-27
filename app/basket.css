@@ -14,7 +14,7 @@
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
    S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
    S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게). */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .nxt-q, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -262,7 +262,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nxt-main { flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:8px; }
 .nxt-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
 .nxt-day { flex:none; font-size:12px; color:var(--kptu-muted); }
-#appView #basketView .nxt-row button.nxt-restore { flex:none; }
+/* 휴지통 줄 단추: 공용 글자 버튼(row-act)·아이콘 버튼(icon-btn) — 모양은 ui-standard.css 한 곳, 여기는 자리만. */
+#appView #basketView .nxt-empty { color:var(--kptu-danger); }
+#appView #basketView .nxt-empty-head { margin-left:auto; }
+.nxt-bar { display:flex; justify-content:flex-end; }
 .nxt-more { position:relative; flex:none; }
 .nxt-more > summary { list-style:none; cursor:pointer; }
 .nxt-more > summary::-webkit-details-marker { display:none; }
