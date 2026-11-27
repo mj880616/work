@@ -15,14 +15,14 @@ const shot = (page, name) => process.env.KPTU_SHOTS ? page.screenshot({ path: `$
 
 // NOTE-태그단추키움(2026-11-28 사용자 요청): [+ 태그] 글자는 본문 단추 크기(--ds-text-button), 누르는 높이는 --ds-compact-height 이상. 읽기·수정 같은 부품.
 async function expectTagAddBig(add) {
-  const { font, minH, token } = await add.evaluate(el => {
+  // 수정 중에는 태그 줄이 잠깐 쉬었다가(paintEditTags 250ms) 다시 그려지므로, 떨어진 단추를 재지 않고 맞을 때까지 다시 잰다.
+  await expect.poll(() => add.evaluate(el => {
+    if (!el.isConnected) return 'detached';
     const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--ds-text-button)'; document.body.append(probe);
     const token = parseFloat(getComputedStyle(probe).fontSize); probe.remove();
-    return { font: parseFloat(getComputedStyle(el).fontSize), minH: el.getBoundingClientRect().height, token };
-  });
-  expect(font).toBe(token);
-  expect(font).toBeGreaterThanOrEqual(13);
-  expect(minH).toBeGreaterThanOrEqual(32);
+    const font = parseFloat(getComputedStyle(el).fontSize), h = el.getBoundingClientRect().height;
+    return font === token && font >= 13 && h >= 32 ? 'ok' : `font ${font}/${token} h ${h}`;
+  }), { timeout: 5000 }).toBe('ok');
 }
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
