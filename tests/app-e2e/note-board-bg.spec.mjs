@@ -5,7 +5,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { readFileSync } from 'node:fs';
 
 // S71-50 NOTE-보드배경색(사용자 2026-11-26 19:51 "보드 배경색상도 지정가능하게 해줘요"): 보드마다 바탕색.
-// - PC: 보드 칸 우클릭 메뉴·빈 판 우클릭 메뉴의 '배경색'. 폰: 화면 ⋯ 메뉴의 '배경색'(보드 보기일 때).
+// - PC: 보드 칸 우클릭 메뉴·빈 판 우클릭 메뉴의 [배경색]. 폰: 화면 ⋯ 메뉴의 [배경색](보드 보기일 때). 누르면 같은 메뉴 자리에 색 칸.
 // - 고르면 바로 바뀌고(점 무늬는 그대로), 서버 화면 기억 note_board_bg에 저장 → 새로 불러와도(다른 기기 흉내) 그대로. '기본'은 칸을 지운다.
 // - 목록 밖 색은 화면이 보내지 않는다. 서버(DB 검사)가 아직 모르면(적용 전) 거절 → 기본 바탕 + 한 줄 알림.
 // - HTML 내보내기에 바탕색이 함께 나간다. 이름은 지어낸 것.
@@ -44,12 +44,14 @@ async function pick(page, width, color) {
   const label = color === null ? '기본' : { sage: '쑥', sky: '하늘', rose: '장미' }[color];
   if (width > 760) {
     await page.locator(`[data-nbb-board="${BID}"]`).click({ button: 'right' });
+    await page.locator('[data-nbb-menu] [data-nbb-bg-open]').click(); // [배경색] → 같은 자리에 색 칸
     const sw = page.locator(`[data-nbb-menu] .nbb-bg [role="radio"][aria-label="${label}"]`);
     await expect(sw).toBeVisible();
     await sw.click();
     await expect(page.locator('[data-nbb-menu]')).toBeHidden();
   } else {
     await page.locator('[data-note-folder-more]').click();
+    await page.locator('#noteDocMenu [data-nbb-bg-open]').click();
     const sw = page.locator(`#noteDocMenu .nbb-bg [role="radio"][aria-label="${label}"]`);
     await expect(sw).toBeVisible();
     await sw.click();
@@ -70,12 +72,14 @@ for (const width of [1280, 390]) {
     // 고른 색에 ✓(aria-checked) — 다시 연 메뉴에서.
     if (width > 760) {
       await page.locator(`[data-nbb-board="${BID}"]`).click({ button: 'right' });
+      await page.locator('[data-nbb-menu] [data-nbb-bg-open]').click();
       await expect(page.locator('[data-nbb-menu] .nbb-bg [aria-label="쑥"]')).toHaveAttribute('aria-checked', 'true');
       await expect(page.locator('[data-nbb-menu] .nbb-bg [aria-label="기본"]')).toHaveAttribute('aria-checked', 'false');
       await page.screenshot({ path: test.info().outputPath(`board-bg-menu-${width}.png`) });
       await page.keyboard.press('Escape');
     } else {
       await page.locator('[data-note-folder-more]').click();
+      await page.locator('#noteDocMenu [data-nbb-bg-open]').click();
       await expect(page.locator('#noteDocMenu .nbb-bg [aria-label="쑥"]')).toHaveAttribute('aria-checked', 'true');
       await page.screenshot({ path: test.info().outputPath(`board-bg-menu-${width}.png`) });
       await page.keyboard.press('Escape');
@@ -105,6 +109,7 @@ for (const width of [1280, 390]) {
 test('빈 판 우클릭 메뉴에서도 배경색, HTML 내보내기에 바탕색이 함께 나간다 (1280)', async ({ page }) => {
   const { errors, server } = await fixture(page, 1280);
   await page.locator('[data-note-board]').click({ button: 'right', position: { x: 600, y: 520 } });
+  await page.locator('#noteDocMenu [data-nbb-bg-open]').click();
   const sw = page.locator('#noteDocMenu .nbb-bg [aria-label="하늘"]');
   await expect(sw).toBeVisible();
   await sw.click();
@@ -127,6 +132,7 @@ test('목록 밖 색은 보내지 않고, 서버가 아직 모르면(적용 전)
   const { errors, server } = await fixture(page, 1280, { deny: true });
   // 화면 단추를 목록 밖 값으로 바꿔 눌러도 보내지 않는다.
   await page.locator(`[data-nbb-board="${BID}"]`).click({ button: 'right' });
+  await page.locator('[data-nbb-menu] [data-nbb-bg-open]').click();
   const sw = page.locator('[data-nbb-menu] .nbb-bg [aria-label="장미"]');
   await sw.evaluate(el => { el.dataset.nbbBg = 'red'; });
   const before = server.patches.length;

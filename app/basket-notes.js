@@ -1029,6 +1029,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     void pressFile(file, {viewPhoto: () => openPhotoView({row: selected, file: selected.attachments.find(x => x.drive_file_id === file.driveId), files: attachedPhotos(selected), trigger: el}), onError: fileFail});
   }
   host.addEventListener('keydown', e => { const el = e.target.closest?.('[data-note-file] .file-line-main'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pressNoteFile(el); } });
+  function showBgChoice() {
+    const el = menuEl();
+    el.setAttribute('aria-label', '보드 배경색 선택');
+    el.innerHTML = boards.bgSwatchesHtml(boards.current());
+    placeAnchored(el, menu.trigger, {maxWidth:220, maxHeight:window.innerHeight});
+    (el.querySelector('[aria-checked="true"]') || el.querySelector('button'))?.focus({preventScroll:true});
+  }
   function showColorChoice() {
     const el = menuEl(), f = folderById(menu.folderId); if (!f) return;
     el.setAttribute('aria-label', '폴더 색 선택');
@@ -1054,7 +1061,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu();
     const el = menuEl();
     el.setAttribute('aria-label', from === 'folder' || from === 'head' ? '폴더 메뉴' : from === 'board' ? '보드 메뉴' : from === 'file' ? '첨부 파일 메뉴' : from === 'picked' ? '선택한 것 메뉴' : from === 'cols' ? '보일 칸' : '노트 메뉴');
-    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + ((from === 'board' || (from === 'head' && view === 'board')) && boards.isNamed() ? boards.bgSwatchesHtml(boards.current()) : '') + menuButtonsHtml(menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}));
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + ((from === 'board' || (from === 'head' && view === 'board')) && boards.isNamed() ? menuButtonsHtml([['data-nbb-bg-open', '배경색']]) : '') + menuButtonsHtml(menuItems(note, from, folderId, {goto: from === 'list' && view === 'folder' && !!trigger.closest?.('[data-nx-recent-row]')}));
     el.hidden = false;
     // UI-메뉴잘림: 높이를 묶지 않는다(창 높이까지 다 보임, 정말 길 때만 스크롤 + 아래 흐림 — anchored-popup.js).
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: window.innerHeight});
@@ -2175,7 +2182,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // A menu item acts on the note the menu was openSet for (a list row's note need not be open).
   function menuAction(b, from) {
-    // S71-50 NOTE-보드배경색: 빈 판 우클릭 메뉴·보드 보기의 화면 ⋯ 메뉴 맨 위 색 고르기.
+    // S71-50 NOTE-보드배경색: 빈 판 우클릭 메뉴·보드 보기의 화면 ⋯ 메뉴 [배경색] → 색 칸에서 고른 색.
     if (b.hasAttribute('data-nbb-bg')) { if (view === 'board' && boards.isNamed()) boards.setBg(boards.current(), b.dataset.nbbBg || null); return; }
     if (from.from === 'cols') { if (b.hasAttribute('data-nl-cols-reset')) setListCols([...LIST_COLS_DEFAULT]); return; }
     if (from.from === 'picked') {
@@ -2254,6 +2261,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.closest('#noteDocMenu')) {
       // 폴더 ⋯ [색 고르기…]: 메뉴를 닫지 않고 같은 자리에 동그라미 8개 + [기본]을 보인다. 하나 고르면 바로 저장하고 닫는다.
       if (b.hasAttribute('data-nx-color') && menu?.from === 'folder') { showColorChoice(); return; }
+      // S71-50 NOTE-보드배경색: [배경색]은 폴더 [색 고르기…]처럼 메뉴를 닫지 않고 같은 자리에 색 칸(기본 + 여덟 가지)을 보인다. 하나 고르면 바로 저장하고 닫는다.
+      if (b.hasAttribute('data-nbb-bg-open') && (menu?.from === 'board' || menu?.from === 'head') && view === 'board' && boards.isNamed()) { showBgChoice(); return; }
       if (b.dataset.nlColToggle && menu?.from === 'cols') {
         const key = b.dataset.nlColToggle, on = listCols();
         if (NOTE_COLS.includes(key)) setListCols(on.includes(key) ? on.filter(k => k !== key) : [...on, key]);
