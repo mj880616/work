@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import {openHome} from './helpers/home-entry.mjs';
 // UI-디자인기준 1/3 보완(8-9c2): 홈·바구니 버튼 높이 하나(홈 빠른 입력 [추가] 높이), 버튼 4종,
 // 홈 빠른 입력 탭 종류 색, 홈 "할 일" 칸 제목, 바구니 AI 버튼 [⋯ 더보기], 다크 모드 끔.
 test.use({hasTouch:true});
@@ -58,36 +58,13 @@ async function sameButtons(region,height,quickHeight=height){
  return shaped;
 }
 
-for(const width of [390,1280])test(`home and basket buttons share the [추가] height and four kinds ${width}`,async({page})=>{
+for(const width of [390,1280])test(`home and basket buttons share the height and four kinds ${width}`,async({page})=>{
  const errors=await open(page,width);
- const quick=page.locator('#homeView .home-quick'),save=quick.locator('[data-quick-save]');
- // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 토큰 --ds-control-height(46px)는 입력칸 등에 남아 있다(버튼은 UI-버튼전수조사로 36/32px).
+ // QUICK-입력정리(2026-11-28): 홈 빠른 입력 막대([잊지 말기|할 일]·[추가])는 지웠다. 입력 줄 높이·[추가] 모양은 할 일·노트 입력칸 시험(pc-button-36·quick-row-height)이 본다.
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
- // UI-버튼줄이기 + HOME-모바일정리④: 빠른 입력 [추가]와 홈 입력칸은 폭과 상관없이 36px(--kptu-control-height).
  const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-quick-row-height'))),inputHeight=quickHeight; // NOTE-입력줄높이(S71-67): 빠른 입력 줄 40px
- // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 보인다(그 전에는 [잊지 말기] 자리).
- if(width<761)await quick.locator('[data-quick-input]').fill('글');
- expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(40);
- const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
- // Home tabs: one height; UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 고른 칸만 흰 알약(--ds-seg-on, [업데이트 ▾]는 두 칸 묶음이 알약) + 진한 글자, 나머지는 칠하지 않음.
- const pill=locator=>locator.evaluate(el=>getComputedStyle(el.closest('.ds-seg-group')||el).backgroundColor);
- const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
- // HOME-입력칸두모양: 폰 홈에는 [업데이트 | 할 일] 단추 줄이 없다(왼쪽 [종류 ▾] 작은 목록). 단추 줄 모양은 넓은 화면에서만 본다.
- if(width<761){await expect(quick.locator('.home-quick-modes')).toBeHidden();await expect(quick.locator('[data-quick-kind]')).toBeVisible();
-  const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
-  expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);await quick.locator('[data-quick-input]').fill('');}
- else for(const [mode,kind] of Object.entries(kinds)){
-  const tab=quick.locator(`[data-quick-mode="${mode}"]`);
-  if(width<761)await tab.tap();else await tab.click();
-  await expect(tab).toHaveAttribute('aria-pressed','true');
-  const s=await look(tab);expect(await pill(tab)).toBe(await token(page,'--ds-seg-on'));expect(s.fg).toBe(await token(page,'--kptu-ink'));
-  for(const other of Object.keys(kinds).filter(m=>m!==mode))expect(await pill(quick.locator(`[data-quick-mode="${other}"]`))).toBe('rgba(0, 0, 0, 0)');
-  const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
-  if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(inputHeight);
-  expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
-  await sameButtons(quick.locator('.home-quick-modes'),height,quickHeight);
- }
- await pickQuickMode(page,'update');
+ expect(height).toBe(46);expect(quickHeight).toBe(40);
+ const primary=await token(page,'--kptu-primary');
  // HOME-업무일지홈: 홈 할 일 칸 제목은 '할 일'(밀린 것은 '기한 지난 것' 접힌 줄 안).
  const tasks=page.locator('#homeView [data-journal-group="todo"]');
  await expect(tasks.locator('h4').first()).toContainText('할 일');await expect(tasks.locator('h4').first()).not.toContainText('밀린');
@@ -100,7 +77,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  for(const name of ['AI 분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
  await sameButtons(basket,height,quickHeight);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(await c.textContent());
- expect(filled).toEqual(['추가']);
+ // QUICK-입력정리: 잊지 말기 목록에는 [추가](손 입력칸)가 없다 — 주 색으로 채운 단추가 없다.
+ expect(filled).toEqual([]);
  // UI-선택표시톤다운: 고른 필터는 연한 선택 바탕 + 테두리 선(주 색 채움은 [추가]만).
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 
@@ -132,7 +110,7 @@ test('dark mode follows the device on home and basket (3/3 8-9e-3 turned it on f
  const errors=await open(page,390,true);
  expect(await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
  const dark={bg:'rgb(22, 22, 19)',surface:'rgb(31, 31, 27)'};
- const colors=()=>page.evaluate(()=>{const s=getComputedStyle(document.documentElement);return {scheme:s.colorScheme,bg:getComputedStyle(document.body).backgroundColor,surface:getComputedStyle(document.querySelector('#homeView .home-quick')).backgroundColor};});
+ const colors=()=>page.evaluate(()=>{const s=getComputedStyle(document.documentElement);return {scheme:s.colorScheme,bg:getComputedStyle(document.body).backgroundColor,surface:getComputedStyle(document.querySelector('#homeView [data-journal-day]')).backgroundColor};});
  const home=await colors();expect(home.bg).toBe(dark.bg);expect(home.surface).toBe(dark.surface);expect(home.scheme).toContain('dark');
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe(dark.bg);

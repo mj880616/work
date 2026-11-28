@@ -173,23 +173,16 @@ test('PC: where shows group › screen and the group word opens the group',async
  await expect(where(page).locator('li')).toHaveText(['잊지 말기']);
 });
 
-test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노트·일정',async({page})=>{
+test('PC: [+ 추가] opens the existing windows for 할 일·노트·일정',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  const add=page.locator('[data-quick-add]'),menu=page.locator('#toplineAddMenu');
  await add.click();await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['잊지 말기','할 일','노트','일정','하루 기록','사업 보고']);
+ // QUICK-입력정리(2026-11-28): '잊지 말기' 줄은 없다.
+ await expect(menu.locator('button')).toHaveText(['할 일','노트','일정','하루 기록','사업 보고']);
  await expect(menu.locator('button').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(add).toBeFocused();
- // 업데이트 (ED③ 업데이트): the update's new big window (기록할 곳 line with 바구니(미분류), new editor, no [업데이트|노트] switch).
  // 노트 (ED③ 노트): the note's new big window (title row, new editor, no [업데이트|노트] switch).
- {
-  await add.click();await menu.getByRole('button',{name:'잊지 말기'}).click();
-  const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
-  await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();
-  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
- }
  {
   await add.click();await menu.getByRole('button',{name:'노트'}).click();
   const win=page.locator('#edWindow');await expect(win).toBeVisible();await expect(win).toHaveAccessibleName('새 노트');

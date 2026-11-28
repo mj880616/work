@@ -1,13 +1,15 @@
 import {test,expect} from '@playwright/test';
-import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import {openHome} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
+// QUICK-입력정리(2026-11-28): 홈 [업데이트]는 지웠다 — 같은 저장 길(update-places.js)을 쓰는 큰 쓰기 창으로 본다.
 import {clickView} from './helpers/shell-navigation.mjs';
 // MTG-기록겹침거르기 3단계 나머지: 홈 [업데이트] 사업영역 한 곳(MTG-프로젝트합치기 3단계부터 연결 업데이트)·여러 곳 연결 업데이트·담당조직 기록도 저장이 끝나면 같은 "비슷한 기록이 있어요" 알림을 낸다.
 // 진짜 앱이 Chromium에서 돌고, Supabase REST·ai-assist·판정 저장·연결 저장 경계만 모의다. 이름은 모두 합성 값이다.
 // openHome은 브라우저 시계를 2026-10-06T01:00:00Z(서울 10.6)로 고정한다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const MID='f0000000-0000-4000-8000-000000000001',UID='f0000000-0000-4000-8000-000000000002',TITLE='철도 파업 출정 기자회견';
-const quick=page=>page.locator('#homeView [data-home-quick]');
-const dialog=page=>page.getByRole('dialog');
+const dialog=page=>page.locator('#edwPlaceSheet');
 const notice=page=>page.locator('[data-overlap-notice]');
 
 async function overlap(page,{linkCalls=true}={}){
@@ -40,13 +42,12 @@ async function overlap(page,{linkCalls=true}={}){
 async function homeUpdate(page,text='출정 기자회견 진행함'){
   await page.setViewportSize({width:1280,height:844});
   await openHome(page);
-  const q=quick(page);
-  await pickQuickMode(page,'task');await pickQuickMode(page,'update');
-  await q.locator('[data-quick-input]').fill(text);
+  await openWriteFromEntry(page,1280);const q=page.locator('#edWindow');
+  await typeInto(page,q.locator('.ed-window-body .ProseMirror'),text);
   return q;
 }
 async function pick(page,q,...names){
-  await pickQuickMode(page,'org');await expect(dialog(page)).toBeVisible();
+  await q.locator('[data-edw-place]').click();await expect(dialog(page)).toBeVisible();
   for(const name of names)await dialog(page).getByRole('button',{name,exact:true}).first().click();
   await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
 }
@@ -63,7 +64,7 @@ test('MTG-겹침 홈 [업데이트]로 사업영역 하나에 기록하면 연�
   });
   await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>{links.push(route.request().postDataJSON());return route.fulfill({status:200,json:{ok:true,created:1,existing:0}});});
   await pick(page,q,'테스트 프로젝트');
-  await q.locator('[data-quick-save]').click();
+  await q.locator('[data-edw-save]').click();
   await expect(notice(page)).toBeVisible();
   await expect(notice(page)).toContainText('비슷한 기록이 있어요');await expect(notice(page)).toContainText(TITLE);
   expect(progress).toEqual([]);
@@ -86,7 +87,7 @@ test('MTG-겹침 홈 [업데이트]로 담당조직에 기록하면 담당조직
     return route.fulfill({status:200,json:[{...body,id:UID,occurred_at:'2026-10-06T01:00:00Z'}]});
   });
   await pick(page,q,'테스트 조직');
-  await q.locator('[data-quick-save]').click();
+  await q.locator('[data-edw-save]').click();
   await expect(notice(page)).toBeVisible();
   expect(calls.ai[0].pairs).toEqual([{a:`meeting:${MID}`,b:`org_update:${UID}`}]);
   await notice(page).getByRole('button',{name:'그대로 두기'}).click();
@@ -105,7 +106,7 @@ test('MTG-겹침 두 곳에 연결한 업데이트는 연결이 끝난 뒤 확�
   });
   await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>route.fulfill({status:200,json:{ok:true,created:2,existing:0}}));
   await pick(page,q,'테스트 프로젝트','테스트 조직');
-  await q.locator('[data-quick-save]').click();
+  await q.locator('[data-edw-save]').click();
   await expect(notice(page)).toBeVisible();
   expect(calls.ai).toHaveLength(1);
   expect(calls.ai[0].pairs).toEqual([{a:`basket:${NOTE}`,b:`meeting:${MID}`}]);
@@ -124,7 +125,7 @@ test('MTG-겹침 연결이 거절된 업데이트는 확인하지 않는다(정�
   });
   await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>route.fulfill({status:200,json:{ok:false,error:'NOTE_CHANGED'}}));
   await pick(page,q,'테스트 프로젝트','테스트 조직');
-  await q.locator('[data-quick-save]').click();
+  await q.locator('[data-edw-save]').click();
   await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
   await page.waitForTimeout(300);
   expect(calls.ai).toHaveLength(0);

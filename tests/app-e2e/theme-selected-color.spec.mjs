@@ -29,14 +29,15 @@ for(const theme of THEMES){
   const soft=await rgb(page,'var(--ds-select-bg)'),ink=await rgb(page,'var(--ds-select-ink)'),line=await rgb(page,'var(--ds-select-line)');
   expect(ratio(primary,on)).toBeGreaterThanOrEqual(4.5);expect(ratio(soft,ink)).toBeGreaterThanOrEqual(4.5);
   expect(soft).not.toBe(primary);
-  // 고른 [업데이트 ▾|할 일] 쪽: 보기 바꾸기 한 모양(흰 알약 + 진한 글자, 밑줄 없음). 홈 빠른 입력 [추가]만 주 색으로 채운다.
+  // 고른 [하루 | 주간 정리] 쪽: 보기 바꾸기 한 모양(흰 알약 + 진한 글자, 밑줄 없음). 홈 [저장](주 동작)만 주 색으로 채운다.
+  // QUICK-입력정리(2026-11-28): 홈 빠른 입력 막대([잊지 말기|할 일]·[추가])는 지웠다 — 같은 공용 ⑤ 칸·주 버튼으로 본다.
   const segOn=await rgb(page,'var(--ds-seg-on)'),segInk=await rgb(page,'var(--kptu-ink)');expect(ratio(segOn,segInk)).toBeGreaterThanOrEqual(4.5);
-  const modes=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="true"]').first();
+  const modes=page.locator('#homeView [data-journal-mode][aria-pressed="true"]').first();
   await expect(modes).toBeVisible();
   expect(await segPill(modes)).toEqual({bg:segOn,fg:segInk,line:true});
-  const save=page.locator('#homeView .home-quick button.home-quick-save').first();
+  const save=page.locator('#homeView [data-journal-save]').first();
   expect(await bg(save)).toBe(primary);
-  const unsel=page.locator('#homeView .home-quick-modes [data-quick-mode][aria-pressed="false"]').first();
+  const unsel=page.locator('#homeView [data-journal-mode][aria-pressed="false"]').first();
   expect(await bg(unsel)).not.toBe(segOn);
   // 사이드바: 지금 화면 하나만 연한 바탕 + 왼쪽 얇은 선, 주 색으로 채운 항목은 없다.
   const filled=await nav(page).locator('button,a').evaluateAll(els=>els.filter(e=>e.getClientRects().length&&getComputedStyle(e).backgroundColor!=='rgba(0, 0, 0, 0)').map(e=>e.textContent.trim()));
