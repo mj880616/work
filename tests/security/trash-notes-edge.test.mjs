@@ -24,6 +24,8 @@ const CLASSIFIED = {
   'document-actions/index.ts': 'filtered',
   '_shared/hwp-edit.ts': 'filtered',
   'basket-files/handler.ts': 'filtered',
+  // MCP-Claude쓰기 ③: Claude 첨부의 '저장 결과 모름' 다시 읽기만 서버 키로 — deleted_at=is.null(휴지통 노트면 붙지 않은 것으로 보고 파일을 남김). 저장은 DB 함수.
+  'basket-files/mcp-attach.ts': 'filtered',
   // FAMILY-기억알림 ②: 월요일 폰 알림이 서버 키로 가족 '잊지 말기' 노트 하나를 읽고 본 기록을 쓴다 — deleted_at=is.null로 휴지통 노트를 뺀다
   'phone-push/family-remind.ts': 'filtered',
   // S69-97 노트 알림 ②: 15분 예약이 서버 키로 알림 시각이 지난 노트의 id·workspace_id·alarm 칸만 읽는다 — deleted_at=is.null로 휴지통 노트를 뺀다(쓰기 없음)

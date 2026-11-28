@@ -456,6 +456,161 @@ test('mcp claude write db: plan, dry-run, apply, allow table, write switch, scop
    await pool.query(`delete from public.app_mcp_write_log where called_at > now()-interval '6 minutes' and called_at < now()-interval '4 minutes'`);
   });
 
+  // ---- ③ 파일 첨부(20261128120000_mcp_claude_attach + docs/ops/mcp-claude-attach-guard.*, 설계 11절) ----
+  await t.test('③ attach: plan, dry-run, apply, check gate and scope, commit service-role only, caps, undo marks, L1 +1, rollback',async()=>{
+   const aStem='20261128120000_mcp_claude_attach',aVersion='20261128120000';
+   const aMig=await read('supabase/migrations/'+aStem+'.sql');
+   const [aPre,aPost,aSnap,aRollback,aSummary]=await Promise.all(['precheck.sql','postcheck.sql','snapshot.sql','rollback.sql','summary.md'].map(k=>read('docs/'+aStem+'.'+k)));
+   const [agPre,agApply,agRollback]=await Promise.all(['precheck','apply','rollback'].map(k=>read('docs/ops/mcp-claude-attach-guard.'+k+'.sql')));
+   const aRun=(mode,id)=>runMigrationPlan(prepareMigration({mode,version:aVersion,runId:id,root}),query,{saveSnapshot:async()=>{}});
+   const ATT='73000000-0000-4000-8000-000000000001',ATT_UPD='73000000-0000-4000-8000-000000000002';
+   // 파일 확인·첨부 시험은 앞 시험의 오늘 호출 수와 섞이지 않게 앞 기록을 어제로 옮긴다.
+   await pool.query("update public.app_mcp_write_log set called_at=called_at-interval '1 day'");
+   await pool.query(`insert into public.app_notes(id,workspace_id,kind,title,raw_text) values ('${ATT}','${WS_A}','note','첨부 노트','본문');
+     insert into public.app_notes(id,workspace_id,kind,raw_text) values ('${ATT_UPD}','${WS_A}','basket','첨부 업데이트')`);
+   // 파일: 확장 규칙, 함수 5개(문지기·1판 되돌리기 다시 만들기 + 새 3개), 요약 3줄, commit만 service_role.
+   for(const sql of [aPre,aPost,aSnap])assert.equal(checkSQL(sql).baselineNull,false);
+   for(const mode of ['apply','dry-run']){const plan=prepareMigration({mode,version:aVersion,runId:'1',root});assert.equal(plan.rules,'expanded',JSON.stringify(plan.reason||''));assert.equal(plan.functions.length,5);}
+   const lines=aSummary.trim().split('\n');assert.equal(lines.length,3);
+   const aCode=aMig.replace(/--.*$/gm,'');
+   const grants=[...aCode.matchAll(/^grant [^;]*;/gim)].map(m=>m[0].replace(/\s+/g,' '));
+   assert.deepEqual(grants.filter(g=>/service_role/.test(g)),['grant execute on function public.app_mcp_attach_commit(uuid, uuid, timestamptz, jsonb) to service_role;']);
+   for(const g of grants.filter(g=>!/service_role/.test(g)))assert.match(g,/ to authenticated;$/,g);
+   assert.doesNotMatch(aCode,/\bto (anon|public)\b|alter role|db_pre_request|storage\.|app_ledger_|app_family_|app_feed_|app_call_|app_tg_|rtw_|app_collab_/i);
+   const aWrites=[...aCode.matchAll(/\b(?:insert into|update|delete from)\s+public\.(app_[a-z_]+)/g)].map(m=>m[1]);
+   assert.deepEqual([...new Set(aWrites)].sort(),['app_business_records','app_mcp_write_log','app_notes','app_suborganization_updates'],'1판 되돌리기 본문 그대로 + 첨부는 노트·기록만');
+   // 사전 확인 → 시험 적용 무변화 → 적용 → 사후 확인 → 두 번째 적용 거절.
+   const aBefore=(await pool.query(aSnap)).rows,aBeforeCheck=await readOnly(aPre);
+   for(const r of aBeforeCheck)if(/^(예|아니오)$/.test(r.value))assert.equal(r.value,'예',r.item);
+   assert.equal((await aRun('dry-run','9981')).ok,true);
+   assert.deepEqual((await pool.query(aSnap)).rows,aBefore);
+   const ap=await aRun('apply','9982');assert.equal(ap.ok,true,ap.summary);
+   const aPostRows=await readOnly(aPost);
+   for(const r of aPostRows)if(r.item!=='existing boundary hash')assert.equal(r.ok,'예',r.item);
+   assert.equal(aPostRows.find(r=>r.item==='existing boundary hash').ok,aBeforeCheck.find(r=>r.item==='existing boundary hash').value);
+   assert.equal((await aRun('apply','9983')).ok,false);
+
+   const check=(claims,tool,args)=>as('authenticated',claims,'select public.app_mcp_attach_check($1,$2::jsonb) as r',[tool,JSON.stringify(args)]).then(r=>r[0].r);
+   const commit=(log,user,base,file)=>as('service_role',null,'select public.app_mcp_attach_commit($1,$2,$3,$4::jsonb) as r',[log,user,base,JSON.stringify(file)]).then(r=>r[0].r);
+   const ver=async id=>(await pool.query("select to_jsonb(updated_at)#>>'{}' v from public.app_notes where id=$1",[id])).rows[0].v;
+   const fileArgs=(id,extra={})=>({kind:'note',id,base_version:extra.base_version,file_name:'가상 자료.pdf',mime_type:'application/pdf',size_bytes:2048,...extra});
+   const pdf=(n=1)=>({drive_file_id:'synthetic-copy-'+n,file_name:'가상 자료.pdf',mime_type:'application/pdf',size_bytes:2048});
+
+   // 닫힌 쪽: anon·authenticated는 commit을 못 부르고, 일반 로그인·허용 표 없는 작업공간·쓰기 꺼짐은 확인에서 거절.
+   const [{c_auth,c_anon,c_svc}]=(await pool.query(`select has_function_privilege('authenticated','public.app_mcp_attach_commit(uuid,uuid,timestamptz,jsonb)','execute') c_auth,
+     has_function_privilege('anon','public.app_mcp_attach_commit(uuid,uuid,timestamptz,jsonb)','execute') c_anon,has_function_privilege('service_role','public.app_mcp_attach_commit(uuid,uuid,timestamptz,jsonb)','execute') c_svc`)).rows;
+   assert.deepEqual([c_auth,c_anon,c_svc],[false,false,true]);
+   await assert.rejects(as('authenticated',delegated(),"select public.app_mcp_attach_commit(gen_random_uuid(),gen_random_uuid(),now(),'{}')"),/permission denied/);
+   await assert.rejects(as('anon',null,"select public.app_mcp_attach_check('web2_attach_file','{}')"),/permission denied/);
+   const v0=await ver(ATT);
+   await refuse(check(normal(),'web2_attach_file',fileArgs(ATT,{base_version:v0})),'NOT_ALLOWED');
+   await refuse(check(delegated(STRANGER),'web2_attach_file',fileArgs(NOTE_B,{base_version:await ver(NOTE_B)})),'NOT_ALLOWED');
+   await refuse(check(delegated(OWNER,{client_id:'other-client'}),'web2_attach_file',fileArgs(ATT,{base_version:v0})),'NOT_ALLOWED');
+   await pool.query(`update public.app_mcp_settings set write_enabled=false where workspace_id='${WS_A}'`);
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:v0})),'WRITE_OFF');
+   await pool.query(`update public.app_mcp_settings set write_enabled=true where workspace_id='${WS_A}'`);
+   await refuse(check(delegated(),'web2_note_create',{title:'x'}),'NOT_ALLOWED');
+   // 대상: 남의 작업공간·일기·가족·AI 제외·잠근 폴더·모르는 칸·종류 밖·크기·판.
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(NOTE_B,{base_version:await ver(NOTE_B)})),'NOT_FOUND');
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(DIARY,{base_version:await ver(DIARY)})),'NOT_FOUND');
+   for(const id of [NOTE_FAM,NOTE_AIOFF,NOTE_LOCK])await refuse(check(delegated(),'web2_attach_file',fileArgs(id,{base_version:await ver(id)})),'LOCKED');
+   await refuse(check(delegated(),'web2_attach_file',{...fileArgs(ATT,{base_version:v0}),workspace_id:WS_B}),'BAD_INPUT');
+   for(const kind of ['family','ledger','org_record','call'])await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:v0,kind})),'BAD_INPUT');
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:v0,size_bytes:8388609})),'TOO_LARGE');
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:v0,mime_type:'pdf'})),'BAD_INPUT');
+   await refuse(check(delegated(),'web2_attach_drive_file',{kind:'note',id:ATT,base_version:v0,drive_file_id:'../../x'}),'BAD_INPUT');
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:'2020-01-01T00:00:00Z'})),'CHANGED');
+   assert.equal((await logRows()).filter(r=>r.action==='attach').length,0,'거절된 확인은 기록을 남기지 않는다');
+
+   // 확인 통과 → 기록 1행(시도) → commit(서버 키) → 첨부 칸 + 기록 채움(이름 없음).
+   const c1=await check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:v0}));
+   assert.equal(c1.note_kind,'note');assert.equal(c1.id,ATT);assert.equal(c1.attachments,0);
+   let row=(await logRows()).find(r=>r.id===c1.log_id);
+   assert.equal(row.action,'attach');assert.equal(row.files,null);assert.equal(row.after_version,null);assert.equal(row.tool,'web2_attach_file');
+   await refuse(commit(c1.log_id,STRANGER,c1.version,pdf()),'NOT_ALLOWED');
+   await refuse(commit(c1.log_id,OWNER,'2020-01-01T00:00:00Z',pdf()),'CHANGED');
+   await refuse(commit(c1.log_id,OWNER,c1.version,{...pdf(),size_bytes:8388609}),'TOO_LARGE');
+   await refuse(commit(c1.log_id,OWNER,c1.version,{...pdf(),workspace_id:WS_B}),'BAD_INPUT');
+   const done=await commit(c1.log_id,OWNER,c1.version,pdf());
+   assert.equal(done.ok,true);assert.equal(done.action,'attach');
+   assert.deepEqual((await note(ATT)).attachments,[pdf()]);
+   row=(await logRows()).find(r=>r.id===c1.log_id);
+   assert.deepEqual(row.files,[{drive_file_id:'synthetic-copy-1',mime_type:'application/pdf',size_bytes:2048}]);
+   assert.equal(Number(row.file_bytes),2048);assert.ok(row.after_version);assert.equal(row.chars_before,null);
+   assert.doesNotMatch(JSON.stringify(row),/가상 자료/,'기록에 파일 이름 없음');
+   await refuse(commit(c1.log_id,OWNER,done.version,pdf(2)),'NOT_FOUND');
+   // 업데이트(basket)도 같은 길, Drive 파일 붙이기는 확인 때 크기를 모르고 commit 때 100 MB 상한.
+   const c2=await check(delegated(),'web2_attach_drive_file',{kind:'update',id:ATT_UPD,base_version:await ver(ATT_UPD),drive_file_id:'1SyntheticDriveFile'});
+   assert.equal(c2.note_kind,'basket');
+   await refuse(commit(c2.log_id,OWNER,c2.version,{...pdf(3),size_bytes:104857601}),'TOO_LARGE');
+   assert.equal((await commit(c2.log_id,OWNER,c2.version,{...pdf(3),size_bytes:52428800})).ok,true);
+   // 10분 지난 확인은 쓸 수 없다.
+   const c3=await check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:await ver(ATT)}));
+   await pool.query("update public.app_mcp_write_log set called_at=now()-interval '11 minutes' where id=$1",[c3.log_id]);
+   await refuse(commit(c3.log_id,OWNER,c3.version,pdf(4)),'NOT_FOUND');
+   // 휴지통 노트에는 붙지 않는다.
+   const c4=await check(delegated(),'web2_attach_file',fileArgs(ATT_UPD,{kind:'update',base_version:await ver(ATT_UPD)}));
+   await pool.query('update public.app_notes set deleted_at=now() where id=$1',[ATT_UPD]);
+   await refuse(commit(c4.log_id,OWNER,c4.version,pdf(5)),'NOT_FOUND');
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT_UPD,{kind:'update',base_version:await ver(ATT_UPD)})),'NOT_FOUND');
+   await pool.query('update public.app_notes set deleted_at=null where id=$1',[ATT_UPD]);
+
+   // 상한: 노트 하나 20개, 하루 30개.
+   await pool.query(`update public.app_notes set attachments=(select jsonb_agg(jsonb_build_object('drive_file_id','f'||g,'file_name','x','mime_type','text/plain','size_bytes',1)) from generate_series(1,20) g) where id=$1`,[ATT_UPD]);
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT_UPD,{kind:'update',base_version:await ver(ATT_UPD)})),'TOO_MANY');
+   await pool.query(`update public.app_notes set attachments='[]' where id=$1`,[ATT_UPD]);
+   await age();
+   await pool.query(`insert into public.app_mcp_write_log(workspace_id,tool,kind,action,called_at,files,file_bytes,after_version)
+     select '${WS_A}','web2_attach_file','note','attach',now()-interval '3 minutes','[{"drive_file_id":"d","mime_type":"text/plain","size_bytes":1}]',1,now() from generate_series(1,27)`);
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:await ver(ATT)})),'RATE_LIMITED');
+   await pool.query(`delete from public.app_mcp_write_log where workspace_id='${WS_A}' and action='attach' and file_bytes=1`);
+   // 하루 1 GB.
+   await pool.query(`insert into public.app_mcp_write_log(workspace_id,tool,kind,action,called_at,files,file_bytes,after_version) values
+     ('${WS_A}','web2_attach_drive_file','note','attach',now()-interval '3 minutes','[{"drive_file_id":"big","mime_type":"video/mp4","size_bytes":524288000}]',524288000,now()),
+     ('${WS_A}','web2_attach_drive_file','note','attach',now()-interval '3 minutes','[{"drive_file_id":"big2","mime_type":"video/mp4","size_bytes":524288000}]',524288000,now())`);
+   await refuse(check(delegated(),'web2_attach_file',fileArgs(ATT,{base_version:await ver(ATT)})),'RATE_LIMITED');
+   await pool.query(`delete from public.app_mcp_write_log where workspace_id='${WS_A}' and file_bytes=524288000`);
+
+   // 되돌리기: 1판 되돌리기 함수는 첨부 행을 거절, 첨부 되돌림 표시는 일반 로그인만·파일이 빠진 뒤에만.
+   await refuse(undo(normal(),c1.log_id),'NOT_FOUND');
+   const undone=(claims,id)=>as('authenticated',claims,'select public.app_mcp_attach_undone($1) as r',[id]).then(r=>r[0].r);
+   await refuse(undone(delegated(),c1.log_id),'NOT_ALLOWED');
+   await refuse(undone(normal(STRANGER),c1.log_id),'NOT_FOUND');
+   await refuse(undone(normal(),c1.log_id),'STILL_ATTACHED');
+   await refuse(undone(normal(),c3.log_id),'NOT_FOUND');
+   // 화면이 첨부 [삭제] 길로 뗀 것과 같은 결과.
+   await as('authenticated',normal(),"update public.app_notes set attachments='[]' where id=$1",[ATT]);
+   assert.equal((await undone(normal(),c1.log_id)).ok,true);
+   assert.ok((await logRows()).find(r=>r.id===c1.log_id).undone_at);
+   await refuse(undone(normal(),c1.log_id),'NOT_FOUND');
+
+   // L1: 1판 목록(19개) 위에 attach_check 하나. commit·undone은 위임 열쇠로 못 간다. 되돌리면 19개.
+   const preq=(claims,path,method='POST')=>as('authenticated',claims,'select public.app_mcp_pre_request()',[],{path,method});
+   await pool.query(guardApply);
+   const [gp]=(await pool.query(agPre)).rows;
+   for(const [k,v] of Object.entries(gp))if(k.startsWith('ok_'))assert.equal(v,true,k);
+   await refuse(preq(delegated(),'/rpc/app_mcp_attach_check'),'NOT_ALLOWED');
+   await pool.query(agApply);
+   await preq(delegated(),'/rpc/app_mcp_attach_check');await preq(delegated(),'/rpc/app_mcp_write');await preq(delegated(),'/rpc/app_mcp_day_list');
+   for(const path of ['/rpc/app_mcp_attach_commit','/rpc/app_mcp_attach_undone','/rpc/app_mcp_write_undo','/app_mcp_write_log','/app_notes','/rpc/app_mcp_attach_checkx'])
+    await refuse(preq(delegated(),path),'NOT_ALLOWED');
+   assert.equal((await pool.query(agPre)).rows[0].ok_write_list,false);
+   await assert.rejects(pool.query(aRollback),/undo docs\/ops\/mcp-claude-attach-guard first/);await pool.query('rollback');
+   await pool.query(agRollback);
+   await refuse(preq(delegated(),'/rpc/app_mcp_attach_check'),'NOT_ALLOWED');
+   await preq(delegated(),'/rpc/app_mcp_write');
+   assert.equal((await pool.query(agPre)).rows[0].ok_write_list,true);
+   await pool.query(guardRollback);
+
+   // 되돌리기: 카탈로그가 적용 전과 같고, 노트에 붙은 첨부는 사용자 자료로 남는다.
+   await pool.query(aRollback);
+   assert.deepEqual((await pool.query(aSnap)).rows,aBefore);
+   assert.deepEqual(await readOnly(aPre),aBeforeCheck);
+   assert.equal((await note(ATT_UPD)).attachments.length,0);
+   assert.equal((await logRows()).filter(r=>r.action==='attach').length,0);
+   await pool.query('delete from public.app_notes where id in ($1,$2)',[ATT,ATT_UPD]);
+  });
+
   await t.test('L1 widening (SQL Editor file): delegated tokens reach app_mcp_write and app_mcp_write_tools, never the undo function; rollback returns to 17',async()=>{
    const [pre]=(await pool.query(guardPre)).rows;
    for(const [k,v] of Object.entries(pre))if(k.startsWith('ok_'))assert.equal(v,true,k);

@@ -60,6 +60,16 @@ test('설정 행·이번 달 시작(서울)·호출 수 글', () => {
   assert.equal(M.statusLabel('limited'), '잠깐 멈춤');
 });
 
+test('③ 첨부 줄: 파일 수·크기(이름 없음), 못 붙인 시도는 첨부 못 함, 되돌리기 거절 문구', () => {
+  assert.equal(M.writeLabel({kind: 'note', action: 'attach'}), '노트 파일 첨부');
+  assert.equal(M.writeChars({action: 'attach', files: [{drive_file_id: 'a', size_bytes: 2097152}], file_bytes: 2097152}), '1개 · 2.0 MB');
+  assert.equal(M.writeChars({action: 'attach', files: [{drive_file_id: 'a', size_bytes: 3000}], file_bytes: 3000}), '1개 · 3 KB');
+  assert.equal(M.writeChars({action: 'attach', files: null, chars_before: 1000000}), '첨부 못 함');
+  assert.equal(M.attachDone({action: 'attach', files: []}), false);
+  assert.equal(M.fileSize(52 * 1024 * 1024), '52 MB');
+  assert.match(M.undoError({message: 'STILL_ATTACHED'}), /아직 떼지 못했어요/);
+});
+
 test('화면 파일 경계: 설정 칸은 enabled·revoked_before·영역 칸(area_*)·쓰기 스위치(write_enabled)만 PATCH, 기록은 읽기만(되돌리기 RPC 하나), 기기 저장 없음', () => {
   const src = read('app/mcp-read-settings.js');
   assert.match(src, /patch\(area \? \{\[`area_\$\{area\}`\]: want\} : \{enabled: want\}\)/);
@@ -68,8 +78,12 @@ test('화면 파일 경계: 설정 칸은 enabled·revoked_before·영역 칸(ar
   // PATCH는 둘: 읽기 칸(위 셋)과 쓰기 스위치(write_enabled 하나만, MCP-Claude쓰기). POST는 되돌리기 RPC 하나뿐.
   assert.equal((src.match(/method: 'PATCH'/g) || []).length, 2);
   assert.match(src, /method: 'PATCH', body: \{write_enabled: want\}/);
-  assert.equal((src.match(/method: 'POST'/g) || []).length, 1);
+  // POST는 셋: 되돌리기 RPC, ③ 첨부 되돌리기의 첨부 [삭제] 길(trash-file만, 노트 대상)과 되돌림 표시 RPC.
+  assert.equal((src.match(/method: 'POST'/g) || []).length, 3);
   assert.match(src, /rt\.api\(UNDO, \{method: 'POST', body: \{p_log_id: id\}/);
+  assert.match(src, /rt\.api\(FILE_TRASH, \{method: 'POST', body: \{action: 'trash-file', target: 'note', id: row\.target_id, drive_file_id: f\.drive_file_id\}/);
+  assert.match(src, /rt\.api\(ATTACH_UNDONE, \{method: 'POST', body: \{p_log_id: id\}/);
+  assert.match(src, /const ATTACH_UNDONE = '\/rest\/v1\/rpc\/app_mcp_attach_undone';/);
   assert.match(src, /const UNDO = '\/rest\/v1\/rpc\/app_mcp_write_undo';/);
   assert.doesNotMatch(src, /method: '(DELETE|PUT)'/);
   assert.doesNotMatch(src, /allowed_client_id\s*:/);
