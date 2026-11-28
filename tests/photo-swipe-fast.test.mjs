@@ -219,8 +219,11 @@ test('확대 중에는 세로 밀기(별표·닫기)가 쉰다', () => {
 
 test('연결: 크게 보기가 확대를 붙이고, 화면 전체 확대 대신 사진 안 확대, 원본 해상도 경로 재사용', () => {
   const strip = readZ('app/photo-strip.js'), css = readZ('app/diary.css'), photos = readZ('app/photos.js'), diary = readZ('app/diary.js');
-  assert.match(strip, /addEventListener\('wheel'[\s\S]*passive:false/);
-  assert.match(strip, /addEventListener\('dblclick'/);
+  // S73-13: 확대 손동작은 공용 photo-zoom-gesture.js로 꺼냈다(글 읽기 크게 보기도 같은 것). 크게 보기 줄(strip)에 붙인다.
+  const gesture = readZ('app/photo-zoom-gesture.js');
+  assert.match(strip, /attachPhotoZoom\(strip,/);
+  assert.match(gesture, /addEventListener\('wheel'[\s\S]*passive:false/);
+  assert.match(gesture, /addEventListener\('dblclick'/);
   assert.match(strip, /zoomed:zoomedNow\(\)/);
   assert.match(strip, /resetZoom\(\); at = next; show\(\);/); // 다른 장으로 넘기면 원래 크기
   assert.match(css, /\.diary-viewer-strip\{[^}]*touch-action:pan-x; \}/);
@@ -230,5 +233,5 @@ test('연결: 크게 보기가 확대를 붙이고, 화면 전체 확대 대신 
   assert.match(photos, /phone\.mediaUrl\(item\)[\s\S]*gdMediaBlob\(rt, item\.gdId\)[\s\S]*odMediaUrl\(rt, item\.id, 'download'\)/);
   assert.match(diary, /hires:item => \(item\.kind === 'od'/);
   // 기기 저장 없음.
-  for (const src of [strip, readZ('app/photo-viewer-model.mjs')]) assert.doesNotMatch(src, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')));
+  for (const src of [strip, gesture, readZ('app/photo-viewer-model.mjs')]) assert.doesNotMatch(src, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB'].join('|')));
 });

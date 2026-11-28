@@ -147,7 +147,7 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   assert.match(read('app/index.html'), /data-view="meetings" data-nav-group="meetings projects" href="\.\/\?view=reports">사업 관리<\/a>\n\s*<a class="nav-btn" data-view="files" href="\.\/\?view=files">파일<\/a>/);
   // S69-62: '옮길 곳' 창 모양은 공용 folder-dest-sheet.css(자료실·노트·사진 폴더 고르기 창과 같은 파일).
   assert.match(read('app/view-loader.js'), /files:\['\.\/od-link\.css','\.\/folder-tree\.css','\.\/source-chips\.css','\.\/folder-dest-sheet\.css','\.\/files\.css'/);
-  assert.match(read('app/view-loader.js'), /async function files\(\)\{ await module\('\.\/files\.js'\)/);
+  assert.match(read('app/view-loader.js'), /async function files\(\)\{ await screen\('\.\/files\.js','__KPTU_FILES_READY__'\)/);
   assert.match(read('app/app-router.js'), /files:\['at','shelf'\]/);
   const js = read('app/files.js'), model = read('app/files-model.mjs');
   const deviceStores = new RegExp([['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['caches', '\\.open']].map(p => p.join('')).join('|'));

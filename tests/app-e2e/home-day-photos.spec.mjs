@@ -69,9 +69,10 @@ for (const [width, height] of WIDTHS) {
     if (cols >= 12) expect(shown[shown.length - 1].key).toBe('C');
     expect(m.reads || m.suggests).toBe(false); // ②·③는 서버 연결 전이라 칸 없음
     expect(m.docW).toBeLessThanOrEqual(m.vw);
-    // 사진 보기 → 그날 일기. 별표·지우기 같은 쓰기 없음.
+    // 사진 보기 → [사진] 화면(S73-07: 일기 아님; 그날·그 사진 이동은 home-photo-link.spec.mjs). 별표·지우기 같은 쓰기 없음.
     await box.locator('[data-journal-photos-open]').click();
-    await expect(page.locator('#diaryView')).toBeVisible();
+    await expect(page.locator('#photosView')).toBeVisible();
+    await expect(page.locator('#diaryView')).toBeHidden();
     expect(f.writes).toEqual([]);
     expect(f.errors).toEqual([]);
   });

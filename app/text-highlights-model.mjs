@@ -84,12 +84,17 @@ export function quoteGone(text, quote) {
 // 다시 열었을 때 자리 찾기: 빈칸·줄바꿈을 빼고 비교한다(고른 글은 문단 줄바꿈이 들어 있고, 칸 글자는 문단 사이 빈칸이 없다).
 // 고른 글이 나오는 곳 중 앞뒤 글이 가장 많이 맞는 곳. 원문이 바뀌어 없으면 null(밑줄 글은 [밑줄] 탭에 그대로 남는다). 답의 start/end는 원래 글자 자리.
 const strip = v => String(v ?? '').replace(/\s+/g, '');
-export function locate(full, h) {
-  const s = String(full ?? ''), q = strip(h?.quote);
-  if (!q) return null;
+// 빈칸을 뺀 글자 줄 flat과, 그 글자가 원래 글의 몇 번째인지 pos.
+function flatOf(s) {
   const pos = [];
   let flat = '';
   for (let i = 0; i < s.length; i++) if (!/\s/.test(s[i])) { flat += s[i]; pos.push(i); }
+  return {flat, pos};
+}
+export function locate(full, h) {
+  const s = String(full ?? ''), q = strip(h?.quote);
+  if (!q) return null;
+  const {flat, pos} = flatOf(s);
   const pre = strip(h.quote_prefix), suf = strip(h.quote_suffix);
   const score = i => {
     let a = 0, b = 0;
@@ -104,6 +109,32 @@ export function locate(full, h) {
     at = flat.indexOf(q, at + 1);
   }
   return best ? {start: pos[best.at], end: pos[best.at + q.length - 1] + 1} : null;
+}
+// HL-밑줄위치로: 밑줄 줄을 눌러 글을 열 때 갈 자리. 정확한 자리(locate)가 없으면(글이 조금 바뀜) 고른 글의 같은 문장 → 앞머리 글자를 같은 글에서 찾아
+// 가장 가까운 곳으로. 그래도 없으면 null(맨 위 + 짧은 안내). 답: {start, end, exact} — start/end는 원래 글자 자리, exact = 저장한 자리 그대로 찾았나.
+export const SPOT_MIN = 8;
+export function spotOf(full, h) {
+  const exact = locate(full, h);
+  if (exact) return {...exact, exact: true};
+  const s = String(full ?? ''), q = strip(h?.quote);
+  if (q.length < SPOT_MIN) return null;
+  const {flat, pos} = flatOf(s);
+  const tries = [];
+  for (const sentence of String(h.quote).split(/[.!?。…]+\s*|\n+/)) { const t = strip(sentence); if (t.length >= SPOT_MIN) tries.push(t); }
+  for (const n of [24, 16, SPOT_MIN]) if (q.length > n) tries.push(q.slice(0, n));
+  for (const t of tries) {
+    const at = flat.indexOf(t);
+    if (at >= 0) return {start: pos[at], end: pos[at + t.length - 1] + 1, exact: false};
+  }
+  return null;
+}
+// 눈에 보이는 띠([bandTop, bandBottom], 머리 줄 아래~하단바 위) 안에서 밑줄 첫 줄(top·height)을 어디에 놓을지: 띠 위쪽 3분의 1 자리(앞 글이 조금 보이게).
+// 띠보다 큰 밑줄은 첫 줄이 띠 맨 위에 오게. 답 = 지금 위치에서 더 스크롤할 양(+ 아래로). 이미 그 자리 근처(±tol)면 0.
+export function jumpDelta({top, height, bandTop, bandBottom, tol = 2}) {
+  const room = Math.max(0, bandBottom - bandTop), line = Math.max(0, Math.min(height, room));
+  const want = line >= room * 0.6 ? bandTop : bandTop + Math.max(0, (room - line) * 0.3);
+  const d = top - want;
+  return Math.abs(d) <= tol ? 0 : d;
 }
 // 겹치는 밑줄은 먼저 찾은 것만 칠한다(새 것이 위 — 목록 차례 그대로). 답: [{start, end, id}] 앞에서 뒤 차례.
 export function markRanges(full, list) {

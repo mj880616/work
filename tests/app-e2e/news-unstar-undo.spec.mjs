@@ -19,7 +19,7 @@ const R1 = 'c1000000-0000-4000-8000-000000000011', RN1 = 'c1000000-0000-4000-800
 const CATALOG = [{ key: 'kctu', name: '가짜총연맹', group: 'labor', lang: 'ko' }];
 const POST = { id: P1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 가짜 보관 성명', title_ko: null, url: 'https://example.org/s/1', published_at: '2026-10-05T00:30:00Z', fetched_at: '2026-10-05T00:40:00Z', summary_ko: null, key_sentences: [], has_body: false };
 const line = extra => ({ url: '', title: null, site: null, read_at: '2026-10-06T06:00:00Z', body_state: 'ok', body_at: '2026-10-05T05:00:10Z', business_area_id: null, updated_at: '2026-10-05T06:00:00Z', origin: 'direct', news_article_id: null, outside_article_id: null, ...extra });
-// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 보관한 기사 줄 RN1(N1)·RN2(N2).
+// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 저장한 기사 줄 RN1(N1)·RN2(N2).
 const READING = () => [
   line({ id: R1, url: 'https://example.org/s/1', title: '읽을 거리에 넣은 같은 성명', site: 'example.org', saved_at: '2026-10-05T05:00:00Z', outside_article_id: P1 }),
   line({ id: RN1, url: 'https://example.org/n/11', title: '가짜 매체 기사 하나', site: '가짜일보', saved_at: '2026-10-06T00:00:00Z', origin: 'news', news_article_id: N1 }),
@@ -372,3 +372,19 @@ for (const width of [412, 1280]) {
     expect(errors).toEqual([]);
   });
 }
+
+// 흔들림 정리(2026-11-27): 저장한 글에 다시 들어오면 목록을 한 번 더 새로 읽어 그린다. 그때 자판 초점이 있던 줄이 새 줄로 바뀌면서
+// 초점이 화면 밖으로 빠져, 바로 누른 Enter가 사라지고 오른쪽 칸에 앞 글이 남았다(위 '보관 줄 → News 글 보기' 시험이 CI에서 10번 흔들림).
+// 다시 그려도 초점은 같은 글 줄에 남아야 한다(주소 칸과 같은 규칙).
+test('저장한 글 1280: 목록을 다시 그려도 자판 초점은 같은 줄 — 바로 누른 Enter가 그 글을 연다', async ({ page }) => {
+  const { errors } = await start(page, 1280);
+  await goReading(page, 1280);
+  await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+  await expect(row(page, T_N2)).toBeVisible();
+  await row(page, T_N2).focus();
+  await page.evaluate(() => window.KPTUReading.refresh());
+  await expect(row(page, T_N2)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(T_N2);
+  expect(errors).toEqual([]);
+});

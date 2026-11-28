@@ -88,3 +88,18 @@ test('[[ 목록 Esc: 목록만 닫고 친 글자는 그대로 (1280)',async({pag
  await expect(page.locator('[data-note-detail] [data-note-body-field]')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
+// FIX-main시험 #3284: '[[' 목록 부품이 늦게 와도(느린 망) 편집기가 보이는 순간부터 친 '[['는 목록을 연다.
+// 고치기 전에는 편집기가 먼저 뜨고 부품을 나중에 불러와, 그 사이 친 '[['를 놓쳐 목록이 끝내 안 떴다.
+test('[[ 목록 부품이 늦게 와도 편집기가 보이자마자 친 [[ 는 목록을 연다 (1280)',async({page})=>{
+ const f=await fixture(page,1280);
+ await page.route(u=>u.pathname.endsWith('/ed-note-link.js'),async r=>{await new Promise(res=>setTimeout(res,1500));await r.continue();});
+ await page.locator(`[data-note-row="${A}"]`).click();
+ await noteMenuAction(page,'data-note-edit',{width:1280});
+ const field=page.locator('[data-note-detail] [data-note-body-field] .ProseMirror');
+ await expect(field).toBeVisible();
+ await field.click();await page.keyboard.press('Control+End');
+ await page.keyboard.type(' [[');
+ await expect(page.locator('.ed-notelink')).toBeVisible();
+ await expect(page.locator('.ed-notelink [data-ed-note-link]')).toHaveCount(2);
+ expect(f.errors).toEqual([]);
+});

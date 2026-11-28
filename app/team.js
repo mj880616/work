@@ -139,14 +139,19 @@ async function loadForView(view){
      spaces=await api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc');
      fillSelects();
    }else if(view==='meetings'){
+     // RULE-한번에그리기: 머리 줄 고르기 상자([종류 ▾][사업영역 ▾][기간 ▾][보기 ▾])와 회의명 묶음은 사업영역 나무·회의명 정리·보고 연결을
+     // 받아야 정해진다. 전에는 먼저 그린 뒤 사업영역 나무가 오면 [사업영역 ▾]가 끼어들어(3개 → 4개) 줄이 밀렸다. 이제 다 받은 뒤 한 번 그린다
+     // (화면 불러오기 도구가 이 약속을 기다린 뒤 화면을 보인다). 못 읽은 것은 지금처럼 빼고 그린다.
      [spaces,meetings,documents]=await Promise.all([
        api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc'),
        readMeetings(api,wid),
        readDocuments(api,wid),
-       reportKit()
+       reportKit(),
+       fetchAreaTree()
      ]);
+     if(readNameSorts)nameSortsAsked=true;
+     await Promise.all([loadReportLinks(),readNameSorts?Promise.resolve().then(readNameSorts).catch(()=>null):null]);
      publishProjects();fillSelects();restoreReportPlace();renderMeetings();
-     void loadReportLinks().then(()=>{if(teamViewLoaded.has('meetings'))renderMeetings()});
    }
    teamViewLoaded.add(view);
    return true;
@@ -307,7 +312,10 @@ function pickReportDay(day,scroll){reportDay=day;renderMeetings();if(scroll)$('#
 // MTG-프로젝트합치기 2단계: 칸 칩 아래 사업영역 칩([전체]·1단 사업영역·[꼬리표 없음 n]). 예전 프로젝트 화면 대신 여기서 사업영역별로 걸러 본다.
 // 사업영역 = 프로젝트 트리(고르기 창과 같은 읽기 loadReportPlaces). 트리를 못 읽었으면 칩 줄을 숨기고 거르지 않는다. 고른 칩은 이 화면이 열린 동안만.
 let areaChip='all',areaTree=null,areaTreeLoading=false;
-function loadAreaTree(){if(areaTree||areaTreeLoading)return;areaTreeLoading=true;import('./report-places-sheet.js').then(s=>s.loadReportPlaces()).then(p=>{areaTree=p?.projects||[];renderAreaChips()},()=>{}).finally(()=>{areaTreeLoading=false})}
+// fetchAreaTree: 받기만(그리지 않음) — 사업 관리 첫 그림 전에 기다린다(loadForView). loadAreaTree: 첫 받기가 실패했을 때 그 뒤 다시 받아 그린다.
+let areaTreeFlight=null;
+function fetchAreaTree(){if(areaTree)return Promise.resolve(areaTree);return areaTreeFlight||=import('./report-places-sheet.js').then(s=>s.loadReportPlaces()).then(p=>{areaTree=p?.projects||[];return areaTree},()=>null).finally(()=>{areaTreeFlight=null})}
+function loadAreaTree(){if(areaTree||areaTreeLoading)return;areaTreeLoading=true;fetchAreaTree().then(tree=>{if(tree)renderAreaChips()}).finally(()=>{areaTreeLoading=false})}
 function areaMatch(list){if(!areaTree||areaChip==='all')return list;const roots=areaRoots(areaTree);return list.filter(m=>matchesAreaChip(m,areaChip,roots))}
 // 목록 줄의 작은 글자는 직접 단 꼬리표만(옛 보고에 빌려 보이는 꼬리표는 보기 면에만).
 function areaNameOf(m){if(!areaTree)return '';const id=areaIdOf(m),x=id&&areaTree.find(r=>String(r.project.id)===id);return x?[x.path,x.project.name].filter(Boolean).join(' › '):''}
@@ -432,7 +440,9 @@ function renderMeetingRows(box){renderMeetingTypeOptions();const chip=reportChip
 // 창을 아직 못 불러왔으면 이 한 줄이 보이고, 창이 준비되면(kptu:report-detail-ready) 바로 바뀐다.
 const meetingResult=()=>`<div class="mcol-wait" data-mcol-pending>${waitHtml({rows:5})}</div>`;
 function undockReport(){window.KPTUMeetingRoundDetail?.undock?.()}
-function dockReport(){const slot=$('#meetingList #mcolResult'),id=slot?.dataset.meetingResult,api=window.KPTUMeetingRoundDetail;if(!slot||!id||!api?.dock)return;void api.dock(slot,id)}
+// S71-73: 다른 화면(조직·사업 상세 등) 위에 창으로 떠 있는 사업 보고는, 안 보이는 사업 보고 화면 칸이 다시 그려져도(저장 뒤 목록 다시 읽기) 가져가지 않는다.
+// 가져가면 창이 사라지고 저장 뒤 알림(kptu:meetings-changed)이 끊겨 아래 상세가 옛 연결을 보인다. 창을 닫으면 kptu:report-pane-free로 다시 앉힌다.
+function dockReport(){const slot=$('#meetingList #mcolResult'),id=slot?.dataset.meetingResult,api=window.KPTUMeetingRoundDetail;if(!slot||!id||!api?.dock)return;const open=document.querySelector('#meetingRoundDetailModal');if(open&&open.parentElement!==slot&&!open.classList.contains('hidden')&&!slot.getClientRects().length)return;void api.dock(slot,id)}
 for(const name of ['kptu:report-detail-ready','kptu:report-pane-free'])window.addEventListener(name,()=>{if(meetingPc?.matches&&teamViewLoaded.has('meetings'))dockReport()});
 // UI-상단줄제목: the 사업 보고 shown on the right goes to the PC top line's place (kptu:where-item, topbar-actions.js), named like the result head (name + round); null when none.
 function meetingWhere(m){const round=m&&(reportKindOf(m)===DEFAULT_KIND||hasRound(m)||meetingShortName(m))?roundLabel(m):'';window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'meetings',name:m?[meetingName(m)||'이름 없음',round].filter(Boolean).join(' '):null,trail:m?[{name:reportChip===ALL_KINDS?'전체':reportKindLabel(reportChip),step:'chip:'+reportChip}]:[]}}))}

@@ -48,6 +48,8 @@
 // the box first (that ends the composition), then runs and puts focus back.
 import {mountBlocks, gripIcon, phoneTouchMedia} from './ed-blocks.js';
 import {mountGtasks, gtaskDedupe} from './ed-gtasks.js';
+// FIX-main시험(이슈 3284): 편집기가 화면에 뜬 뒤 늦게 불러오면 그 사이 친 '[['를 놓친다 — 편집기와 함께 불러온다.
+import {mountNoteLink} from './ed-note-link.js';
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, PHOTO_ROW_MAX, fileSizeText, cleanDoc, emptyDoc, safeHref, nextCircled, CHECK_MARKER,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
@@ -862,6 +864,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return names.size > 0 && lines.length > 0 && lines.every(line => names.has(line) || names.has(line.split(/[\\/]/).pop()));
   };
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
+  // 편집기 만들기 안에는 await(노트 연결 부품 불러오기)가 있어, 그 사이에 브라우저 선택·입력 알림이 오면 dispatchTransaction이 먼저 불린다.
+  // 그때 paint는 아직 만들어지지 않은 도구 줄 부품(inNode 등)을 쓰므로, 만들기가 끝나기 전에는 paint를 부르지 않는다(끝에서 한 번 그린다).
+  let built = false;
   const view = new pm.EditorView(box, {
     state,
     nodeViews: {image: node => photoView(node), file: node => fileView(node), toggle: (node, v, getPos) => toggleView(node, v, getPos)},
@@ -969,7 +974,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       } else view.updateState(next);
       if (tr.docChanged) onChange?.(getValue());
       if (tr.docChanged) gtaskPart?.changed(before, tr, view.state.doc);
-      paint();
+      if (built) paint();
       blockPart?.update();
       noteLinkPart?.update();
     },
@@ -1002,8 +1007,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     gtaskPart = mountGtasks({view, N, provider: tasks, say: text => showNote(text), makeCheckList: () => setListStyle('bullet', CHECK_MARKER)});
   }
   // S69-98 NOTE-에버노트 ⑧ 노트 연결: '[[' → 노트 고르기 목록 → 그 노트 링크. 노트(noteLinks를 주는 곳)에만 붙는다.
+  // 편집기와 같은 차례에 붙는다(늦게 오는 모듈 없음): 보이는 순간부터 친 '[['가 목록을 연다.
   if (noteLinks) {
-    const {mountNoteLink} = await import('./ed-note-link.js');
     noteLinkPart = mountNoteLink({pm, view, schema, bar, noteLinks, changed: () => syncBox()});
   }
   // NOTE-글폭(S61-21): 글 줄 폭 묶음은 바로(.line-w), 손잡이는 부품을 불러온 뒤 붙인다(공유 페이지 편집기는 부르지 않음).
@@ -2066,6 +2071,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   syncLayout();
+  built = true;
   paint();
   // S69-97: the first read of the linked Google tasks starts only now — its answer redraws (paint), which needs everything above
   // (an earlier start could answer during the '[[' part's import and paint before the toolbar's helpers exist).

@@ -106,6 +106,9 @@ export function loadTimeText(t) {
 export const ZOOM_MIN = 1, ZOOM_MAX = 5, ZOOM_TAP = 2.5, ZOOM_EPS = 0.02;
 export const TAP_MS = 300, TAP_MOVE = 12, DOUBLE_TAP_MS = 320, DOUBLE_TAP_DIST = 40;
 export const ZOOM_ONE = Object.freeze({s: 1, x: 0, y: 0});
+// PHOTO-글속사진확대(S73-13): 글 속 사진 위 두 손가락을 처음 거리의 이만큼 벌리면 크게 보기를 열고 그 손가락으로 이어 확대한다(작게 벌리면 그대로).
+export const PINCH_OPEN = 1.15;
+export const pinchOpens = (d0, d) => d0 > 0 && d > 0 && d / d0 >= PINCH_OPEN;
 const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
 export const clampScale = s => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, num(s, 1)));
 export const isZoomed = z => num(z?.s, 1) > 1 + ZOOM_EPS;
@@ -151,3 +154,10 @@ export const isDoubleTap = (prev, cur) => !!prev && !!cur && cur.t - prev.t >= 0
 // 다 놓았을 때: 원래 크기 가까이면 원래 크기로 붙인다.
 export const settleZoom = (z, box = {}) => (clampScale(z?.s) < 1.05 ? {...ZOOM_ONE} : clampPan(z, box));
 export const zoomTransform = z => (isZoomed(z) ? `translate(${num(z.x).toFixed(1)}px, ${num(z.y).toFixed(1)}px) scale(${clampScale(z.s).toFixed(3)})` : '');
+// PHOTO-크게보기정렬(S73-12, 명진 11/27 22:50 "섬네일에서 클릭한거 하나 뒤에거가 나옴 / 확대하면 또 다른 사진이 확대됨"): 크게 보기 가로 줄에서 몇 번째 칸이 보이는지.
+// 칸 폭은 화면 배율이 소수인 폰(폴드 등)에서 411.43px처럼 소수인데, 예전에는 정수로 반올림된 clientWidth로 나누고 곱해 뒤 칸일수록 어긋났다
+// (1218번째면 한두 장). 폭은 실제 칸 폭(소수)을 받고, 칸 수 안으로 묶는다.
+export function slideAt(scrollLeft, slideWidth, count) {
+  if (!(count > 0) || !(slideWidth > 0) || !Number.isFinite(scrollLeft)) return 0;
+  return Math.max(0, Math.min(count - 1, Math.round(scrollLeft / slideWidth)));
+}

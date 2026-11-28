@@ -889,7 +889,7 @@ function paintReadText() {
   showPlainText(text, raw);
   if (rawView) return;
   // ED③ 업데이트: the saved form is drawn instead of the letters (the 원문 toggle still shows the letters).
-  if (asDoc && paintDoc(text, selected, {rt, onOpen:(file, el) => openPhoto(file.drive_file_id, el)})) return;
+  if (asDoc && paintDoc(text, selected, {rt})) return; // 본문 사진 크게 보기는 note-body.js fillPhotos가 연다(S73-13)
   const owner = scope();
   void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope(), videos: true}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
 }

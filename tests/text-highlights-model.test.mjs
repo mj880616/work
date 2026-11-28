@@ -114,3 +114,26 @@ test('highlightAt finds the painted highlight under a selection (underlines are 
   assert.equal(highlightAt(ranges, rows, 1, 3), null);
   assert.equal(highlightAt(ranges, rows, 20, 25), null);
 });
+
+// HL-밑줄위치로: 밑줄 줄에서 글을 열 때 갈 자리(정확한 자리 → 같은 문장 → 없음)와 눈에 보이는 띠 안 놓을 자리.
+import {spotOf, jumpDelta} from '../app/text-highlights-model.mjs';
+const FULL = '첫 문단은 배경이에요.\n\n둘째 문단: 가상 인력 충원 이야기를 짚어 봐요. 마지막 줄이에요.';
+const hl = (quote, quote_prefix = '', quote_suffix = '') => ({quote, quote_prefix, quote_suffix});
+test('spotOf: 저장한 자리 그대로면 exact, 글이 조금 바뀌면 같은 문장 앞머리로 near, 없으면 null', () => {
+  const ex = spotOf(FULL, hl('가상 인력 충원'));
+  assert.equal(ex.exact, true);
+  assert.equal(FULL.slice(ex.start, ex.end), '가상 인력 충원');
+  const near = spotOf(FULL, hl('가상 인력 충원 이야기를 크게 바꿔 봐요. 다른 문장'));
+  assert.equal(near.exact, false);
+  assert.equal(FULL.slice(near.start).startsWith('가상 인력 충원'), true);
+  assert.equal(spotOf(FULL, hl('전혀 없는 글자들이 여기에 있어요')), null);
+  assert.equal(spotOf(FULL, hl('짧음')), null); // 너무 짧은 글은 엉뚱한 곳으로 보내지 않는다
+  assert.equal(spotOf(FULL, hl('')), null);
+});
+test('jumpDelta: 띠 위쪽 3분의 1에 놓고, 이미 거기면 0, 띠보다 큰 밑줄은 첫 줄을 띠 맨 위로', () => {
+  const band = {bandTop: 100, bandBottom: 700};
+  assert.equal(jumpDelta({top: 1000, height: 20, ...band}), 1000 - (100 + (600 - 20) * 0.3));
+  assert.equal(jumpDelta({top: 100 + (600 - 20) * 0.3, height: 20, ...band}), 0);
+  assert.equal(jumpDelta({top: -300, height: 20, ...band}) < 0, true); // 위로 지나쳐 있으면 거꾸로
+  assert.equal(jumpDelta({top: 900, height: 2000, ...band}), 800);
+});

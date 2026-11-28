@@ -14,6 +14,8 @@ import {hasDoc, needsMarkdown, noteStartDoc} from './note-doc.mjs';
 import {diaryPhotoUrl} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {slotLoading, slotImg, slotFailed} from './img-slot.js';
+import {openPhotoView, photoViewZoom} from './photo-view.js';
+import {pinchOpens} from './photo-viewer-model.mjs';
 
 const STYLES = ['./ed-doc.css'];
 function ensureStyles() {
@@ -34,11 +36,26 @@ async function markdownFor(note) {
 export async function startValue(note) { return noteStartDoc(note, await markdownFor(note)); }
 
 // A shown photo that opens large when pressed: a button for touch, mouse and keyboard (Enter·Space), named for screen readers.
+// PHOTO-글속사진확대(S73-13): 두 손가락을 사진 위에 대고 벌려도 크게 보기가 열리고, 손을 떼지 않은 채 그 손가락으로 이어 확대된다
+// (열린 크게 보기의 공용 확대 손동작이 비율을 이어받음 — photo-view.js photoViewZoom). 한 손가락은 글 스크롤 그대로(막지 않음).
 function zoomable(place, open, name) {
   if (place.dataset.edZoom) return;
   place.dataset.edZoom = '1'; place.tabIndex = 0; place.setAttribute('role', 'button'); place.setAttribute('aria-label', `${name} 크게 보기`);
   place.addEventListener('click', e => { e.preventDefault(); open(); });
   place.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  let d0 = 0, from = 0, live = null;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  place.addEventListener('touchstart', e => { if (e.touches.length === 2) { d0 = dist(e.touches); live = null; } else if (!live) d0 = 0; }, {passive: true});
+  place.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !d0) return;
+    if (e.cancelable) e.preventDefault(); // 사진 위 두 손가락은 화면 확대가 아니라 이 사진 크게 보기
+    const d = dist(e.touches);
+    if (live) { live.follow(d / from); return; }
+    if (!pinchOpens(d0, d) || !open()) return;
+    from = d; live = photoViewZoom();
+  }, {passive: false});
+  const end = e => { if (e.touches.length >= 2) return; live?.release(); live = null; d0 = 0; };
+  place.addEventListener('touchend', end, {passive: true}); place.addEventListener('touchcancel', end, {passive: true});
 }
 // The note's photos: drive:<id> of a file in this note's attachments, shown through the owner-only photo view.
 const fileOf = (note, id) => (note?.attachments || []).find(f => f?.drive_file_id === id) || null;
@@ -52,7 +69,10 @@ function bodyPhotos(box, note) {
   }
   return out;
 }
-export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} = {}) {
+// 글 읽기 화면(노트·잊지 말기·하루 기록)의 본문 사진은 모두 여기서 공용 크게 보기(photo-view.js — 확대·넘기기·뒤로가기 닫기)로 연다.
+// 같은 본문 사진끼리 넘긴다(bodyPhotos). 크게 보기는 본문과 같은 큰 판(1600px)을 쓴다(이미 받아 둔 것이라 바로 뜬다).
+const openBody = (box, note, file, place, rt) => openPhotoView({row: note, file, files: bodyPhotos(box, note), trigger: place, rt});
+export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
   for (const place of box.querySelectorAll('[data-ed-drive]')) {
     const file = fileOf(note, place.dataset.edDrive);
     if (!file || !/^image\//.test(file.mime_type || '')) continue;
@@ -67,7 +87,7 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
           retry: () => { img.remove(); load(); },
           onShown: () => {
             place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img);
-            if (onOpen) zoomable(place, () => onOpen(file, place, bodyPhotos(box, note)), attachmentName(file, '사진'));
+            zoomable(place, () => openBody(box, note, file, place, rt), attachmentName(file, '사진'));
           },
         });
       }, () => { if (place.isConnected) slotFailed(place, load, 'photo'); });
@@ -76,18 +96,18 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
   }
 }
 // The read view of a note with doc. Returns true when it drew (false: the caller keeps the old view).
-// onOpen(file, trigger): NOTE-파일그림넣기 ② — a shown photo in the text is pressed (or Enter/Space) to see it large (the opener's own
-// photo view, the same one as the attachment cards). Without it the photos only show.
+// NOTE-파일그림넣기 ② · S73-13: a shown photo in the text is pressed (or Enter/Space, or spread with two fingers) to see it large in the shared
+// photo view (photo-view.js, the same one as the attachment cards) — fillPhotos does this for every reading screen.
 // tasks: S69-97 — the note screen's Google task provider (noteTaskProvider). A check linked to a Google task reads Google's state
 // (the source): the box is redrawn when Google says otherwise. Reading never writes the note; the next edit takes Google's state in.
-export function paintDoc(box, note, {rt, onOpen = null, tasks = null} = {}) {
+export function paintDoc(box, note, {rt, tasks = null} = {}) {
   if (!hasDoc(note)) return false;
   ensureStyles();
   // NOTE-유튜브보기: 노트·업데이트 읽기 화면은 유튜브 링크 아래 영상 칸(▶ 누를 때 재생).
   const doc = renderDoc(note.doc, null, {videos: true, tasks: true});
   box.replaceChildren(doc);
   box.dataset.noteView = 'doc';
-  fillPhotos(box, note, {rt, onOpen});
+  fillPhotos(box, note, {rt});
   if (tasks) void readTaskState(doc, tasks);
   return true;
 }

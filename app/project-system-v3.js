@@ -23,10 +23,10 @@ import {hydrateLibraryThumbs} from './library-photo.js';
 import {categoryTag,categoryOf,topDocumentCategories,loadDocumentCategories} from './document-categories.js';
 import {renderKindPick,kindPickState,hiddenCategories,KIND_ALL} from './category-chips.js';
 import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
-import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
+import {readLinkedReports,readAllReports,changeOneTarget} from './report-links.js';
 import {readReportPhotos,reportPhotosHtml,mountReportPhotos} from './report-photos.js';
 import {openReport} from './report-open.js';
-import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
+import {reportTitle,reportKindTag} from './report-links-model.mjs';
 import {TRASH_KIND,TRASH_KINDS,TRASH_KIND_LABEL,TRASH_STATE,TRASH_TEXT,classifyTrashError,classifyTrashList,normalizeTrashRows,mergeTrashStates,restoredText,parentFirstText,deleteDialogText,trashErrorText,purgeConfirmText,archiveButtonLabel,firstArchiveTab,noteKindWord,sharePrevWord} from './project-trash-model.mjs';
 import {purgePage as purgeSharePage} from './share-pages-archive.mjs';
 import {bigWindowOpen} from './big-window-open.js';
@@ -540,8 +540,9 @@ function mountDocKinds(d){
 }
 // PRJ-회의표시 → MTG-사업보고 6단계: 이 프로젝트에 연결된 사업 보고(회의·정책·교섭 …, 모든 종류)를 최근 순으로. 연결은 연결 표의 '출처 회의' 줄(report-links.js)이라
 // 사업 보고 쪽에서 연결해도, 여기서 [연결]로 골라도 같은 줄이다. 이미 연결돼 있던 회의는 그대로 '회의' 종류로 나온다. 하위 프로젝트 것은 넣지 않는다.
-// 줄은 [종류] 이름·차수·날짜, 누르면 사업 보고 결과 창이 이 화면 위에 열린다. 최근 5개 + 나머지는 접어 둔다. ⋯ → [연결 해제](5초 안에 되돌리기).
-function meetingRow(m,photos){const strip=reportPhotosHtml(m.id,photos);return word`<div class="ps3-line ps3-meeting-row"><button type="button" class="ps3-line-main${strip?' has-report-photos':''}" data-ps3-meeting="${esc(m.id)}"><b><span class="report-kind-tag" data-report-kind-tag>${esc(reportKindTag(m))}</span>${esc(reportTitle(m))}</b><small>${m.meeting_at?esc(date(m.meeting_at)):''}</small>${m.linkSummary?`<small class="report-link-summary-line" data-report-link-summary>${esc(m.linkSummary)}</small>`:''}${strip}</button><details class="ps3-more ps3-line-more"><summary class="icon-btn" aria-label="사업 보고 관리: ${esc(reportTitle(m))}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="ps3-more-panel" role="group" aria-label="사업 보고 관리"><button type="button" data-ps3-report-unlink="${esc(m.id)}">연결 해제</button></div></details></div>`}
+// 줄은 [종류] 이름·차수·날짜, 누르면 사업 보고 결과 창이 이 화면 위에 열린다. 최근 5개 + 나머지는 접어 둔다.
+// S71-73(사용자 결정 2026-11-26): 줄에 ⋯를 두지 않는다(연결 해제만 있던 메뉴) — 연결은 사업 보고를 열고 [수정] › [연결할 곳]에서 뺀다.
+function meetingRow(m,photos){const strip=reportPhotosHtml(m.id,photos);return word`<div class="ps3-line ps3-meeting-row"><button type="button" class="ps3-line-main${strip?' has-report-photos':''}" data-ps3-meeting="${esc(m.id)}"><b><span class="report-kind-tag" data-report-kind-tag>${esc(reportKindTag(m))}</span>${esc(reportTitle(m))}</b><small>${m.meeting_at?esc(date(m.meeting_at)):''}</small>${m.linkSummary?`<small class="report-link-summary-line" data-report-link-summary>${esc(m.linkSummary)}</small>`:''}${strip}</button></div>`}
 function meetingsHtml(d){const rows=d.meetings||[],first=rows.slice(0,5),rest=rows.slice(5);return word`<section class="ps3-section" id="ps3-meetings"><div class="ps3-section-head"><h3>사업 보고 ${count(rows.length)}</h3><div class="ps3-section-actions"><button type="button" class="ps3-text-btn" data-ps3-report-link>연결</button>${addPlus(word('사업 보고 추가'),'data-ps3-global="meeting"')}</div></div>${first.length?`<div class="ps3-lines">${first.map(m=>meetingRow(m,d.reportPhotos)).join('')}</div>`:''}${rest.length?`<details class="ps3-meetings-more"><summary class="ps3-text-btn">나머지 ${rest.length}개 보기</summary><div class="ps3-lines">${rest.map(m=>meetingRow(m,d.reportPhotos)).join('')}</div></details>`:''}</section>`}
 async function openMeetingRound(id){
   try{await window.KPTUViewLoader?.prepare?.('meetings');await import('./meeting-round-detail.js');if(!(await window.__KPTU_MEETING_ROUND_DETAIL_READY__))throw new Error('meeting detail unavailable');await window.KPTUMeetingRoundDetail.open(id)}
@@ -984,7 +985,7 @@ async function purgeFromTrash(id){
 }
 function openArchive(){trash.tab=firstArchiveTab({archived:archived().length});paintArchive();openModal('ps3ArchiveModal');void syncTrash()}
 async function restoreArchive(id){await api(`/rest/v1/app_spaces?id=eq.${id}`,{method:'PATCH',body:{status:'active',updated_at:new Date().toISOString()}});await loadProjects();paintArchive();await renderGrid();toast(word('사업영역을 복구했습니다.'))}
-// 사업 보고 [연결](모든 종류에서 고름)·⋯ [연결 해제](5초 되돌리기). 저장은 report-links.js 한 곳.
+// 사업 보고 [연결](모든 종류에서 고름). 연결 풀기는 사업 보고 [수정] › [연결할 곳](S71-73). 저장은 report-links.js 한 곳.
 async function repaintReports(){if(!current)return;const id=current.id;try{const r=await readLinkedReports({kind:'project',id},rt);if(!current||current.id!==id||!detail)return;const photos=await readReportPhotos(r.rows,rt).catch(e=>{console.warn('project report photos repaint failed',e);return new Map()});if(!current||current.id!==id||!detail)return;detail.meetings=r.rows;detail.reportPhotos=photos;const box=$('#ps3-meetings');if(box){box.outerHTML=meetingsHtml(detail);mountReportPhotos($('#ps3-meetings'),{rt,isCurrent:()=>current?.id===id})}}catch(e){console.warn('project reports repaint failed',e)}}
 async function reportLink(trigger){
   if(!current)return;const target={kind:'project',id:current.id};
@@ -996,21 +997,8 @@ async function reportLink(trigger){
       toast(word('사업 보고를 연결했습니다.'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));await repaintReports()}})}
   catch(e){toast(e.message||word('사업 보고 목록을 불러오지 못했어요.'))}
 }
-async function reportUnlink(id){
-  if(!current)return;const target={kind:'project',id:current.id},anchor=document.activeElement;
-  try{
-    const now=await readReportTargets(id);const mine=now.find(t=>sameTarget(t,target));
-    if(mine?.hasSummary&&(!(await askConfirm(anchor,{text:'이 연결에 보낸 기록이 있어요. 연결을 해제하면 그 기록도 함께 삭제돼요. 해제할까요?',ok:'해제',danger:true}))||current?.id!==target.id))return;
-    const r=await changeOneTarget(id,target,'remove');
-    if(!r.ok){toast(r.message||'연결을 해제하지 못했어요.');return}
-    window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));await repaintReports();
-    if(mine?.hasSummary){toast('연결과 보낸 기록을 삭제했습니다.');return}
-    offerUndoNotice({text:word('연결을 해제했어요. 사업 보고는 남아요.'),onUndo:async()=>{const back=await restoreTargets(id,r.previous);if(!back.ok)return {status:'failed',message:back.message||'되돌리지 못했어요.'};await repaintReports();window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:id}}));return {status:'restored',message:'연결을 되돌렸어요.'}}});
-  }catch(e){toast(e.message||'연결을 해제하지 못했어요.')}
-}
 function reportClick(e){
   const link=e.target.closest?.('#ps3Body [data-ps3-report-link]');if(link){e.preventDefault();void reportLink(link);return}
-  const un=e.target.closest?.('#ps3Body [data-ps3-report-unlink]');if(un){e.preventDefault();un.closest('details')?.removeAttribute('open');void reportUnlink(un.dataset.ps3ReportUnlink)}
 }
 window.addEventListener('kptu:meetings-changed',()=>{void repaintReports()});
 // S70-65 UI-밀기메뉴통일(사용자 11/26 08:16 '사업 관리 진행 기록 = [수정][삭제] 두 칸'): 폰 진행 기록 줄을 왼쪽으로 밀면 [수정][삭제] — 그 줄 ⋯ 메뉴와 같은 길.

@@ -12,10 +12,9 @@ import { drivePlace, metaUrl, parsePlaceRequest } from './drive-place.mjs';
 // S69-22: [앱 폴더 한곳에 모으기] — 명진이 누를 때만. 내 드라이브 맨 위의 앱 폴더를 맨 위 앱 폴더 아래로(부모만 바꿈, 지우지 않음).
 // S69-41: 같은 누름에서 표식으로 알아본 앱 폴더의 옛 이름도 새 이름으로(이름·표식만, 사람이 바꾼 이름은 그대로).
 import { gatherCandidates, gatherFolders, gatherIntoNewRoot, GatherError, parseGatherRequest, renameCandidates } from '../_shared/gather-folders.mjs';
-// S69-20 ③④⑤: 자료실 앱 폴더 = 드라이브 폴더(앞으로 같게 'auto', [드라이브 폴더 맞추기] 'align'). 규칙은 library-mirror.mjs 한 곳.
+// S69-20 ③④⑤·S70-76: 자료실 앱 폴더 = 드라이브 폴더(늘 같게 'auto' 하나 — 옮길 때마다 화면이 부름). 규칙은 library-mirror.mjs 한 곳.
+// S70-76: [드라이브 폴더 맞추기]('align')·[드라이브와 맞는지 보기](drive-check)는 일회용이 되어 지웠다(AGENTS.md 4절).
 import { DriveFail, MIRROR_BUDGET_MS, mirrorLibrary, parseMirrorBody } from '../_shared/library-mirror.mjs';
-// S70-29(2026-11-25 명진 '다 없애 1회용 기능'): 자료실 ⋯ [드라이브와 맞는지 보기](POST ?action=drive-check)·[드라이브 폴더 맞추기](drive-mirror mode 'align')는 지웠다.
-// 남은 것: drive-mirror 'auto'(앞으로 같게). _shared/library-drive-check.mjs(어긋남 판정)는 S70-29 지시대로 파일로 남긴다(지금 부르는 곳 없음).
 const SB=Deno.env.get('SUPABASE_URL')!;const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;const admin=createClient(SB,SERVICE,{auth:{persistSession:false}});
 const cors={'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,'Content-Type':'application/json; charset=utf-8'}});
 // SEC-정리묶음: Google·AI 쪽 오류 원문은 서버 로그에만 남기고, 응답에는 우리 글(단계)만 싣는다.
@@ -79,6 +78,8 @@ async function userRest(auth:string,path:string,init:RequestInit={}){
   if(!r.ok)throw Object.assign(new Error('rest '+r.status),{status:r.status});
   return await r.json();
 }
+const REST_PAGE=1000;
+async function restPages(auth:string,path:string,max=200000){const out:any[]=[];for(let from=0;from<max;from+=REST_PAGE){const rows=await userRest(auth,`${path}&limit=${REST_PAGE}&offset=${from}`);const list=Array.isArray(rows)?rows:[];out.push(...list);if(list.length<REST_PAGE)return out}throw Object.assign(new Error('too many rows'),{status:413})}
 const GD='https://www.googleapis.com/drive/v3/files';
 function mirrorDrive(token:string){
   const call=async(url:string,init:RequestInit={})=>{let r:Response;try{r=await fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(init.headers||{})},signal:AbortSignal.timeout(15000)})}catch{throw new DriveFail(0)}if(!r.ok)throw new DriveFail(r.status);return await r.json().catch(()=>({}))};
@@ -89,32 +90,31 @@ function mirrorDrive(token:string){
     list:async(parents:string[])=>{const ok=parents.filter(p=>/^[A-Za-z0-9_-]{10,200}$/.test(p));if(!ok.length)return [];const out:any[]=[];let page='';for(let i=0;i<20;i++){const q=new URLSearchParams({q:`(${ok.map(p=>`'${p}' in parents`).join(' or ')}) and trashed=false`,fields:'nextPageToken,files(id,name,mimeType,parents,appProperties)',pageSize:'1000',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});if(page)q.set('pageToken',page);const d=await call(`${GD}?${q}`);for(const f of Array.isArray(d.files)?d.files:[])out.push(f);page=d.nextPageToken||'';if(!page)break}return out},
     // S69-52: 새 짝 폴더에 처음부터 '마지막으로 맞춘 모양' 표식(appProperties)을 붙인다.
     createFolder:async(name:string,parent:string,appProperties?:Record<string,string|null>)=>{const body:Record<string,unknown>={name,mimeType:'application/vnd.google-apps.folder',parents:[parent]};if(appProperties)body.appProperties=appProperties;const d=await call(`${GD}?fields=id&supportsAllDrives=true`,{method:'POST',body:JSON.stringify(body)});if(typeof d.id!=='string')throw new DriveFail(0);return d.id},
-    // S69-52: 표식 칸 null = 그 칸 지우기(드라이브 규칙), trashed:true = 되돌리기 때 우리가 만든 빈 폴더만 드라이브 휴지통으로(영구 삭제 없음).
-    patch:async(id:string,p:{name?:string,addParents?:string,removeParents?:string,appProperties?:Record<string,string|null>,trashed?:boolean})=>{const q=new URLSearchParams({fields:'id',supportsAllDrives:'true'});if(p.addParents)q.set('addParents',p.addParents);if(p.removeParents)q.set('removeParents',p.removeParents);const body:Record<string,unknown>={};if(p.name)body.name=p.name;if(p.appProperties)body.appProperties=p.appProperties;if(p.trashed===true)body.trashed=true;await call(`${GD}/${encodeURIComponent(id)}?${q}`,{method:'PATCH',body:JSON.stringify(body)})},
-    // S69-52: 이 맞추기 번호 표식이 붙은 것(되돌리기). 번호는 parseCheckBody가 [a-z0-9]만 받는다.
-    marked:async(batch:string)=>{if(!/^[a-z0-9]{8,40}$/.test(batch))return [];const out:any[]=[];let page='';for(let i=0;i<20;i++){const q=new URLSearchParams({q:`appProperties has { key='won_sb' and value='${batch}' } and trashed=false`,fields:'nextPageToken,files(id,name,mimeType,parents,appProperties,trashed)',pageSize:'1000',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});if(page)q.set('pageToken',page);const d=await call(`${GD}?${q}`);for(const f of Array.isArray(d.files)?d.files:[])out.push(f);page=d.nextPageToken||'';if(!page)break}return out},
+    // S69-52: 표식 칸 null = 그 칸 지우기(드라이브 규칙). S70-76: 휴지통 보내기(되돌리기용)는 지웠다 — 드라이브 파일·폴더는 지우지 않는다.
+    patch:async(id:string,p:{name?:string,addParents?:string,removeParents?:string,appProperties?:Record<string,string|null>,})=>{const q=new URLSearchParams({fields:'id',supportsAllDrives:'true'});if(p.addParents)q.set('addParents',p.addParents);if(p.removeParents)q.set('removeParents',p.removeParents);const body:Record<string,unknown>={};if(p.name)body.name=p.name;if(p.appProperties)body.appProperties=p.appProperties;await call(`${GD}/${encodeURIComponent(id)}?${q}`,{method:'PATCH',body:JSON.stringify(body)})},
   };
 }
 // 앱 표 읽기·쓰기 — 모두 로그인한 본인 토큰(owner RLS·칸 권한·나무 검사·휴지통 트리거 그대로). service_role은 쓰지 않는다.
-// S69-52: 이름·부모 고치기(드라이브에서 바뀐 것을 따라감), 폴더 만들기(드라이브에만 있는 폴더), 지우기(되돌리기 때 우리가 만든 폴더 — 자료실 휴지통으로).
+// S69-52: 이름·부모 고치기(드라이브에서 바뀐 것을 따라감). S70-76: 점검 창용 폴더 만들기·지우기는 지웠다.
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function libraryDb(auth:string,own:string){
   const w=`workspace_id=eq.${own}`;
   const one=(id:string)=>{if(!UUID_RE.test(id))throw Object.assign(new Error('bad id'),{status:400});return `app_library_folders?id=eq.${id}&${w}`};
   const changed=(rows:unknown)=>{if(!Array.isArray(rows)||rows.length!==1)throw Object.assign(new Error('not changed'),{status:409});return rows[0]};
   return {
-    folders:()=>userRest(auth,`app_library_folders?${w}&select=id,parent_id,name,sort_order,drive_folder_id&limit=5000`),
-    items:()=>userRest(auth,`app_library_folder_items?${w}&select=document_id,folder_id&limit=20000`),
-    documents:()=>userRest(auth,`app_documents?${w}&file_id=not.is.null&select=id,file_id,title,file_name,classification_note&limit=20000`),
+    // S70-76: 서버는 한 번에 1000줄까지만 돌려준다(LIB-연결줄다읽기와 같음). 잘리면 폴더 안 자료가 '폴더 밖'으로 읽혀 드라이브에서 자료실 맨 위로 옮겨지므로 끝까지 이어 읽는다.
+    folders:()=>restPages(auth,`app_library_folders?${w}&select=id,parent_id,name,sort_order,drive_folder_id&order=id.asc`),
+    // S71-05: 옮긴 시각(moved_at)도 읽어 드라이브에서 사람이 옮긴 것을 덮지 않는다(library-mirror followTarget). 칸이 없으면(DB 적용 전) 지금처럼 앱 기준.
+    items:async()=>{try{return await restPages(auth,`app_library_folder_items?${w}&select=document_id,folder_id,moved_at&order=document_id.asc`)}catch(e){if((e as any)?.status!==400)throw e;return await restPages(auth,`app_library_folder_items?${w}&select=document_id,folder_id&order=document_id.asc`)}},
+    documents:()=>restPages(auth,`app_documents?${w}&file_id=not.is.null&select=id,file_id&order=id.asc`),
     setDrive:(id:string,drive:string|null,expect:string|null)=>userRest(auth,'rpc/app_library_folder_set_drive',{method:'POST',body:JSON.stringify({p_id:id,p_drive:drive,p_expect:expect})}),
     renameFolder:async(id:string,name:string)=>changed(await userRest(auth,`${one(id)}&select=id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({name})})),
     moveFolder:async(id:string,parent:string|null)=>{if(parent!==null&&!UUID_RE.test(parent))throw Object.assign(new Error('bad parent'),{status:400});return changed(await userRest(auth,`${one(id)}&select=id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({parent_id:parent})}))},
-    createFolder:async({parent_id,name}:{parent_id:string|null,name:string})=>{if(parent_id!==null&&!UUID_RE.test(parent_id))throw Object.assign(new Error('bad parent'),{status:400});const sib=await userRest(auth,`app_library_folders?${w}&parent_id=${parent_id?'eq.'+parent_id:'is.null'}&select=sort_order&order=sort_order.desc&limit=1`);const sort=(Number(sib?.[0]?.sort_order)||0)+1;return changed(await userRest(auth,'app_library_folders?select=id',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({workspace_id:own,parent_id,name,sort_order:sort})}))},
-    deleteFolder:async(id:string)=>{await userRest(auth,`${one(id)}&select=id`,{method:'DELETE',headers:{Prefer:'return=representation'}})},
   };
 }
-// POST ?action=drive-mirror {mode:'auto'} (S70-29: 'align'은 400) → 숫자만 {ok,state,folders_made,folders_fixed,files_moved,cant,pending,left,more,stopped,stage}.
+// POST ?action=drive-mirror {mode:'auto'} → 숫자만 {ok,state,folders_made,folders_fixed,files_moved,cant,pending,left,more,stopped,stage}.
 // 작업공간은 로그인 owner 작업공간, 드라이브 연결도 그 작업공간 것만. 연결이 없거나 DB 칸이 아직 없으면(적용 전) ok:false + code(화면은 조용히 넘어감).
+// 밀린 것은 서버 DB(자료실 폴더·연결 줄)와 드라이브의 차이로 부를 때마다 다시 계산한다(따로 표를 두지 않음 — 같은 상태를 두 곳에 두지 않는다).
 async function driveMirrorOf(userId:string,auth:string,mode:'auto'){
   const own=await callerOwnerWorkspace(admin,userId);
   if(!own)return json({error:'워크스페이스 소유자 권한이 필요합니다.'},403);
@@ -125,7 +125,7 @@ async function driveMirrorOf(userId:string,auth:string,mode:'auto'){
   try{token=await workspaceDriveToken(admin,own,{fetch})}catch{return json({ok:false,code:'drive_not_connected',stage:'token'})}
   const db=libraryDb(auth,own);
   try{
-    const r=await mirrorLibrary({libraryId:s.library_folder_id,mode,db,drive:mirrorDrive(token),budgetMs:MIRROR_BUDGET_MS});
+    const r=await mirrorLibrary({libraryId:s.library_folder_id,db,drive:mirrorDrive(token),budgetMs:MIRROR_BUDGET_MS});
     if(r.pending||r.cant||r.stopped||r.more)console.log('workspace-drive mirror',{mode,pending:r.pending,cant:r.cant,stopped:r.stopped,more:r.more,left:r.left,moved:r.files_moved,stage:r.stage});
     return json(r);
   }catch(e){

@@ -29,7 +29,7 @@ import {chevHtml} from './fold-chevron.mjs';
 import {bizWeekOpen,setBizWeekOpen} from './biz-week-fold.js';
 import {layoutAreas} from './weekly-area-layout.mjs'; // S67-30: 주간보고 칸 빼기·다른 칸 안으로(홈 [주간 정리] 2. 1)만)
 import {rowMore} from './row-more.js';
-import {askConfirm} from './small-notice.js';
+import {askConfirm,notify} from './small-notice.js';
 import {word} from './brand/brand.mjs';
 import {partStyles} from './part-styles.js';
 // S67-41: 이 부품의 모양 파일(part-styles.js 표)을 부품이 열리기 전에 붙인다 — 화면 모양 목록에 없어도 꾸밈 없이 그려지지 않게.
@@ -90,6 +90,7 @@ async function onClick(e){
   if(e.target.closest('[data-bw-fold],[data-bw-fold-end]')){const next=!isOpen();setBizWeekOpen(next);state.hand=state.auto?next:null;applyFold(state.from);if(next&&(state.dirty||!state.view)){state.dirty=false;void paint()}return}
   if(e.target.closest('[data-bp-edit-cancel]')){state.editing=null;return renderPaper()}
   if(e.target.closest('[data-bp-edit-save]'))return saveEdit();
+  const clr=e.target.closest('[data-bp-edit-clear]');if(clr)return clearEdit(clr);
   const recs=e.target.closest('[data-bp-recs]');if(recs)return toggleRecs(recs.dataset.bpRecs);
   // S67-30: 사업영역 줄 ⋯ — 다른 칸 안으로(고르기 칸 열기)·따로 두기·이 칸 빼기, 표 아래 [다시 넣기].
   const lay=e.target.closest('[data-bp-into],[data-bp-apart],[data-bp-hide],[data-bp-show],[data-bp-into-cancel]');
@@ -193,7 +194,7 @@ function renderPaper(){
   for(const slot of box.querySelectorAll('[data-bp-more]')){let spec=null;try{spec=JSON.parse(slot.dataset.bpMore)}catch{/* 깨진 자리표는 ⋯ 없이 */}if(spec)slot.replaceWith(rowMore(document,spec));else slot.remove()}
   placeDetail();
   box.dataset.bpReady=''; // 표가 처음 그려짐 — 이제부터 자리 잡기(CSS min-height)를 풀고 표 높이를 따른다
-  const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select()}
+  const field=$in('[data-bp-field]');if(field){field.focus({preventScroll:true});if(field.select&&field.tagName==='INPUT')field.select();else if(field.setSelectionRange){const n=field.value.length;field.setSelectionRange(n,n)}} // 글 칸은 기존 글 끝에 커서
 }
 
 // 2) 주요 사업 창 상자는 그 주를 다 읽은 뒤에만 자리 줄(표 모양 자리와 같은 한 줄)과 바꿔 붙인다 — 아래 목록이 두 번 밀리지 않게(BIZ-주간칸밀림).
@@ -233,10 +234,10 @@ function factsHtml(items,records){
   const ones=progress.filter(p=>p.rec?.oneline),rest=progress.filter(p=>!p.rec?.oneline);
   return `${[...ones,...rest].map(lineHtml).join('')}${plans.length?`<p class="biz-cell-plan">→ 이후: ${plans.map(esc).join(' / ')}</p>`:''}`;
 }
-function editBox(kind,value,label,max=kind==='owner'?60:2000){
+function editBox(kind,value,label,max=kind==='owner'?60:2000,clearable=false){
   const input=kind==='owner'?`<input type="text" maxlength="${max}" value="${esc(value)}" data-bp-field aria-label="${esc(label)}">`
     :`<textarea data-autogrow rows="4" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(value)}</textarea>`;
-  return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button></span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
+  return `<div class="biz-write">${input}<span class="biz-write-btns"><button type="button" class="mini" data-bp-edit-save>저장</button><button type="button" class="mini secondary" data-bp-edit-cancel>취소</button>${clearable&&String(value).trim()?'<button type="button" class="mini secondary" data-bp-edit-clear>이 칸 글 삭제</button>':''}</span><span class="biz-write-hint">${kind==='owner'?'Enter':'Ctrl+Enter'} 저장 · Esc 취소</span></div>`;
 }
 function progressCell(ref,row,items,records){
   if(state.now)return nowProgressCell(ref,row,items,records);
@@ -319,7 +320,7 @@ function recsHtml(ref,items,records){
 }
 function nowProgressCell(ref,row,items,records){
   const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);
-  if(ed&&ed.kind==='progress'&&ed.row===row)return editBox('progress',v.body,`${ref.area} ${ref.task} 지금 상황`,NM.NOW_BODY_MAX);
+  if(ed&&ed.kind==='progress'&&ed.row===row)return editBox('progress',v.body,`${ref.area} ${ref.task} 지금 상황`,NM.NOW_BODY_MAX,true);
   const lines=v.body?v.body.split('\n'):[];
   const body=lines.length?lines.map(l=>`<p class="biz-hand-line">${esc(l)}</p>`).join(''):'<span class="biz-now-empty">—</span>';
   const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 지금 상황 쓰기`)}">${lines.length?'수정':'쓰기'}</button>`:'';
@@ -329,6 +330,24 @@ function nowOwnerCell(ref,row){
   const {NM}=state.kit,ed=state.editing,v=NM.nowView(state.now.rows,ref.space,state.from);
   if(ed&&ed.kind==='owner'&&ed.row===row)return editBox('owner',v.owner,`${ref.area} ${ref.task} 담당`,NM.OWNER_MAX);
   return `${esc(v.owner)}${state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="owner" data-bp-row="${row}" aria-label="${esc(`${ref.area} ${ref.task} 담당 쓰기`)}">${v.owner?'수정':'쓰기'}</button>`:''}`;
+}
+// [이 칸 글 삭제]: 열린 칸 하나의 글만 비운다(다른 칸·사업 기록은 그대로). 확인 뒤 지우고 [되돌리기]로 원문을 다시 쓴다.
+async function clearEdit(anchor){
+  const ed=state?.editing,ref=ed&&rowRefs()[ed.row];if(!ref||!state.now||ed.kind!=='progress')return;
+  const {NM,ND}=state.kit,week=state.from,before=NM.nowView(state.now.rows,ref.space,week).body;
+  if(!before)return;
+  if(!(await askConfirm(anchor,{text:'이 칸의 글을 삭제할까요?',ok:'삭제',danger:true,note:word('삭제한 뒤 [되돌리기]로 다시 살려요.')})))return;
+  if(!state?.editing||state.editing!==ed)return;
+  const run=state.run;
+  for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel],[data-bp-edit-clear]'))b.disabled=true;
+  say('저장 중…');
+  const put=async body=>{writing=self;try{return await ND.writeNow(window.KPTURuntime,{rows:state.now.rows,spaceId:ref.space,week,change:{body}})}finally{if(writing===self)writing=null}};
+  try{
+    const rows=await put('');
+    if(!state||run!==state.run||!state.now)return;
+    state.now.rows=rows;state.editing=null;say('');renderPaper();
+    notify('글을 삭제했어요.',{label:'삭제한 글',undo:async()=>{const back=await put(before);if(state?.now&&state.run===run){state.now.rows=back;renderPaper()}}});
+  }catch{if(state&&run===state.run){say('삭제하지 못했어요. 잠시 뒤 다시 해 주세요.');for(const b of box.querySelectorAll('[data-bp-edit-save],[data-bp-edit-cancel],[data-bp-edit-clear]'))b.disabled=false}}
 }
 async function saveNowEdit(ed,field,ref){
   const {NM,ND}=state.kit,owner=ed.kind==='owner';
@@ -413,14 +432,16 @@ function groupedHtml(placed,records){
       if(editing){
         const ref=refs[ed.row],v=NM.nowView(state.now.rows,ref.space,state.from);
         const pick=subs.length?`<label class="biz-write-target">수정할 칸 <select data-bp-target aria-label="${esc(`${area.name} 수정할 칸`)}"><option value="${ownAt}"${ed.row===ownAt?' selected':''}>${esc(area.name)}</option>${subs.map(x=>`<option value="${x.at}"${ed.row===x.at?' selected':''}>◦ ${esc(x.ref.task)}</option>`).join('')}</select></label>`:'';
-        cell=pick+editBox('progress',v.body,`${area.name}${ref.task?' '+ref.task:''} 지금 상황`,NM.NOW_BODY_MAX);
+        cell=pick+editBox('progress',v.body,`${area.name}${ref.task?' '+ref.task:''} 지금 상황`,NM.NOW_BODY_MAX,true);
       }else{
         const linesOf=ref=>{const v=NM.nowView(state.now.rows,ref.space,state.from);return v.body?v.body.split('\n').map(l=>`<p class="biz-hand-line">${esc(l)}</p>`).join(''):''};
         const recN=(ref,items)=>items.length+(state.now.recs.get(ref.space)||[]).length;
         const ownBody=linesOf(ownRef),ownRecs=recsHtml(ownRef,own.items||[],records);
         const subHtml=subs.map(x=>{const body=linesOf(x.ref);if(!body&&!recN(x.ref,x.row.items||[]))return '';return `<p class="biz-sub-head">◦ ${esc(x.ref.task)}</p>${body}${recsHtml(x.ref,x.row.items||[],records)}`}).join('');
         const any=ownBody||subHtml;
-        const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${ownAt}" aria-label="${esc(`${area.name} 지금 상황 쓰기`)}">${any?'수정':'쓰기'}</button>`:'';
+        // [수정]은 글이 보이는 칸(자기 칸 → 글 있는 첫 세부 과제 칸)을 기존 글 그대로 연다. 빈 칸을 열면 새로 쓰기가 된다.
+        const startAt=ownBody?ownAt:(subs.find(x=>linesOf(x.ref))?.at??ownAt);
+        const btn=state.editable?`<button type="button" class="row-act biz-write-open" data-bp-cell="progress" data-bp-row="${startAt}" aria-label="${esc(`${area.name} 지금 상황 쓰기`)}">${any?'수정':'쓰기'}</button>`:'';
         cell=`${ownBody}${subHtml}${any?'':'<span class="biz-now-empty">—</span>'}<div class="biz-now-foot">${ownRecs}${btn}</div>`;
       }
       rows.push(`<tr data-bp-area="${esc(area.name)}">${i===0?`<th scope="rowgroup" rowspan="${list.length}">${esc(k)}</th>`:''}<td>${k===area.name&&list.length===1?'':esc(area.name)}${intoPickHtml(area,placed)}</td><td data-bp-box="progress">${cell}</td><td data-bp-box="owner">${ownerCell(ownRef,ownAt)}${areaMoreHtml(area,placed)}</td></tr>`);

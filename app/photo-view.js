@@ -12,6 +12,7 @@ import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {notify} from './small-notice.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
 import {attachStageSwipe} from './photo-view-swipe.js';
+import {attachPhotoZoom} from './photo-zoom-gesture.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -47,9 +48,14 @@ function showPhotoBox(shown, content, trigger) {
       shareFrom(pointAnchor(box, x, y), {count:1, note, getFiles:() => photoFilesFor(el, nameOf, {alive, note}), native:() => sharePhotoElement(el, nameOf, {alive, note})}, {wide:true});
     }});
   // PHOTO-크게보기밀기(S57-2): 앞뒤 사진이 없으면(노트 사진 한 장) 가로로 밀어도 제자리, 아래로 밀면 닫기. 앞뒤 사진은 openDocumentPhotoView가 hooks를 채운다.
-  const hooks = {at: () => 0, count: () => 1, goTo: () => false};
+  // PHOTO-글속사진확대(S73-13): 사진 안 확대·축소는 [사진] 메뉴 크게 보기와 같은 공용 손동작(photo-zoom-gesture.js) — 두 손가락·두 번 톡·휠·더블클릭·확대 중 끌기.
+  // 확대 중에는 밀기(넘기기·닫기)가 쉰다(hooks.zoomed). 그림이 늦게 뜨면 확대 범위를 다시 맞춘다.
+  const zoom = attachPhotoZoom(stage, {photo: () => stage.querySelector('.diary-photo'), can: () => !!stage.querySelector('.diary-photo img[src]'),
+    onZoom: on => { if (on) box.dataset.photoZoom = ''; else delete box.dataset.photoZoom; }});
+  stage.addEventListener('load', () => { if (zoom.zoomed()) zoom.reclamp(); }, true);
+  const hooks = {at: () => 0, count: () => 1, goTo: () => false, zoomed: () => zoom.zoomed()};
   const offSwipe = attachStageSwipe(stage, hooks, {closeNow: () => { if (current?.box === box) closePhotoView(); }});
-  current = {box, trigger, hooks, offSwipe, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
+  current = {box, trigger, hooks, zoom, offSwipe, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
   box.querySelector('[data-basket-photo-close]').focus();
   return true;
 }
@@ -154,6 +160,7 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
   const paint = (reuse = null) => {
     item = nav ? nav.item(index) : item;
     const made = reuse || boxOf(item);
+    current?.zoom?.reset(); // 다른 장으로 넘기면 원래 크기
     stage.querySelectorAll('.diary-photo').forEach(el => el.remove());
     stage.prepend(made.box); nameEl.textContent = made.shown; box.setAttribute('aria-label', made.shown);
     if (nav) { countEl.textContent = `${index + 1}/${nav.count}`; prev.disabled = index <= 0; next.disabled = index >= nav.count - 1; prev.hidden = next.hidden = nav.count <= 1; }
@@ -175,6 +182,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
   paint(first);
   return true;
 }
+// PHOTO-글속사진확대(S73-13): 글 속 사진에서 시작한 두 손가락 벌리기를 열린 크게 보기가 이어받는다(note-body.js). 열려 있지 않으면 null.
+export const photoViewZoom = () => current?.zoom || null;
 export function closePhotoView({fromBack = false, restore = true} = {}) {
   if (!current) return;
   const {box, trigger, layer, offSwipe} = current;
