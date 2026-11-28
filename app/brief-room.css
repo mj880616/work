@@ -64,8 +64,7 @@
 #briefView .br-art{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 #briefView .br-check{background:var(--kptu-warning-soft,var(--kptu-surface-soft));color:var(--kptu-ink)}
 #briefView .br-why{display:block;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
-#briefView .br-sec-plus>summary .br-lead{display:block;margin:0 0 2px;color:var(--kptu-ink);overflow-wrap:anywhere}
-#briefView .br-sec-plus[open]>summary .br-lead{display:none}
+#briefView .br-sec-plus>summary .br-lead{color:var(--kptu-ink);font-weight:400;overflow-wrap:anywhere}
 #briefView .br-gist .br-core{color:var(--kptu-muted)}
 #briefView .br-core-k{color:var(--kptu-ink);font-weight:600}
 #briefView ol.br-items{padding-left:1.4em;list-style:decimal}

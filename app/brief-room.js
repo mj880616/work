@@ -30,7 +30,7 @@
 //   다시 만들기(brief-start)는 고친 브리핑이면 먼저 묻는다(취소가 기본 — 지금 다 된 브리핑을 다시 만드는 단추는 없어(S70-29) 막아 두는 몫만). 밑줄은 글자 대조(locate)라 고친 뒤 못 찾은 밑줄은 칠하지 않을 뿐 남는다.
 //   PC 요약 글 우클릭(Shift+F10·메뉴 키) = 공용 줄 메뉴(row-menu.js) [고치기] + 고른 글 막대와 같은 항목(text-select-bar selectBarActs).
 //   글을 골라 두었으면 그 고른 글에, 아니면 누른 줄 글에. 고치는 칸·입력 칸 위에서는 브라우저 기본 메뉴 그대로.
-import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,OURS_TAG,QUOTES_TITLE,PLUS_TITLES,CHECK_TAG,LENS_LABEL,LENS_HINT,mismatchLine,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,OURS_TAG,QUOTES_TITLE,PLUS_TITLES,plusLead,CHECK_TAG,LENS_LABEL,LENS_HINT,mismatchLine,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -322,15 +322,15 @@ function plusNode(text,{ref='',sub='',tag='',key}){
 }
 function plusParts(plus){
   const out=[];if(!plus)return out;
-  // 칸마다 '한 문장(첫 줄)'은 접힌 채로도 제목 아래 늘 보이고, 세부(전체 목록·이유)는 눌러서 편다.
-  const sec=(key,title,nodes,lead)=>{if(!nodes.length)return;
+  // 칸마다 제목 줄에 한 문장 요약(접힌 채로도 늘 보임) + 세부(전체 목록·이유·두 값과 위치)는 기본 접힘(사용자 상시 취향).
+  const sec=(key,title,nodes)=>{if(!nodes.length)return;
     const s=el('details','br-sec br-sec-plus');s.dataset.brKey=key;s.dataset.brSec=key;
     const sum=el('summary'),h=el('h3',null,title);h.append(el('small',null,` ${nodes.length}`));sum.append(h);
-    if(lead)sum.append(el('span','br-lead',lead));
+    const lead=plusLead(key,plus);if(lead)sum.append(el('span','br-lead',` · ${lead}`));
     const list=el(key==='issues'?'ol':'ul','br-items');list.append(...nodes);s.append(sum,list);s.open=false;out.push(s)};
-  sec('issues',PLUS_TITLES.issues,plus.issues.map((it,i)=>plusNode(it.text,{ref:it.ref,sub:it.why,key:`p:issues:${i}`})),plus.issues[0]?.text);
-  sec('mismatches',PLUS_TITLES.mismatches,plus.mismatches.map((mm,i)=>plusNode(mismatchLine(mm),{sub:mm.note,key:`p:mismatches:${i}`})),plus.mismatches[0]&&mismatchLine(plus.mismatches[0]));
-  sec('background',`${PLUS_TITLES.background} · ${CHECK_TAG}`,plus.background.map((it,i)=>plusNode(it.text,{key:`p:background:${i}`})),plus.background[0]?.text);
+  sec('issues',PLUS_TITLES.issues,plus.issues.map((it,i)=>plusNode(it.text,{ref:it.ref,sub:it.why,key:`p:issues:${i}`})));
+  sec('mismatches',PLUS_TITLES.mismatches,plus.mismatches.map((mm,i)=>plusNode(mismatchLine(mm),{sub:mm.note,key:`p:mismatches:${i}`})));
+  sec('background',`${PLUS_TITLES.background} · ${CHECK_TAG}`,plus.background.map((it,i)=>plusNode(it.text,{key:`p:background:${i}`})));
   return out;
 }
 // 원문 인용 한 줄: 원문 그대로(누르면 원문 그 자리) + 발언자 · 쪽 · 소제목.

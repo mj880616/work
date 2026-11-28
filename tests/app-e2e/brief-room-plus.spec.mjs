@@ -59,16 +59,20 @@ test('새 칸이 든 브리핑: 짜임·근거 위치·쟁점·문서 안 불일
   await expect(issues.locator('summary h3')).toHaveText('쟁점 2');
   const issueLead = issues.locator('summary .br-lead');
   await expect(issueLead).toBeVisible();
-  await expect(issueLead).toHaveText(await issues.locator('ol > li').first().locator('.br-tx').textContent());
+  await expect(issueLead).toHaveText(` · 가장 큰 것: ${await issues.locator('ol > li').first().locator('.br-tx').textContent()}`);
   await expect(issues.locator('ol > li').first()).toBeHidden();
+  // 한 문장 요약은 칸 제목과 같은 줄(제목 줄)에 있다.
+  const [hBox, lBox] = [await issues.locator('summary h3').boundingBox(), await issueLead.boundingBox()];
+  expect(Math.abs(hBox.y - lBox.y)).toBeLessThan(4);
   await issues.locator('summary').click();
   await expect(issues).toHaveAttribute('open', '');
-  await expect(issueLead).toBeHidden();
+  await expect(issueLead).toBeVisible();
   await expect(issues.locator('ol > li')).toHaveCount(2);
   await expect(issues.locator('li').first().locator('.br-why')).toHaveText('제3조의2는 위원 수만 정함');
   const mm = b.locator('details[data-br-sec="mismatches"]');
   await expect(mm).not.toHaveAttribute('open', '');
-  await expect(mm.locator('summary .br-lead')).toHaveText('시행일: 공포 후 6개월이 경과한 날(주요 내용 나) ↔ 공포 후 1년이 경과한 날(부칙 제1조)');
+  await expect(mm.locator('summary .br-lead')).toHaveText(' · 시행일 두 값');
+  await expect(mm.locator('li').first()).toBeHidden();
   await mm.locator('summary').click();
   await expect(mm).toHaveAttribute('open', '');
   await expect(mm.locator('li .br-tx')).toHaveText('시행일: 공포 후 6개월이 경과한 날(주요 내용 나) ↔ 공포 후 1년이 경과한 날(부칙 제1조)');

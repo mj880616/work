@@ -221,3 +221,18 @@ test('"더 깊게" 지시: 쟁점·불일치·배경 지식·근거 위치 규�
   assert.deepEqual(r.CHUNK_PLUS_SCHEMA.required, ['lead', 'points', 'facts', 'quotes']);
   for (const text of [m.CHUNK_INSTRUCTIONS, m.MERGE_INSTRUCTIONS]) assert.doesNotMatch(text, /mismatches|facts|관점/);
 });
+
+test('새 칸 제목 줄 한 문장(plusLead): 쟁점은 가장 큰 것, 불일치는 대상과 두 값, 비면 빈 글', async () => {
+  const { plusLead } = await import('../app/brief-room-model.mjs');
+  const plus = {
+    issues: [{ text: '평가 기준을 시행령에 넘김' }, { text: '위원 구성 불명확' }],
+    mismatches: [{ what: '시행일', a: { value: '6개월', ref: '주요 내용' }, b: { value: '1년', ref: '부칙 제1조' } }],
+    background: [{ text: '비슷한 제도 판례' }],
+  };
+  assert.equal(plusLead('issues', plus), '가장 큰 것: 평가 기준을 시행령에 넘김');
+  assert.equal(plusLead('mismatches', plus), '시행일 두 값');
+  assert.equal(plusLead('mismatches', { mismatches: [...plus.mismatches, { what: '정원', a: {}, b: {} }, { what: '시행일', a: {}, b: {} }] }), '시행일·정원 두 값씩');
+  assert.equal(plusLead('background', plus), '비슷한 제도 판례');
+  assert.equal(plusLead('issues', { issues: [] }), '');
+  assert.equal(plusLead('issues', null), '');
+});

@@ -105,6 +105,18 @@ export const LENS_LABEL = '쟁점 관점';
 export const LENS_HINT = '브리핑의 쟁점을 어떤 눈으로 볼지 적어요. 비우면 기본 관점으로 봐요.';
 /** 불일치 한 줄: '시행일: 공포 후 6개월(주요 내용) ↔ 공포 후 1년(부칙 제1조)'. */
 export const mismatchLine = mm => `${mm.what}: ${mm.a.value}${mm.a.ref ? `(${mm.a.ref})` : ''} ↔ ${mm.b.value}${mm.b.ref ? `(${mm.b.ref})` : ''}`;
+/** 새 칸 제목 줄 한 문장(접힌 채로도 늘 보임): 쟁점 '가장 큰 것: …', 불일치 '시행일 두 값', 배경 지식은 첫 줄. 칸이 비면 ''. */
+export function plusLead(key, plus) {
+  const list = plus?.[key] || [];
+  if (!list.length) return '';
+  if (key === 'issues') return `가장 큰 것: ${list[0].text}`;
+  if (key === 'mismatches') {
+    const whats = [...new Set(list.map(mm => mm.what).filter(Boolean))];
+    if (!whats.length) return `값이 다른 곳 ${list.length}`;
+    return `${whats.slice(0, 3).join('·')}${whats.length > 3 ? ' 등' : ''} 두 값${list.length > 1 ? '씩' : ''}`;
+  }
+  return list[0].text || '';
+}
 export const moreLabel = n => `+ ${n}개 더 보기`;
 const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
 const str = v => (typeof v === 'string' ? v.trim() : '');
