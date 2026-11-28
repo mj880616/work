@@ -93,7 +93,8 @@ async function reading(page, width) {
     ? r.fulfill({ json: [{ id: U(300), name: '가상 폴더', sort_order: 1024, created_at: '2026-10-01T00:00:00Z' }] }) : r.fulfill({ status: 500, json: {} }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_news_highlights', r => r.fulfill({ json: [] }));
   await page.evaluate(() => window.KPTURouter.go('reading'));
-  const row = page.locator('#readingView [data-rd-folders] .ft-row.ft-folder').first();
+  // 맨 위는 '전체' 줄(⋯ 없음, 2026-11-28 사용자 결정) — 비교는 ⋯가 있는 폴더 줄.
+  const row = page.locator('#readingView [data-rd-folders] .ft-row.ft-folder:has([data-rd-folder-more])').first();
   return { errors, row, main: '.ft-main', ico: '.ft-ico', dots: '.ft-dots', num: '.ft-num' };
 }
 

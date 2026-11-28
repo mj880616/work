@@ -270,19 +270,25 @@ const shownEntries = (keep = state.open || '') => { const sel = folderNow(); ret
 // 끌어 놓기(PC 마우스): 글 줄 → 폴더 줄·'폴더 없음'(그 폴더로 옮김), 폴더 줄 → 다른 폴더 줄(그 안으로)·'전체'(맨 위로). 놓을 곳 강조 nx-drop(D2), Esc = 브라우저 끌기 취소(D4).
 //   자기 자신·자기 아래로는 놓을 곳이 되지 않는다(서버 트리거도 거절). 폰·손가락은 ⋯ [폴더로 옮기기]·[옮기기…](공용 옮길 곳 창 — 표준 F1).
 // 폴더 삭제(노트 폴더와 같은 규칙): 안의 글·폴더는 한 단 위로(맨 위였으면 글은 '폴더 없음', 폴더는 맨 위로). 글은 지우지 않는다. [되돌리기]가 있어 묻지 않는다(K1).
-// DB 적용 전(표·칸 없음)에는 '전체'·'폴더 없음' 두 줄만(만들기·옮기기 없음). 접기·펼침은 화면 메모리만(기기 저장 없음).
+// DB 적용 전(표·칸 없음)에는 '전체' 한 줄만(만들기·옮기기 없음). 접기·펼침은 화면 메모리만(기기 저장 없음).
+//   폰(760px 이하)은 [파일]·노트 폰 나무처럼 꺾쇠 없이(표준 T5 — 이름 누르기 = 그 자리 펼치기): 이름 누르기 = 그 폴더 글 + 그 자리 펼치기,
+//   이미 고른 폴더를 다시 누르면 접기·펼치기만(고른 곳 그대로). 들어가기 메뉴는 없다(아래 목록이 늘 그 폴더 글).
 let folderHost = null;
+const PHONE = window.matchMedia?.('(max-width:760px)');
+const phone = () => !!PHONE?.matches;
 const curKey = () => folderNow() || ALL;
 function folderBoxEl(entries) {
   folderHost ||= el('div', 'rd-folders');
   folderHost.dataset.rdFolders = '1';
-  const ready = state.foldersReady, cur = curKey();
-  const rows = folderTreeRows({folders: ready ? state.folders : [], rows: entries.map(e => e.row), open: state.folderOpen, selected: folderNow()});
+  const ready = state.foldersReady, cur = curKey(), tog = !phone();
+  // DB 적용 전(표·칸 없음)에는 모든 글이 '폴더 없음'이라 두 줄이 같다 — '전체' 한 줄만.
+  const all = folderTreeRows({folders: ready ? state.folders : [], rows: entries.map(e => e.row), open: state.folderOpen, selected: folderNow()});
+  const rows = ready ? all : all.filter(r => r.key === ALL);
   const body = rows.map(r => ftFolderRowHtml({name: r.name, count: r.count, countLabel: r.countLabel, depth: r.depth, open: r.open, hasContent: r.hasKids, current: cur === r.key, tree: true,
     className: r.folder ? '' : r.key === ALL ? 'rd-folder-all' : 'rd-folder-out',
     rowAttrs: {'data-rd-drop': ready ? r.key : null, 'data-rd-fdrag': ready && r.folder ? r.key : null, draggable: ready && r.folder ? 'true' : null},
     mainAttrs: {'data-rd-folder': r.key},
-    toggle: {attrs: {'data-rd-ftog': r.key}, label: `${r.name} ${r.open ? '접기' : '펼치기'}`},
+    toggle: tog ? {attrs: {'data-rd-ftog': r.key}, label: `${r.name} ${r.open ? '접기' : '펼치기'}`} : null,
     more: r.folder ? {attrs: {'data-rd-folder-more': r.key}, label: `${r.name} 폴더 메뉴`} : null})).join('');
   const add = ready ? `<button type="button" class="icon-btn ft-box-add rd-folder-add" data-rd-folder-add="1" data-ctx-screen-item="새 폴더" aria-label="새 폴더" title="새 폴더">＋</button>` : '';
   // 폴더 이름은 ftFolderRowHtml이 이스케이프한다(공용 부품). 상자는 통째로 다시 그린다(스크롤·초점은 redraw의 ftKeepPlace가 지킨다).
@@ -301,6 +307,12 @@ function pickFolder(key) {
   drawList();
   // 두 칸에서 열린 글이 고른 폴더 밖이면 그 폴더 맨 위 글로 바꾼다(목록과 오른쪽 칸이 어긋나지 않게).
   if (split() && state.open && !shownEntries('').some(e => e.key === state.open)) { const first = shownEntries('')[0]; if (first) void openItem(first.key, {auto: true}); else closeDetail(); }
+}
+// 폰 이름 누르기: 다른 폴더 = 그 폴더 글 + 펼치기(하위가 있으면), 고른 폴더 = 접기·펼치기만. 누른 줄에 초점을 둔다.
+function phonePress(key) {
+  if (key !== curKey()) { if (folderById(key) && childrenOf(state.folders, key).length) state.folderOpen.add(key); pickFolder(key); }
+  else if (folderById(key) && childrenOf(state.folders, key).length) toggleFolderOpen(key);
+  view()?.querySelector(`[data-rd-folder="${CSS.escape(key)}"]`)?.focus({preventScroll: true});
 }
 function toggleFolderOpen(key, want = null) {
   if (!folderById(key)) return;
@@ -984,7 +996,7 @@ function bind() {
     const ftog = t.closest?.('[data-rd-ftog]');
     if (ftog) { const key = ftog.dataset.rdFtog; toggleFolderOpen(key); view()?.querySelector(`[data-rd-ftog="${CSS.escape(key)}"]`)?.focus({preventScroll: true}); return; }
     const fpick = t.closest?.('[data-rd-folder]');
-    if (fpick) { const key = fpick.dataset.rdFolder; ftExplorePress(fpick, () => pickFolder(key)); return; }
+    if (fpick) { const key = fpick.dataset.rdFolder; if (phone()) phonePress(key); else ftExplorePress(fpick, () => pickFolder(key)); return; }
     if (t.closest?.('[data-rd-add-close]')) { state.adding = false; state.addError = ''; drawList(); return; }
     if (t.closest?.('[data-rd-bm-link]')) { e.preventDefault(); notify('즐겨찾기 막대로 끌어 놓아 쓰세요', {record: false}); return; }
     if (t.closest?.('[data-rd-bm-copy]')) { void copyText(bookmarklet()).then(ok => notify(ok ? '한 줄 복사했어요 · 즐겨찾기 막대 오른쪽 클릭 → 페이지 추가 → URL에 붙여 넣기' : '복사하지 못했어요', {record: false, error: !ok})); return; }
@@ -1030,6 +1042,7 @@ function bind() {
   });
   window.addEventListener('resize', () => { if (window.KPTURouter?.current === 'reading') drawDetail(); });
   // 폴드를 펼치거나 접으면(칸 나누기 폭을 넘나들면): 펼침 = 두 칸(열린 글이 없으면 맨 위 글), 접힘 = 한 칸(열린 글이 있으면 글 화면, 뒤로 = 목록).
+  PHONE?.addEventListener?.('change', () => { if (window.KPTURouter?.current === 'reading' && state.loaded) drawList(); });
   SPLIT?.addEventListener?.('change', () => {
     if (window.KPTURouter?.current !== 'reading') return;
     if (!split() && state.open) openLayer(state.open);

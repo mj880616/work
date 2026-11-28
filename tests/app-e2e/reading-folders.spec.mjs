@@ -5,7 +5,7 @@ import { openHome } from './helpers/home-entry.mjs';
 // ② 왼쪽 위 폴더 상자는 [파일]과 같은 공용 상자·줄·꺾쇠(folder-tree-ui.mjs .ft-box·.ft-row.ft-folder·.ft-tog). ＋ = 새 폴더(서버 app_reading_folders 저장).
 // ③ 글을 끌어 폴더에 놓기(PC) · 글 ⋯ [폴더로 옮기기](공용 옮길 곳 창) = 서버 folder_id 한 번. '폴더 없음' = 폴더 없는 글.
 //    2026-11-28 사용자 결정 "전체 줄을 둬": 맨 위 '전체' 줄이 기본 선택, 누르면 모든 글. 폴더를 다시 눌러도 전체로 돌아가지 않는다(그 폴더 그대로).
-// ④ 폴더 ⋯ [이름 바꾸기]·[삭제](글은 한 단 위로, [되돌리기]). ⑤ DB 적용 전(표·칸 없음) = '전체'·'폴더 없음' 두 줄만, 글 목록·글 보기는 그대로.
+// ④ 폴더 ⋯ [이름 바꾸기]·[삭제](글은 한 단 위로, [되돌리기]). ⑤ DB 적용 전(표·칸 없음) = '전체' 한 줄만, 글 목록·글 보기는 그대로.
 // ⑥ 2026-11-28 사용자 결정 "폴더 안에 폴더도 만들어": 폴더 ⋯ [새 폴더]·[옮기기…]·끌어 놓기로 폴더 안 폴더, 자기 아래로는 못 옮김, 지우면 안의 폴더는 한 단 위로.
 // 서버는 흉내, 글·주소는 모두 예시.
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -221,7 +221,7 @@ test('폴더 ⋯ [이름 바꾸기]·[삭제](맨 위 폴더의 글은 폴더 �
 });
 
 for (const width of [1280, 390]) {
-  test(`DB 적용 전 ${width}: 폴더 표·칸이 없어도 목록·글 보기 그대로, 폴더 상자는 '전체'·'폴더 없음' 두 줄만(만들기·옮기기 없음)`, async ({ page }) => {
+  test(`DB 적용 전 ${width}: 폴더 표·칸이 없어도 목록·글 보기 그대로, 폴더 상자는 '전체' 한 줄만(만들기·옮기기 없음)`, async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width, height: 900 });
     const errors = errorsOf(page);
@@ -229,9 +229,9 @@ for (const width of [1280, 390]) {
     await server(page, { before: true });
     await goMenu(page, width);
     await expect(rows(page)).toHaveCount(3);
-    await expect(box(page).locator('.ft-row.ft-folder')).toHaveCount(2);
+    await expect(box(page).locator('.ft-row.ft-folder')).toHaveCount(1);
     await expect(frow(page, 'all')).toHaveClass(/ft-current/);
-    await expect(frow(page, 'out')).toContainText('폴더 없음');
+    await expect(frow(page, 'all').locator('.ft-num')).toHaveText('3');
     await expect(page.locator('[data-rd-folder-add]')).toHaveCount(0);
     await expect(rows(page).first()).not.toHaveAttribute('draggable', 'true');
     await list(page).locator(`[data-rd-more="${id(1)}"]`).click();
@@ -278,15 +278,32 @@ for (const [width, height, touch] of [[1280, 900, false], [412, 915, true]]) {
       await expect(frow(page, C)).toBeVisible();
       expect(await depthOf(frow(page, C))).toBe('1');
       await expect(frow(page, P).locator('.ft-num')).toHaveText('폴더 1 · 글 1');
-      // 꺾쇠 = 펼치기·접기만(고른 곳·주소 그대로).
-      const tog = frow(page, P).locator('button.ft-tog');
-      await expect(tog).toHaveAttribute('aria-expanded', 'true');
-      await press(tog);
-      await expect(frow(page, C)).toHaveCount(0);
-      await expect(frow(page, 'all')).toHaveClass(/ft-current/);
-      expect(new URL(page.url()).searchParams.get('folder')).toBe(null);
-      await press(frow(page, P).locator('button.ft-tog'));
-      await expect(frow(page, C)).toBeVisible();
+      if (!touch) {
+        // PC: 꺾쇠 = 펼치기·접기만(고른 곳·주소 그대로 — 표준 T10).
+        const tog = frow(page, P).locator('button.ft-tog');
+        await expect(tog).toHaveAttribute('aria-expanded', 'true');
+        await press(tog);
+        await expect(frow(page, C)).toHaveCount(0);
+        await expect(frow(page, 'all')).toHaveClass(/ft-current/);
+        expect(new URL(page.url()).searchParams.get('folder')).toBe(null);
+        await press(frow(page, P).locator('button.ft-tog'));
+        await expect(frow(page, C)).toBeVisible();
+      } else {
+        // 폰: [파일]·노트 폰 나무처럼 꺾쇠 없음(T5). 이름 누르기 = 그 폴더 글 + 그 자리 펼치기, 고른 폴더를 다시 누르면 접기·펼치기만(고른 곳 그대로).
+        await expect(page.locator('#readingView [data-rd-folders] button.ft-tog')).toHaveCount(0);
+        await press(frow(page, P).locator('[data-rd-folder]'));
+        await expect(frow(page, P)).toHaveClass(/ft-current/);
+        await expect(frow(page, C)).toBeVisible();
+        await expect(rows(page)).toHaveCount(1);
+        await press(frow(page, P).locator('[data-rd-folder]'));
+        await expect(frow(page, C)).toHaveCount(0);
+        await expect(frow(page, P)).toHaveClass(/ft-current/);
+        await expect(frow(page, P).locator('[data-rd-folder]')).toHaveAttribute('aria-expanded', 'false');
+        await press(frow(page, P).locator('[data-rd-folder]'));
+        await expect(frow(page, C)).toBeVisible();
+        await press(frow(page, 'all').locator('[data-rd-folder]'));
+        await expect(rows(page)).toHaveCount(3);
+      }
       // C 안 C2(두 단).
       const C2 = await newChild(page, s, C, '더 아래', touch);
       expect(await depthOf(frow(page, C2))).toBe('2');
@@ -325,8 +342,8 @@ for (const [width, height, touch] of [[1280, 900, false], [412, 915, true]]) {
       await sheet.locator('[data-fx-dest-go]').click();
       await expect.poll(() => s.folderWrites.length).toBe(writes + 1);
       expect(s.folderWrites.at(-1)).toEqual(['move', expect.objectContaining({ parent_id: Q })]);
-      await expect(frow(page, Q).locator('button.ft-tog')).toHaveCount(1);
-      // 옮긴 곳(Q)을 저절로 펼치지 않는다(T7) — 고른 C2가 그 안이라 위 폴더는 펼쳐 보인다.
+      await expect(frow(page, Q).locator('.ft-num')).toHaveText('폴더 1');
+      // 고른 C2가 Q 안으로 갔으니 그 위 폴더들은 펼쳐 보인다(T2).
       await expect(frow(page, C2)).toBeVisible();
       expect(await depthOf(frow(page, C2))).toBe('3');
       // C 삭제: 안의 글 2는 화면이 먼저 한 단 위(P)로, 안의 폴더 C2는 서버가 한 단 위(P)로. [되돌리기]로 그대로.
