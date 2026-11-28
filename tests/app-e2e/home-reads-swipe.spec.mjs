@@ -242,7 +242,7 @@ test('폰 412: 접힌 \'1개 더\' 안 글도 같은 밀기, 다 처리하면 \'
   expect(f.errors).toEqual([]);
 });
 
-test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보관·숨기기, 우클릭 메뉴도 같은 두 항목', async ({ page }) => {
+test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보관·숨기기, 우클릭 메뉴는 [좋아요][별로예요] + 같은 두 항목', async ({ page }) => {
   test.setTimeout(90000);
   const f = await boot(page, 1440, 900);
   const first = item(page, 1);
@@ -269,7 +269,7 @@ test('PC 1440: 줄에 마우스를 올리면 [보관][숨기기], 눌러서 보�
   const menu = page.locator('#rowMenu');
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-left-radius', /[1-9]/); // 공용 줄 메뉴 모양(od-link.css)이 홈에도 불려 있다
-  await expect(menu.locator('[data-row-item]')).toHaveText(['저장', '숨기기']);
+  await expect(menu.locator('[data-row-item]')).toHaveText(['좋아요', '별로예요', '저장', '숨기기']); // HOME-읽을거리평가: 평가 두 항목이 맨 앞
   await expect(menu.locator('.row-menu-title')).toHaveText('가상 소식 3');
   await menu.locator('[data-row-item="hide"]').click();
   await expect(item(page, 3)).toHaveCount(0);

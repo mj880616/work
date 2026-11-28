@@ -16,11 +16,12 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:500,output_tokens:60}});
 const UPDATE_COLS=['reads','reads_at','reads_slot','news_seen_at','suggests','suggests_at','suggests_done','run_at'];
 
-function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],edits=[],assignees=[],spaces=[],usage=[],now=MORNING,openai=null,env={}}={}){
+function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetings=[],feeds=[],orgs=[],edits=[],assignees=[],spaces=[],usage=[],interests=[],ratings=[],articles=[],outsides=[],now=MORNING,openai=null,env={}}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'}],app_home_day_picks:structuredClone(picks),app_news_items:structuredClone(items),
     app_notes:structuredClone(notes),app_meetings:structuredClone(meetings),app_feed_items:structuredClone(feeds),app_suborganizations:structuredClone(orgs),app_call_edits:structuredClone(edits),
-    app_suborganization_assignees:structuredClone(assignees),app_spaces:structuredClone(spaces),app_ai_daily_usage:structuredClone(usage)};
+    app_suborganization_assignees:structuredClone(assignees),app_spaces:structuredClone(spaces),app_ai_daily_usage:structuredClone(usage),app_now_interests:structuredClone(interests),
+    app_read_ratings:structuredClone(ratings),app_news_articles:structuredClone(articles),app_outside_articles:structuredClone(outsides)};
   const cmp=(v,op,val)=>{
     if(op==='eq')return String(v)===val;
     if(op==='is')return val==='null'?v==null:String(v)===val;
@@ -42,7 +43,7 @@ function harness({features=['calls','outside'],items=[],picks=[],notes=[],meetin
     calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body?JSON.parse(init.body):null});
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     if(method==='GET'){
-      let out=rows.filter(r=>(table==='app_workspace_members'||table==='app_suborganization_assignees'?r.user_id===OWNER:r.workspace_id===WS)&&matches(r,url));
+      let out=rows.filter(r=>(table==='app_workspace_members'||table==='app_suborganization_assignees'?r.user_id===OWNER:table==='app_news_articles'||table==='app_outside_articles'?true:r.workspace_id===WS)&&matches(r,url));
       if(url.searchParams.get('order')==='created_at.desc')out=[...out].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
       return respond(out);
     }
@@ -308,4 +309,147 @@ test('suggests:false (card turned off): no suggestion AI in the evening; reads s
   for(const v of [true,'false',0,null])assert.equal((await post(handler,ask({suggests:v}))).status,400,String(v));
   assert.deepEqual(hd.parseHomeDayPicksRequest({kind:'home_day_picks',day:DAY,events:[],done:[]}).suggests,true);
   assert.equal(hd.parseHomeDayPicksRequest({kind:'home_day_picks',day:DAY,events:[],done:[],suggests:false}).suggests,false);
+});
+
+// ---- HOME-읽을만한글넓힘(사용자 2026-11-28: 아침 메일 '오늘 읽을 글' 대신 홈 '읽을 만한 글') ----
+const {DEFAULT_READ_TOPIC_NAMES}=await import('../../app/home-read-topics.mjs');
+const uid=n=>`d0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+
+test('관심 주제: 기본 주제 + 확정 주제 − 뺀 주제; 화면 사본 이름과 서버 기본 이름이 같다',()=>{
+  assert.deepEqual(hd.DEFAULT_READ_TOPICS.map(t=>t.topic),[...DEFAULT_READ_TOPIC_NAMES]);
+  assert.deepEqual(hd.readTopics([]).map(t=>t.topic),[...DEFAULT_READ_TOPIC_NAMES],'표가 비면 기본 주제 그대로');
+  const got=hd.readTopics([{topic:'기후 위기',state:'confirmed'},{topic:'아스날',state:'dropped'},{topic:'노동',state:'confirmed'},{topic:'후보 주제',state:'candidate'},{topic:'가족 여행',state:'confirmed'}]);
+  const names=got.map(t=>t.topic);
+  assert.equal(names[0],'기후 위기');assert.ok(names.includes('노동'));assert.ok(!names.includes('아스날'),'뺀 기본 주제는 안 씀');
+  assert.ok(!names.includes('후보 주제'),'후보는 안 씀');assert.ok(!names.includes('가족 여행'),'가족 낱말 주제는 안 씀');
+  assert.equal(names.filter(n=>n==='노동').length,1);
+  assert.deepEqual(got.find(t=>t.topic==='노동').words,hd.DEFAULT_READ_TOPICS.find(t=>t.topic==='노동').words,'기본과 같은 이름이면 기본 낱말');
+  assert.deepEqual(got.find(t=>t.topic==='기후 위기').words,['기후 위기','기후','위기']);
+});
+
+test('먼저 줄이기: 속보·단신 빼기, 지난 이레 본 글(id·제목) 빼기, 관심 주제·사설·외국 먼저, 외국 자리, 보내는 수 상한',()=>{
+  const row=(i,title,extra={})=>({id:uid(i),title,publisher:'가상신문',summary:'',url:'',at:`2026-11-08T${String(10+(i%10)).padStart(2,'0')}:00:00.000Z`,group:'news',paid:false,...extra});
+  assert.ok(hd.isBrief('[속보] 가상 소식')&&hd.isBrief('[포토] 가상 현장')&&hd.isBrief('[인사] 가상부')&&hd.isBrief('부고: 가상')&&hd.isBrief('[보도자료] 가상'));
+  assert.ok(!hd.isBrief('가상 철도 민영화의 역사를 다시 본다')&&!hd.isBrief('[기획] 가상 공공기관 경영평가의 그늘'));
+  const topics=hd.readTopics([]);
+  const rows=[row(1,'[속보] 철도 파업 시작'),row(2,'가상 연예 소식'),row(3,'공공기관 총인건비 제도의 한계',{group:'opinion'}),row(4,'지하철 민자 구간 재정 분석'),
+    row(5,'Union drive at a synthetic warehouse',{group:'foreign'}),row(6,'이미 본 글'),row(7,'제목만 같은 글'),row(8,'유료 철도 분석',{paid:true})];
+  const seen=hd.seenReads([{reads:[{id:uid(6),title:'다른 제목'},{id:uid(99),title:'제목만 같은 글'}]}]);
+  const out=hd.rankReads(rows,{topics,seen});
+  const ids=out.map(r=>r.id);
+  assert.ok(!ids.includes(uid(1)),'속보 빠짐');assert.ok(!ids.includes(uid(6))&&!ids.includes(uid(7)),'본 글 빠짐(id·제목)');
+  assert.equal(out[0].id,uid(3),'사설·칼럼 + 관심 주제가 먼저');assert.equal(out[1].id,uid(5),'외국 + 관심 주제(union)가 다음');
+  assert.ok(ids.indexOf(uid(4))<ids.indexOf(uid(2)),'관심 주제 글이 연예 글보다 먼저');
+  assert.ok(ids.indexOf(uid(8))>ids.indexOf(uid(4)),'유료는 뒤로');
+  assert.deepEqual(out.find(r=>r.id===uid(4)).topics,['철도·공공교통']);
+  // 많아도 보내는 수는 그대로(DAY_NEWS_MAX), 외국 글은 DAY_FOREIGN_SEND 자리까지.
+  const many=Array.from({length:150},(_,i)=>row(100+i,`가상 글 ${i} 번째 이야기`,{group:i%5===0?'foreign':'news'}));
+  const cut=hd.rankReads(many,{topics});
+  assert.equal(cut.length,hd.DAY_NEWS_MAX);assert.equal(cut.filter(r=>r.group==='foreign').length,hd.DAY_FOREIGN_SEND);
+});
+
+test('글 묶음은 카탈로그가 정한다: 사설·칼럼·외국, 모르는 매체는 언어로',()=>{
+  assert.equal(hd.newsGroupOf('news-khan-opinion','ko'),'opinion');
+  assert.equal(hd.newsGroupOf('news-psi','en'),'foreign');
+  assert.equal(hd.newsGroupOf('news-khan','ko'),'news');
+  assert.equal(hd.newsGroupOf('news-unknown','en'),'foreign');assert.equal(hd.newsGroupOf(null,'ko'),'news');
+  assert.ok(hd.READS_GROUP_KEYS.includes('news-khan-opinion')&&hd.READS_GROUP_KEYS.includes('news-psi')&&!hd.READS_GROUP_KEYS.includes('news-khan'));
+});
+
+test('handler: 관심 주제·묶음 꼬리표가 재료에, 속보·지난 이레 본 글은 빠지고, 묶음 매체를 따로 읽는다; AI는 한 번',async()=>{
+  const prev=[{workspace_id:WS,day:'2026-11-05',reads:[{id:N4,title:'지난주에 본 글'}],reads_at:null,reads_slot:'am',news_seen_at:null,suggests:[],suggests_at:null,suggests_done:[],run_at:null},
+    {workspace_id:WS,day:'2026-10-30',reads:[{id:N2,title:'여드레 전에 본 글'}],reads_at:null,reads_slot:'am',news_seen_at:null,suggests:[],suggests_at:null,suggests_done:[],run_at:null}];
+  const {handler,calls,db}=harness({picks:prev,
+    interests:[{workspace_id:WS,topic:'기후 위기',state:'confirmed'},{workspace_id:WS,topic:'아스날',state:'dropped'},{workspace_id:OTHER_WS,topic:'남의 주제',state:'confirmed'}],
+    items:[news(N1,'공공기관 경영평가 칼럼: 숫자가 놓친 것','2026-11-08T22:00:00.000Z',{source_key:'news-khan-opinion',lang:'ko',state:'ok'}),
+      news(N2,'여드레 전에 본 글','2026-11-08T21:00:00.000Z',{source_key:'news-khan',lang:'ko'}),
+      news(N3,'[속보] 철도 파업 시작','2026-11-08T21:30:00.000Z',{source_key:'news-khan',lang:'ko'}),
+      news(N4,'지난주에 본 글','2026-11-08T20:00:00.000Z',{source_key:'news-khan',lang:'ko'}),
+      news(uid(5),'Rail workers and the synthetic privatisation','2026-11-08T19:00:00.000Z',{source_key:'news-psi',lang:'en',publisher:'PSI'})]});
+  const res=await post(handler,ask());
+  assert.equal(res.status,200);assert.equal(calls.openai.length,1);
+  const m=calls.openai[0].input[1].content;
+  assert.ok(m.includes('내 관심 주제: 기후 위기, 공공기관 정책'),'확정 주제 먼저 + 기본 주제');
+  assert.ok(!m.includes('아스날')&&!m.includes('남의 주제'),'뺀 주제·남의 작업공간 줄은 안 씀');
+  assert.ok(m.includes('[사설·칼럼] 공공기관 경영평가 칼럼')&&m.includes('(관심: 공공기관 정책)'));
+  assert.ok(m.includes('[PSI] [외국] Rail workers'),'외국 글 꼬리표');
+  assert.ok(!m.includes('[속보]'),'속보 빠짐');assert.ok(!m.includes('지난주에 본 글'),'이레 안 본 글 빠짐');assert.ok(m.includes('여드레 전에 본 글'),'이레 밖은 다시 됨');
+  const ins=calls.openai[0].input[0].content;
+  assert.ok(ins.includes('적어도 두 관심 주제')&&ins.includes('속보')&&ins.includes('요지'));
+  const groupRead=calls.rest.find(r=>r.table==='app_news_items'&&r.query.includes('source_key=in.('));
+  assert.ok(groupRead&&groupRead.query.includes('news-khan-opinion')&&groupRead.query.includes('news-psi'),'묶음 매체는 따로 읽는다');
+  assert.ok(calls.rest.some(r=>r.table==='app_home_day_picks'&&r.query.includes('day=gte.2026-11-02')&&r.query.includes('day=lt.2026-11-09')),'지난 이레 기록을 읽는다');
+  assert.equal(db.app_ai_daily_usage[0].requests,1);
+  assert.ok(!logText(calls).includes('공공기관'),'no text in logs');
+});
+
+// HOME-읽을거리평가(사용자 2026-11-28 07:04): 👍·👎 평가가 다음 추천에 반영된다 — 서버가 먼저 줄이기(매체·묶음·주제 점수, 👎 같은 제목 빼기)와
+// AI 재료 머리 '좋아한 글 예·싫어한 글 예'(제목만, 각각 최대 5개). AI 호출은 그대로 한 번, 평가가 없으면 재료·순서가 예전과 같다.
+const A=n=>`f0000000-0000-4000-8000-00000000000${n}`,O=n=>`e0000000-0000-4000-8000-00000000000${n}`;
+test('평가 셈: 평가 목록·취향 합·점수, 내 작업공간 줄만, 제목 검사, 예는 다섯 개까지',()=>{
+  const rows=[{workspace_id:WS,news_article_id:A(1),rating:1},{workspace_id:WS,news_article_id:A(2),rating:-1},{workspace_id:WS,outside_article_id:O(1),rating:1},
+    {workspace_id:OTHER_WS,news_article_id:A(3),rating:1},{workspace_id:WS,news_article_id:A(4),rating:5},{workspace_id:WS,news_article_id:A(9),rating:1}];
+  const arts=[{id:A(1),title:'철도 공공성 칼럼',source_key:'news-khan-opinion',lang:'ko'},{id:A(2),title:'연예 가십 기사',source_key:'news-gossip',lang:'ko'},
+    {id:A(3),title:'남의 평가',source_key:'news-x',lang:'ko'},{id:A(4),title:'값이 틀린 평가',source_key:'news-x',lang:'ko'}];
+  const list=hd.readRatingsOf(rows,arts,[{id:O(1),title:'노동 연대 성명',source_key:'out-x'}],WS);
+  assert.deepEqual(list.map(r=>[r.title,r.rating]),[['철도 공공성 칼럼',1],['연예 가십 기사',-1],['노동 연대 성명',1]]);
+  assert.equal(hd.ratingTaste([],hd.DEFAULT_READ_TOPICS),null);
+  const t=hd.ratingTaste(list,hd.DEFAULT_READ_TOPICS);
+  assert.equal(t.sources.get('news-khan-opinion'),1);assert.equal(t.sources.get('news-gossip'),-1);
+  assert.equal(t.groups.get('opinion'),1);assert.equal(t.topics.get('철도·공공교통'),1);assert.equal(t.topics.get('노동'),1);
+  assert.deepEqual(t.liked,['철도 공공성 칼럼','노동 연대 성명']);assert.deepEqual(t.disliked,['연예 가십 기사']);
+  assert.ok(t.dislikedKeys.has(hd.titleKeyOf('연예 가십 기사')));
+  assert.equal(hd.tasteScore({sourceKey:'news-khan-opinion',group:'opinion'},['철도·공공교통'],t),3);
+  assert.equal(hd.tasteScore({sourceKey:'news-gossip',group:'news'},[],t),-3); // 매체 -2 + 묶음(국내 뉴스 합 -1) -1
+  const many=Array.from({length:8},(_,i)=>({rating:1,title:`가상 좋은 글 ${i}`,sourceKey:'',group:null}));
+  assert.equal(hd.ratingTaste(many).liked.length,hd.DAY_RATING_EXAMPLES);
+  assert.deepEqual(hd.tasteLines(null),[]);
+  assert.match(hd.tasteLines(t).join('\n'),/^좋아한 글 예\(이런 글을 앞에\): 철도 공공성 칼럼 \/ 노동 연대 성명\n싫어한 글 예[^:]*: 연예 가십 기사$/);
+  // 가족 낱말·연락처 모양 제목은 예로 쓰지 않는다.
+  assert.deepEqual(hd.readRatingsOf([{workspace_id:WS,news_article_id:A(5),rating:1}],[{id:A(5),title:'가족 여행 이야기',source_key:'news-x'}],[],WS),[]);
+});
+test('먼저 줄이기 + 평가: 👎 같은 제목은 빠지고, 👍 매체·주제는 앞으로, 👎 매체는 뒤로; 평가가 없으면 예전과 같다',()=>{
+  const row=(id,title,sourceKey,extra={})=>({id,title,publisher:'가상',summary:'',url:'',at:'2026-11-09T00:00:00Z',group:'news',sourceKey,...extra});
+  const rows=[row(N1,'가상 연예 소식','news-gossip'),row(N2,'가상 경제 해설','news-econ'),row(N3,'가상 철도 이야기','news-rail'),row(N4,'연예 가십 기사','news-other')];
+  const plain=hd.rankReads(rows,{topics:hd.DEFAULT_READ_TOPICS});
+  assert.deepEqual(hd.rankReads(rows,{topics:hd.DEFAULT_READ_TOPICS,taste:null}).map(r=>r.id),plain.map(r=>r.id),'평가 없음 = 예전 순서');
+  const taste=hd.ratingTaste([{rating:-1,title:'연예 가십 기사',sourceKey:'news-gossip',group:'news'},{rating:-1,title:'또 다른 가십',sourceKey:'news-gossip',group:'news'},
+    {rating:1,title:'가상 경제 칼럼',sourceKey:'news-econ',group:'news'}],hd.DEFAULT_READ_TOPICS);
+  const ranked=hd.rankReads(rows,{topics:hd.DEFAULT_READ_TOPICS,taste});
+  assert.ok(!ranked.some(r=>r.id===N4),'👎 받은 같은 제목은 빠진다');
+  assert.equal(ranked.at(-1).id,N1,'👎 두 번 받은 매체는 맨 뒤');
+  assert.ok(ranked.findIndex(r=>r.id===N2)<ranked.findIndex(r=>r.id===N1),'👍 매체가 앞');
+});
+test('handler: 최근 평가를 읽어 재료에 좋아한 글·싫어한 글 예를 붙이고, AI는 한 번, 남의 평가·글 내용은 로그에 없다',async()=>{
+  const {handler,calls,db}=harness({
+    ratings:[{workspace_id:WS,news_article_id:A(1),outside_article_id:null,rating:1,rated_at:'2026-11-08T10:00:00Z'},{workspace_id:WS,news_article_id:A(2),outside_article_id:null,rating:-1,rated_at:'2026-11-08T09:00:00Z'},
+      {workspace_id:WS,news_article_id:null,outside_article_id:O(1),rating:1,rated_at:'2026-11-08T08:00:00Z'}],
+    articles:[{id:A(1),title:'가상 철도 공공성 칼럼',source_key:'news-khan-opinion',lang:'ko'},{id:A(2),title:'가상 연예 가십',source_key:'news-khan',lang:'ko'}],
+    outsides:[{id:O(1),title:'가상 노동 연대 성명',source_key:'out-x'}],
+    items:[news(N1,'가상 연예 가십','2026-11-08T22:00:00.000Z',{source_key:'news-khan',lang:'ko'}),news(N2,'가상 공공기관 경영평가 분석','2026-11-08T21:00:00.000Z',{source_key:'news-khan-opinion',lang:'ko'})]});
+  const res=await post(handler,ask());
+  assert.equal(res.status,200);assert.equal(calls.openai.length,1);
+  const m=calls.openai[0].input[1].content;
+  assert.ok(m.includes('좋아한 글 예(이런 글을 앞에): 가상 철도 공공성 칼럼 / 가상 노동 연대 성명'),m);
+  assert.ok(m.includes('싫어한 글 예')&&m.includes(': 가상 연예 가십'));
+  assert.ok(!/\d+\.[^\n]*가상 연예 가십/.test(m),'👎 받은 같은 제목 글은 재료 글 목록에서 빠진다');
+  const rr=calls.rest.find(r=>r.table==='app_read_ratings');
+  assert.ok(rr&&rr.method==='GET'&&rr.query.includes(`workspace_id=eq.${WS}`)&&!/title|body/.test(rr.query),'평가 표는 id·평가만 읽는다');
+  assert.ok(calls.rest.some(r=>r.table==='app_news_articles'&&r.query.includes(`id=in.(${A(1)},${A(2)})`)));
+  assert.ok(calls.rest.some(r=>r.table==='app_outside_articles'&&r.query.includes(`id=in.(${O(1)})`)));
+  assert.ok(!calls.rest.some(r=>r.table==='app_read_ratings'&&r.method!=='GET'),'평가 표에 쓰지 않는다');
+  assert.equal(db.app_ai_daily_usage[0].requests,1);
+  const done=calls.logs.find(l=>l.code==='home_day_picks_done');assert.equal(done.detail.rated,3);
+  assert.ok(!logText(calls).includes('가상 철도'),'no text in logs');
+});
+test('handler: 평가가 없거나 평가 표를 못 읽으면 재료에 평가 줄이 없다(예전과 같음)',async()=>{
+  for(const broken of [false,true]){
+    const {handler,calls,db}=harness({items:[news(N1,'가상 공공기관 경영평가 분석','2026-11-08T22:00:00.000Z',{source_key:'news-khan',lang:'ko'})]});
+    if(broken)delete db.app_read_ratings;
+    assert.equal((await post(handler,ask())).status,200);
+    assert.equal(calls.openai.length,1);
+    const m=calls.openai[0].input[1].content;
+    assert.ok(!m.includes('좋아한 글 예')&&!m.includes('싫어한 글 예'));
+    assert.ok(!calls.rest.some(r=>r.table==='app_news_articles'),'찾아볼 평가가 없으면 글 표를 읽지 않는다');
+  }
 });

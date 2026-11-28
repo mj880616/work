@@ -140,3 +140,19 @@ test('S70-64b 고르기 막대: [✕](선택 끝내기)·[그만]·보이는 개
   assert.doesNotMatch(swipe, /data-row-pick-stop|sbCloseHtml/); // 끝내기는 Esc·뒤로가기
   assert.match(swipe, /kptu-sb-count kptu-sb-sr row-swipe-pick-count/); // 개수는 화면 읽기에만
 });
+
+// HOME-읽을거리평가(사용자 2026-11-28 07:04): 평가 칸 하나(위 👍·아래 👎를 포갠 칸)는 세 칸 기준과 따로 맨 왼쪽에 하나까지 — 한 줄 칸은 많아야 넷.
+test('평가 칸: 맨 왼쪽, 하나까지, 세 칸 기준과 따로(최대 넷), 셈은 그 칸 수 그대로', async () => {
+  const {isPair, SWIPE_CELLS_MAX} = await import('../app/row-swipe-model.mjs');
+  const {ratePair} = await import('../app/read-ratings-model.mjs');
+  const pair = ratePair(1), edit = {key:'edit', label:'수정'}, save = {key:'save', label:'저장'}, hide = {key:'hide', label:'숨기기', tone:'muted'}, del = {key:'delete', label:'삭제'};
+  assert.equal(isPair(pair), true); assert.equal(isPair(edit), false); assert.equal(isPair({key:'x', pair:[{key:'a'}]}), false);
+  assert.deepEqual(endCells([edit, pair, save, hide]).map(a => a.key), ['rate', 'edit', 'save', 'hide']);
+  assert.deepEqual(endCells([pair, ratePair(0), edit, save, hide, del]).map(a => a.key), ['rate', 'edit', 'save', 'delete']);
+  assert.equal(SWIPE_CELLS_MAX, SWIPE_END_MAX + 1);
+  const has = sides({end:[pair, edit, save, hide]});
+  assert.equal(has.end, 4);
+  assert.equal(openOffset('end', has.end), -4 * SWIPE_BTN);
+  assert.equal(cellWidth(-400, has.end), 100);
+  assert.deepEqual(endCells([save, hide]).map(a => a.key), ['save', 'hide'], '평가 칸이 없는 목록은 예전 그대로');
+});

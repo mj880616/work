@@ -264,6 +264,136 @@ test('[폴더] 보기 ⋯ 메뉴에는 [목록] 정렬 줄이 없다(폴더 보�
   expect(s.errors).toEqual([]);
 });
 
+// ---------- NOTE-폰머리줄(2026-11-28 사용자 시안 '가', docs/design/approved/note-list-phone-head.md) ----------
+// 폰(600 미만) [목록]·[폴더] 맨 위 얇은 머리 줄: 왼쪽 '노트 N', 오른쪽 '수정한 날 순 ▾'(정렬 메뉴 = ⋯ 메뉴 정렬과 같은 값·서버 저장)·'칸'(보일 칸).
+// 앱 위 줄과 첫 노트 사이 빈 띠(빈 .note-list-head 여백)가 없고, 목록을 내려도 위에 붙는다. PC에는 이 줄이 없다.
+const ph = page => page.locator('#basketView [data-nl-ph]');
+const phMenu = page => page.locator('#noteDocMenu');
+for (const width of [412, 411]) {
+  test(`폰 ${width}: [목록] 머리 줄 — 빈 띠 없음·개수·정렬 메뉴(같은 값·서버)·칸·틀 고정`, async ({ page }) => {
+    test.setTimeout(90000);
+    const s = await fixture(page, width);
+    await expect(ph(page)).toBeVisible();
+    await expect(ph(page).locator('[data-nl-ph-count]')).toHaveText('노트 30');
+    await expect(ph(page).locator('[data-nl-ph-sort]')).toHaveText('수정한 날 순 ▾');
+    // 높이·글자는 기준값(--ds-compact-height-sm · --ds-text-meta)이고, 앱 위 줄 바로 아래에서 시작해 첫 노트까지 빈 띠가 없다.
+    const m = await page.evaluate(() => {
+      const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--ds-text-meta);height:var(--ds-compact-height-sm)'; document.body.append(probe);
+      const tokens = { font: parseFloat(getComputedStyle(probe).fontSize), h: probe.getBoundingClientRect().height }; probe.remove();
+      const head = document.querySelector('[data-nl-ph]').getBoundingClientRect(), cs = getComputedStyle(document.querySelector('[data-nl-ph]'));
+      const view = document.querySelector('#basketView').getBoundingClientRect(), first = document.querySelector('#basketView [data-note-rows] .nl-cols').getBoundingClientRect();
+      return { tokens, font: parseFloat(cs.fontSize), h: head.height, gapTop: head.top - view.top, gapBottom: first.top - head.bottom };
+    });
+    expect(m.font).toBe(m.tokens.font);
+    expect(m.h).toBeLessThanOrEqual(m.tokens.h + 2);
+    expect(m.gapTop).toBeLessThanOrEqual(1);
+    expect(m.gapBottom).toBeLessThanOrEqual(2);
+    // 정렬 메뉴: ⋯ 메뉴 '정렬: …'와 같은 칸·같은 값(서버 note_list_sort).
+    const sortBtn = ph(page).locator('[data-nl-ph-sort]');
+    await sortBtn.click();
+    await expect(sortBtn).toHaveAttribute('aria-expanded', 'true');
+    await expect(phMenu(page).locator('[data-nl-sort]')).toHaveText(['제목 순', '폴더 순', '✓수정한 날 순 ▼', '첨부 순']);
+    await phMenu(page).locator('[data-nl-sort="title"]').click();
+    await expect.poll(async () => (await ids(page)).slice(0, 3)).toEqual(['n1', 'n2', 'n3']);
+    await expect(sortBtn).toHaveText('제목 순 ▾');
+    await expect.poll(() => s.server.value?.note_list_sort ?? null).toEqual({ key: 'title', dir: 'asc' });
+    // ⋯ 메뉴 정렬 줄도 같은 값을 보여 준다(상태 주인 하나).
+    await page.locator('.sf-tools [data-note-folder-more]').click();
+    await expect(page.locator('#noteDocMenu [data-nl-sort="title"]')).toHaveText('정렬: 제목 ▲');
+    await page.keyboard.press('Escape');
+    // 칸: PC 머리 줄 칸 고르기와 같은 메뉴·같은 서버 값(note_cols).
+    await ph(page).locator('[data-nl-ph-cols]').click();
+    await expect(phMenu(page).locator('[data-nl-col-toggle]')).toHaveText(['✓폴더', '✓태그', '✓수정일', '작성일', '✓첨부', '메모', '글자 수', '공유']);
+    await phMenu(page).locator('[data-nl-col-toggle="made"]').click();
+    await expect.poll(() => s.server.value?.note_cols ?? null).toContain('made');
+    await page.keyboard.press('Escape');
+    // 목록을 내려도 머리 줄이 위에 붙어 있다.
+    await page.evaluate(() => window.scrollTo(0, 900)); await settle(page);
+    const stuck = await ph(page).boundingBox();
+    expect(stuck.y).toBeGreaterThanOrEqual(-1);
+    expect(stuck.y).toBeLessThan(80);
+    // 새로 열어도 같은 정렬 이름.
+    await page.reload(); await s.show();
+    await expect(ph(page).locator('[data-nl-ph-sort]')).toHaveText('제목 순 ▾');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    expect(s.errors).toEqual([]);
+  });
+}
+
+test('폰 412: [폴더] 머리 줄 — 같은 줄, 정렬 메뉴 = 수정한 날·내가 정한 순서(서버 note_sort)', async ({ page }) => {
+  test.setTimeout(90000);
+  const s = await fixture(page, 412);
+  await page.locator('#basketView [data-note-view="folder"]').click(); await settle(page);
+  await expect(ph(page)).toBeVisible();
+  await expect(ph(page).locator('[data-nl-ph-count]')).toHaveText('노트 30');
+  const sortBtn = ph(page).locator('[data-nl-ph-sort]');
+  await expect(sortBtn).toHaveText('수정한 날 순 ▾');
+  await sortBtn.click();
+  await expect(phMenu(page).locator('[data-nx-sort-set]')).toHaveText(['✓수정한 날 순', '내가 정한 순서']);
+  await phMenu(page).locator('[data-nx-sort-set="manual"]').click();
+  await expect(sortBtn).toHaveText('내가 정한 순서 ▾');
+  await expect.poll(() => s.server.value?.note_sort ?? null).toBe('manual');
+  // 같은 값: ⋯ 메뉴는 '수정한 날 순으로'를 되돌림 줄로 보여 준다.
+  await page.locator('.sf-tools [data-note-folder-more]').click();
+  await expect(page.locator('#noteDocMenu [data-nx-sort]')).toContainText('수정한 날 순으로');
+  await page.keyboard.press('Escape');
+  const top = await page.evaluate(() => { const h = document.querySelector('[data-nl-ph]').getBoundingClientRect(); return h.top - document.querySelector('#basketView').getBoundingClientRect().top; });
+  expect(top).toBeLessThanOrEqual(1);
+  expect(s.errors).toEqual([]);
+});
+
+test('폰 412: [태그] 보기에는 머리 줄이 없고 빈 머리가 자리를 먹지 않는다', async ({ page }) => {
+  const s = await fixture(page, 412);
+  await page.locator('#basketView [data-note-view="tag"]').click(); await settle(page);
+  await expect(ph(page)).toBeHidden();
+  const h = await page.evaluate(() => document.querySelector('.note-list-head').getBoundingClientRect().height + parseFloat(getComputedStyle(document.querySelector('.note-list-head')).marginTop) + parseFloat(getComputedStyle(document.querySelector('.note-list-head')).marginBottom));
+  expect(h).toBe(0);
+  expect(s.errors).toEqual([]);
+});
+
+test('PC 1280: 폰 머리 줄은 없다(표 머리 줄만)', async ({ page }) => {
+  const s = await fixture(page, 1280);
+  await expect(ph(page)).toBeHidden();
+  await expect(head(page)).toBeVisible();
+  expect(s.errors).toEqual([]);
+});
+
+// UI-줄점세로(사용자 시안 '나'): 줄 끝 ⋯는 네모 테두리·배경 없는 회색 세로 점. 칸 폭은 좁고(제목이 더 길게), 누르는 범위는 손가락 크기(44px) 그대로.
+test('폰 412: 노트 줄 ⋯ = 테두리·배경 없는 세로 점, 폭 32, 누르는 범위 44', async ({ page }) => {
+  const s = await fixture(page, 412);
+  const more = rowsBox(page).locator('[data-note-row-more]').first();
+  const m = await more.evaluate(el => {
+    const cs = getComputedStyle(el), dots = el.querySelector('.more-dots'), dcs = getComputedStyle(dots), after = getComputedStyle(el, '::after'), r = el.getBoundingClientRect();
+    const probe = document.createElement('span'); probe.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--ds-text-read)'; document.body.append(probe);
+    const read = parseFloat(getComputedStyle(probe).fontSize); probe.remove();
+    return { border: cs.borderTopWidth, bg: cs.backgroundColor, w: r.width, h: r.height, afterW: parseFloat(after.width), transform: dcs.transform, font: parseFloat(dcs.fontSize), read, label: el.getAttribute('aria-label') };
+  });
+  expect(m.border).toBe('0px');
+  expect(m.bg).toBe('rgba(0, 0, 0, 0)');
+  expect(m.w).toBeLessThanOrEqual(32.5);
+  expect(m.h).toBeGreaterThanOrEqual(44);
+  expect(m.afterW).toBeGreaterThanOrEqual(44);
+  expect(m.transform).toBe('matrix(0, 1, -1, 0, 0, 0)'); // 90도 = 세로 점
+  expect(m.font).toBe(m.read);
+  expect(m.label).toMatch(/ 메뉴$/);
+  // 제목은 ⋯ 바로 왼쪽까지 쓴다(오른쪽 빈칸이 36px 이하).
+  const gap = await rowsBox(page).locator('.nl-cols').first().evaluate(row => row.getBoundingClientRect().right - parseFloat(getComputedStyle(row.querySelector('.basket-row')).paddingRight) - row.querySelector('.basket-title').getBoundingClientRect().left > 0);
+  expect(gap).toBe(true);
+  expect(s.errors).toEqual([]);
+});
+
+test('폰 412: 폴더 줄 ⋯(공용 .ft-dots)도 세로 점이고 머리·도구 줄 ⋯는 가로 점 그대로', async ({ page }) => {
+  const s = await fixture(page, 412);
+  await page.locator('#basketView [data-note-view="folder"]').click(); await settle(page);
+  const folderDots = page.locator('#basketView [data-nx-folder-more]').first();
+  await expect(folderDots).toBeVisible();
+  expect(await folderDots.locator('.more-dots').evaluate(el => getComputedStyle(el).transform)).toBe('matrix(0, 1, -1, 0, 0, 0)');
+  expect(await folderDots.evaluate(el => el.getBoundingClientRect().width)).toBeLessThanOrEqual(28.5);
+  // 맨 위 줄 단추 상자의 화면 ⋯는 가로 점.
+  expect(await page.locator('.sf-tools [data-note-folder-more] .more-dots').evaluate(el => getComputedStyle(el).transform)).toBe('none');
+  expect(s.errors).toEqual([]);
+});
+
 // ---------- ② 보일 칸(결정 ⑦가 메뉴 이름 '보일 칸', ⑤가 칸 차례 고정). 서버 view_prefs.note_cols ----------
 const colsMenu = page => page.locator('#noteDocMenu');
 const openCols = async page => { await head(page).locator('[data-nl-cols-menu]').click(); await expect(colsMenu(page)).toBeVisible(); await expect(colsMenu(page)).toHaveAttribute('aria-label', '보일 칸'); };
@@ -376,5 +506,62 @@ test('PC 1280: 태그 칸 끄면 줄에 #태그 0개', async ({ page }) => {
 test('폰 390: 태그는 앞 두 개 + N(아래 작은 줄)', async ({ page }) => {
   const s = await fixture(page, 390);
   await expect.poll(() => tagsOf(rowsBox(page).locator('[data-nx-note="n1"]'))).toEqual({ shown: 2, more: '+2' });
+  expect(s.errors).toEqual([]);
+});
+
+// NOTE-목록머리겹침(명진 11/27 PC 캡처 "수정일 쪽 뭔가 겹쳐 있네" · "⋯ 이 아니라 보이기 눈동자"): 머리 칸마다 글자·▲▼·너비 금이 서로 다른 자리를 차지한다.
+// 원인(사실): 오른쪽 맞춤 칸(수정일)의 글자·화살표가 칸 오른쪽 끝에 붙는데 너비 금(.col-grip, 24px)이 칸 안쪽 4px 지점에 걸려 화살표 위에 놓이고
+// 그 손잡이가 오른쪽 '첨부' 칸 쪽으로 12px 넘쳐 있었다. 금은 칸 사이 틈 한가운데로 옮기고 글자·화살표는 자기 칸 안에만 둔다.
+const headParts = (page) => head(page).evaluate(h => {
+  const r = el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right }; };
+  const out = {};
+  for (const c of h.querySelectorAll('[data-nl-col]')) {
+    const btn = c.querySelector('.hs-btn'), grip = c.querySelector('.col-grip');
+    const gr = grip ? r(grip) : null, mid = gr ? (gr.l + gr.r) / 2 : null;
+    out[c.dataset.nlCol] = { cell: r(c), btn: btn ? r(btn) : null, line: mid === null ? null : { l: mid - 1, r: mid + 1 } };
+  }
+  return out;
+});
+const hit = (a, b) => !!a && !!b && a.l < b.r && b.l < a.r;
+for (const width of [1100, 1400, 1750]) test(`PC ${width}: 수정일·첨부 머리 칸의 글자·화살표·금이 서로 겹치지 않음(기본 폭과 가장 좁힌 폭)`, async ({ page }) => {
+  const s = await fixture(page, width);
+  const check = async when => {
+    const p = await headParts(page), cells = Object.values(p).map(v => v.cell), why = `${width} ${when}`;
+    // 칸 범위는 서로 겹치지 않는다.
+    for (let i = 1; i < cells.length; i++) expect(cells[i - 1].r, `${why}: 칸 ${i - 1}·${i}`).toBeLessThanOrEqual(cells[i].l + 0.5);
+    // 글자·화살표(단추)는 자기 칸 안, 너비 금(가운데 선)은 어느 단추 위에도 놓이지 않는다.
+    for (const [key, v] of Object.entries(p)) {
+      if (v.btn) { expect(v.btn.l, `${why}: ${key} 단추 왼쪽`).toBeGreaterThanOrEqual(v.cell.l - 0.5); expect(v.btn.r, `${why}: ${key} 단추 오른쪽`).toBeLessThanOrEqual(v.cell.r + 0.5); }
+      for (const [k2, w] of Object.entries(p)) expect(hit(v.line, w.btn), `${why}: ${key} 금이 ${k2} 글자 위`).toBe(false);
+    }
+    // 수정일 값(줄)도 머리 칸과 같은 오른쪽 끝, 첨부 칸 범위를 넘지 않는다.
+    const day = await rowsBox(page).locator('.nl-cols [data-nl-cell="day"]').first().evaluate(e => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right }; });
+    expect(Math.abs(day.r - p.day.cell.r), `${why}: 값·머리 오른쪽 끝`).toBeLessThan(1);
+    expect(day.r, `${why}: 값이 첨부 칸 안으로`).toBeLessThanOrEqual(p.clip.cell.l + 0.5);
+  };
+  await check('기본');
+  const grip = head(page).locator('[data-col-grip="day"]');
+  await grip.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
+  await settle(page);
+  expect((await headCell(page, 'day').boundingBox()).width).toBeLessThan(48);
+  await check('좁힘');
+  expect(s.errors).toEqual([]);
+});
+
+test('PC: 보일 칸 진입 단추는 ⋯가 아니라 눈 아이콘이고 누르면 칸 고르기 메뉴가 열림', async ({ page }) => {
+  const s = await fixture(page, 1280);
+  const btn = head(page).locator('[data-nl-cols-menu]');
+  await expect(btn).toBeVisible();
+  await expect(btn.locator('svg.ui-ico-svg')).toHaveCount(1);
+  await expect(btn.locator('.more-dots')).toHaveCount(0);
+  await expect(btn).toHaveAttribute('aria-label', '보일 칸');
+  const box = await btn.boundingBox();
+  expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
+  await btn.click();
+  const menu = page.locator('#noteDocMenu');
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('[data-nl-col-toggle]')).toHaveCount(8);
+  await expect(menu.locator('[data-nl-cols-reset]')).toHaveText('기본으로');
   expect(s.errors).toEqual([]);
 });

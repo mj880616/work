@@ -109,6 +109,15 @@ export async function filesServer(page, { connected = { od: true, gd: true }, pr
         server.items.push(...rows);
         return ok({ ok: true, changed: rows.map(view), removed: [], failed: [], left: [] });
       }
+      // FILES-휴지통영구삭제: 영구 삭제는 confirm:true, 100개까지. server.gdPurgeRefuse에 든 id는 서버가 거절(휴지통 아님 흉내).
+      if (a === 'purge') {
+        if (body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
+        if (body.source !== 'gd' || !Array.isArray(body.ids) || !body.ids.length || body.ids.length > 100) return ok({ ok: false, error: 'ids_invalid' }, 400);
+        const refuse = new Set(server.gdPurgeRefuse || []);
+        const gone = (server.gdTrash || []).filter(t => body.ids.includes(t.id) && !refuse.has(t.id)).map(t => t.id);
+        server.gdTrash = (server.gdTrash || []).filter(t => !gone.includes(t.id));
+        return ok({ ok: true, changed: [], removed: gone.map(id => ({ source: 'gd', id })), failed: body.ids.filter(id => !gone.includes(id)).map(id => ({ id, error: 'not_in_trash' })), left: [] });
+      }
       if (['job_add', 'job_list', 'job_pause', 'job_resume'].includes(a)) {
         if (a !== 'job_list' && body.confirm !== true) return ok({ ok: false, error: 'confirm_required' }, 400);
         const find = (src, id) => server.items.find(i => i.source === src && i.item_id === id && !i.trashed);

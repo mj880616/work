@@ -21,9 +21,12 @@ import {emptyHtml, failHtml} from './wait-state.js';
 import {cleanReads, openSuggests, suggestTime, readAtLabel, pickedNote, limitNote, READS_OPEN, READS_DONE_NOTE, newsIdOf, visibleReads} from './home-day-picks-model.mjs';
 import {readReadMarks} from './home-day-picks-data.js';
 import {homeOffMoreHtml, openHomeOffMenu} from './home-off.js'; // S67-52 HOME-칸끄기: 칸 머리 ⋯ [이 칸 끄기](공용 부품)
+import {openRowMenu} from './row-menu.js'; // HOME-읽을만한글넓힘: ② 칸 머리 ⋯ [관심 주제]
 import {bindNowRows, hoverActsHtml} from './now-row-acts.js'; // HOME-읽을글밀기: News 글 줄과 같은 줄 밀기·마우스 단추·우클릭(공용 부품 그대로)
+import {primeRatings} from './read-ratings.js'; // HOME-읽을거리평가: 줄 밀기 [좋아요]·[별로예요] 값(서버)을 처리 표시와 같은 때 읽어 둔다
 
 const PHOTO_FRESH_MS = 10 * 60 * 1000;
+const READS_MORE_HTML = '<button type="button" class="journal-more-btn icon-btn" data-journal-reads-menu data-ctx="off" aria-label="읽을 만한 글 칸 메뉴" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button>';
 // SEC-기능PIN잠금 ②: 사진을 잠갔고 아직 안 풀었으면 '오늘 사진' 칸은 사진을 읽지도 그리지도 않고 '잠김' 한 줄(누르면 그 자리 PIN 창, S67-25).
 // S67-59(2026-11-21 명진 "사진은 잠그지 않았는데 홈 화면에 사진이 잠겨있었음"): 칸 잠김은 '사진' 잠금만 따른다.
 // 2026-11-21 08:32 명진 "홈 하루기록에 넣은 사진도 홈에서 잠글 이유 없어 … 사진을 안잠그면 홈에서 사진 보여주는거": 하루 기록만 잠갔어도
@@ -125,7 +128,9 @@ function thumbOf(k, item, rt) {
 }
 
 // host: 세 칸이 들어갈 자리. onOpenDay(day, key): [사진] 화면의 그날(key가 있으면 그 사진 크게 보기). onWrite(day, text, id): 일기 쓰기 열기.
-export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, onDrop = () => {}, readPhotos = readDayPhotos, readMarks = readReadMarks} = {}) {
+// HOME-읽을만한글넓힘(사용자 2026-11-28): ② 줄은 '왜'(why)·'요지'(what) 두 줄. 줄을 누르면 부르는 화면이 그 글의 글 보기(News 글 상세)를 연다(onOpenRead).
+//    칸 머리 ⋯ → [관심 주제](onReadTopics — 서버 표 app_now_interests를 고치는 창). 원문 ›·줄 밀기 단추는 그대로.
+export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', onOpenDay = () => {}, onWrite = () => {}, onDrop = () => {}, onOpenRead = () => {}, onReadTopics = () => {}, readPhotos = readDayPhotos, readMarks = readReadMarks, primeRates = primeRatings} = {}) {
   // HOME-오늘사진빨리 ③: '오늘 사진' 칸은 [하루]를 그릴 때 처음부터 자리(제목 + 사진 한 줄 높이)를 차지하고, 사진은 받는 대로 그 자리에 채운다.
   host.innerHTML = '<section class="journal-group journal-photos" data-journal-photos>'
     + '<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading"></h4><small class="journal-head-count" data-journal-photos-count></small></span><button type="button" class="row-act" data-journal-photos-open>사진 보기 ›</button></div>'
@@ -256,7 +261,8 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (!force && m.settled && Date.now() - m.at < MARK_FRESH_MS) return m;
     m.busy = true;
     const rev = m.rev;
-    Promise.resolve(readMarks(ids, rt)).catch(() => null).then(out => {
+    // HOME-읽을거리평가: 평가 값(옛 기사 id → 공용 id 지도 포함)도 같은 읽기에서 함께 받아 둔다 — 줄이 처음 보일 때 밀기 칸·메뉴가 바로 서버 값이다(따로 다시 그리지 않음).
+    Promise.all([Promise.resolve(readMarks(ids, rt)).catch(() => null), Promise.resolve().then(() => primeRates('news', ids, {force})).catch(() => false)]).then(([out]) => {
       m.busy = false;
       if (marks !== m) return; // 그사이 묶음이 바뀜 → 새 묶음은 따로 읽는다(이 결과는 버림)
       if (m.rev !== rev) { m.at = 0; if (last && !last.hidden) drawReads(); return; } // 읽는 사이 밀어 처리함 → 다시 읽는다(drawReads가 부름)
@@ -282,15 +288,15 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     readsHost.hidden = false;
     const note = limit || (done ? READS_DONE_NOTE : pickedNote(reads?.picked_at, today));
     const row = item => `<li class="journal-read" data-journal-read="${esc(item.id)}"><b class="journal-read-title">${esc(item.title)}</b>`
-      + `<span class="journal-read-line">무슨 일: ${esc(item.what)}</span><span class="journal-read-line">왜: ${esc(item.why)}</span>`
+      + `<span class="journal-read-line" data-journal-read-why>왜: ${esc(item.why)}</span><span class="journal-read-line" data-journal-read-what>요지: ${esc(item.what)}</span>`
       + `<small class="journal-read-meta">${esc([item.source, readAtLabel(item.at, today)].filter(Boolean).join(' · '))}${item.url ? ` <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" data-journal-read-link>원문 ›</a>` : ''}</small>${newsIdOf(item.id) ? hoverActsHtml() : ''}</li>`;
     const open = list.slice(0, READS_OPEN), rest = list.slice(READS_OPEN);
-    paint(readsHost, `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : done ? ' data-journal-reads-done' : ''}>${esc(note)}</small>` : ''}</div>`
+    paint(readsHost, `<div class="journal-schedule-head"><span class="journal-head-name"><h4 class="journal-heading">읽을 만한 글</h4>${list.length ? `<small class="journal-head-count">${list.length}</small>` : ''}</span>${note ? `<small class="journal-fill-note"${limit ? ' data-journal-fill-limit' : done ? ' data-journal-reads-done' : ''}>${esc(note)}</small>` : ''}${READS_MORE_HTML}</div>`
       + (open.length ? `<ul class="journal-reads-list">${open.map(row).join('')}</ul>` : '')
       + (rest.length ? `<details class="journal-fill-more" data-journal-reads-more><summary>${rest.length}개 더</summary><ul class="journal-reads-list">${rest.map(row).join('')}</ul></details>` : ''));
   }
   // 줄 밀기·마우스 단추·우클릭(News 글 줄과 같은 부품). 처리하면 그 글을 처리한 글로 두고 다시 그린다(되돌리면 다시 보임).
-  bindNowRows(readsHost, {row:'[data-journal-read]',
+  bindNowRows(readsHost, {row:'[data-journal-read]', rate:true,
     itemOf: el => { const id = newsIdOf(el.dataset.journalRead); return id ? {type:'news', id} : null; },
     titleOf: el => el.querySelector('.journal-read-title')?.textContent,
     enabled: () => !!last && !last.hidden,
@@ -301,6 +307,11 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
       m.checked.add(id);
       m.rev++; drawReads();
     }});
+  // ② 칸 머리 ⋯: [관심 주제](공용 줄 메뉴). 이 칸은 끄기 목록(home-off)에 없다.
+  function openReadsMenu(trigger) {
+    return openRowMenu(trigger, {key: 'home-reads-more', label: '읽을 만한 글', items: [{id: 'topics', label: '관심 주제'}],
+      run: item => { if (item === 'topics') onReadTopics(trigger); }});
+  }
   function drawSuggests() {
     const {day, today, hour, suggests, suggestsOff} = last, list = !suggestsOff && suggestTime({day, today, hour}) ? openSuggests(suggests?.items, suggests?.done) : [];
     if (!list.length) { suggestHost.hidden = true; suggestHost.replaceChildren(); painted.delete(suggestHost); return; }
@@ -320,6 +331,15 @@ export function mountDayFill(host, {rt = window.KPTURuntime, owner = () => '', o
     if (event.target.closest('[data-journal-photos-retry]')) { ensurePhotos(last.day, {force:true}); return; }
     const photoBtn = event.target.closest('[data-journal-photos-open],[data-journal-photo],[data-journal-photo-more]');
     if (photoBtn) { onOpenDay(last.day, photoBtn.matches('[data-journal-photo]') ? photoBtn.dataset.journalPhotoKey || '' : ''); return; } // 썸네일 = 그 사진 크게 보기, +n·[사진 보기] = 그날 목록
+    const readsMore = event.target.closest('[data-journal-reads-menu]');
+    if (readsMore) { openReadsMenu(readsMore); return; }
+    // ② 글 줄 누르기 = 그 글 보기. 원문 ›(새 창)·줄 단추·밀어 연 칸은 각자 일을 한다.
+    const readRow = event.target.closest('[data-journal-read]');
+    if (readRow && !event.target.closest('a,button,[data-now-act],[data-row-swipe-act]')) {
+      const id = newsIdOf(readRow.dataset.journalRead);
+      if (id) onOpenRead(id);
+      return;
+    }
     const offMore = event.target.closest('[data-home-off-more]');
     if (offMore) { openHomeOffMenu(offMore, offMore.dataset.homeOffMore); return; }
     const drop = event.target.closest('[data-journal-suggest-drop]');
