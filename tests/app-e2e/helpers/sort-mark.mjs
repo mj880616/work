@@ -45,4 +45,4 @@ export async function expectSortMark(head, { key, dir, why = '' }) {
 }
 
 // 너비 금: 평소 안 보임(opacity 0) → 머리 줄에 마우스를 올리면 보임(1). 터치 화면은 늘 보임.
-export const gripOpacities = async head => (await headLook(head)).filter(c => c.grip !== null).map(c => c.grip);
+export const gripOpacities = head => head.evaluate(h => [...h.querySelectorAll('[role="columnheader"] > .col-grip')].map(g => Number(getComputedStyle(g, '::before').opacity)));

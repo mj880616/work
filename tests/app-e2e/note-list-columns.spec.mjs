@@ -590,13 +590,16 @@ for (const width of [1280, 884]) test(`LIST-정렬꺾쇠 노트 ${width}: 꺾쇠
   // 키보드: 정렬 단추에서 Tab → 금에 초점 → 금이 보이고 → 화살표로 폭 조절 그대로.
   await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
   await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 0));
-  await sortBtn(page, 'title').focus();
+  await sortBtn(page, 'folder').focus();
   await page.keyboard.press('Tab');
-  await expect(head(page).locator('[data-col-grip="title"]')).toBeFocused();
-  await expect.poll(async () => (await gripOpacities(head(page)))[0]).toBe(1);
-  const w0 = (await headCell(page, 'title').boundingBox()).width;
+  await expect(head(page).locator('[data-col-grip="folder"]')).toBeFocused();
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 1));
+  const w0 = (await headCell(page, 'folder').boundingBox()).width;
   await page.keyboard.press('ArrowRight'); await settle(page);
-  expect((await headCell(page, 'title').boundingBox()).width).toBeGreaterThan(w0 + 4);
+  expect((await headCell(page, 'folder').boundingBox()).width).toBeGreaterThan(w0 + 4);
+  // 초점이 머리 줄 밖으로 나가면 다시 안 보임.
+  await page.locator('#basketView [data-note-view="list"]').focus();
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 0));
   expect(s.errors).toEqual([]);
 });
 

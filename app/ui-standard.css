@@ -7,7 +7,7 @@
 /* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
 /* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
 /* 목록 줄(행 버튼)과 그 안의 이름은 아래 '목록 글자' 규칙이 굵기를 정한다(3/3). */
-#appView :is(#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.nbx-body-btn,.nbx-meta-open,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.ds-seg-btn),
+#appView :is(#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.nbx-body-btn,.nbx-meta-open,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.ds-seg-btn,.hs-btn),
 #ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-rec-line,.ps3-rec-line *,.ps3-line-main b,.ps3-add-plus){ font-weight:var(--ds-weight-medium); }
 
 :where(#basketView) label{ font-weight:var(--ds-weight-medium); }
@@ -27,7 +27,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. 노트 [달력]의 날짜 칸(.rv-table)은 사업 관리 달력과 같은 month-cal.css 모양. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn,.nxt-q),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn,.nxt-q,.hs-btn),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-save,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -2109,7 +2109,7 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 /* LIST-정렬꺾쇠(사용자 결정 2026-11-28 시안 A, docs/design/approved/list-sort-chevron.md): 머리 줄 있는 모든 목록(노트 [목록]·[폴더] 오른쪽, [파일], 브리핑 룸 등)의 머리 칸 정렬 표시 — 공용 한 곳.
    머리 칸(head-sort.mjs headCellHtml) = 칸 이름 + 지금 정렬 중이면 오른쪽에 작은 선 꺾쇠 그림(내림 ⌄ · 오름 ⌃, 선 1.4, currentColor). 글자 기호(▼▲)는 쓰지 않는다.
    꺾쇠는 칸 이름과 글자 높이 세로 가운데(inline-flex + align-items:center), 간격 --ds-sort-mark-gap. 정렬 중인 칸 이름만 진한 글자, 나머지 칸 이름은 흐린 글자.
-   화면 CSS(.nl-head·.fx-head)는 칸 배치(오른쪽 맞춤·여백)만 정한다 — 같은 범위 안에서 색을 덮지 않게 [role=columnheader] 범위로 한 단계 높인다. */
+   화면 CSS(.nl-head·.fx-head)는 칸 배치(오른쪽 맞춤·여백)만 정한다. 화면 공용 버튼 모양(맨 위 #basketView 버튼 규칙들)은 .hs-btn을 빼서 덮지 않는다(구조로, 덮어쓰기 아님). */
 [role="columnheader"].hs-cell > .hs-btn { display:inline-flex; align-items:center; gap:var(--ds-sort-mark-gap); max-width:100%; font-size:inherit; white-space:nowrap; overflow:hidden; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); }
 [role="columnheader"].hs-cell > .hs-btn:is(:hover,:focus-visible) { color:var(--kptu-ink); }
 [role="columnheader"].hs-cell.hs-on > .hs-btn { color:var(--kptu-ink); font-weight:var(--ds-weight-strong); }
