@@ -99,6 +99,12 @@
   --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
+  /* WEEKLY-제목서식(2026-11-28 사용자 결정 시안 A, docs/design/approved/weekly-tidy.md ③): 주간 보고 화면 제목 세 단계는 노조 한글 양식
+     (큰 제목 18pt · 중간 제목 16pt · 작은 제목 14.5pt · 바탕글 13pt, docs/hwp-style-map.md)을 화면 크기로 줄인 값과 양식 색.
+     1.(큰 제목) 붉은 갈색 · 1)(중간 제목) 네이비 · (1)(작은 제목) 초록. 본문은 --ds-text-row. 색은 테마와 관계없이 고정, 어두운 바탕은 아래 다크 값. */
+  --ds-weekly-h1-text:17px;--ds-weekly-h2-text:15px;--ds-weekly-h3-text:14px;
+  --ds-weekly-h1-ink:#8a3b2a;--ds-weekly-h2-ink:#24406b;--ds-weekly-h3-ink:#3d6b3a;
+  --ds-weekly-indent:8px;
   --ds-weight-regular:400;--ds-weight-medium:500;
   --ds-line-width:0.5px;--ds-line:var(--kptu-border-strong);
   --ds-radius-box:12px;--ds-radius-control:8px;
@@ -298,6 +304,8 @@
     --ds-kind-basket-soft:#3a2816;--ds-kind-basket-ink:#f3b77e;
     --ds-kind-note-soft:#1b2a3d;--ds-kind-note-ink:#9fc4f0;
     --ds-kind-journal-soft:#1c3022;--ds-kind-journal-ink:#9fd2a9;
+    /* WEEKLY-제목서식: 주간 보고 제목 세 색의 밝은 판(같은 계열, 어두운 바탕 대비 4.5:1 이상). */
+    --ds-weekly-h1-ink:#e8a493;--ds-weekly-h2-ink:#a9c2ea;--ds-weekly-h3-ink:#9ccc95;
     --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
     --ds-kind-task-soft:#16332b;--ds-kind-task-ink:#8ad6bd;
     --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;

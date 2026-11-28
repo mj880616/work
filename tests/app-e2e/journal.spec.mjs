@@ -1452,7 +1452,8 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  const saved=f.sent.library[0];
  expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwp']);
  expect([...saved.file.bytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveAttribute('title',/^\d+\/\d+ \d+:\d+ 확정 · 다시 누르면 새 판/); // WEEKLY-막대한줄: 시각은 설명으로
  await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
  await expect.poll(()=>!!row().draft.feedback).toBe(true);
  // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 명진 결정 ②).
@@ -2082,7 +2083,7 @@ for(const width of [390,1280])test(`[주간 정리] 한글(.hwp)로 못 바꾸�
  expect(f.sent.library[0].file.file).toBe('주간보고_20261012_가상담당.hwpx');
  await expect(st).toContainText('자료실에 "개인 확정본" 분류로 저장했어요');
  await expect(st).toContainText('한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(변환기를 불러오지 못함).');
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ 확정$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -3728,19 +3729,21 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  await page.evaluate(()=>scrollTo(0,0));
  const vb=await bar.boundingBox(),vh=page.viewportSize().height;
  expect(vb.y+vb.height).toBeLessThanOrEqual(vh);expect(vb.y).toBeGreaterThan(vh/2);
- // 글자 네 단계: 보이는 글자 크기는 큰 제목·줄 글자(소제목 포함)·날짜 값뿐. 3·4번 제목 같은 크기, 칸 이름도 같은 크기.
+ // 글자 단계(WEEKLY-제목서식이 '네 단계'를 고침): 보이는 글자 크기는 1.·1)·(1) 제목·줄 글자·날짜 값뿐. 3·4번 제목 같은 크기, 칸 이름도 같은 크기.
  const look=await page.evaluate(()=>{
   const px=v=>{const e=document.createElement('span');e.style.fontSize=`var(${v})`;document.body.append(e);const r=getComputedStyle(e).fontSize;e.remove();return r;};
   const root=document.querySelector('#journalRoot [data-journal-weekly]'),sizes=new Set();
   for(const e of root.querySelectorAll('*')){if(!e.getClientRects().length||e.closest('.row-more summary'))continue;if(![...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()))continue;sizes.add(getComputedStyle(e).fontSize);}
   const fs=sel=>[...root.querySelectorAll(sel)].filter(e=>e.getClientRects().length).map(e=>getComputedStyle(e).fontSize);
-  return {sizes:[...sizes],allowed:[px('--ds-text-head'),px('--ds-text-row'),px('--ds-text-meta'),px('--ds-compact-text')],
-   heads:fs('[data-journal-weekly-chapter] > h4'),subs:fs('.journal-weekly-sub'),siteName:fs('[data-weekly-flow-cells="sites"] .weekly-flow-label b'),
-   siteLine:fs('[data-weekly-flow-cells="sites"] .weekly-flow-text'),row:px('--ds-text-row'),head:px('--ds-text-head')};
+  return {sizes:[...sizes],allowed:[px('--ds-weekly-h1-text'),px('--ds-weekly-h2-text'),px('--ds-weekly-h3-text'),px('--ds-text-row'),px('--ds-text-meta'),px('--ds-compact-text')],
+   heads:fs('[data-journal-weekly-chapter] > h4'),subs:fs('[data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub'),siteName:fs('[data-weekly-flow-cells="sites"] .weekly-flow-label b'),
+   siteLine:fs('[data-weekly-flow-cells="sites"] .weekly-flow-text'),row:px('--ds-text-row'),h1:px('--ds-weekly-h1-text'),h2:px('--ds-weekly-h2-text'),h3:px('--ds-weekly-h3-text')};
  });
  for(const size of look.sizes)expect(look.allowed).toContain(size);
- expect(new Set(look.heads)).toEqual(new Set([look.head]));
- expect(new Set([...look.subs,...look.siteName,...look.siteLine])).toEqual(new Set([look.row]));
+ expect(new Set(look.heads)).toEqual(new Set([look.h1]));
+ expect(new Set(look.subs)).toEqual(new Set([look.h2]));
+ expect(new Set(look.siteName)).toEqual(new Set([look.h3]));
+ expect(new Set(look.siteLine)).toEqual(new Set([look.row]));
  // 줄 입력: 입력칸·[취소](글자 단추)·[저장](작은 버튼)이 한 줄.
  const c=flowCell(page,'사업영역 가 › 세부 과제 가-1');
  await c.getByRole('button',{name:'사업영역 가 › 세부 과제 가-1 칸에 줄 추가'}).click();
@@ -3756,6 +3759,147 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  await expect(cancel).toHaveClass(/\brow-act\b/); // [취소] = 공용 글자 단추(③)
  expect(st[0].bg).toBe('rgba(0, 0, 0, 0)');expect(st[1].bg).not.toBe('rgba(0, 0, 0, 0)');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+// WEEKLY-제목서식(2026-11-28 사용자 결정 시안 A, docs/design/approved/weekly-tidy.md ③): 1.(큰 제목) 붉은 갈색 굵게 > 1)(중간 제목) 네이비 굵게 >
+// (1)(작은 제목 = 칸 이름·표 머리) 초록 > 본문 줄 글자. 색은 테마와 관계없이 고정(어두운 바탕은 밝은 판), 대비 4.5:1 이상. 단계마다 살짝 들여쓰기.
+// ② "3번과 4번 좌우 말고 위아래로": PC에서도 3·4(와 나머지 모든 장)는 같은 왼쪽·같은 폭으로 위아래.
+const HEAD_RGB={light:{h1:'rgb(138, 59, 42)',h2:'rgb(36, 64, 107)',h3:'rgb(61, 107, 58)'},dark:{h1:'rgb(232, 164, 147)',h2:'rgb(169, 194, 234)',h3:'rgb(156, 204, 149)'}};
+async function headLook(page){
+ return page.evaluate(()=>{
+  const root=document.querySelector('#journalRoot [data-journal-weekly]');
+  const vis=sel=>[...root.querySelectorAll(sel)].filter(e=>e.getClientRects().length);
+  const rgb=s=>{const m=s.match(/[\d.]+/g).map(Number);return {c:m.slice(0,3),a:m.length>3?m[3]:1};};
+  const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
+  const ratio=e=>{let n=e,under=null;while(n&&!under){const bg=rgb(getComputedStyle(n).backgroundColor);if(bg.a>0)under=bg.c;n=n.parentElement;}
+   const [a,b]=[lum(rgb(getComputedStyle(e).color).c),lum(under||[255,255,255])].sort((x,y)=>y-x);return (a+0.05)/(b+0.05);};
+  const one=(sel,key)=>vis(sel).map(e=>{const c=getComputedStyle(e);return {key,size:parseFloat(c.fontSize),weight:Number(c.fontWeight),color:c.color,ratio:ratio(e),x:e.getBoundingClientRect().left};});
+  return {
+   h1:one('[data-journal-weekly-chapter] > h4.journal-heading','h1'),
+   h2:one('[data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub','h2'),
+   h3:[...one('[data-journal-weekly-chapter] .weekly-flow-label','h3'),...one('[data-journal-weekly-chapter] .journal-weekly-table thead th','h3')],
+   body:one('[data-journal-weekly-chapter] .weekly-flow-text','body'),
+   chapters:vis('[data-journal-weekly-chapter]').map(e=>{const r=e.getBoundingClientRect();return {key:e.dataset.journalWeeklyChapter,x:r.left,w:r.width,top:r.top,bottom:r.bottom};}),
+   bodyW:root.getBoundingClientRect().width,
+   overflow:document.documentElement.scrollWidth-innerWidth,
+  };
+ });
+}
+for(const [width,zoom] of [[412,1],[412,1.3],[884,1],[1280,1],[1440,1]])test(`WEEKLY-제목서식: 1.·1)·(1) 색·크기 순서·대비(테마 10개·어두운 바탕), 3·4 위아래 한 칸 ${width}${zoom>1?' 큰 글자':''}`,async({page})=>{
+ await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ if(zoom>1)await page.evaluate(z=>{document.documentElement.style.zoom=String(z);},zoom);
+ await expect(siteCell(page,'가상 노동조합')).toBeVisible();
+ const look=await headLook(page);
+ for(const k of ['h1','h2','h3','body'])expect(look[k].length,`${k} 보임`).toBeGreaterThan(0);
+ // 크기 순서: 1. > 1) > (1) > 본문, 단계마다 한 크기.
+ const size=k=>{const s=new Set(look[k].map(x=>x.size));expect(s.size,`${k} 크기 하나`).toBe(1);return [...s][0];};
+ const [s1,s2,s3,s4]=['h1','h2','h3','body'].map(size);
+ expect(s1).toBeGreaterThan(s2);expect(s2).toBeGreaterThan(s3);expect(s3).toBeGreaterThan(s4);
+ // 굵기: 1.·1) 굵게(700), (1) 약간 굵게(본문보다 굵음, 1)보다 가늘거나 같음).
+ for(const x of [...look.h1,...look.h2])expect(x.weight).toBeGreaterThanOrEqual(700);
+ for(const x of look.h3){expect(x.weight).toBeGreaterThanOrEqual(500);expect(x.weight).toBeLessThan(700);}
+ // 색: 단계마다 양식 색 하나.
+ for(const k of ['h1','h2','h3'])for(const x of look[k])expect(x.color,`${k} 색`).toBe(HEAD_RGB.light[k]);
+ // 들여쓰기: 1) 은 1. 보다 안쪽, 칸 이름(1)은 1) 보다 안쪽(같은 장 안).
+ expect(Math.min(...look.h2.map(x=>x.x))).toBeGreaterThan(Math.min(...look.h1.map(x=>x.x)));
+ const sumLabel=await page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label').first().boundingBox();
+ const sumSub=await page.locator('#journalRoot [data-journal-weekly="summary"] > .journal-weekly-sub').boundingBox();
+ expect(sumLabel.x).toBeGreaterThan(sumSub.x);
+ // ② 모든 장(3·4 포함)이 같은 왼쪽·같은 폭으로 위아래(좌우 두 칸 없음).
+ const ch=look.chapters,x0=ch[0].x,w0=ch[0].w;
+ for(const c of ch){expect(Math.abs(c.x-x0),`${c.key} 왼쪽`).toBeLessThanOrEqual(1);expect(Math.abs(c.w-w0),`${c.key} 폭`).toBeLessThanOrEqual(1);}
+ expect(w0).toBeGreaterThan(look.bodyW-4);
+ const three=ch.find(c=>c.key==='sites'),four=ch.find(c=>c.key==='orgs');
+ expect(three&&four).toBeTruthy();expect(four.top).toBeGreaterThanOrEqual(three.bottom-1);
+ for(let i=1;i<ch.length;i++)expect(ch[i].top).toBeGreaterThanOrEqual(ch[i-1].bottom-1);
+ expect(look.overflow).toBeLessThanOrEqual(1);
+ // 테마 10개 × 밝은·어두운 바탕: 색은 고정(테마와 무관), 대비 4.5:1 이상.
+ for(const scheme of ['light','dark']){
+  await page.emulateMedia({colorScheme:scheme});
+  for(const theme of BAR_THEMES){
+   await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);
+   const l=await headLook(page);
+   for(const k of ['h1','h2','h3'])for(const x of l[k]){
+    expect(x.color,`${scheme} ${theme} ${k} 색`).toBe(HEAD_RGB[scheme][k]);
+    expect(x.ratio,`${scheme} ${theme} ${k} 대비`).toBeGreaterThanOrEqual(4.5);
+   }
+  }
+ }
+ await page.evaluate(()=>{delete document.documentElement.dataset.theme;});await page.emulateMedia({colorScheme:'light'});
+});
+// WEEKLY-막대한줄(2026-11-28 사용자 신고 — 폰 412·큰 글자에서 막대가 두 줄, [확정하고 받기] 글자가 채운 바탕에 묻힘):
+// 막대는 어느 폭·큰 글자에서도 한 줄(줄바꿈 대신 탭 칸만 옆으로 밀기, 탭은 공용 ⑤ 작은 판), [확정하고 받기]는 작은 채운 버튼이고 모든 테마·바쁨(흐리게 하지 않음)에서 글자 대비 4.5:1 이상.
+// 큰 글자는 화면 확대 1.3배(글자·칸이 함께 커짐 — 시스템 글꼴 크기 1.3배보다 넉넉한 최악 흉내)로 본다.
+const BAR_THEMES=['olive','navy','ink','lavender','teal','sky','mint','coral','lemon','red'];
+async function barLine(page){
+ return page.evaluate(()=>{
+  const bar=document.querySelector('#journalRoot [data-weekly-confirm-bar]');
+  const kids=[...bar.children].filter(e=>e.getClientRects().length);
+  // 한 줄 = 막대 안 요소들의 보이는 위·아래가 같은 줄(보기 바꾸기의 누르는 범위 여백은 빼고 보이는 바탕 기준).
+  const vis=e=>{const r=e.getBoundingClientRect(),c=getComputedStyle(e);const pt=parseFloat(c.paddingTop)||0,pb=parseFloat(c.paddingBottom)||0;
+   return e.classList.contains('ds-seg')?{top:r.top+pt,bottom:r.bottom-pb}:{top:r.top,bottom:r.bottom};};
+  const boxes=kids.map(vis),mids=boxes.map(b=>(b.top+b.bottom)/2);
+  const br=bar.getBoundingClientRect(),tallest=Math.max(...boxes.map(b=>b.bottom-b.top));
+  return {n:kids.length,spread:Math.max(...mids)-Math.min(...mids),barH:br.height,tallest,
+   overflow:bar.scrollWidth-bar.clientWidth,pageOverflow:document.documentElement.scrollWidth-innerWidth};
+ });
+}
+const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
+async function confirmContrast(page){
+ // 글자색·채움을 그 단추의 불투명도로 막대 바탕 위에 섞은 실제 보이는 색으로 대비를 잰다.
+ const c=await page.evaluate(()=>{
+  const b=document.querySelector('#journalRoot [data-hwpx-confirm]');
+  const rgb=s=>{const m=s.match(/[\d.]+/g).map(Number);return {c:m.slice(0,3),a:m.length>3?m[3]:1};};
+  let n=b.parentElement,under=null;while(n&&!under){const bg=rgb(getComputedStyle(n).backgroundColor);if(bg.a>0)under=bg.c;n=n.parentElement;}
+  let op=1;for(let e=b;e;e=e.parentElement)op*=Number(getComputedStyle(e).opacity);
+  const cs=getComputedStyle(b);return {fg:rgb(cs.color),bg:rgb(cs.backgroundColor),under:under||[255,255,255],op};
+ });
+ const mix=(top,a,base)=>top.map((v,i)=>v*a+base[i]*(1-a));
+ const fill=mix(c.bg.c,c.bg.a*c.op,c.under),ink=mix(mix(c.fg.c,c.fg.a,c.bg.c),c.op,c.under);
+ const [l1,l2]=[lum(fill),lum(ink)].sort((a,b)=>b-a);
+ return {ratio:(l1+0.05)/(l2+0.05),filled:c.bg.a>0};
+}
+for(const [width,zoom] of [[360,1],[412,1],[412,1.3],[884,1],[1280,1]])test(`WEEKLY-막대한줄: 확정 막대 한 줄·[확정하고 받기] 글자 대비(테마 10개·바쁨) ${width}${zoom>1?' 큰 글자':''}`,async({page})=>{
+ await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ if(zoom>1)await page.evaluate(z=>{document.documentElement.style.zoom=String(z);},zoom);
+ const box=hwpx(page),bar=box.locator('[data-weekly-confirm-bar]'),tabs=box.locator('[data-weekly-confirm-tab]'),btn=bar.locator('[data-hwpx-confirm]');
+ await expect(btn).toBeVisible();
+ // 모양 파일 붙은 순서 두 가지: 홈을 처음 연 때(journal.css → ui-standard.css)와 다른 메뉴를 먼저 연 때(ui-standard.css 가 먼저 있어 journal.css 가 뒤에 붙음).
+ for(const order of ['home-first','other-first']){
+ if(order==='other-first'){await page.evaluate(()=>{const j=[...document.querySelectorAll('link[rel="stylesheet"]')].find(l=>/\/journal\.css(\?|$)/.test(l.href));document.head.append(j);});await expect.poll(()=>page.evaluate(()=>[...document.styleSheets].some(s=>/\/journal\.css(\?|$)/.test(s.href||'')))).toBe(true);}
+ const line=await barLine(page);
+ expect(line.n).toBe(4); // 확정 시각 · 탭 · [확정하고 받기] · ⋯
+ expect(line.spread).toBeLessThanOrEqual(2);
+ expect(line.barH).toBeLessThanOrEqual(line.tallest+2);
+ expect(line.overflow).toBeLessThanOrEqual(1);expect(line.pageOverflow).toBeLessThanOrEqual(1);
+ // 탭 이름은 줄이지 않는다(넘치면 탭 칸만 옆으로 밀기).
+ await expect(tabs.locator('.weekly-confirm-tab-name')).toHaveText(['파일','기록 제안','환류','기억']);
+ // [확정하고 받기] = 작은 채운 버튼(주간 보고 화면 작은 버튼 높이 --ds-compact-height 이하), 글자는 한 줄. 막대 탭(작은 판)은 --ds-compact-height-sm.
+ const tok=v=>page.evaluate(v=>{const e=document.createElement('span');e.style.height=`var(${v})`;e.style.display='block';document.querySelector('#journalRoot').append(e);const r=parseFloat(getComputedStyle(e).height);e.remove();return r;},v);
+ const [cmp,sm]=[await tok('--ds-compact-height'),await tok('--ds-compact-height-sm')];
+ const bs=await btn.evaluate(e=>({h:e.getBoundingClientRect().height/(parseFloat(getComputedStyle(document.documentElement).zoom)||1),ws:getComputedStyle(e).whiteSpace}));
+ expect(bs.h).toBeLessThanOrEqual(cmp+0.5);expect(bs.ws).toBe('nowrap');
+ const segH=await tabs.nth(0).evaluate(e=>parseFloat(getComputedStyle(e.parentElement).height)-parseFloat(getComputedStyle(e.parentElement).paddingTop)*2);
+ expect(Math.abs(segH-sm)).toBeLessThanOrEqual(0.5);
+ for(const theme of BAR_THEMES){
+  await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);
+  const on=await confirmContrast(page);
+  expect(on.filled,`${order} ${theme} 채움`).toBe(true);expect(on.ratio,`${order} ${theme} 대비`).toBeGreaterThanOrEqual(4.5);
+  await btn.evaluate(e=>{e.setAttribute('aria-busy','true');e.textContent='확정하는 중…';}); // 바쁨(확정하는 중) 모양 — paintConfirm 과 같은 표시
+  const busy=await confirmContrast(page);
+  await btn.evaluate(e=>{e.removeAttribute('aria-busy');e.textContent='확정하고 받기';});
+  expect(busy.ratio,`${order} ${theme} 바쁨 대비`).toBeGreaterThanOrEqual(4.5);
+ }
+ await page.evaluate(()=>{delete document.documentElement.dataset.theme;});
+ }
+ // 탭 누르기·펼침·Esc 그대로.
+ await tabs.nth(1).click();
+ await expect(tabs.nth(1)).toHaveAttribute('aria-selected','true');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(1);
+ expect((await barLine(page)).spread).toBeLessThanOrEqual(2);
+ await page.keyboard.press('Escape');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
@@ -4947,15 +5091,18 @@ for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정
 const LONG_ORG='나 지역 아주 긴 이름의 가상 산하 조직 모임';
 // WEEKLY-화면정돈 ④: PC는 확정 칸이 오른쪽으로 가 4장 칸이 넓어졌다 — 칸 폭(45%)을 넘는 이름은 더 길게.
 const LONGER_ORG='나 지역 아주 아주 긴 이름의 가상 산하 조직 연합 모임 본부';
+// WEEKLY-제목서식 ②: PC에서 4장이 전체 폭이 되어 [조직] 칸(표 폭 45% 안)이 넓어졌다 — 넘치는 이름 확인은 더 긴 가짜 이름으로.
+const LONGEST_ORG=`${LONGER_ORG} 상설 협의 위원회 사무처 지원단 가상 분과`;
 for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
  const prefs=await installViewPrefsServer(page);
  const f=await weekLinesFixture(page,{width,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
- for(const o of f.more.orgs)if(o.id===OB)o.name=width>=1200?LONGER_ORG:LONG_ORG;
+ const longName=width>=1200?LONGEST_ORG:width>=761?LONGER_ORG:LONG_ORG;
+ for(const o of f.more.orgs)if(o.id===OB)o.name=longName;
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
  // ORG-기록하나로 O-6: 옛 주 4.도 조직보고 창(읽기 전용) — 이름 줄은 이름만(⋯·'· 빈 칸' 없음), 줄 없는 조직 칸은 '—'.
  await expect(b.locator('.wl-empty')).toHaveCount(1);
- const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-name').first();
+ const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-label b').first(); // WEEKLY-제목서식: 둘 다 (1) 단계 모양
  const siteLine=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-lines > li').first();
  const look=l=>l.evaluate(e=>{const s=getComputedStyle(e);return {size:s.fontSize,weight:s.fontWeight};});
  // ① 글자 눈금: 조직 이름 = 3장 사업장 이름, 조직현황 글 = 3장 줄.
@@ -4967,9 +5114,9 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   const mid=parts.map(p=>(p.t+p.b)/2);expect(Math.max(...mid)-Math.min(...mid)).toBeLessThan(6);
  }
  const name=b.locator('.wl-org');
- await expect(name).toHaveAttribute('title',width>=1200?LONGER_ORG:LONG_ORG);
+ await expect(name).toHaveAttribute('title',longName);
  expect(await name.evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
- if(width>=1200){ // 표 모양은 4장 칸이 넓은 PC만(S52-42: 폴드 펼침은 3장·4장이 나란해 칸이 좁아 폰처럼 쌓는다)
+ if(width>=761){ // 표 모양은 4장 칸이 넓을 때(PC·폴드 펼침). WEEKLY-제목서식 ②: 3장·4장이 위아래 한 칸이 되어 폴드 펼침도 4장 칸이 넓다(옛 S52-42는 나란해 좁았음)
   expect(await name.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true); // 넘치는 이름은 끝 …
   expect(await name.evaluate(e=>getComputedStyle(e).textOverflow)).toBe('ellipsis');
   // ③ 칸 폭: 처음엔 가장 긴 이름 줄에 맞춘 폭(표 폭 45% 안), 짧은 이름 줄은 다 보임.
@@ -4993,7 +5140,7 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   // 5. 주요 일정 표는 보고 캘린더가 정해진 때만 있다(이 흉내 서버는 설정 없음) — 표가 있으면 [일] 손잡이도 있다.
   await expect(page.locator('#journalRoot [data-col-grip="cal_day"]')).toHaveCount(await page.locator('#journalRoot table.journal-weekly-schedule').count());
  }else{
-  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰·폴드(좁은 4장 칸)는 머리줄 없음 — 끌기 없음
+  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰(좁은 4장 칸)은 머리줄 없음 — 끌기 없음
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
@@ -5026,14 +5173,14 @@ for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조
  const geo=()=>orgTable(page).evaluate((t,[oa,ob])=>{const r=s=>{const e=t.querySelector(s);if(!e)return null;const b=e.getBoundingClientRect();return {l:b.left,r:b.right,w:b.width};};
   const A=`[data-wl-org-row="${oa}"]`,B=`[data-wl-org-row="${ob}"]`;
   return {line:r(`${A} .wl-org-line`),lineB:r(`${B} .wl-org-line`),cell:r(`${A} td.wl-c-rows`),sug:r(`${A} .wl-line`),head:r('thead th.wl-c-org')};},[OA,OB]);
- if(width<1200){
-  // 폰·폴드 펼침(3장·4장이 나란해 4장 칸이 좁음): 표 대신 쌓기. 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음).
+ if(width<761){
+  // 폰(4장 칸이 좁음): 표 대신 쌓기. WEEKLY-제목서식 ②: 폴드 펼침은 3장·4장이 위아래 한 칸이라 4장 칸이 넓어 표(아래). 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음).
   await expect.poll(async()=>{const g=await geo();return g.line&&g.cell&&g.sug&&g.line.w>0?Math.max(Math.abs(g.line.w-g.cell.w),Math.abs(g.line.l-g.sug.l),Math.abs(g.lineB.w-g.cell.w)):99;}).toBeLessThan(4);
   // 긴 이름도 화면 폭 안에 들면 … 없음(넘칠 때만 …).
   for(const row of [a,b])expect(await row.locator('.wl-org').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
  }else{
-  // PC: 표 그대로 — [조직] 칸은 저장된 폭(PC 180), 오른쪽 [조직현황] 칸은 따로.
-  await expect.poll(async()=>Math.round((await geo()).head?.w??0)).toBe(180);
+  // PC·폴드 펼침: 표 그대로 — [조직] 칸은 그 화면 종류에 저장된 폭(PC 180·폴드 290), 오른쪽 [조직현황] 칸은 따로.
+  await expect.poll(async()=>Math.round((await geo()).head?.w??0)).toBe(width>=1200?180:290);
   await expect.poll(async()=>{const g=await geo();return g.cell&&g.line&&g.cell.w>0?g.cell.l-g.line.r:-1;}).toBeGreaterThan(0);
  }
  await page.screenshot({path:info.outputPath(`weekly-org-again-${width}.png`),fullPage:true});

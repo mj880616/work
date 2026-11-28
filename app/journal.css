@@ -127,6 +127,21 @@
 #appView #homeView .journal-weekly-body{ display:flex; flex-direction:column; gap:14px; }
 #appView #homeView .journal-weekly-chapter{ display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .journal-weekly-chapter > h4.journal-heading{ margin:0; font-size:var(--ds-text-head); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
+/* WEEKLY-제목서식(2026-11-28 사용자 결정 시안 A, docs/design/approved/weekly-tidy.md ③ — 앞 ①의 '글자 네 단계'를 고침): 제목 세 단계는 한글 양식처럼
+   색·크기로 — 1.(큰 제목) 붉은 갈색 굵게 가장 큼 / 1)(중간 제목) 네이비 굵게 / (1)(작은 제목 = 칸 이름·표 머리) 초록 약간 굵게 / 본문은 줄 글자(--ds-text-row).
+   선은 더하지 않는다. 단계마다 살짝 들여쓰기(--ds-weekly-indent): 1) 묶음은 1. 아래로 한 칸, 묶음 안 내용은 1) 아래로 한 칸, 칸 줄은 칸 이름 아래로 한 칸.
+   값은 theme-tokens.css 한 곳(--ds-weekly-*), 한글 파일로 내보내는 내용·서식은 그대로(화면 모양만). */
+#appView #homeView [data-journal-weekly-chapter] > h4.journal-heading{ font-size:var(--ds-weekly-h1-text); font-weight:700; color:var(--ds-weekly-h1-ink); }
+#appView #homeView [data-journal-weekly-chapter] > :not(h4){ margin-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] > .journal-weekly-part{ padding-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub{ margin-left:calc(-1 * var(--ds-weekly-indent)); font-size:var(--ds-weekly-h2-text); font-weight:700; line-height:1.4; color:var(--ds-weekly-h2-ink); }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-label{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-medium); color:var(--ds-weekly-h3-ink); }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-label b{ font-weight:var(--ds-weight-strong); color:inherit; }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-cell > .weekly-flow-lines{ padding-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] .journal-weekly-table thead th{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-strong); color:var(--ds-weekly-h3-ink); }
+/* 4. 산하조직 현황 표(weekly-org-lines.css .wl-weekly)의 조직 이름·머리 칸도 같은 (1) 단계 — 3. 사업장 이름과 같은 모양(WEEKLY-조직이름한줄 '3장과 같은 글자 눈금'). */
+#appView #homeView [data-journal-weekly-chapter] .wl-table.wl-weekly .wl-org,
+#appView #homeView [data-journal-weekly-chapter] .wl-table.wl-weekly thead th{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-strong); color:var(--ds-weekly-h3-ink); }
 #appView #homeView .journal-weekly-part{ display:flex; flex-direction:column; gap:4px; }
 /* WEEKLY-화면정돈 ①(명진 11/28 '폰트크기 들쑥날쑥', docs/design/approved/weekly-tidy.md): 주간 보고 글자는 네 단계뿐 — 큰 제목(1.~5.) --ds-text-head,
    소제목(1) 요약 등) --ds-text-row 굵게·흐린 색, 줄 글자 --ds-text-row, 날짜·보조 --ds-text-meta. 칸 이름(사업장·조직·사업영역 › 세부 과제)은 줄 글자 크기·흐린 색. */
@@ -279,7 +294,9 @@
 #appView #homeView :is(.journal-hwpx,.journal-weekly) :is(button.mini:not(.journal-hwpx-grip),button.primary,button.secondary){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin-top:0; margin-bottom:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
 #appView #homeView :is(.journal-hwpx,.journal-weekly) :is(button.mini:not(.journal-hwpx-grip),button.primary,button.secondary)::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #homeView .journal-hwpx button.mini{ color:var(--kptu-ink); }
+/* WEEKLY-막대한줄: 글자색 ink 는 채우지 않은 작은 버튼에만. 채운 버튼(.mini.primary — [확정하고 받기]·[저장])까지 덮으면 ui-standard.css 의 채운 글자색과
+   선택자 무게가 같아 모양 파일을 붙인 순서로 승패가 갈린다(다른 메뉴를 먼저 열면 이 파일이 뒤에 붙어 채운 바탕에 어두운 글자). */
+#appView #homeView .journal-hwpx button.mini:not(.primary){ color:var(--kptu-ink); }
 #appView #homeView .journal-hwpx button:disabled{ opacity:.45; cursor:not-allowed; }
 #appView #homeView .journal-hwpx-target{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-compact-text); }
 #appView #homeView .journal-hwpx-plans > summary{ cursor:pointer; font-size:var(--ds-text-row); color:var(--kptu-muted); }
@@ -352,19 +369,10 @@
   #appView #homeView .journal-weekly-schedule .journal-weekly-owner:has(.row-more){ display:block; position:absolute; right:0; top:4px; padding:0; }
   #appView #homeView .journal-weekly-schedule .journal-weekly-what{ padding-right:28px; }
 }
-/* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
-@media(min-width:761px){
-  #appView #homeView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
-  /* S52-34 UI-전체정리(주간 정리): '■ 일시 … ⋯' 줄이 두 칸 중 왼쪽 칸에만 있어 ⋯이 화면 가운데에 떠 있던 것 → 두 칸 폭 전체, ⋯은 오른쪽 끝. */
-  #appView #homeView .journal-weekly-body > .weekly-flow-top{ grid-column:1 / -1; }
-  /* WEEKLY-처음시작고르기: 바탕 없는 사람의 상자(처음 고르기·양식 수정·내 양식 초안)는 왼쪽 칸에만 붙어 오른쪽이 비던 것 → 두 칸 폭 전체. */
-  #appView #homeView .journal-weekly-body > .journal-weekly-blank{ grid-column:1 / -1; }
-  #appView #homeView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
-  #appView #homeView .journal-weekly-date{ grid-column:1/-1; }
-  #appView #homeView .journal-weekly-body > .weekly-flow-confirm-slot{ grid-column:1/-1; }
-}
+/* WEEKLY-제목서식 ②(2026-11-28 사용자 결정 "3번과 4번 좌우 말고 위아래로 해줘"): PC(761px부터)에서 3·4·5번을 두 칸 격자로 나란히 두던 배치를 없앴다 —
+   본문은 PC·폰 모두 한 칸(전체 폭, 위 .journal-weekly-body 세로 쌓기). weekly-tidy.md ② 결정 3번 '본문 한 칸'과 같다. 격자 밑에 남아 있던 닫는 괄호 하나
+   (옛 오른쪽 확정 칸 묶음의 짝 잃은 '}')도 함께 지웠다 — 그 괄호 때문에 바로 뒤 '.journal-tasks' 규칙이 통째로 무시되고 있었다. */
 /* WEEKLY-화면정돈 ②(명진 11/28 결정): 본문은 PC·폰 모두 한 칸(전체 폭). 앞 ④의 PC 오른쪽 확정 칸은 없앴다 — 확정은 화면 아래 고정 막대(아래 '확정 막대'). */
-}
 
 /* JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): 하루 카드 = 오늘 한 줄 → 할 일 / 한 일 → 챙길 것(todo-radar.css) → 주간보고 재료
    (회의·활동 결과 → 사업 소식 → 조직 소식) → 그 밖의 기록(접힘, 개수 한 줄). 할 일 / 한 일은 761px부터 좌우, 폰은 위아래.
@@ -714,9 +722,14 @@
    주간 정리 본문 안에서 아래에 붙고(sticky), 폰 아래 메뉴 막대·키보드 위에 선다. 새 크기 값 없음(--ds-* 만). */
 #appView #homeView .weekly-flow-confirm-slot{ min-width:0; position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + var(--kptu-keyboard-inset,0px)); z-index:5; }
 #appView #homeView .weekly-flow-confirm-slot > .journal-hwpx{ gap:4px; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
-#appView #homeView .weekly-confirm-bar{ display:flex; align-items:center; gap:6px; min-width:0; flex-wrap:wrap; }
-#appView #homeView .weekly-confirm-bar .weekly-confirm-tabs{ flex:1 1 auto; min-width:0; }
-#appView #homeView .weekly-confirm-bar .weekly-flow-confirm{ padding:0; border:0; }
+/* WEEKLY-막대한줄(2026-11-28 사용자 신고 '하단바 모습이 결정과 다름'): 막대는 어느 폭·큰 글자에서도 한 줄 — 줄바꿈하지 않는다(전에는 flex-wrap 이라
+   폰 412에서 [확정하고 받기]가 다음 줄로 떨어졌다). 모자라면 줄어드는 순서: 확정 시각은 짧은 꼴('11/27 확정', 시각은 title) → 탭 칸 여백·알약 높이는 작게(이 막대 안만)
+   → 그래도 모자라면 탭 칸만 옆으로 밀기(공용 ⑤ .ds-seg 의 overflow-x). 탭 이름은 줄이지 않는다. 확정 시각·[확정하고 받기]·⋯ 는 줄지 않는다. */
+#appView #homeView .weekly-confirm-bar{ display:flex; align-items:center; gap:4px; min-width:0; flex-wrap:nowrap; }
+#appView #homeView .weekly-confirm-bar > *{ flex:none; }
+#appView #homeView .weekly-confirm-bar > .weekly-confirm-tabs{ flex:0 1 auto; min-width:0; }
+#appView #homeView .weekly-confirm-bar > .weekly-flow-confirm{ margin-left:auto; padding:0; border:0; }
+/* 막대 안 보기 바꾸기는 공용 ⑤의 작은 판(.ds-seg-sm, ui-standard.css — 모양은 그 한 곳)을 쓴다(journal-hwpx.js). */
 #appView #homeView .weekly-confirm-panes{ max-height:50vh; overflow:auto; }
 #appView #homeView .journal-hwpx:not(.is-open) > .weekly-confirm-panes{ display:none; }
 #appView #homeView .weekly-confirm-head{ display:flex; align-items:center; gap:6px; min-width:0; flex:none; }
