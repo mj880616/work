@@ -12,7 +12,7 @@ const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
 function refuse(code) {
-  $('#mcCard').innerHTML = `<h1>Claude 읽기 연결</h1><p class="mc-status is-error" role="alert">${esc(REFUSE[code] || REFUSE.failed)}</p>`;
+  $('#mcCard').innerHTML = `<h1>Claude 연결</h1><p class="mc-status is-error" role="alert">${esc(REFUSE[code] || REFUSE.failed)}</p>`;
 }
 function go(raw) {
   const url = safeClaudeRedirect(raw);
@@ -27,15 +27,15 @@ async function readSettings(rt) {
 }
 
 function render(details, settings, id, rt) {
-  const off = settings.enabled ? '' : word('<p class="mc-note">허락한 뒤 WORK ON+ 내 프로필 › Claude 읽기 연결을 켜야 읽기가 시작돼요.</p>');
-  $('#mcCard').innerHTML = word`<h1>Claude 읽기 연결</h1>
+  const off = settings.enabled ? '' : word('<p class="mc-note">허락한 뒤 WORK ON+ 내 프로필 › Claude 연결을 켜야 읽기가 시작돼요.</p>');
+  $('#mcCard').innerHTML = word`<h1>Claude 연결</h1>
 <p class="mc-lead"><b>${esc(details.clientName || 'Claude')}</b>(claude.ai)가 내 WORK ON+ 기록을 <b>읽기만</b> 해요. 쓰기·삭제·보내기는 할 수 없어요.</p>
 <div class="mc-list">
 <div class="mc-row"><span class="mc-k">볼 수 있는 것</span><span class="mc-v">담당조직 현황·조직 기록 요지, 사업 보고, 프로젝트 현황, 원장(민감한 기록은 제목만), 노트 제목과 앞부분, 구글 캘린더·할 일 목록 이름. 내 프로필에서 켠 영역(하루 기록·통화·녹음·정리함 원문, 가족 방은 따로 켜야 해요)</span></div>
 <div class="mc-row"><span class="mc-k">볼 수 없는 것</span><span class="mc-v">텔레그램·바깥 수집 원문, 첨부·사진 파일 내용, 꺼 둔 영역, 앱 잠금을 건 영역·잠근 폴더, AI 재료에서 뺀 정리함</span></div>
 <div class="mc-row"><span class="mc-k">되돌아갈 곳</span><span class="mc-v">claude.ai</span></div>
 </div>${off}
-<p class="mc-note">언제든 내 프로필 › Claude 읽기 연결에서 끄거나 모든 연결을 끊을 수 있어요.</p>
+<p class="mc-note">언제든 내 프로필 › Claude 연결에서 끄거나 모든 연결을 끊을 수 있어요.</p>
 <p class="mc-status" id="mcStatus" role="status"></p>
 <div class="mc-actions"><button type="button" class="secondary" data-mc="deny">거절</button><button type="button" class="primary" data-mc="approve">허락</button></div>`;
   $('#mcCard').addEventListener('click', async e => {

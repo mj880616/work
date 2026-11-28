@@ -82,7 +82,7 @@ function renderTeam(){const box=document.querySelector('#soOrganizationList');if
  // S67-53 ORG-여러개삭제: 선택 중에는 줄 앞에 선택 칸, 줄을 누르면 열지 않고 선택만(아래 click). 내가 지울 수 없는 조직은 칸이 꺼져 있다.
  const pickBox=o=>{if(!pk)return '';const on=soPick.has(o.id),off=!canEdit(o)||soPickBusy;return `<input type="checkbox" class="so-pick" data-so-pick="${esc(o.id)}" aria-label="${esc(o.name)} 선택"${on?' checked':''}${off?' disabled':''}>`};
  // S71-35: 보관한 조직 줄 끝에 [꺼내기](줄 단추 바깥 — 단추 안에 단추를 두지 않음). 선택 중에는 없다.
- const outBtn=o=>hidden.has(o.name)&&!pk?`<button type="button" class="secondary mini so-unarchive" data-so-unarchive="${esc(o.id)}" aria-label="${esc(o.name)} 꺼내기">꺼내기</button>`:'';
+ const outBtn=o=>hidden.has(o.name)&&!pk?`<span class="row-acts"><button type="button" class="row-act is-now so-unarchive" data-so-unarchive="${esc(o.id)}" aria-label="${esc(o.name)} 꺼내기">꺼내기</button></span>`:'';
  const row=o=>`<div class="so-row${hidden.has(o.name)?' is-excluded':''}${pk&&soPick.has(o.id)?' is-picked':''}" data-so-row="${esc(o.id)}">${pickBox(o)}<article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} ${pk?'선택':'상세 열기'}"${pk?` aria-pressed="${soPick.has(o.id)}"`:''}><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article>${outBtn(o)}</div>`;
  // MULTI-다른담당자맞춤 ①: [보관]한 조직(org_order.hidden, 옛 이름 '담당 조직에서 제외')은 원래 묶음에서 빠져 맨 아래 묶음에 흐리게(가나다순).
  // S71-35 ORG-조직관리로모으기(2026-11-26 사용자 "조직관리에서 추가수정 삭제 보관 가능하게"): 그 묶음은 접힌 '보관한 조직 n곳'(<details>, 처음 접힘·펼침은 화면 메모리만).

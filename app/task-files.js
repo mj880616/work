@@ -11,7 +11,7 @@ import { sendUploadApi } from './upload-send.mjs';
 import { trackUpload, mountUploadRows, announceDock } from './upload-progress.js';
 import { createAttachQueue, sendFilesBehind } from './basket-upload.js'; // BIZ-저장먼저닫기 3차: 할 일 첨부도 노트·업데이트와 같은 뒤 줄·끝 알림
 import { renameHostAttrs, renameButtonHtml, applyRenamed, openRenameEditor } from './file-rename.js';
-import { rowMore } from './row-more.js';
+import { rowMore, wireRowMore } from './row-more.js';
 import { takeAfterSameCheck } from './same-file.js'; // UX-이미있는파일알림: 넣기 전에 같은 이름·크기 파일이 있으면 묻는 공용 부품
 import { deleteAttachment } from './file-trash.js'; // FILE-첨부삭제 ②: [삭제] = 할 일에서 떼고 Drive 원본 휴지통(30일 안 되살림) + [되돌리기] // ATT-이름고치기: 첨부 이름 그 자리에서 고치기(할 일 첨부 표에 있는 파일만)
 export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
@@ -430,7 +430,10 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
 const ATT_ICON = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const keptCount = (base, edits, added) => base.filter(f => edits.get(f.drive_file_id)?.kind !== 'remove').length + added.length;
 export function taskAttachHtml({base = [], edits = new Map(), added = [], editable = false, busy = false, taskId = '', auto = false} = {}) {
-  const btn = (label, attr, aria, off) => `<button type="button" class="ghost gt-att-btn" ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button>`;
+  // DESIGN-단추정리 ①(조사표 #12): 줄마다 반복되던 테두리 단추([열기][내려받기][교체][빼기])를 없앤다 — 이름 누르기 = 열기(공용 file-actions data-fa-menu),
+  // 내려받기·교체·빼기는 줄 끝 ⋯ 하나(공용 row-more 모양·row-more.js 닫기 처리), 바뀐 줄의 [되돌리기]·[취소]는 줄 끝 동작 자리(.row-acts)의 ③ 글자 버튼.
+  const btn = (label, attr, aria, off) => `<span class="row-acts"><button type="button" class="row-act is-now gt-att-btn" ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button></span>`;
+  const item = (label, attr, aria, off, cls = '') => `<button type="button"${cls ? ` class="${cls}"` : ''} ${attr} aria-label="${esc(aria)}"${off ? ' disabled' : ''}>${label}</button>`;
   const rows = base.map(f => {
     const id = esc(f.drive_file_id), name = esc(f.file_name), e = edits.get(f.drive_file_id);
     if (e?.kind === 'swap') {
@@ -441,11 +444,15 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
     const attrs = fileAttrs({name: f.file_name, driveId: f.drive_file_id});
     // ATT-이름고치기: 할 일 첨부 표에 있는 파일만(메모 속 '첨부:' 줄만 있는 파일은 서버 줄이 없어 고칠 수 없음).
     const rn = editable && taskId && f.inTable ? {target: 'task', id: taskId, driveId: f.drive_file_id, name: f.file_name} : null;
-    return `<div class="gt-att-row" data-gt-att-id="${id}" data-fr-row>${ATT_ICON}<span class="gt-att-name" title="${name}"${renameHostAttrs(rn)}>${name}</span>${busy ? '' : renameButtonHtml(rn)}<button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button>${editable ? btn('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + btn('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy) : ''}</div>`;
+    return `<div class="gt-att-row" data-gt-att-id="${id}" data-fr-row>${ATT_ICON}<span class="gt-att-name gt-att-open" title="${name}" role="button" tabindex="0" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}"${renameHostAttrs(rn)}>${name}</span>${busy ? '' : renameButtonHtml(rn)}`
+      + `<details class="journal-kind-more row-more gt-att-more-menu"><summary data-ctx="off" aria-label="${name} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="row-more-menu" role="group" aria-label="${name} 메뉴">`
+      + item('내려받기', `data-fa-menu="download"${attrs}`, `첨부 내려받기: ${f.file_name}`, false)
+      + (editable ? item('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + item('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy, 'row-more-danger') : '')
+      + `</div></details></div>`;
   });
   const fresh = added.map((f, i) => `<div class="gt-att-row is-new">${ATT_ICON}<span class="gt-att-name" title="${esc(f.name)}">${esc(f.name)}</span><small class="gt-att-tag">새 파일</small>${btn('취소', `data-gt-att-drop="${i}"`, `붙이기 취소: ${f.name}`, busy)}</div>`);
   const changed = edits.size > 0 || added.length > 0;
-  const more = editable ? `<div class="gt-att-more">${btn('파일 붙이기', 'data-gt-att-add', '첨부 파일 붙이기', busy || keptCount(base, edits, added) >= MAX_TASK_FILES)}<small class="gt-att-hint">${changed ? (auto ? '잠시 뒤 저장됩니다 · 원래 파일은 Drive에 남습니다' : '저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다') : `${MAX_TASK_FILES}개까지 · 파일당 100MB`}</small></div>` : '';
+  const more = editable ? `<div class="gt-att-more">${item('파일 붙이기', 'data-gt-att-add', '첨부 파일 붙이기', busy || keptCount(base, edits, added) >= MAX_TASK_FILES, 'row-act is-now gt-att-btn')}<small class="gt-att-hint">${changed ? (auto ? '잠시 뒤 저장됩니다 · 원래 파일은 Drive에 남습니다' : '저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다') : `${MAX_TASK_FILES}개까지 · 파일당 100MB`}</small></div>` : '';
   return rows.join('') + fresh.join('') + more;
 }
 
@@ -485,9 +492,12 @@ export function mountTaskAttach(host, {isBusy = () => false, onError = () => {},
     if (b.hasAttribute('data-gt-att-add')) { addInput.click(); return; }
     if (b.dataset.gtAttSwap) { swapFor = b.dataset.gtAttSwap; swapInput.click(); return; }
     if (b.dataset.gtAttRemove) { const id = b.dataset.gtAttRemove; edits.set(id, {kind: 'remove'}); changed(); list.querySelector(`[data-gt-att-undo="${CSS.escape(id)}"]`)?.focus(); return; }
-    if (b.dataset.gtAttUndo) { const id = b.dataset.gtAttUndo; edits.delete(id); changed(); list.querySelector(`[data-gt-att-swap="${CSS.escape(id)}"]`)?.focus(); return; }
+    if (b.dataset.gtAttUndo) { const id = b.dataset.gtAttUndo; edits.delete(id); changed(); list.querySelector(`[data-gt-att-id="${CSS.escape(id)}"] .gt-att-open`)?.focus(); return; }
     if (b.dataset.gtAttDrop != null) { added.splice(Number(b.dataset.gtAttDrop), 1); changed(); list.querySelector('[data-gt-att-add]')?.focus(); }
   });
+  // 이름 칸(열기)은 role="button" — Enter·Space로도 연다(누르기 처리는 공용 file-actions.js 그대로).
+  list.addEventListener('keydown', e => { const t = e.target; if ((e.key === 'Enter' || e.key === ' ') && t?.classList?.contains('gt-att-open') && !t.querySelector('input')) { e.preventDefault(); t.click(); } });
+  wireRowMore(document); // 줄 끝 ⋯: 바깥 누르기·Esc·항목 누르기로 닫힘, 한 번에 하나(row-more.js)
   addInput.onchange = () => { const files = [...(addInput.files || [])]; addInput.value = ''; void checks.run(files, addFiles, {anchor: list.querySelector('[data-gt-att-add]')}); };
   swapInput.onchange = () => { const file = swapInput.files?.[0]; swapInput.value = ''; const id = swapFor; swapFor = ''; if (file) swapFile(id, file); };
   // PC: drop a file on a row to put it in that row's place; anywhere else in the box adds it.

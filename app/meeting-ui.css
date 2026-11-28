@@ -317,15 +317,14 @@
 #meetingRoundDetailModal .mrd-todo-cand .inbox-todo-summary{font-size:14px;line-height:1.5;color:var(--kptu-ink);overflow-wrap:anywhere}
 #meetingRoundDetailModal .mrd-todo-cand :is(.inbox-todo-meta,.inbox-todo-status,.inbox-todo-empty,.inbox-todo-done){margin:0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted);overflow-wrap:anywhere}
 #meetingRoundDetailModal .mrd-todo-cand .inbox-todo-status:empty{display:none}
-#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-actions{display:inline-flex;flex:0 0 auto;gap:8px;margin-left:auto}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-actions{gap:8px}
 #meetingRoundDetailModal .mrd-todo-cand .inbox-todo-below{display:flex;gap:8px;margin-top:2px}
 #meetingRoundDetailModal .mrd-todo-cand .inbox-todo-edit{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
 #meetingRoundDetailModal .mrd-todo-cand :is(.inbox-todo-edit-title,.inbox-todo-edit-due){height:var(--ds-compact-height);padding:0 6px;font:inherit;font-size:var(--ds-compact-text);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink)}
 #meetingRoundDetailModal .mrd-todo-cand .inbox-todo-edit-title{flex:1 1 12em;min-width:0}
 #meetingRoundDetailModal .mrd-todo-cand textarea.inbox-todo-edit-title{padding:6px;line-height:1.35} /* UI-줄입력늘어나기: 한 줄 높이에서 시작해 글만큼 */
-#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn{position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font:inherit;font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);cursor:pointer}
-#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn:disabled{opacity:.6;cursor:default}
-#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+/* DESIGN-단추정리 ①: 후보 줄 단추 모양은 공용 ③ 글자 버튼(row-act) 한 곳 — 여기는 글자 크기만(줄 끝 .row-acts 밖의 아래 줄 단추도 같게). */
+#meetingRoundDetailModal .mrd-todo-cand button.row-act{font-size:var(--ds-text-meta)}
 
 /* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js).
    UI-보기탭드롭다운(11/10 명진 'ㅇㅋㅇㅋ', 시안 docs/design/mockups/photos-top-dropdown.html): 보기는 탭 줄이 아니라 위 줄 기간 [주 단위 ▾] 옆 고르기 상자 [목록 ▾]

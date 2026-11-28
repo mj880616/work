@@ -27,6 +27,9 @@ export const RULES = [
   [/댓글|답글/g, '메모', {code: true}],
   // S70-62 READ-밀기메뉴(11/26 명진 "보관은 저장으로 통일 메뉴가 저장된 글이니까"): 글을 저장한 글로 모으는 일은 화면 어디서나 '저장'.
   // 다른 뜻의 '보관'(사업영역·공유 페이지·텔레그램 방 보관함, 자료 '계속 보관', 백업·휴지통 보관 기간)은 그대로라, 글 저장 화면 파일에서만 센다. 기준 0.
+  // UI-반복단추줄이기(2026-11-28 14:03 사용자 "클로드 읽기 연결이 아니라 클로드 연결이라고 해야 맞지 않아? 쓰기 기능도 추가했는데"): 화면 이름은 'Claude 연결'.
+  // 옛 업데이트 기록은 그때 이름 그대로라 화면 코드·폰 앱만 센다. 기준 0.
+  [/Claude\s?읽기\s?연결/g, 'Claude 연결', {code: true}],
   [/보관/g, '저장', {code: true, files: /^app\/(reading[a-z-]*|outside-[a-z-]+|now-[a-z-]+|news-[a-z-]+|note-news-marks[a-z-]*|share-news[a-z-]*|share-intake[a-z-]*|home-day-[a-z-]+|feed-[a-z-]+|save-bookmarklet[a-z-]*)\.m?js$/}],
 ];
 

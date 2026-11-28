@@ -196,6 +196,8 @@ test('PC: names sit under the card, the menu lists 수정·기한 바꾸기·파
   await context.close();
 });
 
+// DESIGN-단추정리 ①(조사표 #12): 첨부 줄은 이름 누르기 = 열기, 내려받기·교체·빼기는 줄 끝 ⋯ 안(줄마다 반복되던 테두리 단추 없음).
+const attMenu=async(loc,sel)=>{const item=loc.locator(sel);const r=item.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," gt-att-row ")][1]');await r.locator('details.row-more>summary').click();await item.click();};
 // TASK-첨부열기: 첨부 row in the edit window, memo box without the link lines, open/download through the shared Drive paths.
 async function watchDrive(context){
   const urls=[];
@@ -215,12 +217,12 @@ test('phone: edit window shows 첨부 under 할 일, the memo box holds only the
   // Right under the 할 일 box, above the 기한 row.
   const t=await page.locator('#gtEditTitle').boundingBox(),a=await att.boundingBox(),d=await page.locator('#gtEditDue').boundingBox();
   expect(a.y).toBeGreaterThanOrEqual(t.y+t.height-1);expect(a.y+a.height).toBeLessThanOrEqual(d.y+1);
-  const button=att.locator('.gt-att-btn').first();
-  expect((await button.boundingBox()).height).toBeLessThanOrEqual(30);
+  // 줄 안에 테두리 단추가 없다(⋯ 하나와 이름만).
+  expect(await att.locator('.gt-att-row').first().evaluate(r=>[...r.querySelectorAll(':scope > button')].filter(b=>{const c=getComputedStyle(b);return parseFloat(c.borderTopWidth)>0&&!/rgba\(0, 0, 0, 0\)|transparent/.test(c.borderTopColor)}).length)).toBe(0);
   expect(await noSideScroll(page)).toBe(true);
   await att.locator('.gt-att-row').nth(1).locator('[data-fa-menu="open"]').click();
   await expect.poll(()=>urls.at(-1)).toBe('https://drive.google.com/file/d/n2/view');
-  await att.locator('.gt-att-row').nth(1).locator('[data-fa-menu="download"]').click();
+  await attMenu(att.locator('.gt-att-row').nth(1),'[data-fa-menu="download"]');
   await expect.poll(()=>urls.at(-1)).toContain('uc?export=download&id=n2');
   // Nothing was saved or changed by opening them.
   expect(state.calls.updates).toEqual([]);
@@ -270,14 +272,16 @@ for(const viewport of [{width:412,height:915}]){
     const att=page.locator('#gtEditAttach');
     await open();
     // ATT-이름고치기: the file name now carries a small ✎ (rename in place) before the row buttons.
-    await expect(att.locator('.gt-att-row').first().locator('button')).toHaveText(['✎','열기','내려받기','교체','빼기']);
-    // Same small size on one line.
-    const boxes=await att.locator('.gt-att-row').first().locator('button:not([data-fr-edit])').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return {h:Math.round(r.height),y:Math.round(r.top)}}));
-    expect(new Set(boxes.map(b=>b.h)).size).toBe(1);expect(new Set(boxes.map(b=>b.y)).size).toBe(1);expect(boxes[0].h).toBeLessThanOrEqual(30);
+    await expect(att.locator('.gt-att-row').first().locator(':scope > button')).toHaveText(['✎']);
+    await expect(att.locator('.gt-att-row').first().locator('.gt-att-open')).toHaveAttribute('data-fa-menu','open');
+    await expect(att.locator('.gt-att-row').first().locator('.row-more-menu button')).toHaveText(['내려받기','교체','빼기']);
+    // 이름과 ⋯가 한 줄.
+    const n=await att.locator('.gt-att-row').first().locator('.gt-att-open').boundingBox(),m=await att.locator('.gt-att-row').first().locator('details.row-more>summary').boundingBox();
+    expect(Math.abs((n.y+n.height/2)-(m.y+m.height/2))).toBeLessThan(8);
     expect(await noSideScroll(page)).toBe(true);
 
     // Held changes, then the window closes: nothing was sent, and the next open shows the saved file again.
-    await att.locator('[data-gt-att-swap="old1"]').click();
+    await attMenu(att,'[data-gt-att-swap="old1"]');
     await att.locator('[data-gt-att-swap-input]').setInputFiles([txt('임시.txt')]);
     await expect(att.locator('.gt-att-row.is-changed .gt-att-name')).toHaveText('임시.txt');
     await att.locator('[data-gt-att-add-input]').setInputFiles([txt('더할 자료.txt')]);
@@ -290,7 +294,7 @@ for(const viewport of [{width:412,height:915}]){
     expect(state.calls.attach).toEqual([]);expect(state.calls.detach).toEqual([]);
 
     // [교체] → [저장]: the new file goes up first, then the old one comes off the task. The list and the window show the new one.
-    await att.locator('[data-gt-att-swap="old1"]').click();
+    await attMenu(att,'[data-gt-att-swap="old1"]');
     await att.locator('[data-gt-att-swap-input]').setInputFiles([txt('새 자료.txt')]);
     await expect(att.locator('.gt-att-hint')).toHaveText('저장하면 반영됩니다 · 원래 파일은 Drive에 남습니다');
     await page.locator('#gtSaveBtn').click();
@@ -304,7 +308,7 @@ for(const viewport of [{width:412,height:915}]){
     await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['새 자료.txt']);
 
     // [빼기] → [저장]: no file left; the row becomes 첨부 [파일 붙이기]. Then [파일 붙이기] → [저장] adds one.
-    await att.locator('[data-gt-att-remove="drv1"]').click();
+    await attMenu(att,'[data-gt-att-remove="drv1"]');
     await expect(att.locator('.gt-att-row.is-removed')).toHaveCount(1);
     await page.locator('#gtSaveBtn').click();
     await expect.poll(()=>state.calls.detach.length).toBe(2);
@@ -327,7 +331,7 @@ test('1440px PC 오른쪽 칸: 교체·빼기·파일 붙이기는 [저장] 없�
   await row(page,'a').locator('[data-gt-edit]').click();await expect(att).toBeVisible();
   await expect(page.locator('#gtSaveBtn')).toBeHidden();
   // [교체]: 안내는 '잠시 뒤 저장됩니다', 새 파일이 먼저 올라가고 원래 파일은 할 일에서만 빠진다.
-  await att.locator('[data-gt-att-swap="old1"]').click();
+  await attMenu(att,'[data-gt-att-swap="old1"]');
   await att.locator('[data-gt-att-swap-input]').setInputFiles([txt('새 자료.txt')]);
   await expect(att.locator('.gt-att-hint')).toHaveText('잠시 뒤 저장됩니다 · 원래 파일은 Drive에 남습니다');
   await expect.poll(()=>state.calls.detach.length).toBe(1);
@@ -338,7 +342,7 @@ test('1440px PC 오른쪽 칸: 교체·빼기·파일 붙이기는 [저장] 없�
   await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['새 자료.txt']);
   expect(google.a.notes).toBe(['원래 메모',line('drv1','새 자료.txt')].join('\n'));
   // [빼기] → 바로 저장, [파일 붙이기] → 바로 저장.
-  await att.locator('[data-gt-att-remove="drv1"]').click();
+  await attMenu(att,'[data-gt-att-remove="drv1"]');
   await expect.poll(()=>state.calls.detach.length).toBe(2);
   await expect(att.locator('.gt-att-row')).toHaveCount(0);
   await att.locator('[data-gt-att-add-input]').setInputFiles([txt('붙인 자료.txt')]);
@@ -351,7 +355,7 @@ test('1440px PC 오른쪽 칸: 교체·빼기·파일 붙이기는 [저장] 없�
 test('a file known only from a notes line is taken off by the notes save; other lines stay',async({browser})=>{
   const {context,page,state}=await openTasks(browser,{viewport:{width:412,height:915},notes:withLines,files:[{google_task_id:'a',drive_file_id:'n1',file_name:'회의록 최종.pdf',size_bytes:9}]});
   await row(page,'a').locator('[data-gt-edit]').click();
-  await page.locator('#gtEditAttach [data-gt-att-remove="n2"]').click();
+  await attMenu(page.locator('#gtEditAttach'),'[data-gt-att-remove="n2"]');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>state.calls.updates.length).toBe(1);
   expect(state.calls.detach).toEqual([]);

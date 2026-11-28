@@ -195,7 +195,8 @@
 #soOrganizationList .so-archived[open]>summary::after,#soOrganizationList .so-collab[open]>summary::after{transform:rotate(90deg)}
 #soOrganizationList .so-excluded-group .so-row{display:flex;align-items:center;gap:6px}
 #soOrganizationList .so-excluded-group .so-row>.so-card{flex:1;min-width:0}
-#soOrganizationList .so-unarchive{flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;font-size:var(--ds-text-meta);margin-right:6px}
+/* DESIGN-단추정리 ①: 보관한 조직 줄 끝 [꺼내기]는 공용 줄 끝 동작 자리(.row-acts)의 ③ 글자 버튼(row-act) — 모양은 ui-standard.css 한 곳, 여기는 줄 끝 여백만. */
+#soOrganizationList .so-row>.row-acts{margin-right:6px}
 #soOrganizationList .so-collab{margin-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 #soOrganizationList .so-collab>summary{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target,44px);padding:0 4px;cursor:pointer;list-style:none;font-weight:var(--ds-weight-medium,600);font-size:var(--ds-text-meta)}
 #soOrganizationList .so-collab>summary::-webkit-details-marker{display:none}

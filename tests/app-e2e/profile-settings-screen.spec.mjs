@@ -101,7 +101,7 @@ for (const width of [390, 1280]) test(`첫 화면은 묶음별 한 줄 메뉴만
   const state = await boot(page);
   const r = root(page);
   await expect(r.locator('.sl-group-title')).toHaveText(['앱', '자료']);
-  await expect(r.locator('[data-ps-open]')).toHaveText([/이름\s*처음 이름/, /홈 칸.*켜짐/, /알림 설정.*폰 없음 · 조용한 시간 22–07/, /내 기록 백업.*마지막 11\/20/, /구글 드라이브.*WORK ON\+ 폴더/, /Claude 읽기 연결.*꺼짐/, /계정/, /사용 현황/]);
+  await expect(r.locator('[data-ps-open]')).toHaveText([/이름\s*처음 이름/, /홈 칸.*켜짐/, /알림 설정.*폰 없음 · 조용한 시간 22–07/, /내 기록 백업.*마지막 11\/20/, /구글 드라이브.*WORK ON\+ 폴더/, /Claude 연결.*꺼짐/, /계정/, /사용 현황/]);
   // 첫 화면에 입력칸·스위치·큰 단추가 없다(한 줄 메뉴만).
   await expect(page.locator('#profileView :is(input, button.primary, .save-row):visible')).toHaveCount(0);
   await expect(page.locator('#psSave, #profileView .save-row')).toHaveCount(0);
@@ -213,7 +213,7 @@ test('내 기록 백업: 자동 백업 스위치는 서버 저장(다시 열어�
   expect(state.errors).toEqual([]);
 });
 
-test('Claude 읽기 연결: 켜기 스위치는 서버 저장, 다시 열어도 켜짐 · 모든 연결 끊기는 빨간 글자', async ({page}) => {
+test('Claude 연결: 켜기 스위치는 서버 저장, 다시 열어도 켜짐 · 모든 연결 끊기는 빨간 글자', async ({page}) => {
   const state = await boot(page);
   await open(page, 'mcp');
   const p = pageOf(page, 'mcp');

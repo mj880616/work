@@ -48,8 +48,11 @@ export function infoRow({label, desc, descAttrs, sum, sumAttrs, end = '', attrs,
   return `${open('div', 'sl-row sl-info', attrs, danger)}>${textPart({label, desc, descAttrs})}${sumPart(sum, sumAttrs)}${end}</div>`;
 }
 
-/** 접었다 펴는 줄(등록된 폰 N대 ›·조용한 시간 ›). 키보드로 여닫는 <details>. 펴면 안쪽 줄들이 그 아래에. */
+/** 접었다 펴는 줄(등록된 폰 N대 ›·조용한 시간 ›). 키보드로 여닫는 <details>. 펴면 안쪽 줄들이 그 아래에.
+ *  UI-반복단추줄이기(사용자 결정 2026-11-28 14:03 "'없음'이 한 번 더"): 펼칠 것이 없으면(body가 빈 글자) 접는 줄이 아니라
+ *  보이기만 하는 줄 하나(이름 + 오른쪽 요약, 예 '없음')로 그린다 — 펼쳐도 빈 칸·'없음'이 한 번 더 나오지 않게. 부르는 쪽은 비었을 때 body를 비워 준다. */
 export function foldRow({label, desc, sum, sumAttrs, body, attrs, open}) {
+  if (!body) return infoRow({label, desc, sum, sumAttrs, attrs});
   return `<details class="sl-fold"${attrsHtml(attrs)}${open ? ' open' : ''}><summary class="sl-row sl-nav">${textPart({label, desc})}${sumPart(sum, sumAttrs)}<span class="sl-end sl-chev" aria-hidden="true">›</span></summary><div class="sl-fold-body">${body || ''}</div></details>`;
 }
 

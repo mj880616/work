@@ -17,14 +17,16 @@ test('창 아래 버튼 줄 공용 규칙이 ui-standard.css 한 곳에 있고 �
   assert.ok(ui.indexOf(head) > ui.indexOf('/* ===== UI-버튼6가지'), 'UI-버튼6가지 뒤에 둔다');
   const rule = sel => { const i = block.indexOf(sel + '{'); assert.ok(i > 0, sel); return block.slice(i, block.indexOf('}', i)); };
   const base = rule(`${FOOT} button:is(.${FAMILY.join(',.')}):not(.${NOT_FAMILY.join(',.')})`);
-  for (const d of ['height:var(--kptu-control-height) !important', 'min-height:var(--kptu-control-height) !important', 'padding:0 var(--ds-control-pad-x) !important',
+  // DESIGN-단추정리 ③(2026-11-28 15:37 사용자 선택 'B'): 28px(--ds-compact-height-sm), 누르는 범위는 ::after로 44px.
+  for (const d of ['height:var(--ds-compact-height-sm) !important', 'min-height:var(--ds-compact-height-sm) !important', 'padding:0 var(--ds-compact-pad-x) !important',
     'border:0 !important', 'border-radius:var(--ds-radius-control) !important', 'font-size:var(--ds-text-button) !important', 'font-weight:var(--ds-weight-medium) !important'])
     assert.ok(base.includes(d), '같은 모양: ' + d);
   assert.match(rule(`${FOOT} button.primary:not(:disabled,.${NOT_FAMILY.join(',.')})`), /background:var\(--kptu-primary\) !important; color:var\(--kptu-on-primary\) !important/, '저장 = 진한 채움(누를 수 있을 때만)');
   // PROFILE-바뀜것없음글자빼기: 누를 수 없는 저장은 진한 채움 규칙에서 빠져 공용 꺼짐 모양(옅은 주 색 바탕)으로 흐리게 보인다.
   assert.ok(!block.includes(`${FOOT} button.primary:not(.${NOT_FAMILY.join(',.')}){`), '꺼진 저장까지 진하게 칠하는 옛 규칙 없음');
   assert.match(ui, /:is\(button\.primary,[^)]*\):disabled:not\(\.icon-btn\)\{ opacity:1 !important; color:var\(--kptu-primary-ink\) !important; background:var\(--kptu-primary-soft\) !important;/, '꺼진 채운 버튼 = 옅은 주 색 바탕');
-  assert.match(rule(`${FOOT} button:is(.secondary,.ghost):not(.primary,.${DANGER.join(',.')},.${NOT_FAMILY.join(',.')})`), /background:var\(--kptu-primary-soft\) !important; color:var\(--kptu-ink\) !important/, '보조 = 연한 채움');
+  assert.match(rule(`${FOOT} button:is(.${FAMILY.join(',.')}):not(.${NOT_FAMILY.join(',.')})::after`), /height:var\(--kptu-touch-target\)/, '누르는 범위 44px');
+  assert.match(rule(`${FOOT} button:is(.secondary,.ghost):not(.primary,.${DANGER.join(',.')},.${NOT_FAMILY.join(',.')})`), /background:transparent !important; box-shadow:none !important; color:var\(--kptu-muted\) !important/, '보조([취소]·[완료]) = 테두리·바탕 없는 글자');
   const del = rule(`${FOOT} button:is(.${DANGER.join(',.')}):not(.primary,.${NOT_FAMILY.join(',.')})`);
   assert.match(del, /background:transparent !important; color:var\(--kptu-danger\) !important; margin-right:auto !important/, '삭제 = 바탕 없는 빨간 글자, 왼쪽 끝');
   const rules = block.slice(block.indexOf('*/') + 2);

@@ -1,4 +1,4 @@
-// MCP-Claude읽기 M-5(설계 docs/design/mcp-claude-read.md 2판 6·7.1절, 3판 15.2 영역 스위치): 내 프로필 'Claude 읽기 연결' 칸의 화면 주인 하나.
+// MCP-Claude읽기 M-5(설계 docs/design/mcp-claude-read.md 2판 6·7.1절, 3판 15.2 영역 스위치): 내 프로필 'Claude 연결' 칸(2026-11-28 사용자 결정: 쓰기가 생겨 '읽기'를 뺀 이름)의 화면 주인 하나.
 // - 설정: app_mcp_settings(owner RLS, 화면이 고치는 칸은 enabled·revoked_before와 영역 칸 area_* 다섯 — 열 단위 권한). 행은 SQL로만 생긴다(설계 7.6):
 //   행이 없으면(다른 사용자, 아직 연결 준비 전) 이 칸은 보이지 않는다. 표가 아직 없을 때(DB 적용 전)도 같다 — 화면은 깨지지 않고 칸만 없다.
 //   칸을 숨기는 것은 편의다. 실제로 막는 것은 DB 문지기(private.app_mcp_gate: 행·허용 클라이언트·스위치·끊기 시각·상한)다.
@@ -11,7 +11,7 @@
 import {settingsState, toolLabel, statusLabel, monthStartIso, COUNT_CAP, countText, AREAS, AREA_COLUMNS, writeLabel, writeChars, undoError, isAttachRow, attachDone} from './mcp-read-model.mjs';
 import {hasFeature} from './my-features.js';
 import {formatSeoulTime} from './meeting-time.js';
-import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
+import {waitHtml, failHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js';
 import {groupHtml, switchRow, infoRow, foldRow, actionRow, noteHtml} from './settings-list.mjs';
 
@@ -42,7 +42,7 @@ export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () =>
     let log;
     if (logFailed) log = failHtml({retry: 'data-mr-retry'});
     else if (!recent) log = waitHtml({rows: 2});
-    else if (!recent.length) log = emptyHtml();
+    else if (!recent.length) log = ''; // 비었으면 접는 줄 대신 '최근 읽은 기록 · 없음' 한 줄(settings-list foldRow)
     else log = `<ol class="mr-log">${recent.map(r => infoRow({label: toolLabel(r.tool), desc: when(r.called_at), sum: `${statusLabel(r.status)}${Number(r.result_count) > 0 ? ` · ${Number(r.result_count).toLocaleString('ko-KR')}건` : ''}`, sumAttrs: {class: `mr-r mr-${r.status}`}})).map(row => `<li>${row}</li>`).join('')}</ol>`;
     const wasOpen = !!host.querySelector('[data-mr-log][open]');
     const wroteOpen = !!host.querySelector('[data-mw-log][open]');
@@ -50,13 +50,13 @@ export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () =>
     if (write) {
       if (writesFailed) wlog = failHtml({retry: 'data-mw-retry'});
       else if (!writes) wlog = waitHtml({rows: 2});
-      else if (!writes.length) wlog = emptyHtml();
+      else if (!writes.length) wlog = ''; // 비었으면 '최근 Claude가 수정한 것 · 없음' 한 줄(펼치기 없음)
       else wlog = `<ol class="mr-log">${writes.map(r => r.undone_at || (isAttachRow(r) && !attachDone(r))
         ? infoRow({label: writeLabel(r), desc: `${when(r.called_at)} · ${writeChars(r)}`, sum: r.undone_at ? '되돌림' : ''})
         : actionRow({label: writeLabel(r), desc: `${when(r.called_at)} · ${writeChars(r)}`, sum: '되돌리기', disabled: busy, attrs: {'data-mw-undo': r.id}})).map(row => `<li>${row}</li>`).join('')}</ol>`;
     }
     host.innerHTML = groupHtml([
-      switchRow({label: '연결 켜기', desc: write ? 'claude.ai의 Claude가 내 기록을 읽어요(쓰기는 아래 스위치)' : 'claude.ai의 Claude가 내 기록을 읽기만 해요', checked: s.enabled, disabled: busy, attrs: {'data-mr-enabled': true}, ariaLabel: 'Claude 읽기 연결 켜기'}),
+      switchRow({label: '연결 켜기', desc: write ? 'claude.ai의 Claude가 내 기록을 읽어요(쓰기는 아래 스위치)' : 'claude.ai의 Claude가 내 기록을 읽기만 해요', checked: s.enabled, disabled: busy, attrs: {'data-mr-enabled': true}, ariaLabel: 'Claude 연결 켜기'}),
       infoRow({label: '이번 달 읽은 횟수', sum: month == null ? '' : countText(month), sumAttrs: {'data-mr-month': true}}),
     ]) + groupHtml(AREAS.map(a => switchRow({label: a.label, desc: a.desc, checked: s.areas[a.key], disabled: busy,
         attrs: {'data-mr-area': a.key}, ariaLabel: `Claude가 ${a.label} 읽기`})), {title: '읽을 영역'})

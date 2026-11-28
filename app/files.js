@@ -3307,7 +3307,7 @@ function jobRowHtml(j) {
   return `<li class="fx-job fx-job-${esc(j.status)}" data-fx-job="${esc(j.id)}"><span class="fx-ico" data-kind="${kindOf(kr)}" aria-hidden="true">${kindIco(kr)}</span>`
     + `<span class="fx-job-t"><span class="fx-job-nm">${esc(j.name)}</span><small>${esc([jobLine(j), hint].filter(Boolean).join(' · '))}</small>${bar}</span>`
     + `<span class="fx-job-st">${esc(jobStatusText(j))}</span>`
-    + (act ? `<button type="button" class="mini" data-fx-job-act="${act}" data-fx-job-id="${esc(j.id)}">${JOB_BTN[act]}</button>` : '') + '</li>';
+    + (act ? `<span class="row-acts"><button type="button" class="row-act is-now" data-fx-job-act="${act}" data-fx-job-id="${esc(j.id)}">${JOB_BTN[act]}</button></span>` : '') + '</li>';
 }
 function paintJobs() {
   const box = $('[data-fx-jobs]');

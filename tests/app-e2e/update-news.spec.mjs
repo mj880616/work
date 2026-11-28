@@ -314,3 +314,56 @@ test('이용자: 다시 보내기·자동 소식 함수는 운영자만(서버�
   const status=await page.evaluate(()=>window.KPTURuntime.api('/rest/v1/rpc/app_update_news_resend',{method:'POST',body:{p_id:'a1'},singleFlight:false}).then(()=>'ok',e=>'refused'));
   expect(status).toBe('refused');
 });
+
+// UI-반복단추줄이기(2026-11-28 14:05 사용자 "보냄 단추가 일관적이지 않다(어떤 줄은 위, 어떤 줄은 아래) … 테두리를 뚱뚱하게 … 그냥 텍스트만"):
+// 줄마다 붙는 [보냄]·[보내기]는 테두리·바탕 없는 글자 단추, 자리는 줄마다 날짜 줄 오른쪽 끝. 누르면 지금처럼 거두기 확인 상자이고,
+// 확인 상자(공용 askConfirm)의 단추는 작은 크기 — [취소]는 작은 버튼, 위험한 [거두기]는 큰 빨강 채움 대신 빨간 글자.
+const LONG={...NOTES,notes:NOTES.notes.map((n,i)=>i===1?{...n,changes:['PC 프로그램 이름이 바뀌었어요. 설치한 프로그램은 다음에 켤 때 새 이름으로 바뀌고 바탕 화면 바로가기도 함께 바뀌어요']}:n)};
+for(const width of [412,1280])test(`업데이트 기록: 줄마다 [보냄]은 테두리 없는 글자·날짜 줄 오른쪽 같은 자리, 누르면 작은 확인 상자 (${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:900});
+  await boot(page,{operator:true,view:'updates',notes:LONG});
+  const view=page.locator('#updatesView');
+  const rows=view.locator('.rn-note');
+  await expect(rows).toHaveCount(4,{timeout:15000});
+  const right=[];
+  for(let i=0;i<4;i++){
+    const row=rows.nth(i),send=row.locator('[data-rn-send]'),date=row.locator('.rn-date');
+    await expect(send).toBeVisible();
+    const look=await send.evaluate(b=>{const s=getComputedStyle(b);return {border:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth].map(parseFloat),bg:s.backgroundColor,shadow:s.boxShadow,font:parseFloat(s.fontSize),meta:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-text-meta')),cls:b.className}});
+    expect(look.cls).toMatch(/\brow-act\b/);
+    expect(look.border).toEqual([0,0,0,0]);
+    expect(look.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(look.shadow).toBe('none');
+    expect(look.font).toBe(look.meta);
+    const s=await send.boundingBox(),d=await date.boundingBox(),h=await row.locator('.rn-head').boundingBox();
+    // 날짜 줄과 같은 높이(세로 가운데가 글 한 줄 안), 줄 오른쪽 끝.
+    expect(Math.abs((s.y+s.height/2)-(d.y+d.height/2))).toBeLessThan(8);
+    expect(h.x+h.width-(s.x+s.width)).toBeLessThan(6);
+    await expect(send.locator('xpath=..')).toHaveClass(/\brow-acts\b/); // DESIGN-단추정리 ①: 공용 줄 끝 동작 자리
+    right.push(Math.round(s.x+s.width));
+  }
+  expect(new Set(right).size).toBe(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`test-results/updates-send-${width}.png`});
+  // 누르면 거두기 확인 상자(줄은 펼쳐지지 않는다). 단추는 작은 크기, [거두기]는 빨간 글자(바탕·테두리 없음).
+  const first=rows.first();
+  const wasOpen=await first.evaluate(d=>d.open);
+  await first.locator('[data-rn-send]').click();
+  const ask=page.locator('.kptu-ask');
+  await expect(ask).toBeVisible();
+  expect(await first.evaluate(d=>d.open)).toBe(wasOpen);
+  const no=ask.getByRole('button',{name:'취소'}),yes=ask.getByRole('button',{name:'거두기'});
+  // DESIGN-단추정리 ②: 확인 상자 단추는 28px(--ds-compact-height-sm)·글자 meta, [취소]는 테두리·바탕 없는 글자, 누르는 범위 44px.
+  const compact=await page.evaluate(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height-sm')));
+  for(const b of [no,yes]){expect(Math.abs((await b.boundingBox()).height-compact)).toBeLessThan(0.6);expect(await b.evaluate(e=>parseFloat(getComputedStyle(e,'::after').height))).toBe(44);}
+  const cancel=await no.evaluate(b=>{const s=getComputedStyle(b);return {bg:s.backgroundColor,bw:parseFloat(s.borderTopWidth),fs:s.fontSize,meta:getComputedStyle(document.documentElement).getPropertyValue('--ds-text-meta').trim()}});
+  expect(cancel.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);expect(cancel.bw).toBe(0);expect(cancel.fs).toBe(cancel.meta);
+  const danger=await yes.evaluate(b=>{const s=getComputedStyle(b),probe=document.createElement('span');probe.style.color='var(--kptu-danger)';document.body.append(probe);const red=getComputedStyle(probe).color;probe.remove();return {bg:s.backgroundColor,border:parseFloat(s.borderTopWidth),shadow:s.boxShadow,color:s.color,red}});
+  expect(danger.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  expect(danger.border).toBe(0);
+  expect(danger.color).toBe(danger.red);
+  await page.screenshot({path:`test-results/updates-ask-${width}.png`});
+  await no.click();
+  await expect(ask).toHaveCount(0);
+});

@@ -99,7 +99,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  // 입력 줄 버튼은 40px(입력칸과 같은 높이). 창(모달) 버튼은 그대로.
  expect(nb.height).toBe(40);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
- expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px */
+ expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(28);/* DESIGN-단추정리 ③(2026-11-28 사용자 선택 B): 창 아래 버튼 줄 28px */
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
