@@ -3,6 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 // UI-창아래버튼통일(2026-11-07 명진 요청 10:55, 시안 docs/design/mockups/sheet-footer-buttons.html 'A'):
 // 창 아래 버튼 줄의 [삭제]·[완료]·[저장]은 높이·모서리·글자 크기·굵기·안쪽 여백이 같고 테두리 선이 없다. 다른 것은 채움 정도만
 // (저장 = 진한 채움, 보조 = 연한 채움, 삭제 = 바탕 없는 빨간 글자·왼쪽 끝). 폰(390)·폴드(884)·PC(1280). 모의 자료(openHome)만 쓴다.
+// DESIGN-단추정리 ③(2026-11-28 15:37 사용자 선택 'B'): 높이 28px(--ds-compact-height-sm, 누르는 범위는 ::after 44px), 보조([취소]·[완료])는 테두리·바탕 없는 회색 글자, 주 동작만 채움.
 test.use({hasTouch:true});
 const go=(page,view)=>page.evaluate(v=>window.KPTURouter.go(v),view);
 const TRANSPARENT='rgba(0, 0, 0, 0)';
@@ -11,10 +12,10 @@ const TRANSPARENT='rgba(0, 0, 0, 0)';
 const DANGER='.danger,.tl-danger,.wd-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.ps-danger,.ci-delete';
 const readFoot=(page,sel)=>page.locator(sel).first().evaluate((foot,DANGER)=>{const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
  const probe=document.createElement('i');document.body.append(probe);const color=v=>{probe.style.color=`var(${v})`;return getComputedStyle(probe).color};
- const tokens={primary:color('--kptu-primary'),soft:color('--kptu-primary-soft'),danger:color('--kptu-danger'),onPrimary:color('--kptu-on-primary'),ink:color('--kptu-ink'),h:css('--kptu-control-height')};probe.remove();
+ const tokens={primary:color('--kptu-primary'),soft:color('--kptu-primary-soft'),danger:color('--kptu-danger'),onPrimary:color('--kptu-on-primary'),ink:color('--kptu-ink'),muted:color('--kptu-muted'),h:css('--ds-compact-height-sm'),hit:css('--kptu-touch-target')};probe.remove();
  const buttons=[...foot.querySelectorAll('button:is(.primary,.secondary,.ghost,'+DANGER+'):not(.icon-btn,.row-act,.ds-chip,.ds-seg-btn,.mini)')].filter(b=>b.checkVisibility()&&b.getBoundingClientRect().width>0).map(b=>{const r=b.getBoundingClientRect(),s=getComputedStyle(b);
   return {label:b.textContent.trim(),role:b.matches('.primary')?'save':b.matches(DANGER)?'del':'sub',h:Math.round(r.height*10)/10,left:Math.round(r.left),right:Math.round(r.right),
-   br:s.borderRadius,fs:s.fontSize,fw:s.fontWeight,pl:s.paddingLeft,pr:s.paddingRight,bw:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth].join(' '),bg:s.backgroundColor,color:s.color}});
+   hitH:parseFloat(getComputedStyle(b,'::after').height)||0,br:s.borderRadius,fs:s.fontSize,fw:s.fontWeight,pl:s.paddingLeft,pr:s.paddingRight,bw:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth].join(' '),bg:s.backgroundColor,color:s.color}});
  const fr=foot.getBoundingClientRect();return {tokens,buttons,left:Math.round(fr.left),right:Math.round(fr.right)}},DANGER);
 
 function family(name,{tokens,buttons}){
@@ -23,10 +24,11 @@ function family(name,{tokens,buttons}){
  for(const b of buttons){
   const n=`${name} [${b.label}]`;
   expect(b.h,n+' 높이').toBe(parseFloat(tokens.h));
+  expect(b.hitH,n+' 누르는 범위').toBe(parseFloat(tokens.hit));
   for(const k of ['br','fs','fw','pl','pr'])expect(b[k],n+' '+k+' 같음').toBe(first[k]);
   expect(b.bw,n+' 테두리 선 없음').toBe('0px 0px 0px 0px');
   if(b.role==='save'){expect(b.bg,n+' 진한 채움').toBe(tokens.primary);expect(b.color).toBe(tokens.onPrimary);}
-  if(b.role==='sub'){expect(b.bg,n+' 연한 채움').toBe(tokens.soft);expect(b.color).toBe(tokens.ink);}
+  if(b.role==='sub'){expect(b.bg,n+' 바탕 없는 글자').toBe(TRANSPARENT);expect(b.color).toBe(tokens.muted);}
   if(b.role==='del'){expect(b.bg,n+' 바탕 없음').toBe(TRANSPARENT);expect(b.color,n+' 빨간 글자').toBe(tokens.danger);}
  }
  const del=buttons.findIndex(b=>b.role==='del'),save=buttons.findIndex(b=>b.role==='save');

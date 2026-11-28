@@ -21,9 +21,10 @@ const measure=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),a=getCom
  return {h:Math.round(r.height),w:Math.round(r.width),top:Math.round(r.top),bottom:Math.round(r.bottom),left:Math.round(r.left),right:Math.round(r.right),press,font:getComputedStyle(el).fontSize}});
 async function check(loc,h,name){await expect(loc,name).toBeVisible();const m=await measure(loc);expect(m.h,name+' 보이는 높이').toBe(h);expect(m.press,name+' 누르는 범위').toBeGreaterThanOrEqual(44);
  if(await loc.isEnabled()){await loc.focus();expect(await loc.evaluate(el=>document.activeElement===el),name+' 키보드 초점').toBe(true);}return m;}
-// 창 주 동작: 36px, 창 폭보다 훨씬 좁고(글자 폭), 오른쪽 끝에 붙음.
+// 창 주 동작: 창 아래 버튼 줄 높이(DESIGN-단추정리 ③ 2026-11-28 사용자 선택 'B': 28px = --ds-compact-height-sm, 누르는 범위 44px), 창 폭보다 훨씬 좁고(글자 폭), 오른쪽 끝에 붙음.
+const FOOT=28;
 async function modalSave(page,modal,save,name){
- const m=await check(page.locator(save),36,name);
+ const m=await check(page.locator(save),FOOT,name);
  const card=await page.locator(modal+' .modal-card').first().evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {w:r.width,right:r.right-parseFloat(s.paddingRight)}});
  expect(m.w,name+' 글자 폭').toBeLessThan(card.w/2);
  expect(Math.abs(m.right-card.right),name+' 오른쪽').toBeLessThanOrEqual(2);
@@ -55,14 +56,14 @@ for(const width of [390,1280]){
    const due=await measure(page.locator('#gtEditDue'));expect(due.h).toBe(36);
    for(const b of await page.locator('#gtTaskModal .gt-due-quick>button').all()){const m=await check(b,36,'기한 빠른 버튼');expect(m.top).toBe(due.top);expect(m.bottom).toBe(due.bottom);}
    // S51-13 TODO-폴드목록상세: PC 오른쪽 칸은 바꾸면 바로 저장이라 [저장]이 없고, 아래 줄은 [삭제]·[완료].
-   // UI-창아래버튼통일(11/07): 창 아래 줄 버튼은 한 가족 — [삭제]·[완료]·[저장] 모두 36px(모양은 sheet-footer-buttons.spec.mjs).
+   // UI-창아래버튼통일(11/07): 창 아래 줄 버튼은 한 가족 — [삭제]·[완료]·[저장] 모두 같은 높이 — 2026-11-28부터 28px(모양은 sheet-footer-buttons.spec.mjs).
    await expect(page.locator('#gtSaveBtn')).toBeHidden();
-   const del=await check(page.locator('#gtDeleteBtn'),36,'[삭제]');
+   const del=await check(page.locator('#gtDeleteBtn'),FOOT,'[삭제]');
    expect(del.top).toBeGreaterThan(due.bottom);
-   await check(page.locator('#gtToggleBtn'),36,'[완료]');
+   await check(page.locator('#gtToggleBtn'),FOOT,'[완료]');
   }else{
-   await check(page.locator('#gtSaveBtn'),36,'할 일 수정 창 [저장]');
-   await check(page.locator('#gtDeleteBtn'),36,'[삭제]');
+   await check(page.locator('#gtSaveBtn'),FOOT,'할 일 수정 창 [저장]');
+   await check(page.locator('#gtDeleteBtn'),FOOT,'[삭제]');
   }
   await noWideScroll(page);expect(errors).toEqual([]);
  });

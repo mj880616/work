@@ -340,6 +340,7 @@ for(const width of [412,1280])test(`업데이트 기록: 줄마다 [보냄]은 �
     // 날짜 줄과 같은 높이(세로 가운데가 글 한 줄 안), 줄 오른쪽 끝.
     expect(Math.abs((s.y+s.height/2)-(d.y+d.height/2))).toBeLessThan(8);
     expect(h.x+h.width-(s.x+s.width)).toBeLessThan(6);
+    await expect(send.locator('xpath=..')).toHaveClass(/\brow-acts\b/); // DESIGN-단추정리 ①: 공용 줄 끝 동작 자리
     right.push(Math.round(s.x+s.width));
   }
   expect(new Set(right).size).toBe(1);
@@ -353,8 +354,11 @@ for(const width of [412,1280])test(`업데이트 기록: 줄마다 [보냄]은 �
   await expect(ask).toBeVisible();
   expect(await first.evaluate(d=>d.open)).toBe(wasOpen);
   const no=ask.getByRole('button',{name:'취소'}),yes=ask.getByRole('button',{name:'거두기'});
-  const compact=await page.evaluate(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height')));
-  for(const b of [no,yes])expect((await b.boundingBox()).height).toBeLessThanOrEqual(compact+0.5);
+  // DESIGN-단추정리 ②: 확인 상자 단추는 28px(--ds-compact-height-sm)·글자 meta, [취소]는 테두리·바탕 없는 글자, 누르는 범위 44px.
+  const compact=await page.evaluate(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height-sm')));
+  for(const b of [no,yes]){expect(Math.abs((await b.boundingBox()).height-compact)).toBeLessThan(0.6);expect(await b.evaluate(e=>parseFloat(getComputedStyle(e,'::after').height))).toBe(44);}
+  const cancel=await no.evaluate(b=>{const s=getComputedStyle(b);return {bg:s.backgroundColor,bw:parseFloat(s.borderTopWidth),fs:s.fontSize,meta:getComputedStyle(document.documentElement).getPropertyValue('--ds-text-meta').trim()}});
+  expect(cancel.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);expect(cancel.bw).toBe(0);expect(cancel.fs).toBe(cancel.meta);
   const danger=await yes.evaluate(b=>{const s=getComputedStyle(b),probe=document.createElement('span');probe.style.color='var(--kptu-danger)';document.body.append(probe);const red=getComputedStyle(probe).color;probe.remove();return {bg:s.backgroundColor,border:parseFloat(s.borderTopWidth),shadow:s.boxShadow,color:s.color,red}});
   expect(danger.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
   expect(danger.border).toBe(0);

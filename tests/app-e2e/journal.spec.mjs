@@ -863,6 +863,26 @@ test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일
  expect(await items(page).first().evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"•"');
  expect(f.errors).toEqual([]);
 });
+// DESIGN-단추정리 ①(2026-11-28 사용자 결정 "반복될 때는 이런 방식의 버튼은 지양", 시안 ①): 줄마다 붙는 [수정][삭제]는 공용 줄 끝 자리(.row-acts)의
+// 테두리 없는 글자 단추(row-act) — 줄마다 같은 오른쪽 끝, 글자 --ds-text-meta, 누르는 범위 44px.
+test('PC 한 줄 [수정][삭제]: 테두리 없는 글자 단추, 줄마다 같은 오른쪽 끝, 누르는 범위 44px 1280',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n아주 긴 둘째 줄 글자가 이어집니다',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ await openJournal(page,1280);
+ await expect(lineTexts(page)).toHaveCount(2);
+ const right=[];
+ for(let i=0;i<2;i++){
+  const item=items(page).nth(i);await item.hover();
+  const look=await item.locator('.journal-line-actions button').evaluateAll(bs=>bs.map(b=>{const s=getComputedStyle(b);return {cls:b.className,bw:parseFloat(s.borderTopWidth)+parseFloat(s.borderLeftWidth),bg:s.backgroundColor,fs:s.fontSize,meta:getComputedStyle(document.documentElement).getPropertyValue('--ds-text-meta').trim(),hit:parseFloat(getComputedStyle(b,'::after').height)}}));
+  expect(look.length).toBe(2);
+  for(const b of look){expect(b.cls).toMatch(/\brow-act\b/);expect(b.bw).toBe(0);expect(b.bg).toBe('rgba(0, 0, 0, 0)');expect(b.fs).toBe(b.meta);expect(b.hit).toBe(44);}
+  await expect(item.locator('.journal-line-actions')).toHaveClass(/\brow-acts\b/);
+  const a=await item.locator('.journal-line-actions').boundingBox(),r=await item.boundingBox();
+  expect(r.x+r.width-(a.x+a.width)).toBeLessThan(2);right.push(Math.round(a.x+a.width));
+ }
+ expect(new Set(right).size).toBe(1);
+ expect(f.errors).toEqual([]);
+});
 test('PC 한 줄 [수정][삭제]: 마우스를 올리거나 키보드 초점일 때만 보이고, 누르면 수정·삭제(5초 되돌리기) 1280',async({page})=>{
  const f=await fixture(page,{width:1280});
  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
