@@ -51,7 +51,6 @@ object WidgetIntents {
 
     /** S68-11: 기능마다 칸 그림 한 장(둥근 먹색 칸 + 흰 그림). */
     fun tile(action: WidgetAction): Int = when (action) {
-        WidgetAction.UPDATE -> R.drawable.widget_tile_update
         WidgetAction.TASK -> R.drawable.widget_tile_task
         WidgetAction.NOTE -> R.drawable.widget_tile_note
         WidgetAction.PHOTO -> R.drawable.widget_tile_photo
@@ -61,7 +60,7 @@ object WidgetIntents {
 
 /**
  * 빠른 쓰기(4×1·2×1, APP-위젯다시 ②): 단추마다 한 칸 위젯과 같은 정사각 둥근 먹색 칸 + 흰 그림, 칸 아래 먹색 이름(APP-위젯먹색 S68-06).
- * 4×1: [업데이트] [할 일] [노트] [사진]. 2×1: 자주 쓰는 [업데이트] [할 일] 두 개(같은 칸 번호, 위젯 폭으로 고름).
+ * 4×1: [할 일] [노트] [사진]. 2×1: 자주 쓰는 [할 일] [노트] 두 개(같은 칸 번호, 위젯 폭으로 고름).
  * 먹색 칸 크기는 화면 틀이 받은 공간에 맞춘다(S68-11, fitCenter 그림 한 장).
  */
 class QuickWidget : AppWidgetProvider() {
@@ -75,7 +74,7 @@ class QuickWidget : AppWidgetProvider() {
 
     companion object {
         const val WIDGET = 1
-        private val CELLS = intArrayOf(R.id.quick_cell0, R.id.quick_cell1, R.id.quick_cell2, R.id.quick_cell3)
+        private val CELLS = intArrayOf(R.id.quick_cell0, R.id.quick_cell1, R.id.quick_cell2)
 
         /**
          * S68-08: 크기마다 4칸(폭 250dp 이상)·2칸 그림을 고른다. 11 이하는 4칸 그림 하나.
@@ -85,7 +84,7 @@ class QuickWidget : AppWidgetProvider() {
             val views = HomeWidgets.perSize(HomeWidgets.cellSizes(manager, id)) { size ->
                 val wide = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || size == null || WidgetTileRules.quickWide(size.width.toInt())
                 val v = RemoteViews(context.packageName, if (wide) R.layout.quick_widget else R.layout.quick_widget_small)
-                val count = if (wide) 4 else 2
+                val count = if (wide) 3 else 2
                 for (i in 0 until count) {
                     v.setOnClickPendingIntent(CELLS[i], WidgetIntents.pending(context, WIDGET, WidgetActions.QUICK[i]))
                 }
@@ -136,7 +135,7 @@ class OneWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.one_widget)
             if (action == null) {
                 // 고르지 않은 채 놓였으면(설정 창을 건너뛴 홈 화면) 누르면 고르기 창을 연다.
-                views.setImageViewResource(R.id.one_tile, R.drawable.widget_tile_update)
+                views.setImageViewResource(R.id.one_tile, R.drawable.widget_tile_note)
                 views.setTextViewText(R.id.one_label, "선택")
                 val pick = Intent(context, OneWidgetConfigActivity::class.java)
                     .setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
@@ -202,7 +201,6 @@ class OneWidgetConfigActivity : Activity() {
 
     private fun choiceLabel(action: WidgetAction): String = when (action) {
         WidgetAction.NOTE -> "노트 추가"
-        WidgetAction.UPDATE -> "업데이트(잊지 말기)"
         WidgetAction.TASK -> "할 일 추가"
         WidgetAction.PHOTO -> "사진 올리기"
         WidgetAction.RECORD -> "녹음 시작"

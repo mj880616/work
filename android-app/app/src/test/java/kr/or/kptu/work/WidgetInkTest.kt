@@ -63,7 +63,7 @@ class WidgetInkTest {
 
     @Test
     fun quickWriteButtonsAreInkSquareTilesWithLabelBelow() {
-        for ((name, labels) in listOf("quick_widget" to listOf("업데이트", "할 일", "노트", "사진"), "quick_widget_small" to listOf("업데이트", "할 일"))) {
+        for ((name, labels) in listOf("quick_widget" to listOf("할 일", "노트", "사진"), "quick_widget_small" to listOf("할 일", "노트"))) {
             val root = xml("src/main/res/layout/$name.xml")
             // 종이색 바탕 안에 그리는 위젯이라 이름은 먹색 글자(그림자 없음).
             assertEquals(name, "@drawable/widget_bg", attr(root, "background"))

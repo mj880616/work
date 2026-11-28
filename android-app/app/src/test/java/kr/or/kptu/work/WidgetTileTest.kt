@@ -14,7 +14,7 @@ import org.w3c.dom.Element
  */
 class WidgetTileTest {
     private val android = "http://schemas.android.com/apk/res/android"
-    private val actions = listOf("update", "task", "note", "photo", "record")
+    private val actions = listOf("task", "note", "photo", "record")
 
     private fun xml(path: String): Element =
         DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder().parse(File(path)).documentElement
@@ -90,7 +90,7 @@ class WidgetTileTest {
 
     @Test
     fun quickWidgetTilesFillTheirCells() {
-        for ((name, n) in listOf("quick_widget" to 4, "quick_widget_small" to 2)) {
+        for ((name, n) in listOf("quick_widget" to 3, "quick_widget_small" to 2)) {
             val cells = children(xml("src/main/res/layout/$name.xml"), "LinearLayout")
             assertEquals(name, n, cells.size)
             cells.forEachIndexed { i, cell ->
@@ -149,7 +149,7 @@ class WidgetTileTest {
         assertEquals(1, Regex("override fun onAppWidgetOptionsChanged").findAll(code).count())
         assertEquals(1, Regex("HomeWidgets.perSize\\(HomeWidgets.cellSizes\\(manager, id\\)\\)").findAll(code).count())
         assertTrue(code.contains("views.setImageViewResource(R.id.one_tile, WidgetIntents.tile(action))"))
-        for (a in listOf("UPDATE", "TASK", "NOTE", "PHOTO", "RECORD")) {
+        for (a in listOf("TASK", "NOTE", "PHOTO", "RECORD")) {
             assertTrue(a, code.contains("WidgetAction.$a -> R.drawable.widget_tile_${a.lowercase()}"))
         }
     }

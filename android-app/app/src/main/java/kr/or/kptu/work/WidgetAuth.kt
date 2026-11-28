@@ -32,7 +32,7 @@ object WidgetRules {
     const val CALENDAR_PREFIX = "$SUPABASE/functions/v1/google-calendar?action=events&timeMin="
     const val TASKS = "$SUPABASE/functions/v1/google-tasks?action=overview"
     /**
-     * APP-위젯빠른쓰기(설계 13절): '새 글 넣기' 세 가지만. app_notes는 물음표 없는 정확한 주소 하나(필터를 붙인 일괄 요청 불가),
+     * APP-위젯빠른쓰기(설계 13절): '새 글 넣기' 두 가지만(노트·할 일). app_notes는 물음표 없는 정확한 주소 하나(필터를 붙인 일괄 요청 불가),
      * 할 일은 google-tasks create 하나. 작업공간 확인은 위젯 세션 사용자 id로 읽는 한 줄(기존 소유자 RLS).
      */
     const val NOTES = "$SUPABASE/rest/v1/app_notes"
@@ -352,7 +352,7 @@ class WidgetSession(
     }
 
     /**
-     * 새 글 하나를 넣는다(업데이트·할 일·노트). 읽기와 같은 잠금·같은 '401이면 한 번만 새로 받기'.
+     * 새 글 하나를 넣는다(할 일·노트). 읽기와 같은 잠금·같은 '401이면 한 번만 새로 받기'.
      * 보내는 요청은 QuickWriteRules.request가 만든 것과 작업공간 확인 GET뿐이고, 둘 다 WidgetRules.allowed를 거친다.
      */
     fun write(kind: WidgetAction, text: String): Write = synchronized(lock) {

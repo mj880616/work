@@ -1,16 +1,14 @@
 package kr.or.kptu.work
 
 /**
- * APP-위젯빠른쓰기: 위젯 빠른 쓰기 창이 서버로 보내는 '새 글 넣기' 세 가지(설계 docs/design/phone-widget-auth.md 13절).
+ * APP-위젯빠른쓰기: 위젯 빠른 쓰기 창이 서버로 보내는 '새 글 넣기' 두 가지(설계 docs/design/phone-widget-auth.md 13절).
  * 안드로이드 API를 쓰지 않아 JVM 시험 대상이다. 지우기·고치기·다른 표는 만들지 않는다.
- * - 업데이트(정리함): POST rest/v1/app_notes {workspace_id, raw_text} — 웹 basket-data.js createNote와 같은 길.
  * - 노트: POST rest/v1/app_notes {workspace_id, kind:"note", title, raw_text} — 웹 createNoteDoc와 같은 길.
  * - 할 일: POST functions/v1/google-tasks?action=create {action:"create", title, notes, due:null} — 웹 할 일 만들기와 같은 길.
  * 글은 메모리에만 있고 폰에 저장하지 않는다(서버 저장 원칙). 로그·오류에도 글을 싣지 않는다.
  */
 object QuickWriteRules {
-    /** 표 검사와 같은 길이(app_notes raw_text 1~20000, 노트 본문 100000, 노트 제목 200). 할 일 제목은 구글 한도 안쪽. */
-    const val UPDATE_MAX = 20000
+    /** 표 검사와 같은 길이(노트 본문 100000, 노트 제목 200). 할 일 제목은 구글 한도 안쪽. */
     const val NOTE_MAX = 100000
     const val NOTE_TITLE_MAX = 200
     const val TASK_TITLE_MAX = 1024
@@ -37,7 +35,6 @@ object QuickWriteRules {
     fun check(kind: WidgetAction, text: String): Check {
         if (text.isBlank()) return Check.Bad("내용을 입력해 주세요")
         val max = when (kind) {
-            WidgetAction.UPDATE -> UPDATE_MAX
             WidgetAction.NOTE -> NOTE_MAX
             WidgetAction.TASK -> TASK_TITLE_MAX + TASK_NOTES_MAX
             else -> return Check.Bad("이 칸은 빠른 쓰기가 없어요")
@@ -52,7 +49,6 @@ object QuickWriteRules {
         require(check(kind, text) == Check.Ok)
         val ws = ShellRules.jsonString(workspaceId)
         return when (kind) {
-            WidgetAction.UPDATE -> Request(WidgetRules.NOTES, "{\"workspace_id\":$ws,\"raw_text\":${ShellRules.jsonString(text)}}", PREFER)
             WidgetAction.NOTE -> {
                 val title = cut(firstLine(text), NOTE_TITLE_MAX).ifEmpty { "새 노트" }
                 Request(
@@ -79,7 +75,6 @@ object QuickWriteRules {
 
     /** 저장 뒤 짧은 알림. */
     fun saved(kind: WidgetAction): String = when (kind) {
-        WidgetAction.UPDATE -> "잊지 말기에 넣었어요"
         WidgetAction.TASK -> "할 일에 넣었어요"
         WidgetAction.NOTE -> "노트에 넣었어요"
         else -> "저장했어요"
@@ -87,7 +82,6 @@ object QuickWriteRules {
 
     /** 창 입력칸 안내. */
     fun hint(kind: WidgetAction): String = when (kind) {
-        WidgetAction.UPDATE -> "업데이트 입력(잊지 말기에 저장)"
         WidgetAction.TASK -> "할 일 제목(둘째 줄부터 메모)"
         WidgetAction.NOTE -> "노트(첫 줄이 제목)"
         else -> ""
