@@ -192,13 +192,20 @@ for (const width of [412, 884, 1280]) {
     await link.click();
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open']);
 
-    // S69-94 메모 = 글 아래 메모 칸(app_memos 한 줄: 대상 outside·이 글·제목 사본) + 기록. [메모] 칩은 그 칸 쓰기 칸으로.
-    await nd.locator('[data-nd-memo-go]').click();
-    await expect(nd.locator('[data-nd-memos] [data-cm-text]')).toBeFocused();
+    // S69-94 메모 = 글 아래 메모 칸(app_memos 한 줄: 대상 outside·이 글·제목 사본) + 기록.
+    // READ-메모칩삭제: 아래 줄에 [메모] 칩이 없다([저장][관심 없음]만). 메모 수는 메모 칸 머리 '메모 n'.
+    const acts = nd.locator('[data-nd-acts]');
+    await expect(nd.locator('[data-nd-memo-go]')).toHaveCount(0);
+    await expect(acts.locator('button')).toHaveText(['저장됨 ✓', '관심 없음']);
+    await expect(nd.locator('[data-nd-memos] [data-cm-count]')).toHaveText('메모 0');
+    const actsEl = await acts.elementHandle();
+    const firstChip = await acts.locator('button').first().elementHandle();
     await nd.locator('[data-nd-memos] [data-cm-text]').fill('가상 메모');
     await nd.locator('[data-nd-memos] [data-cm-save]').click();
     await expect(nd.locator('[data-nd-memos] .memo-th-row')).toContainText('가상 메모');
-    await expect(nd.locator('[data-nd-memo-go]')).toHaveText('메모 1');
+    await expect(nd.locator('[data-nd-memos] [data-cm-count]')).toHaveText('메모 1');
+    // 메모 수가 바뀌어도 아래 줄은 다시 그려지지 않는다(같은 칩 그대로 붙어 있음 = 흔들림 없음).
+    expect(await firstChip.evaluate((el, box) => el.isConnected && el.parentElement === box, actsEl)).toBe(true);
     expect(server.memoTable.posts).toEqual([{ workspace_id: 'w', target_type: 'outside', target_id: P1, target_title: '[성명] 가상 철도 민영화 반대', body: '가상 메모' }]);
     expect(server.notes).toEqual([]);
     await expect.poll(() => server.signals.map(x => x.action)).toEqual(['star', 'open', 'memo']);
@@ -329,7 +336,8 @@ for (const width of [412, 1280]) {
     await expect(star).toHaveAttribute('aria-pressed', 'true');
     await expect(star).toHaveAttribute('aria-label', '저장됨 — 누르면 저장한 글에서 삭제');
     await expect(acts.locator('[data-nd-act="dismiss"]')).toHaveCount(0);
-    await expect(acts.locator('button')).toHaveText(['저장됨 ✓', '메모']);
+    await expect(acts.locator('button')).toHaveText(['저장됨 ✓']); // READ-메모칩삭제: [메모] 칩 없음(아래 메모 칸에 바로 씀)
+    await expect(nd.locator('[data-nd-memos] [data-cm-text]')).toBeVisible();
     // 단추 줄 칩은 한 모양: 모두 공용 칩, 높이·둥글기·글자 크기가 같다.
     const looks = await acts.locator('button').evaluateAll(bs => bs.map(b => { const c = getComputedStyle(b); return { chip: b.classList.contains('ds-chip'), h: b.getBoundingClientRect().height, r: c.borderTopLeftRadius, f: c.fontSize, bw: c.borderTopWidth }; }));
     expect(looks.every(l => l.chip)).toBe(true);
@@ -361,7 +369,7 @@ for (const width of [412, 1280]) {
     await root(page).locator(`[data-os-list] [data-nw-key="outside:${P1}"] .now-open`).first().click();
     await expect(nd.locator('.nd-title')).toHaveText('[성명] 가상 철도 민영화 반대');
     await expect(acts.locator('[data-nd-act="dismiss"]')).toHaveText('관심 없음');
-    await expect(acts.locator('button')).toHaveText(['저장', '메모', '관심 없음']);
+    await expect(acts.locator('button')).toHaveText(['저장', '관심 없음']);
     if (process.env.S69_03_SHOTS) await page.screenshot({ path: `${process.env.S69_03_SHOTS}/news-detail-${width}.png` });
     expect(errors).toEqual([]);
   });

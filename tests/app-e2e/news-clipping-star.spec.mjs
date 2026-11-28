@@ -101,7 +101,7 @@ test('기사 메모(S69-94): 상세 아래 메모 칸에 남김(app_memos, 대�
   await openNews(page, 1440);
   await item(page, UID).locator('.now-open').click();
   const nd = page.locator('#nowDetail');
-  await nd.locator('[data-nd-memo-go]').click();
+  await expect(nd.locator('[data-nd-memo-go]')).toHaveCount(0); // READ-메모칩삭제: 아래 메모 칸에 바로 쓴다
   await nd.locator('[data-nd-memos] [data-cm-text]').fill('가짜 메모 첫 줄');
   await nd.locator('[data-nd-memos]').getByRole('button', { name: '메모 남기기', exact: true }).click();
   await expect(nd.locator('[data-nd-memos] .memo-th-row')).toContainText('가짜 메모 첫 줄');
