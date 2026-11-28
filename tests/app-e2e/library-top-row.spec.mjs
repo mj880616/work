@@ -35,8 +35,8 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
   await expect(page.locator('#libraryGroupBy option')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
   await expect(page.locator('#libraryGroupBy option:checked')).toHaveText('사업영역');
-  // S56-11: [폴더 ▾]에 공용 ▾ 그림이 보인다(사업 보고 [목록 ▾]·사진 [사진 ▾]와 같은 고르기 상자). 바탕 줄임 표기로 지워지지 않게.
-  expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
+  // S56-11: [폴더 ▾]에 공용 ▾ 그림이 보인다(사업 보고 [목록 ▾]·사진 [사진 ▾]와 같은 고르기 상자). 바탕 줄임 표기로 지워지지 않게. UI-화살표선명: 그림은 벡터 세모 한 장(--ds-select-arrow).
+  expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('data:image/svg+xml');
   // S56-11: [분류 ▾] 단추도 같은 공용 ▾ 그림·자리·바탕·선이다(글자 ▾ 없음).
   const look=sel=>page.locator(sel).evaluate(el=>{const c=getComputedStyle(el);return [c.backgroundImage,c.backgroundPosition,c.backgroundSize,c.backgroundColor,c.borderTopColor,c.borderTopWidth,c.borderRadius,c.height,c.paddingRight].join('|')});
   expect(await look('#libraryView .lu-cat-pick')).toBe(await look('#libraryGroupBy'));

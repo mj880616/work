@@ -26,7 +26,7 @@ function style(path){
 // (part-styles.js) 여기 적으면 화면 프로그램과 함께 미리 받아 첫 화면이 모양 받기를 따로 기다리지 않는다. 빠지면 tests/part-styles.test.mjs가 잡는다.
 // 예외: 일정의 할 일 창 모양(google-tasks.css)은 전처럼 ui-standard.css 뒤에 붙어야 PC 할 일 칸 빠른 기한 단추가 작은 크기로 이긴다(시험의 LATE 표).
 const routeStyles={
-  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
+  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./trash-row.css','./ui-standard.css'],
   home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./folder-tree.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
   tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./od-link.css','./ui-standard.css'],
@@ -72,6 +72,22 @@ async function module(path,readyName){
   await import(path);
   const ready=readyName?window[readyName]:null;
   if(ready&&typeof ready.then==='function')await ready;
+  return true
+}
+// RULE-한번에그리기(AGENTS.md 4절, docs/design/screen-open-once-audit.md): 화면은 열 때 한 번에 최종 모양으로 그린다.
+// 라우터(app-router.js go)는 이 도구의 화면 불러오기가 끝난 뒤에야 화면을 보이므로, 화면 모듈은 첫 그림에 필요한 서버 값(연결 상태·목록·설정)을
+// 받아 그리는 약속을 window[readyName]에 두고, 여기서 그 약속을 기다린다(screen). 기다리는 동안은 위쪽 가는 줄(loader-v2.js loadThen)만 보인다.
+// 약속이 FIRST_PAINT_MS를 넘으면 기다리지 않고 연다 — 그때는 화면 모듈이 받은 뒤 한 번 그린다(늦은 서버의 예외 길, 기본 모양을 먼저 그리지 않음).
+// 모듈 import만 기다리고 자료는 화면을 보인 뒤에 읽어 '기본 모양 → 덮어쓰기'가 되는 화면을 새로 만들지 않는다(tests/screen-open-once.test.mjs).
+const FIRST_PAINT_MS=4000;
+async function screen(path,readyName){
+  await import(path);
+  const ready=window[readyName];
+  if(ready&&typeof ready.then==='function'){
+    let timer=null;
+    await Promise.race([Promise.resolve(ready).catch(err=>console.warn('first paint',readyName,err?.name||'Error')),new Promise(resolve=>{timer=setTimeout(resolve,FIRST_PAINT_MS)})]);
+    clearTimeout(timer);
+  }
   return true
 }
 async function team(view){
@@ -191,7 +207,7 @@ async function outside(){
   await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true}
 }
 // FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
-async function files(){ await module('./files.js'); return {ok:true} }
+async function files(){ await screen('./files.js','__KPTU_FILES_READY__'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
 // UPDATE-운영자전용기록업데이트소식 PR3: [업데이트 소식](?view=whatsnew, 계정 메뉴 — 모든 이용자). 열 때만 불러온다(모듈이 #whatsnewView를 만든다).
@@ -201,9 +217,9 @@ async function feedback(){ await module('./feedback-inbox.js'); return {ok:true}
 // OPS-새가입알림 ③·OPS-가입자현황: 운영자 '가입자 현황'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
 async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
-async function brief(){ await module('./brief-room.js'); return {ok:true} }
+async function brief(){ await screen('./brief-room.js','__KPTU_BRIEF_READY__'); return {ok:true} }
 // S68-09 READ-읽을거리함: [읽을 거리](?view=reading, 위 메뉴 잊지 말기 다음). 열 때만 불러온다(모듈이 #readingView를 만든다).
-async function reading(){ await module('./reading.js'); return {ok:true} }
+async function reading(){ await screen('./reading.js','__KPTU_READING_READY__'); return {ok:true} }
 // HELP-메뉴안쓰는법: [쓰는 법](?view=help, 계정 › 쓰는 법·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }

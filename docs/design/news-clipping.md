@@ -340,6 +340,77 @@
 | 共同通信 | 확인 못 함 | — | — | 선택 — 뺌 추천 |
 | NHK | `www3.nhk.or.jp/rss/news/cat1.xml`(사회)·`cat5.xml`(경제) 꼴 [추정], 노동 분야 따로 없음 [추정] | 확인 못 함 | 무료 | 선택 — 뺌 추천(노동만 거를 수 없음) |
 
+### 3.4 주제 묶음(AI 코딩·축구)과 양질 블로그 (11/28, NEWS-수집처늘리기)
+
+사용자 요청(2026-11-28): AI 코딩(바이브 코딩) 글, 축구 전술 분석·리뷰·해외축구 흐름 글, 국내·국제 사회·정치·경제·사회운동 글을 — 언론사·단체가 아니어도 블로그·사이트의 좋은 글까지 — 읽을 거리로 받기. 유료 매체(예: 구독하지 않는 The Athletic)는 넣지 않는다.
+
+- **묶음**: 카탈로그 `region`에 `tech`('AI 코딩')·`football`('축구')을 더했다. 화면 [매체 ▾]와 ⋯ [매체 선택]에 묶음 하나씩 붙는다(국내·외국어 매체를 함께). 새 저장 구조 없음 — 켬·끔은 다른 매체처럼 `app_outside_sources`, 기본 켬(`on`).
+- **거르기·순위**(`news-rank.ts` 한 곳): `beat` `tech`·`football`은 종합지용 '스포츠·축구·IT 빼기'를 받지 않고 모두 받되 등급 3(노동·사회 기사 뒤), 분야 칸은 비운다(DB 검사 `app_news_articles_news_field_check`는 다섯 분야 그대로 — DB 변경 없음). 사회·정치 블로그는 섹션 `opinion`(등급 2, 분야 '칼럼·사설'); 의견 섹션 안 스포츠 경로 글은 지금처럼 뺀다.
+- **하루 상한**(`daily`, `news-feed` `dailyRoom`): 새 매체마다 하루(서울 날짜) 새로 받는 글 수를 2~8건으로 막는다. 최근 72시간 안에 이미 받은 주소는 다시 세지 않는다. 양 많은 피드(Guardian·GeekNews 등)가 하루 목록을 덮지 않게 하고, 외국어 제목 번역(기존 묶음 호출·하루 150건 상한·달 AI 한도 그대로)에 들어가는 몫도 그만큼으로 묶는다. 새 AI 호출 종류는 없다.
+- **저작권·저장**: 다른 매체와 같다 — 수집 때 글 쪽은 읽지 않는다(`extract:false`, 피드의 제목·소개·날짜·링크, 피드에 전문이 있으면 그것만). 외국어 글은 제목·소개만 한국어로, 전문 번역은 사람이 누를 때만. 허용 호스트는 카탈로그 `hosts`뿐(SSRF 차단 그대로).
+
+점검: 원문 점검 workflow(article-extract-live-check)의 '새 수집처 후보' 줄, GitHub 러너, 운영 수집기와 같은 robots 판정 — 1차 run 46074237861, 2차 run 46074798714 (11/28 [사실]).
+'최근 30일'은 피드에서 날짜를 읽은 글만 센다(날짜를 못 읽으면 0 — 받은 날로 정렬된다). 유료는 매체 성격으로 본 것 [추정].
+
+**AI 코딩 (묶음 `tech`)**
+
+| 후보 | RSS 주소 | robots | 유료 | 최근 30일 | 결과 |
+| --- | --- | --- | --- | --- | --- |
+| Simon Willison | `https://simonwillison.net/atom/everything/` | 허용 | 무료 | 30(3일 6) | 넣음 `news-simonwillison` 하루 6 |
+| Armin Ronacher | `https://lucumr.pocoo.org/feed.atom` | 허용 | 무료 | 3 | 넣음 `news-lucumr` 하루 3 |
+| Mitchell Hashimoto | `https://mitchellh.com/feed.xml` | 허용 | 무료 | 1 | 넣음 `news-mitchellh` 하루 3 |
+| Addy Osmani(블로그) | `https://addyosmani.com/rss.xml` | 허용 | 무료 | 날짜 못 읽음(10건) | 넣음 `news-addyosmani` 하루 3 |
+| Addy Osmani(Substack) | `https://addyo.substack.com/feed` | **금지** | — | — | 뺌(robots) |
+| Harper Reed | `https://harper.blog/index.xml` | 허용 | 무료 | 0(드묾) | 넣음 `news-harperreed` 하루 3 |
+| Martin Fowler | `https://martinfowler.com/feed.atom` | 허용 | 무료 | 10 | 넣음 `news-martinfowler` 하루 4 |
+| Latent Space | `https://latent.space/feed` | 허용 | 대부분 무료 | 20(3일 4) | 넣음 `news-latentspace` 하루 3 (`www.`은 robots 못 읽음) |
+| Peter Steinberger | `https://steipete.me/rss.xml` | 허용 | 무료 | 날짜 못 읽음(107건) | 넣음 `news-steipete` 하루 3 |
+| GeekNews | `https://feeds.feedburner.com/geeknews-feed` | 허용 | 무료 | 20건 | 넣음 `news-geeknews`(한국어) 하루 6 — `news.hada.io/rss/news`는 피드버너로 넘김 |
+| Anthropic engineering | `https://www.anthropic.com/engineering` | 허용 | 무료 | — | 뺌(쪽에 RSS 링크 없음) |
+| One Useful Thing | `https://www.oneusefulthing.org/feed` | 허용 | 무료 | 1 | 뺌(AI 일반 — 코딩 주제 밖) |
+| Interconnects | `https://www.interconnects.ai/feed` | 허용 | 일부 유료 | 3 | 뺌(AI 연구 — 코딩 주제 밖) |
+| swyx | `https://www.swyx.io/rss.xml` | 못 읽음 | — | — | 뺌 |
+| Jesse Vincent | `https://blog.fsck.com/feed.xml` | — | — | — | 뺌(404) |
+
+**축구 전술·아스날 (묶음 `football`)**
+
+| 후보 | RSS 주소 | robots | 유료 | 최근 30일 | 결과 |
+| --- | --- | --- | --- | --- | --- |
+| Arseblog | `https://arseblog.com/feed/` | 허용 | 무료 | 20(3일 5) | 넣음 `news-arseblog` 하루 4 |
+| Arseblog News | `https://arseblog.news/feed/` | 허용 | 무료 | 20(3일 9) | 넣음 `news-arseblognews` 하루 5 |
+| Spielverlagerung | `https://spielverlagerung.com/feed/` | 허용 | 무료 | 0(드묾) | 넣음 `news-spielverlagerung` 하루 3 |
+| The Mastermind | `https://themastermindsite.com/feed/` | 허용 | 무료 | 8 | 넣음 `news-mastermind` 하루 3 |
+| Analytics FC | `https://analyticsfc.co.uk/feed/` | 허용 | 무료 | 1 | 넣음 `news-analyticsfc` 하루 2 |
+| Total Football Analysis | `/feed`, `/feed/` | 허용 | — | — | 뺌(피드 대신 HTML) |
+| The Coaches' Voice | `www.`/`coachesvoice.com/feed/` | 못 읽음 | — | — | 뺌 |
+| StatsBomb | `https://statsbomb.com/feed/` | 못 읽음 | — | — | 뺌 |
+| Opta The Analyst | `https://theanalyst.com/feed` | — | — | — | 뺌(HTTP 403) |
+| Between the Posts | `https://betweentheposts.net/feed/` | 허용 | — | — | 뺌(피드 대신 HTML) |
+| Breaking The Lines | `https://breakingthelines.com/feed/` | — | — | — | 뺌(404) |
+| Tifo Football | `https://www.tifofootball.com/feed/` | 못 읽음 | — | — | 뺌 |
+| The False 9 | `https://www.thefalse9.com/feed` | — | — | — | 뺌(밖 주소로 넘김) |
+| 풋볼리스트(한국어) | `https://www.footballist.co.kr/rss/allArticle.xml` | 허용 | 무료 | — | 뺌(이번엔): 글 50건이 모두 받는 규칙에 안 걸림(링크가 http로 보임 [추정]) + 일반 축구 기사 위주. 한국어 전술 블로그는 RSS 있는 곳을 못 찾음 |
+
+**사회·정치·경제 (국내 → `opinion` '사설·칼럼', 외국 → `foreign` '언론 국제', 섹션 칼럼·사설)**
+
+| 후보 | RSS 주소 | robots | 유료 | 최근 30일 | 결과 |
+| --- | --- | --- | --- | --- | --- |
+| 슬로우뉴스 | `https://slownews.kr/feed` | 허용 | 무료 | 20(3일 11) | 넣음 `news-slownews` 하루 8 |
+| The Guardian Opinion | `https://www.theguardian.com/uk/commentisfree/rss` | 허용 | 무료 | 29(3일 21) | 넣음 `news-guardian-opinion` 하루 6 |
+| Noahpinion | `https://www.noahpinion.blog/feed` | 허용 | 대부분 무료(일부 유료 글은 피드에 앞부분) | 18 | 넣음 `news-noahpinion` 하루 3 |
+| LPE Project | `https://lpeproject.org/feed/` | 허용 | 무료 | 10 | 넣음 `news-lpeproject` 하루 3 |
+| openDemocracy | `https://www.opendemocracy.net/rss/` | 허용 | 무료 | 15(3일 6) | 넣음 `news-opendemocracy` 하루 4 |
+| Phenomenal World | `https://phenomenalworld.org/feed/` | 허용 | 무료 | 8 | 넣음 `news-phenomenalworld` 하루 3 (`www.`은 robots 못 읽음) |
+| NLR Sidecar | `https://newleftreview.org/sidecar/feed` | 허용 | 무료(블로그) | 13 | 넣음 `news-nlr-sidecar` 하루 3 |
+| NLR 본지 | `https://newleftreview.org/feed` | 허용 | **유료** | 13 | 뺌(유료 호 글) |
+| 일다 | `https://www.ildaro.com/` | **금지** | — | — | 뺌(robots) |
+| 시사IN | — | — | — | — | 이미 있음(`news-sisain`) |
+| Dissent | `https://www.dissentmagazine.org/feed` | — | — | — | 뺌(HTTP 403) |
+| Boston Review | `https://www.bostonreview.net/home/feed/` | 허용 | — | — | 뺌(피드 링크가 HTML을 돌려줌) |
+| LAB2050 | `https://lab2050.org/` | 못 읽음 | — | — | 뺌 |
+| 참여연대 | `https://www.peoplepower21.org/` | — | — | — | 뺌(밖 주소로 넘김) |
+| 이로운넷 | `https://www.eroun.net/rss/allArticle.xml` | 허용 | 무료 | 50(3일 50) | 뺌(일반 기사 위주·양 많음 — 원하면 한 줄로 넣을 수 있음) |
+
 ### 3.3 구글 뉴스 검색 RSS (② 키워드)
 
 > **11/11(S58-9)**: 같은 호스트·같은 경로라 키워드 찾기도 같은 robots 금지에 걸린다 [추정 — 운영 조회 전]. 키워드 단계는 실패를 로그에만 남겨 화면·DB에 표시가 없다. [news-google-site-robots.md](news-google-site-robots.md) 3절.

@@ -279,3 +279,13 @@ test('PC row pulls out a prefix of each group (so the order read through is the 
   for(const k of ['Mod-b','Mod-i','Mod-u','Mod-k','Mod-\\\\','Mod-z','Mod-y']) assert.ok(edSource.includes(`'${k}'`),k);
   assert.match(edSource,/b\.title = `\$\{name\} \(\$\{keyText\(SHORTCUTS\[key\]\)\}\)`/);
 });
+
+// 편집기 만들기 도중 await(노트 연결 부품 불러오기) 사이에 브라우저 선택 알림이 오면 dispatchTransaction → paint가 아직 없는 도구 줄 부품을 써서
+// 'Cannot access … before initialization'이 간헐로 났다(2026-11-28, 휴지통 줄 PR의 전체 시험에서 드러남). 만들기가 끝나기(built) 전에는 paint를 부르지 않는다.
+test('편집기: 만들기가 끝나기 전에는 dispatchTransaction이 paint를 부르지 않는다', async () => {
+  const {readFile} = await import('node:fs/promises');
+  const src = await readFile(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
+  assert.match(src, /let built = false;\n\s*const view = new pm\.EditorView\(/);
+  assert.match(src, /if \(built\) paint\(\);\n\s*blockPart\?\.update\(\);/);
+  assert.match(src, /syncLayout\(\);\n\s*built = true;\n\s*paint\(\);/);
+});

@@ -229,7 +229,11 @@ function drawList() {
   for (const e of shown) list.append(rowEl(e));
   if (!shown.length) list.append(emptyEl(emptyText(keepFilter(state.filter), entries.length)));
   parts.push(list);
+  // 다시 그려도(다시 들어와 새로 읽은 목록) 자판 초점이 있던 줄은 같은 글 줄에 그대로 둔다 — 위 주소 칸과 같은 규칙.
+  // 그러지 않으면 초점이 화면 밖(body)으로 빠져 바로 누른 Enter가 사라진다(같은 줄을 그대로 다시 그리는 것뿐이라 다른 동작은 없다).
+  const focusedId = box.contains(document.activeElement) ? document.activeElement.closest?.('[data-rd-open]')?.dataset.rdOpen : '';
   box.replaceChildren(...parts);
+  if (focusedId) [...list.querySelectorAll('[data-rd-open]')].find(r => r.dataset.rdOpen === focusedId)?.focus({preventScroll: true});
   if (!state.open && shown.length && split()) queueMicrotask(autoOpenTop);
 }
 
@@ -285,7 +289,7 @@ function openMark(h) {
 // ---------- 보기 ----------
 let detailBox = null;
 function closeDetail({fromBack = false} = {}) {
-  state.open = null; state.body = null; state.bodyFor = null; state.editing = null; state.editNote = ''; state.editBusy = false;
+  state.open = null; state.reveal = null; state.body = null; state.bodyFor = null; state.editing = null; state.editNote = ''; state.editBusy = false;
   if (!fromBack && layer) { const l = layer; layer = null; void l.close(); }
   layer = null;
   draw();
@@ -297,7 +301,7 @@ function openLayer(id) {
 async function openItem(id, {highlight = null, auto = false} = {}) {
   if (!isId(id)) return;
   if (state.editing !== id) { state.editing = null; state.editNote = ''; state.editBusy = false; }
-  state.open = id; state.body = null; state.bodyFor = null;
+  state.open = id; state.body = null; state.bodyFor = null; state.reveal = highlight; state.revealing = false; // HL-밑줄위치로: 본문·밑줄이 그려진 뒤 drawDetail 끝에서 한 번 옮긴다(여기서 미리 부르지 않는다)
   openLayer(id);
   draw();
   if (!auto) void markOpened(id);
@@ -306,7 +310,6 @@ async function openItem(id, {highlight = null, auto = false} = {}) {
   draw();
   const cur = rowOf(id);
   if (cur && cur.body_state === 'pending' && !fetching(id)) void startFetch(cur);
-  if (highlight) queueMicrotask(() => revealMark(detailBox?.querySelector('[data-rd-prose]'), highlight));
 }
 function drawDetail() {
   detailBox ||= view()?.querySelector('[data-rd-detail]');
@@ -369,7 +372,21 @@ function drawDetail() {
   box.hidden = false;
   if (split()) { followPane(box, {narrow: !wide(), reset: followed !== row.id}); followed = row.id; }
   paintTextSize(box);
-  if (state.bodyFor === row.id) paintMarks(prose, marks);
+  if (state.bodyFor === row.id) { paintMarks(prose, marks); settleReveal(prose, row); }
+}
+// HL-밑줄위치로: 밑줄 줄에서 연 글은 본문을 그리고 밑줄을 칠한 바로 이 자리에서 한 번 그 밑줄로 옮긴다(공용 revealMark). 본문·밑줄 목록이 아직 안 왔으면 다음 그리기에서 다시.
+function settleReveal(prose, row) {
+  const id = state.reveal;
+  if (!id || state.revealing || state.open !== row.id) return;
+  const final = !!highlightsNow() && row.body_state !== 'pending' && !fetching(row.id);
+  state.revealing = true;
+  void revealMark(prose, id, {final}).then(r => {
+    state.revealing = false;
+    if (state.reveal !== id) return;
+    if (r || (final && r === false)) { state.reveal = null; return; }
+    const again = detailBox?.querySelector('[data-rd-prose]'); // 기다리는 사이 다시 그려졌으면 새 칸에서 한 번 더
+    if (r === null && again && again !== prose && state.open === row.id) settleReveal(again, row);
+  });
 }
 
 // 직접 넣은 줄 [수정] 칸: 제목·매체(사이트) 두 칸 + [취소][저장]. 칸 글자는 다시 그려도 그대로(쓰던 값·초점 유지).
@@ -768,6 +785,17 @@ function takeAsked() {
 
 install(); bind();
 state.filter = filterFromUrl();
-window.KPTURouter?.on?.('reading', () => { state.filter = filterFromUrl(); if (state.loaded) drawList(); void refresh().then(takeAsked); });
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(보기 탭 줄·목록)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가 기다린 뒤 화면을 보인다.
+// 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 두 칸 폭 맨 위 글 저절로 열기(autoOpenTop)·옛 실패 줄 자동 다시 가져오기(autoRefetch)는 이 화면이 지금 화면일 때만이라,
+// 처음 보이는 그 자리(라우터 진입)에서 한 번 부른다.
+const firstDraw = refresh();
+let firstShown = false;
+window.KPTURouter?.on?.('reading', () => {
+  const filter = filterFromUrl(), changed = filter !== state.filter;
+  state.filter = filter;
+  if (!firstShown) { firstShown = true; if (changed && state.loaded) drawList(); autoOpenTop(); if (state.loaded && !state.failed) void autoRefetch(); void firstDraw.then(takeAsked, takeAsked); return; }
+  if (state.loaded) drawList(); void refresh().then(takeAsked);
+});
+window.__KPTU_READING_READY__ = firstDraw.then(takeAsked);
 window.KPTUReading = {refresh, open: (id, opts) => { window.KPTUReadingOpen = {id, ...(opts || {})}; if (window.KPTURouter?.current === 'reading') takeAsked(); else void openOnScreen('reading'); }};

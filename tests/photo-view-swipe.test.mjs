@@ -150,16 +150,27 @@ test('넘기는 사이에 다른 길(‹ ›·키)로 이미 바뀌었으면 겹
     t.tick(140); assert.deepEqual(a.st.moves, [], '손동작이 한 번 더 넘기지 않는다');
   });
 });
-test('칸 터치 설정: 평소 두 손가락 확대만 브라우저(pinch-zoom), 화면을 이미 확대해 두었으면 auto, 닫으면 듣기를 거둔다', () => {
+test('칸 터치 설정: 평소 두 손가락은 사진 안 확대라 브라우저에 넘기지 않음(none, S73-13), 화면을 이미 확대해 두었으면 auto, 닫으면 듣기를 거둔다', () => {
   const heard = [];
   globalThis.visualViewport = {scale: 1, addEventListener: (t, fn) => heard.push(['add', t, fn]), removeEventListener: (t, fn) => heard.push(['rm', t, fn])};
   const {stage} = fakeStage(), hooks = {at: () => 0, count: () => 1, goTo: () => false};
   const off = attachStageSwipe(stage, hooks, {closeNow() {}});
-  assert.equal(stage.style.touchAction, 'pinch-zoom');
+  assert.equal(stage.style.touchAction, 'none');
   globalThis.visualViewport.scale = 1.5; heard.find(h => h[0] === 'add')[2](); assert.equal(stage.style.touchAction, 'auto');
   off(); assert.equal(heard.filter(h => h[0] === 'rm').length, 1);
 });
 
+test('S73-13 사진 안을 확대한 동안(hooks.zoomed)은 밀어도 넘기지·닫지 않고, 확대 변형(transform)을 지우지 않는다', () => {
+  const {stage, photo} = fakeStage(), st = {at: 2, closed: 0, moves: [], zoomed: true};
+  const hooks = {at: () => st.at, count: () => 5, goTo: to => { st.moves.push(to); st.at = to; return true; }, zoomed: () => st.zoomed};
+  attachStageSwipe(stage, hooks, {closeNow: () => { st.closed++; }});
+  photo.style.transform = 'translate(10.0px, 0.0px) scale(2.500)';
+  slide(stage, [300, 300], [60, 300]); slide(stage, [200, 200], [200, 500]);
+  assert.deepEqual(st.moves, []); assert.equal(st.closed, 0);
+  assert.equal(photo.style.transform, 'translate(10.0px, 0.0px) scale(2.500)', '확대한 그림을 제자리로 되돌리지 않는다');
+  st.zoomed = false; photo.style.transform = '';
+  slide(stage, [300, 300], [60, 300]); assert.deepEqual(st.moves, [3], '원래 크기로 돌아오면 넘기기 그대로');
+});
 test('연결: photo-view.js가 이 손동작을 쓰고, 새 판정·기기 저장을 만들지 않는다', () => {
   const view = read('app/photo-view.js'), swipe = read('app/photo-view-swipe.js'), model = read('app/photo-viewer-model.mjs');
   assert.match(view, /import \{attachStageSwipe\} from '\.\/photo-view-swipe\.js'/);
@@ -210,6 +221,17 @@ test('연결: 기록 줄·잊지 말기·노트 첨부·노트 본문 사진은 
   assert.match(read('app/record-files.js'), /openPhotoView\(\{row:\{id:row\.note_id\}, file, files, trigger:el, rt\}\)/);
   assert.match(read('app/basket.js'), /openPhotoView\(\{row:selected,file,files:/);
   const notes = read('app/basket-notes.js');
-  assert.match(notes, /files: attachedPhotos\(selected\)/); assert.match(notes, /onOpen:\(file, el, files\) => openPhotoView\(\{row:selected, file, files, trigger:el\}\)/);
-  assert.match(read('app/note-body.js'), /onOpen\(file, place, bodyPhotos\(box, note\)\)/);
+  assert.match(notes, /files: attachedPhotos\(selected\)/);
+  // S73-13: 본문 사진(노트·잊지 말기·하루 기록)은 글 읽기 공용 부품 note-body.js 한 곳이 같은 본문 사진끼리 연다 — 화면마다 따로 넘기지 않는다.
+  const body = read('app/note-body.js');
+  assert.match(body, /openPhotoView\(\{row: note, file, files: bodyPhotos\(box, note\), trigger: place, rt\}\)/);
+  for (const f of ['app/basket.js', 'app/basket-notes.js', 'app/diary.js']) assert.doesNotMatch(read(f), /paintDoc\([^)]*onOpen|fillPhotos\([^)]*onOpen/, `${f}: 본문 사진 여는 길을 따로 두지 않는다`);
+});
+test('S73-13 연결: 사진 안 확대 손동작은 공용 하나(photo-zoom-gesture.js)를 [사진] 메뉴 보기와 글 읽기 크게 보기가 함께 쓴다', () => {
+  const zoom = read('app/photo-zoom-gesture.js'), strip = read('app/photo-strip.js'), view = read('app/photo-view.js'), body = read('app/note-body.js');
+  assert.match(zoom, /export function attachPhotoZoom\(/);
+  assert.match(strip, /attachPhotoZoom\(strip,/); assert.match(view, /attachPhotoZoom\(stage,/);
+  for (const src of [strip, view]) assert.doesNotMatch(src, /\bpinchTo\(|\bzoomToggle\(|addEventListener\('wheel'/, '두 번째 확대 구현을 두지 않는다');
+  assert.match(view, /zoomed: \(\) => zoom\.zoomed\(\)/, '확대 중에는 밀기가 쉰다');
+  assert.match(body, /pinchOpens\(d0, d\)/); assert.match(body, /live = photoViewZoom\(\)/); assert.match(body, /live\.follow\(d \/ from\)/);
 });

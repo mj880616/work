@@ -24,7 +24,7 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { sourceByKey } from "../_shared/outside-catalog.ts";
 import type { OpenAiResult } from "../_shared/openai-responses.ts";
 import {
-  aiRequestBody, basicMaterial, basicRow, bodyChanged, bodyKey, cleanContext, cleanCore, confirmedTopics, contextMaterial, cut, detailBody,
+  aiRequestBody, basicMaterial, basicRow, bodyChanged, bodyKey, madeFromBody, cleanContext, cleanCore, confirmedTopics, contextMaterial, cut, detailBody,
   detailUpsertBody, type DetailDeps, type DetailItem, fallbackRow, fullRow, interestsKey, isNoContentSummary,
   itemHasMaterial, len, loadItem, NOW_BASIC_INSTRUCTIONS, NOW_BASIC_OUT, NOW_BASIC_SCHEMA, NOW_CONTEXT_INSTRUCTIONS, NOW_CONTEXT_OUT,
   NOW_CONTEXT_SCHEMA, oneLine, parseAnswer, readOptional,
@@ -265,7 +265,8 @@ export async function runNowDetail(kit: NowKit, input: Extract<NowInput, { kind:
   if (existing && isNoContentSummary(existing.summary)) existing = null;
   // S68-43: 재료(본문·저장 요약·주요 문장)가 없는 글의 저장본은 제목만으로 만든 것이라 보이지 않는다(본문을 가져오면 그때 만든다).
   // S69-01: 본문이 바뀌었는지는 본문 지문으로만 본다(같은 본문을 다시 뽑아 시각만 새로워진 것은 그대로 — 매번 다시 만들던 원인).
-  if (existing && (!itemHasMaterial(item) || bodyChanged(item, existing, body))) existing = null;
+  // S73-01: 본문을 비운 지난 기사도 본문으로 만든 저장본(madeFromBody)은 그대로 쓴다.
+  if (existing && ((!itemHasMaterial(item) && !madeFromBody(existing)) || bodyChanged(item, existing, body))) existing = null;
   if (!existing && !itemHasMaterial(item)) throw kit.fail(422, "no_material");
   const { startIso } = seoulDayStart(nowMs);
   const madeToday = (v: unknown) => typeof v === "string" && Date.parse(v) >= Date.parse(startIso);

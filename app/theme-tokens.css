@@ -3,7 +3,7 @@
    옛 먹(#4a4a46 회색)을 고른 사람도 이 먹으로 보인다. 올리브는 고르는 색 하나로 남는다. */
 :root,[data-theme="ink"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
-  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236e6c60'/%3E%3C/svg%3E");--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#22262b;--kptu-primary-hover:#343a42;--kptu-primary-ink:#22262b;
   --kptu-primary-soft:#e7e5df;--kptu-on-primary:#f3f1ea;--kptu-link:#22262b;
@@ -13,28 +13,28 @@
 /* 올리브(옛 기본): 바탕·글자는 기본(먹)과 같은 오트밀, 강조만 올리브. */
 [data-theme="olive"]{
   --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
-  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236e6c60'/%3E%3C/svg%3E");--kptu-faint:#8f8c7f;
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
   --kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;--kptu-link:#47532a;
 }
 [data-theme="navy"]{
   --kptu-bg:#f5f6f7;--kptu-surface:#ffffff;--kptu-surface-subtle:#f8f9fa;
-  --kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-ink:#1f2933;--kptu-muted:#66727f;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%2366727f'/%3E%3C/svg%3E");--kptu-faint:#8a949e;
   --kptu-border:#dfe4e8;--kptu-border-strong:#c9d1d8;
   --kptu-primary:#263f5f;--kptu-primary-hover:#1f354f;--kptu-primary-ink:#355f86;
   --kptu-primary-soft:#eef4f8;--kptu-on-primary:#ffffff;--kptu-link:#355f86;
 }
 [data-theme="lavender"]{
   --kptu-bg:#f5f3f8;--kptu-surface:#fefdfe;--kptu-surface-subtle:#faf9fc;
-  --kptu-ink:#211d2b;--kptu-muted:#625a72;--kptu-faint:#888198;
+  --kptu-ink:#211d2b;--kptu-muted:#625a72;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%23625a72'/%3E%3C/svg%3E");--kptu-faint:#888198;
   --kptu-border:#e0dde7;--kptu-border-strong:#ccc6d6;
   --kptu-primary:#61537f;--kptu-primary-hover:#574b72;--kptu-primary-ink:#61537f;
   --kptu-primary-soft:#eceaf0;--kptu-on-primary:#ffffff;--kptu-link:#61537f;
 }
 [data-theme="teal"]{
   --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
-  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--kptu-faint:#7b9093;
+  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%235a6f72'/%3E%3C/svg%3E");--kptu-faint:#7b9093;
   --kptu-border:#d7e2e4;--kptu-border-strong:#bdced1;
   --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
   --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
@@ -45,7 +45,7 @@
    레몬은 노랑 위에 흰 글자가 안 읽혀 버튼·선택 표시 글자를 진한 갈색(--kptu-on-primary)으로 둔다. 레몬 강조색 자체는 밝은 바탕과 3:1이 안 되므로 글자·링크·구역 제목에는 쓰지 않고 진한 노랑(--kptu-primary-ink·--kptu-link)을 쓴다. */
 [data-theme="sky"]{
   --kptu-bg:#eef6fd;--kptu-surface:#fcfeff;--kptu-surface-subtle:#f5fafe;
-  --kptu-ink:#15283a;--kptu-muted:#4f6479;--kptu-faint:#7a8da0;
+  --kptu-ink:#15283a;--kptu-muted:#4f6479;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%234f6479'/%3E%3C/svg%3E");--kptu-faint:#7a8da0;
   --kptu-border:#d5e4f2;--kptu-border-strong:#b9d0e6;
   --kptu-primary:#2c77c4;--kptu-primary-hover:#2569b0;--kptu-primary-ink:#1f64ad;
   --kptu-primary-soft:#e1eefb;--kptu-on-primary:#ffffff;--kptu-link:#1f64ad;
@@ -53,7 +53,7 @@
 }
 [data-theme="mint"]{
   --kptu-bg:#eaf8f4;--kptu-surface:#fbfffd;--kptu-surface-subtle:#f3fbf8;
-  --kptu-ink:#123027;--kptu-muted:#44695d;--kptu-faint:#72948a;
+  --kptu-ink:#123027;--kptu-muted:#44695d;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%2344695d'/%3E%3C/svg%3E");--kptu-faint:#72948a;
   --kptu-border:#cfe9e1;--kptu-border-strong:#b0d6cb;
   --kptu-primary:#14846e;--kptu-primary-hover:#117560;--kptu-primary-ink:#0e6e5c;
   --kptu-primary-soft:#d9f2ea;--kptu-on-primary:#ffffff;--kptu-link:#0e6e5c;
@@ -61,7 +61,7 @@
 }
 [data-theme="coral"]{
   --kptu-bg:#fff2ec;--kptu-surface:#fffdfb;--kptu-surface-subtle:#fff8f4;
-  --kptu-ink:#38201a;--kptu-muted:#7a5448;--kptu-faint:#a28378;
+  --kptu-ink:#38201a;--kptu-muted:#7a5448;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%237a5448'/%3E%3C/svg%3E");--kptu-faint:#a28378;
   --kptu-border:#f5ddd2;--kptu-border-strong:#e8c3b3;
   --kptu-primary:#b8553a;--kptu-primary-hover:#a94c33;--kptu-primary-ink:#a83a1f;
   --kptu-primary-soft:#ffe6db;--kptu-on-primary:#ffffff;--kptu-link:#a83a1f;
@@ -69,7 +69,7 @@
 }
 [data-theme="lemon"]{
   --kptu-bg:#fbf8ec;--kptu-surface:#fffef5;--kptu-surface-subtle:#fcfaf1;
-  --kptu-ink:#2e2800;--kptu-muted:#6b5f1f;--kptu-faint:#938a55;
+  --kptu-ink:#2e2800;--kptu-muted:#6b5f1f;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%236b5f1f'/%3E%3C/svg%3E");--kptu-faint:#938a55;
   --kptu-border:#ece5cc;--kptu-border-strong:#dccf9f;
   --kptu-primary:#e3c25a;--kptu-primary-hover:#e6c766;--kptu-primary-ink:#7a5c00;
   --kptu-primary-soft:#f6efd4;--kptu-on-primary:#3d3100;--kptu-link:#7a5c00;
@@ -77,7 +77,7 @@
 }
 [data-theme="red"]{
   --kptu-bg:#fff1f0;--kptu-surface:#fffcfc;--kptu-surface-subtle:#fff7f6;
-  --kptu-ink:#331412;--kptu-muted:#7a4a47;--kptu-faint:#a07c79;
+  --kptu-ink:#331412;--kptu-muted:#7a4a47;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%237a4a47'/%3E%3C/svg%3E");--kptu-faint:#a07c79;
   --kptu-border:#f6d9d6;--kptu-border-strong:#e8bab6;
   --kptu-primary:#b23a2e;--kptu-primary-hover:#a1342a;--kptu-primary-ink:#a3352a;
   --kptu-primary-soft:#ffe3e0;--kptu-on-primary:#ffffff;--kptu-link:#a3352a;
@@ -93,6 +93,9 @@
    새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
   /* S67-64 UI-윗줄한줄(명진 2026-11-21 시안 D2 제목 글씨): 폰 화면 윗줄의 화면 이름(앱 머리줄·사업 관리 첫 줄·홈 날짜)은 15px·500. */
+  /* S73-06 UI-스크롤막대잡기(명진 11/27): 막대는 창 끝에 붙이고, 평소엔 가늘게·마우스를 올리면 굵게. 막대 칸 = --ds-scrollbar-size(늘 같음, 글 안 흔들림),
+     보이는 굵기 = size - inset. 폰·터치는 예전 그대로(6px·안쪽 비움 0). 마우스가 있는 화면(PC)만 칸 14px · 평소 4px(inset 10) · 올리면 10px(inset 4). 모양 규칙은 base-ui.css 한 곳. */
+  --ds-scrollbar-size:6px;--ds-scrollbar-inset-rest:0px;--ds-scrollbar-inset-hover:0px;--ds-scrollbar-radius:999px;
   --ds-text-head:15px;
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
@@ -250,6 +253,9 @@
   --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
   --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
   /* NOTE-보기3가지: 노트 폴더 연한 색(포스트잇 바탕·목록 꼬리표) 여덟 가지 + 폴더 없음. 노랑 없음(노랑은 '나한테 온 요청' 주목 표시). 글자는 종이 위 진한 잉크. */
+  /* S71-50 NOTE-보드배경색: 노트 보드 바탕색 여덟 가지(이름은 note-boards-model.mjs BOARD_BGS, '기본'은 --kptu-surface-subtle 그대로). 포스트잇 종이보다 연하게,
+     진한 글자(--kptu-ink)와 4.5:1 이상(tests/note-board-bg.test.mjs). 점 무늬는 그 위에 그대로. */
+  --ds-board-bg-sand:#f3eee2;--ds-board-bg-sage:#e9eee3;--ds-board-bg-sky:#e6edf3;--ds-board-bg-lilac:#ece8f2;--ds-board-bg-peach:#f5e9e1;--ds-board-bg-mint:#e3efea;--ds-board-bg-rose:#f3e6ea;--ds-board-bg-gray:#ebedef;
   --ds-note-paper-0:#dcebdc;--ds-note-paper-1:#d8e6f0;--ds-note-paper-2:#e6def0;--ds-note-paper-3:#f2ddd6;--ds-note-paper-4:#d4ebe6;--ds-note-paper-5:#f0dbe4;--ds-note-paper-6:#e3e6d6;--ds-note-paper-7:#dde0ec;--ds-note-paper-none:#eceae4;
   /* FOLDER-순서·색 ②(S49-38, 설계 4절): 폴더 색 8가지 — 폴더 아이콘(ico)·목록 꼬리표 바탕(tag)·포스트잇 종이(paper). 값은 이 한 곳에서만 정한다(번호 1~8은 DB에 적히는 값, folder-look-model.mjs). */
   /* FOLDER-나무새기준(S51-12): 색을 고르지 않은 폴더 그림의 기본 톤다운 노랑(닫힌·열린 폴더 그림 하나로, 옛 📁/📂 글자 대신). */
@@ -273,7 +279,7 @@
   :root{
     color-scheme:dark;
     --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
-    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--ds-select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4'%3E%3Cpath d='M0 0h8L4 4z' fill='%23b1aea2'/%3E%3C/svg%3E");--kptu-faint:#938f84;
     --kptu-border:#34332d;--kptu-border-strong:#4a4840;
     --kptu-on-primary:#22262b;
     --ds-press-tint:rgb(255 255 255 / 18%);
@@ -373,6 +379,8 @@
     /* MEET-결과정리 ② 어두운 값: 같은 칸의 같은 색 계열, 어두운 바탕과 대비 3:1 이상, 16칸 서로 색차 25 이상. */
     --ds-meeting-1:#68affc;--ds-meeting-2:#62d358;--ds-meeting-3:#fa63ee;--ds-meeting-4:#51b5b5;--ds-meeting-5:#efa91c;--ds-meeting-6:#c279ae;--ds-meeting-7:#6d843e;--ds-meeting-8:#4d70fb;
     --ds-meeting-9:#7877ab;--ds-meeting-10:#6dc286;--ds-meeting-11:#ff97f4;--ds-meeting-12:#a9c04b;--ds-meeting-13:#c4b67f;--ds-meeting-14:#9f57ea;--ds-meeting-15:#98772c;--ds-meeting-16:#9184e5;
+    /* S71-50 보드 바탕색 어두운 값: 같은 계열 어두운 바탕(밝은 글자 대비 4.5:1 이상). */
+    --ds-board-bg-sand:#2a2720;--ds-board-bg-sage:#23281f;--ds-board-bg-sky:#1f262d;--ds-board-bg-lilac:#27232e;--ds-board-bg-peach:#2c2420;--ds-board-bg-mint:#1e2926;--ds-board-bg-rose:#2c2226;--ds-board-bg-gray:#26282b;
     --ds-note-paper-0:#b6c6b6;--ds-note-paper-1:#b3c1cb;--ds-note-paper-2:#c1b9cb;--ds-note-paper-3:#cbb8b1;--ds-note-paper-4:#b0c6c1;--ds-note-paper-5:#cab6bf;--ds-note-paper-6:#bec1b1;--ds-note-paper-7:#b8bbc7;--ds-note-paper-none:#c3c1bb;
     /* FOLDER-순서·색 ②(S49-38, 설계 4절): 폴더 색 8가지 — 폴더 아이콘(ico)·목록 꼬리표 바탕(tag)·포스트잇 종이(paper). 값은 이 한 곳에서만 정한다(번호 1~8은 DB에 적히는 값, folder-look-model.mjs). */
     --ds-folder-0-ico:#c99a4a;
@@ -408,3 +416,4 @@
     --kptu-primary:#d88272;--kptu-primary-hover:#e09486;--kptu-primary-ink:#e8a397;--kptu-primary-soft:#3d1f1d;--kptu-link:#e8a397;
   }
 }
+@media (hover:hover) and (pointer:fine){:root{--ds-scrollbar-size:14px;--ds-scrollbar-inset-rest:10px;--ds-scrollbar-inset-hover:4px}}

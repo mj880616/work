@@ -260,6 +260,8 @@ if (DIAG) {
 // 카탈로그에 넣기 전에 후보 주소가 이 러너에서 열리는지·robots가 허용하는지(운영 수집기와 같은 robots 판정)·글 분야 칸이 있는지를 숫자로만 본다.
 // 카탈로그 밖 주소라 운영 수집기는 읽지 않는다. 주소는 이 목록에 적힌 것뿐(호스트 고정, https만).
 // 11/26 S71-70에서 참세상(www 없는 주소의 피드)·미디어오늘(피드는 robots 금지, 분야 목록 쪽은 허용)을 이 줄로 확인했다. 새 후보가 생기면 여기 주소만 더한다.
+// 11/28 NEWS-수집처늘리기: 1차 35곳·2차 17곳을 이 줄로 확인해 21곳을 카탈로그에 넣었다(결과 표는 docs/design/news-clipping.md 3.4절·PR #3285). 다 쓴 뒤 비웠다.
+//   줄마다 d30·d3 = 최근 30일·3일 글 수(날짜를 읽은 글만), full = 피드 안 본문 200자 넘는 글 수, hosts = 글 링크 호스트.
 const CANDIDATE_FEEDS = [];
 async function checkCandidate(list) {
   const host = new URL(list).host;
@@ -290,7 +292,12 @@ async function checkCandidate(list) {
   }
   const pseudo = { key: "candidate", name: "-", group: "movement", lang: "ko", mode: "rss", lists: [list], hosts: [host, host.replace(/^www\./, "")], kindOf: () => "article" };
   const parsed = parseFeed(pseudo, got.text, nowMs, 50);
-  return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
+  // 11/28: 최근 30일·3일 글 수(날짜 있는 글만), 피드 안 본문이 200자 넘는 글 수, 글 링크 호스트(허용 호스트와 다르면 parsed가 줄어든다).
+  const age = (it) => (it.published_at ? nowMs - Date.parse(it.published_at) : Infinity);
+  const d30 = parsed.filter((it) => age(it) <= 30 * 86400000).length, d3 = parsed.filter((it) => age(it) <= 3 * 86400000).length;
+  const full = parsed.filter((it) => chars(it.content ?? "") >= 200).length;
+  const linkHosts = tally([...got.text.matchAll(/<link\b[^>]*?(?:href\s*=\s*["']([^"']+)["'][^>]*)?>([^<]*)/gi)].map((m) => { try { return new URL((m[1] || m[2] || "").trim()).host; } catch { return "-"; } }).filter((h) => h !== "-"));
+  return `${list} ⇒ ok type=${(got.contentType ?? "-").split(";")[0]} items=${rawItems} parsed=${parsed.length} d30=${d30} d3=${d3} full=${full} hosts[${linkHosts}] cat[${tally(parsed.map((it) => it.category ?? "-"), true)}] path[${tally(parsed.map((it) => firstSeg(it.url)))}]`;
 }
 if (DIAG) {
   console.log("\n## 분야 진단(피드마다 분야 칸·주소 경로 — 글 내용 없음)");

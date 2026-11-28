@@ -1,0 +1,51 @@
+name: Main E2E watch
+
+# OPS-main깨짐감시(2026-11-27 사용자 결정, 이유: main 전체 화면 시험이 깨진 것을 사람이 점검하다 늦게 알아 PR 여러 개가 같은 실패로 막혔다).
+# main의 'App browser E2E check'(push·밤 정기 실행)가 끝나면, main에서 가장 최근에 끝난 그 시험의 결과로
+#   실패 → 'main 시험 깨짐' 이슈를 열거나 열린 이슈에 댓글, 성공 → 열린 이슈에 댓글 달고 닫기.
+# 이슈 글에는 실행 번호·SHA·실패한 시험 파일:줄만(scripts/ops/main-e2e-watch.mjs). 비밀값 없음, 쓰기 권한은 issues 하나.
+# workflow_run은 main의 이 파일·main 코드로만 돈다(PR 코드를 받지 않는다).
+on:
+  workflow_run:
+    workflows: ['App browser E2E check']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'App browser E2E check 실행 번호(run id)'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: main-e2e-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    if: github.repository == 'mj880616/work' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.head_branch == 'main' && (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'schedule')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Open, comment on or close the main test issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+        run: |
+          set -euo pipefail
+          case "$RUN_ID" in ''|*[!0-9]*) echo "run id는 숫자만"; exit 1;; esac
+          node scripts/ops/main-e2e-watch.mjs --run "$RUN_ID" --repo "$GITHUB_REPOSITORY"

@@ -187,6 +187,28 @@ const SAMPLES={
  'news-psi':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-itf':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
  'news-labourstart':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ // NEWS-수집처늘리기(11/28): 주제 묶음·양질 블로그(extract:false — 사람이 열 때만 글 쪽을 읽는다, 흔한 <article> 본문 칸 견본).
+ 'news-simonwillison':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-lucumr':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-mitchellh':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-addyosmani':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-harperreed':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-martinfowler':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-arseblog':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-arseblognews':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-spielverlagerung':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-mastermind':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-slownews':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-guardian-opinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-noahpinion':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-lpeproject':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-latentspace':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-steipete':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-geeknews':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-analyticsfc':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-opendemocracy':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-phenomenalworld':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
+ 'news-nlr-sidecar':l=>wrap(`<article>${body(l)}${FIG()}</article>`),
 };
 const TELEGRAM={justice:'justice-telegram.html',socialist:'socialist-telegram.html'};
 

@@ -140,7 +140,12 @@ export function cleanBlocks(blocks) {
 }
 // row: {blocks, state, reason, rule?} | null. 답: {state, blocks, reason(한 줄 글자, 없으면 ''), hand?(손으로 넣은 본문 — S68-44)}.
 export const HAND_RULE = 'manual@1';
+// S73-01 NEWS-본문하루(사용자 결정 2026-11-27): 받은 지 하루 지난 언론 기사는 매일 정리가 본문을 비우고 블록 줄을 이 규칙 표시 줄로 남긴다
+// (DB public.app_news_trim_bodies — blocks 비움·state failed·reason no_body). 화면은 까닭 한 줄 + 원래 사이트 링크만, 저절로 다시 읽지 않는다.
+export const TRIM_RULE = 'trim@1';
+export const TRIM_TEXT = '지난 기사라 본문은 저장하지 않아요';
 export function bodyView(row) {
+  if (row && row.rule === TRIM_RULE) return {state: 'failed', blocks: [], reason: TRIM_TEXT, trimmed: true};
   const v = bodyViewOf(row);
   return v && row.rule === HAND_RULE ? {...v, hand: true} : v;
 }
@@ -164,7 +169,7 @@ export const reopenBody = row => row?.state === 'failed' && REOPEN_REASONS.has(r
 // 뉴스·사회운동 두 갈래, 읽을 거리·저장한 글 어디서 열든 같은 글 보기라 같다. 손으로 넣은 본문(manual@1)은 사람 것이라 둘 다 없다.
 // 다시 읽어도 유료벽은 넘지 않는다(서버 그대로). 하루 한도·간격은 서버가 정하고 거절하면 그 까닭 한 줄.
 // 저장 원문 줄이 아예 없는 글(row null — 옛 글 글자로 그림)은 화면이 legacy 모양으로 같은 판단을 한다(now-detail viewOf).
-export const canRefetch = (row, _type = '') => !!row && (row.state === 'lead' || row.state === 'failed') && row.rule !== HAND_RULE;
+export const canRefetch = (row, _type = '') => !!row && (row.state === 'lead' || row.state === 'failed') && row.rule !== HAND_RULE && row.rule !== TRIM_RULE;
 export const canRefetchMenu = row => !row || row.rule !== HAND_RULE;
 // 열 때 한 번 읽을 뉴스 기사(S69-02): 저장 원문 줄이 없고, 피드 소개(리드)만 있어 전문(full)이 아니며, 사람이 넣은 기사·유료벽으로 이미 읽은 기사가 아님.
 // 수집 때 본문을 읽지 않는 매체(카탈로그 extract:false — 조선일보 등)의 기사가 그렇다. 서버가 읽은 뒤에는 원문 줄이 생겨 다시 고르지 않는다.
@@ -281,13 +286,13 @@ export function dateText(iso) {
 }
 
 // ---- [매체: 전체 ▾](S51-8 NEWS-전면개편 P4b, 설계 6.1): 자료실 분류 창과 같은 부품(library-move-picker.js)에 넣을 줄과 거르기 ----
-// 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 지역 domestic|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
+// 고른 값: 'all' | 'g:<사회운동 묶음>' | 's:<단체 키>' | 'r:<언론 묶음 domestic|opinion|tech|football|foreign>' | 'n:<news- 매체 키>'. 화면 메모리만(저장하지 않음).
 // 입력: oc = 사회운동 카탈로그 [{key,name,group}], on = 켠 단체 키, nc = 뉴스 카탈로그 [{key,name,region}], non = 켠 news- 키.
 export const MEDIA_ALL = 'all';
 export const OUTSIDE_GROUP_LABEL = Object.freeze({labor: '노동', party: '정당', movement: '사회운동', foreign: '국제'});
-export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', opinion: '사설·칼럼', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
+export const PRESS_REGION_LABEL = Object.freeze({domestic: '언론 국내', opinion: '사설·칼럼', tech: 'AI 코딩', football: '축구', foreign: '언론 국제'}); // '외국' → '국제'(11/15 NEWS-출처목록가나다)
 const OUTSIDE_GROUPS = Object.freeze(['labor', 'party', 'movement', 'foreign']);
-const PRESS_REGIONS = Object.freeze(['domestic', 'opinion', 'foreign']); // S69 NEWS-사설칼럼: 신문 사설·칼럼 묶음(서버 카탈로그 region 'opinion')
+const PRESS_REGIONS = Object.freeze(['domestic', 'opinion', 'tech', 'football', 'foreign']); // NEWS-수집처늘리기: 주제 묶음 AI 코딩·축구(서버 카탈로그 region tech·football) // S69 NEWS-사설칼럼: 신문 사설·칼럼 묶음(서버 카탈로그 region 'opinion')
 const side = pick => (pick === MEDIA_ALL ? 'all' : /^[gs]:/.test(pick || '') ? 'outside' : /^[rn]:/.test(pick || '') ? 'news' : '');
 // 이 탭에서 쓸 수 있는 고른 값인가. [보관]은 거르지 않는다.
 export function mediaFits(tab, pick) {
@@ -369,7 +374,7 @@ export function tabForItem(type, tab) {
 export const HAND_LIMITS = Object.freeze({title: 300, publisher: 60, author: 80, body: 50000, url: 2000});
 // 못 읽은 기사인가(원문 칸에 [직접 넣기]). 뉴스 기사만 — 사회운동 글은 다른 서버 함수라 이번에 없음.
 // S68-49: 사회운동 글도 — 끝내 못 읽은 글(실패)에 [본문 붙여 넣기](본문 칸만, 서버 outside-feed hand_body). 손 본문은 다시 읽기가 덮지 않는다(#2897 규칙).
-export const canHandFill = (item, b) => (item?.type === 'news' || item?.type === 'outside') && !!b && !b.failedLoad && b.state === 'failed';
+export const canHandFill = (item, b) => (item?.type === 'news' || item?.type === 'outside') && !!b && !b.failedLoad && b.state === 'failed' && !b.trimmed;
 export const HAND_BODY_MAX = 50000; // 사회운동 [본문 붙여 넣기] 본문 글자 상한(서버 HAND_BODY_MAX와 같음)
 // 사회운동 [본문 붙여 넣기] 요청: {body} 또는 {error}. 빈 본문은 보내지 않는다.
 export function handBodyRequest(id, text) {

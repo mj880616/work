@@ -6,11 +6,27 @@ import { test } from 'node:test';
 const workflowsDir = fileURLToPath(new URL('../../.github/workflows/', import.meta.url));
 const workflow = name => readFileSync(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
+// CI-기준사진갱신: 기준 사진 갱신 workflow만 PR 브랜치(기본 브랜치 거절·같은 저장소만)에 기준 사진 PNG를 커밋한다.
+// 허용은 아래 정확한 commit 한 줄·push 한 줄뿐이고, 나머지 안전 규칙은 tests/security/visual-baseline-update-workflow.test.mjs가 지킨다.
+const PR_BRANCH_PUSH = {
+  'visual-baseline-update.yml': [
+    'git commit -q -m "기준 사진 갱신: ${LABEL//,/, } (workflow 실행 #$RUN_NUMBER)"',
+    'git push origin "HEAD:refs/heads/$HEAD_REF"',
+  ],
+};
+
 test('workflow files contain no direct repository push path', () => {
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
-    const source = workflow(name);
+    let source = workflow(name);
+    const allowed = PR_BRANCH_PUSH[name];
+    if (allowed) {
+      for (const line of allowed) {
+        assert.equal(source.split(line).length - 1, 1, `${name}: ${line}`);
+        source = source.replace(line, '');
+      }
+    }
     assert.doesNotMatch(source, /\bgit\s+push\b|\bgit\s+commit\b|createCommit|createOrUpdateFileContents/, name);
-    if (!['basket-pc-release.yml', 'phone-app-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
+    if (!['basket-pc-release.yml', 'phone-app-release.yml', ...Object.keys(PR_BRANCH_PUSH)].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
   }
 });
 

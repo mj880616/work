@@ -819,12 +819,14 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     // 폰에 보관된 작은 그림이 있으면 대기열을 거치지 않고 바로 보여 준다.
     if (keep) {
       looking = true;
+      // 보관본을 찾는 동안 대기열에 알려, 함께 찾던 칸들의 요청이 한 묶음으로 나가게 한다(od-thumb-loader.js hold). 없으면 대기열에 넣은 뒤 푼다.
+      const release = l.hold?.() || (() => {});
       keepStore().get(keep.owner, item.id, size, keep.month).then(blob => {
         looking = false;
         if (blob) return showBlob(blob, null, keep);
         if (!force && !wanted()) { busy = false; box.dataset.state = 'idle'; return; }
         fromLoader(keep, force);
-      });
+      }).finally(release);
       return;
     }
     fromLoader(null, force);

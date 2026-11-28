@@ -91,7 +91,10 @@ test('키워드·매체·한도', () => {
   // S69 사설·칼럼: region 'opinion'은 그대로, 모르는 값은 국내.
   const op = M.normalizeCatalog({sources: [{key: 'news-a-opinion', name: '가짜일보 사설·칼럼', region: 'opinion'}, {key: 'news-z', name: '가짜', region: 'mars'}]});
   assert.deepEqual(op.map(s => s.region), ['opinion', 'domestic']);
-  assert.deepEqual(M.REGIONS.map(g => g.label), ['국내', '사설·칼럼', '해외']);
+  assert.deepEqual(M.REGIONS.map(g => g.label), ['국내', '사설·칼럼', 'AI 코딩', '축구', '해외']);
+  // NEWS-수집처늘리기: 주제 묶음 region tech·football은 그대로(국내로 바뀌지 않음).
+  const topic = M.normalizeCatalog({sources: [{key: 'news-fake-tech', name: '가짜 코딩 블로그', region: 'tech', lang: 'en'}, {key: 'news-fake-ball', name: '가짜 전술', region: 'football'}]});
+  assert.deepEqual(topic.map(s => s.region), ['tech', 'football']);
   assert.deepEqual(M.normalizeLimits({limits: {fill: 10, translate: 20, keywords: 30}}), {fill: 10, translate: 20, keywords: 30});
   // S59-1: 키워드 기사 하루 상한(keyword_items)은 없어졌다 — 옛 서버가 보내도 받지 않는다.
   assert.equal(M.normalizeLimits({limits: {keyword_items: 30}}).keyword_items, undefined);

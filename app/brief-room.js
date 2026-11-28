@@ -12,7 +12,7 @@
 // - [브리핑 받기]만 AI를 부른다(명진 결정 1). 서버 document-actions brief-start, 진행·결과는 표 app_document_briefs를 owner RLS로 읽기만.
 // - [+] [파일 업로드]·놓기(S71-30, 전 [자료 넣기]): 자료실 등록 창을 '브리핑 요청함' 폴더로 연다(자료 원본은 자료실 한 곳, 폴더는 없으면 owner RLS로 하나 만든다).
 // - 서버 저장만(기기 저장 없음). 글자는 textContent로만 넣는다.
-// - BRIEF-브리핑룸삭제(S63-08): 줄마다 ⋯(폰 길게 누르기, PC 우클릭은 공용 context-menu.js) [선택]·[브리핑만 삭제]·[자료까지 삭제].
+// - BRIEF-브리핑룸삭제(S63-08): 줄 ⋯는 BRIEF-밀기메뉴로 없앴다(폰 왼쪽 밀기·PC 우클릭 = [수정][삭제], 삭제 = 브리핑+자료, 자료실에 있던 자료는 자료 보존).
 //   브리핑만 = 서버 함수 app_document_brief_delete(owner 검사, 만드는 중이면 서버 작업도 멈춤) + '브리핑 요청함' 폴더에 있었으면 폴더 밖으로(owner RLS).
 //   자료까지 = 자료실 삭제와 같은 길(document-delete.js → document-actions delete, Drive 휴지통). 여러 개는 공용 선택 부품(select-mode.js·library-select.js)으로 같은 두 가지.
 // - BRIEF-자료실에서고르기(S64-10, 명진 11/17 09:31): [자료실에서 고르기] → 공용 고르기 창(library-move-picker.js, 여러 개)으로 내 자료실 자료를 고른다.
@@ -37,7 +37,6 @@ import {waitHtml,failHtml,emptyEl} from './wait-state.js';
 import {notify,askConfirm} from './small-notice.js';
 import {firstUseEl} from './first-use.js'; // HELP-처음쓰는사람안내 ③: 넣은 자료가 없을 때 목록 자리 안내
 import {createAnchoredMenu} from './anchored-menu.js';
-import {createFeedHold} from './feed-hold.js';
 import {createSelectMode} from './select-mode.js';
 import {deleteSequentially} from './library-select.js';
 import {fitAll} from './auto-grow.js'; // UI-입력칸자동높이: 고치기 줄도 공용 늘어나는 칸
@@ -60,7 +59,7 @@ import {openFolderSheet} from './folder-dest-sheet.js';
 import {askText} from './small-notice.js';
 import {createLibraryFolder,putDocumentInFolder} from './library-folder-data.js';
 import {registerScreenFind,refreshScreenFind,finderOf,toolsBox} from './screen-find.js';
-import {bindRowSwipe,PICK,MORE,DELETE} from './row-swipe.js';
+import {bindRowSwipe,PICK,EDIT,DELETE} from './row-swipe.js';
 import {stepTextSize} from './text-size-model.mjs';
 
 const rt=()=>window.KPTURuntime;
@@ -79,6 +78,9 @@ const state={folderId:null,docs:[],folderDocs:new Set(),allFolders:[],sub:[],ite
   editable:true,editing:null};// editing = {doc, focus(칸 key), values: Map(key → 글)} — 이 탭 메모리만, 저장은 서버
 
 // 목록에 보일 자료: '브리핑 요청함' 폴더 자료 + 이번에 고른 다른 폴더 자료(브리핑이 있는 자료는 listRows가 더한다).
+// 자료실에 이미 있던 자료를 [자료실에서 선택]으로 넣은 줄(이 화면 '브리핑 요청함' 폴더 밖 자료 + 이번에 고른 자료)은 삭제해도 자료를 남긴다.
+// 서버가 이 구분을 모르면 화면 규칙일 뿐이라(PR 본문 '제안'), 자료까지 지우는 길(removeWithDocument)에서도 한 번 더 막는다.
+const isLibraryDoc=id=>state.picked.has(id)||!state.folderDocs.has(id);
 const roomIds=()=>new Set([...state.folderDocs,...state.picked]);
 const roomRows=()=>listRows({docs:state.docs,folderIds:roomIds(),briefs:state.briefs});
 const pick=createSelectMode({layer:'brief-select',onBack:()=>draw(),canLeave:()=>!state.busy});
@@ -159,7 +161,10 @@ function stateNode(row){
   if(s.kind==='making')return el('span','br-st',s.text);
   // S70-84: 다 된 줄은 상태 칸을 비운다(넣은 날은 날짜 칸, 브리핑 날짜는 칸 위에 마우스를 올리면). 줄을 누르면 보기.
   if(s.kind==='done'){const n=el('span','br-st br-st-done');n.title=s.date?`${s.date} 브리핑`:'';return n}
-  return el('span','br-st br-st-bad',s.text);
+  // 줄 ⋯를 없앤 뒤에도 못 만든 줄은 줄 안 단추로 다시 만든다(전에는 ⋯ [다시 만들기]).
+  const bad=el('span','br-st br-st-bad',s.text);
+  if(!canRetry(state.briefs.get(row.doc.id)))return bad;
+  const box=el('span','br-st-retry');box.append(bad,btn('br-start br-retry mini',RETRY_LABEL,{brRetry:row.doc.id}));return box;
 }
 
 // S70-84: 자료 한 줄 = [파일] 목록 줄 칸(files.css .fx-row — 그림 · 이름 · 넣은 날 · 크기 · 종류)에 브리핑 상태 칸과 ⋯. 폰은 [파일] 폰 줄처럼 이름 / 날짜·크기·종류 두 줄.
@@ -175,8 +180,7 @@ function fileRow(row,depth){
   const day=dayText(d.created_at),size=sizeOf(d),kind=kindText(d);
   if(pick.active){const c=el('input','br-pick');c.type='checkbox';c.dataset.brPick=d.id;c.checked=pick.has(d.id);c.setAttribute('aria-label','선택: '+docName(d));r.append(c)}
   const st=stateNode(row);
-  const more=btn('br-more icon-btn','⋯',{brMore:d.id});more.setAttribute('aria-label','브리핑 관리: '+docName(d));more.setAttribute('aria-expanded','false');more.setAttribute('aria-haspopup','true');
-  r.append(ico,nm,el('span','fx-day',day),el('span','fx-size',size),el('span','fx-kind',kind),st,more,el('span','fx-sub',[day,size,kind].filter(Boolean).join(' · ')));
+  r.append(ico,nm,el('span','fx-day',day),el('span','fx-size',size),el('span','fx-kind',kind),st,el('span','fx-sub',[day,size,kind].filter(Boolean).join(' · ')));
   return r;
 }
 const html=h=>{const t=document.createElement('template');t.innerHTML=h;return t.content.firstElementChild};
@@ -192,7 +196,7 @@ function folderRow(t){
 }
 function listHead(){
   const cur=sortNow();
-  return html(`<div class="fx-head br-fhead" role="row" aria-label="정렬 머리"><span aria-hidden="true"></span>${['name','modified','size','kind'].map(key=>headCellHtml({key,label:BRIEF_SORT_NAME[key],cur})).join('')}<span aria-hidden="true"></span><span aria-hidden="true"></span></div>`);
+  return html(`<div class="fx-head br-fhead" role="row" aria-label="정렬 머리"><span aria-hidden="true"></span>${['name','modified','size','kind'].map(key=>headCellHtml({key,label:BRIEF_SORT_NAME[key],cur})).join('')}<span aria-hidden="true"></span></div>`);
 }
 // S71-30 BRIEF-머리한줄(명진 11/26 17:38 "여기에 파일을 놓아듀 돼요 이 안내멘트 삭제"): 화면 안 머리 줄([자료실에서 선택][자료 넣기][−|+])과
 // 점선 놓기 안내 줄은 없다. 머리 단추는 맨 위 줄 단추 상자(screen-find.js toolsBox — 폰·폴드 '브리핑 룸 · 찾기' 오른쪽, PC 상단 줄 검색 칸 오른쪽)의
@@ -270,16 +274,13 @@ tools.addEventListener('click',e=>{
 function bindSwipe(root){
   bindRowSwipe(root,{row:'.br-row[data-br-open]',enabled:()=>!state.busy&&!pick.active&&!state.editing&&here(),
     actions:row=>{const id=row.dataset.brOpen;if(!state.docs.some(d=>d.id===id))return null;
-      const main=canRetry(state.briefs.get(id))?{key:'retry',label:RETRY_LABEL,tone:'info',icon:'undo'}:{key:'move',label:'옮기기',tone:'move'};
-      return {start:PICK,end:[main,MORE,DELETE]}},
-    run:(key,row)=>{const id=row.dataset.brOpen,at=row.querySelector('[data-br-more]')||row;if(!state.docs.some(d=>d.id===id))return;
-      if(key==='retry')void start(id,null);
-      else if(key==='move')openMoveSheet(at,{docs:[id]});
-      else if(key==='more'){if(at.matches?.('[data-br-more]'))menu.open(at)}
-      else if(key==='delete')void removeMany([id],'brief',at)},
-    select:{attr:'data-br-open',label:'선택한 자료',acts:()=>[{key:'move',label:'옮기기'},{key:'delete',label:DELETE_KINDS.brief,danger:true}],
-      run:async(key,ids)=>{const at=view()?.querySelector(`[data-br-more="${CSS.escape(ids[0])}"]`)||null;
-        if(key==='move')openMoveSheet(at,{docs:ids});else if(key==='delete')await removeMany(ids,'brief',at)}}});
+      return {start:PICK,end:canEditRow(id)?[EDIT,DELETE]:[DELETE]}},
+    run:(key,row)=>{const id=row.dataset.brOpen;if(!state.docs.some(d=>d.id===id))return;
+      if(key==='edit')editRow(id);
+      else if(key==='delete')void removeMany([id],'auto',row)},
+    select:{attr:'data-br-open',label:'선택한 자료',acts:()=>[{key:'move',label:'옮기기'},{key:'delete',label:'삭제',danger:true}],
+      run:async(key,ids)=>{const at=view()?.querySelector(`.br-row[data-br-open="${CSS.escape(ids[0])}"]`)||null;
+        if(key==='move')await openMoveSheet(at,{docs:ids});else if(key==='delete')await removeMany(ids,'auto',at)}}});
 }
 
 // 쪽 링크(쪽을 아는 PDF는 원문 그 쪽, 원문 주소가 없으면 글자만).
@@ -584,13 +585,18 @@ async function moveDocs(ids,to,anchor=null){
   return done>0;
 }
 // [폴더로 옮기기…]: 공용 '옮길 곳' 창(표준 F1) — 맨 위 = 폴더 없음, [새 폴더]는 고른 폴더 안에. 폴더 옮기기도 같은 창(자기·자기 아래는 고를 수 없음).
+// 창이 닫히면(옮겼든 닫았든) 풀리는 약속을 돌려준다 — 막대 [옮기기]가 '일이 끝난 뒤' 고르기를 끝내게(창을 연 채 고르기 겹이 먼저 닫혀
+// 창 밑에 낡은 뒤로가기 칸이 남아, 뒤에 여는 입력창을 늦은 뒤로가기가 닫아 버리지 않게).
 function openMoveSheet(anchor,{docs=[],folder=null}={}){
+  return new Promise(done=>openMoveSheetNow(anchor,{docs,folder},done));
+}
+function openMoveSheetNow(anchor,{docs=[],folder=null},done){
   const subIds=new Set(state.sub.map(f=>f.id));
   const cur=folder?(state.sub.find(f=>f.id===folder)?.parent_id||null):docs.length===1?folderOfDoc(docs[0],state.itemFolder,subIds):undefined;
   openFolderSheet({anchor,title:folder?'폴더 옮길 곳':'옮길 폴더',rootName:NONE_LABEL,folders:sheetFolders,current:cur,start:cur??null,goLabel:'여기에 옮기기',
     blocked:id=>folder&&!canMoveFolder(state.sub,folder,id)?'자기 안으로는 옮길 수 없어요':'',
     mkdir:async(parent,typed)=>{const name=cleanFolderName(typed);if(!name)throw new Error('폴더 이름은 1~40자로 써 주세요');const made=await makeFolder(parent,name);await load();return made||null},
-    onGo:fid=>{if(folder)void moveFolder(folder,fid||null);else void moveDocs(docs,fid||NONE,anchor)}});
+    onGo:fid=>{if(folder)void moveFolder(folder,fid||null);else void moveDocs(docs,fid||NONE,anchor)},onClosed:done});
 }
 const folderMenu=createAnchoredMenu({id:'brFolderMenu',className:'feed-menu',label:'브리핑 폴더 메뉴',historyKey:'kptuBriefFolderMenu',
   key:t=>t.dataset.brFmore||'',row:t=>t.closest('.ft-row'),
@@ -687,7 +693,6 @@ function bind(){
   const v=view();if(!v||v.dataset.brBound)return;v.dataset.brBound='1';
   v.addEventListener('click',e=>{
     const t=e.target;
-    const m=t.closest?.('[data-br-more]');if(m){e.stopPropagation();menu.open(m);return}
     const fm=t.closest?.('[data-br-fmore]');if(fm){e.stopPropagation();folderMenu.open(fm);return}
     const fold=t.closest?.('[data-br-fold]');if(fold){state.xopen=toggleOpen(state.xopen,fold.dataset.brFold);drawList();return}
     if(t.closest?.('[data-br-pick-all]')){const ids=roomRows().map(r=>r.doc.id);pick.toggle(ids,{anchor:false});drawList();return}
@@ -699,6 +704,7 @@ function bind(){
     if(t.closest?.('[data-br-edit-cancel]')){stopEdit();return}
     const sv=t.closest?.('[data-br-edit-save]');if(sv){void saveEdit(sv);return}
     const rv=t.closest?.('[data-br-revert]');if(rv){e.stopPropagation();void revertEdit(rv.dataset.brRevert,rv);return}
+    const rt2=t.closest?.('[data-br-retry]');if(rt2){e.stopPropagation();void start(rt2.dataset.brRetry,rt2);return}
     const s=t.closest?.('[data-br-start]');if(s){e.stopPropagation();void start(s.dataset.brStart,s);return}
     if(t.closest?.('[data-fu-action="brief"]')){void add();return}
     if(t.closest?.('[data-br-retry]')){void refresh();return}
@@ -718,7 +724,7 @@ function bind(){
   v.addEventListener('change',e=>{const sel=e.target.closest?.('[data-br-sort]');if(!sel)return;const next=parseSortValue(sel.value,BRIEF_SORT_KEYS);if(!next)return;state.sort=next;viewPrefs.setBriefSort?.(next);drawList()});
   bindDrag(v);
   v.addEventListener('keydown',onLineKey);
-  hold.bind(v);
+  v.addEventListener('contextmenu',onRowContextMenu);
   // 밑줄: 칠한 밑줄을 누르면 공용 밑줄 메뉴, 본문에서 글을 선택하면 공용 선택 줄. 출처는 지금 연 자료(이름·브리핑 날짜만, 주소 없음).
   bindMarks(v);
   bindSelectZone(v,{zone:'[data-br-zone]',source:zone=>{const id=zone?.dataset?.brZone;return briefSource(state.docs.find(d=>d.id===id),state.briefs.get(id))},onSave:saveFromSelection,onNote:noteFromSelection,onReply:replyFromSelection,marks:markActions});
@@ -753,7 +759,7 @@ async function removeBriefOnly(id){
 // 자료까지: 자료실 삭제와 같은 서버 길(확인은 위에서 한 번). 자료 행이 지워지면 브리핑 행도 같이 지워진다(표 on delete cascade).
 let deleteHelper=null;
 async function removeWithDocument(id){
-  const d=state.docs.find(x=>x.id===id);if(!d)return {ok:false};
+  const d=state.docs.find(x=>x.id===id);if(!d||isLibraryDoc(id))return {ok:false};
   deleteHelper??=await import('./document-delete.js');
   const bulk={};
   await deleteHelper.deleteDocument(Object.freeze({...d}),{api:(p,o)=>rt().api(p,o),bulk});
@@ -761,47 +767,39 @@ async function removeWithDocument(id){
 }
 async function removeMany(ids,kind,anchor=null){
   ids=ids.filter(id=>state.docs.some(d=>d.id===id));
-  if(!ids.length||state.busy||!DELETE_KINDS[kind])return;
+  if(!ids.length||state.busy||(kind!=='auto'&&!DELETE_KINDS[kind]))return;
   const first=state.docs.find(d=>d.id===ids[0]);
-  if(!(await askConfirm(anchor,deleteConfirm(kind,ids.length,docName(first)))))return;
+  const keep=kind==='auto'?ids.filter(isLibraryDoc).length:0;
+  if(!(await askConfirm(anchor,deleteConfirm(kind,ids.length,docName(first),{keep}))))return;
   state.busy=true;drawList();
   let result;
   try{
     result=await deleteSequentially(ids,async id=>{
-      if(kind==='doc')return removeWithDocument(id);
+      if(kind==='doc'||(kind==='auto'&&!isLibraryDoc(id)))return removeWithDocument(id);
       try{await removeBriefOnly(id);return {ok:true}}catch(e){return {ok:false,stop:e?.status===401||e?.status===403}}
     },{isCurrent:()=>!!ws()});
   }finally{state.busy=false}
   for(const id of result.done){if(state.open===id)state.open=null;pick.remove(id);state.picked.delete(id)}
   if(pick.active&&!result.failed.length&&!result.skipped.length)pick.stop();
-  const r=deleteResult(kind,{done:result.done.length,failed:result.failed.length,skipped:result.skipped.length});
+  const r=deleteResult(kind==='auto'?'brief':kind,{done:result.done.length,failed:result.failed.length,skipped:result.skipped.length});
   toast(r.text,r.error);
   if(result.done.length)window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
   await load();draw();
 }
 
-// 줄 ⋯ 메뉴: ([다시 만들기] — 못 만든 줄만, S67-37) · [선택] · [브리핑만 삭제] · [자료까지 삭제]. 선택 모드에서 연 메뉴는 고른 것 모두에 대해(누른 줄이 안 골라졌으면 더한다).
-const menu=createAnchoredMenu({id:'brRowMenu',className:'feed-menu',label:'브리핑 메뉴',historyKey:'kptuBriefRowMenu',
-  key:t=>t.dataset.brMore||'',
-  row:t=>t.closest('.br-row'),
-  render:id=>{
-    if(!state.docs.some(d=>d.id===id))return '';
-    const n=pick.active?pick.size+(pick.has(id)?0:1):1,tail=n>1?` <span class="feed-faint">${n}개</span>`:'';
-    const retry=!pick.active&&canRetry(state.briefs.get(id))?`<button type="button" class="row-act" data-br-act="retry">${RETRY_LABEL}</button>`:'';
-    return `${retry}${pick.active?'':'<button type="button" class="row-act" data-br-act="select">선택</button>'}<button type="button" class="row-act" data-br-act="move">폴더로 옮기기…${tail}</button><button type="button" class="row-act feed-menu-danger" data-br-act="brief">${DELETE_KINDS.brief}${tail}</button><button type="button" class="row-act feed-menu-danger" data-br-act="doc">${DELETE_KINDS.doc}${tail}</button>`;
-  },
-  onAction:(button,active)=>{
-    const id=active.id,act=button.dataset.brAct;
-    if(act==='select'){pick.start([id],id);drawList();return}
-    if(act==='retry'){void start(id,null);return}
-    if(act==='move'){const ids=pick.active?[...new Set([...(pick.items||[]),id])]:[id];openMoveSheet(view()?.querySelector(`[data-br-more="${CSS.escape(id)}"]`)||null,{docs:ids});return}
-    if(act!=='brief'&&act!=='doc')return;
-    const ids=pick.active?[...new Set([...(pick.items||[]),id])]:[id];
-    void removeMany(ids,act,view()?.querySelector(`[data-br-more="${CSS.escape(id)}"]`)||null);
-  },
-  onClose:()=>hold.unpin()});
-const hold=createFeedHold({menu,itemSelector:'[data-br-open]',moreSelector:'[data-br-more]',skipSelector:'[data-br-start],[data-br-pick],[data-br-more]',busy:()=>state.busy||pick.active,isPhone:()=>!wide()});
-
+// BRIEF-밀기메뉴(명진 11/26 폰 캡처): 줄 ⋯ 단추와 그 메뉴는 없앤다. 폰 = 왼쪽 밀기 [수정][삭제], PC = 줄 우클릭·Shift+F10 공용 줄 메뉴(row-menu.js) 같은 두 가지.
+// 여러 개 고르기·옮기기는 오른쪽 밀기(폰)·끌어 옮기기(PC)로 그대로다.
+function canEditRow(id){const b=state.briefs.get(id);return !!(state.editable&&b?.status==='done'&&b.brief)}
+function editRow(id){if(!canEditRow(id))return;openDoc(id);startEdit(id)}
+function onRowContextMenu(e){
+  const row=e.target?.closest?.('.br-row[data-br-open]');if(!row||e.target.closest('[data-br-zone]'))return;
+  const id=row.dataset.brOpen;if(!state.docs.some(d=>d.id===id)||state.busy||pick.active)return;
+  const at=appMenuPoint(e,row);if(!at)return;
+  e.preventDefault();
+  const items=[...(canEditRow(id)?[{id:'edit',label:'수정'}]:[]),{id:'delete',label:'삭제',last:true}];
+  openRowMenu(row,{key:`br-row:${id}`,label:'브리핑 줄',items,at,row,
+    run:act=>{if(act==='edit')editRow(id);else if(act==='delete')void removeMany([id],'auto',row)}});
+}
 // [자료실에서 고르기]: 내 자료실 자료(최근 순, 이름 찾기)를 여러 개 고른다. 목록은 열 때마다 서버에서 owner RLS로 읽는다(기기 저장 없음).
 // S67-41: 찾기 칸 아래 [최근]·[폴더] 두 보기. [폴더]는 처음 누를 때 자료실 폴더·폴더에 든 자료 줄을 읽고(같은 owner RLS 읽기),
 // 자료실 나무와 같은 순서(folderSiblings)로 폴더에 들어가며 고른다. 줄마다 형식 꼬리표·이름 한 줄·올린 날짜. 폰은 아래에서 올라오는 판, PC·폴드는 단추 아래 창.
@@ -901,7 +899,7 @@ async function takeAsked(){
     if(b?.status!=='done'||!b.brief||!state.docs.some(d=>d.id===ask.id)){toast(BRIEF_GONE,true);return}
     openDoc(ask.id);
     await loadHighlights().catch(()=>{});drawDetail();
-    revealMark(view()?.querySelector('[data-br-zone]'),ask.highlight);
+    void revealMark(view()?.querySelector('[data-br-zone]'),ask.highlight,{final:true});
     return;
   }
   const b=state.briefs.get(ask.id);
@@ -909,5 +907,10 @@ async function takeAsked(){
   else if(b?.status==='done')openDoc(ask.id);
   else{state.open=ask.id;draw()}
 }
-window.KPTURouter?.on?.('brief',()=>{void refresh().then(takeAsked)});
-void refresh().then(takeAsked);
+// RULE-한번에그리기: 첫 읽기·그리기(두 칸 틀·정렬 머리 줄·저절로 연 브리핑까지)를 마친 약속을 화면 불러오기 도구(view-loader.js screen)가
+// 기다린 뒤 화면을 보인다. 처음 보일 때는 그 약속을 같이 쓰고(다시 읽지 않음), 그다음 들어올 때부터 다시 읽는다.
+// 맨 위 브리핑 저절로 열기(autoOpen)·만드는 중 다시 보기 예약(schedule)은 이 화면이 지금 화면일 때만이라, 처음 보이는 그 자리(라우터 진입, 그리기 전)에서 한 번 부른다.
+const firstDraw=refresh();
+let firstShown=false;
+window.KPTURouter?.on?.('brief',()=>{if(!firstShown){firstShown=true;autoOpen();schedule();void firstDraw.then(takeAsked,takeAsked);return}void refresh().then(takeAsked)});
+window.__KPTU_BRIEF_READY__=firstDraw.then(takeAsked);

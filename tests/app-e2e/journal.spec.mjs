@@ -1549,6 +1549,8 @@ for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: �
   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review:{at,candidates:['가상 실시간 규칙 후보'],suggestions:[]}}});
  });
  await openJournal(page,width);await openWeekly(page);
+ // FIX-main시험(이슈 3270): 바탕 칸이 다 그려진 뒤 ⋯ 를 연다. 바탕이 늦게 그려지면 열린 메뉴가 화면 아래로 밀리고, 항목까지 스크롤하면 공용 규칙(바깥 스크롤 = 닫기)이 메뉴를 닫는다.
+ await openDraft(page);
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
  await expect.poll(()=>row().draft.picks.reviews?.length??0,{timeout:15000}).toBe(1);
  expect(ai.filter(k=>k==='weekly_review')).toHaveLength(1);
@@ -3413,8 +3415,9 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
  expect(db.writes.at(-1)).toMatchObject({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'});
- // 자기 칸(고르지 않으면 사업영역 칸)
+ // 자기 칸(글이 보이는 칸이 열리므로 수정할 칸에서 사업영역 칸을 고른다)
  await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('select[data-bp-target]').selectOption({label:'사업영역 가'});
  await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸');
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-hand-line').first()).toHaveText('가상 가 자기 칸');
@@ -3425,6 +3428,58 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  const {report}=await savedReport(d1);
  expect(report.summary[0].rows[0].progress).toEqual(['가상 가 자기 칸','◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 새 상황']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-수정열기·글지우기: 묶음 표 [수정]은 글이 보이는 칸을 기존 글 그대로 열고(자기 칸이 비고 세부 과제 칸에 글이 있어도), 저장하면 그 칸이 바뀌며,
+// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 삭제]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
+for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글을 채워 열고 글 칸을 지울 수 있다 ${width}`,async({page})=>{
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 가-1 상황')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const table=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box] table[data-bp-grouped]');
+ await expect(table).toBeVisible();
+ const ga=table.locator('tbody tr').filter({has:page.locator('td',{hasText:/^사업영역 가$/})});
+ const field=ga.locator('textarea[data-bp-field]');
+ // 자기 칸은 비고 글은 세부 과제 가-1에만 있다 → [수정]은 그 글을 채워 연다(빈 칸이 뜨면 새로 쓰기).
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await expect(field).toHaveValue('가상 가-1 상황');
+ await expect(ga.locator('select[data-bp-target] option:checked')).toHaveText('◦ 세부 과제 가-1');
+ expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([9,9]); // '가상 가-1 상황' 끝
+ // 취소하면 원문 그대로, 저장 요청도 없다.
+ const writes=db.writes.length;
+ await field.fill('가상 고친 글');
+ await ga.locator('[data-bp-edit-cancel]').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
+ expect(db.writes.length).toBe(writes);
+ // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await field.fill('가상 가-1 고친 상황');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
+ await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ expect(db.writes.at(-1)).toMatchObject({space_id:'wa1',body:'가상 가-1 고친 상황'});
+ // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 삭제]는 없다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('select[data-bp-target]').selectOption({label:'◦ 세부 과제 가-2'});
+ await expect(field).toHaveValue('');
+ await expect(ga.locator('[data-bp-edit-clear]')).toHaveCount(0);
+ await ga.locator('[data-bp-edit-cancel]').click();
+ // 삭제: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('[data-bp-edit-clear]').click();
+ await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 삭제할까요?');
+ await page.locator('.kptu-ask .kptu-ask-actions .danger').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveCount(0);
+ expect(db.writes.at(-1)).toMatchObject({body:''});
+ await page.locator('.kptu-notice-undo').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
+ expect(db.writes.at(-1)).toMatchObject({body:'가상 가-1 고친 상황'});
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
@@ -3546,7 +3601,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
 });
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
-// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
+// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '삭제할까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
 async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITES_TEAM}){
