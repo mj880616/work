@@ -2376,7 +2376,7 @@ async function filesTrashScreen(page, width) {
   await expect(box.locator('[data-tr-row]')).toHaveCount(2); // 서버 흉내는 2개씩 준다
   await box.locator('[data-fx-trash-more]').click();
   await expect(box.locator('[data-tr-row]')).toHaveCount(3);
-  return { errors, box, rows: box.locator('[data-tr-row]'), writes: () => server.calls.filter(c => c.what === 'edge' && c.action === 'untrash').length, canPurge: false };
+  return { errors, box, rows: box.locator('[data-tr-row]'), writes: () => server.calls.filter(c => c.what === 'edge' && (c.action === 'untrash' || c.action === 'purge')).length, canPurge: true };
 }
 const TRASH_PICK_SCREENS = [
   ['노트 휴지통', noteTrashScreen, [412, 1280]],

@@ -1022,15 +1022,18 @@
 #appView #basketView button:is(.basket-row-copy,.basket-row-more):hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
 #appView #basketView button:is(.basket-row-copy,.basket-row-more):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 /* UI-노트메뉴정리: 노트 줄 오른쪽 위에 [복사]·[⋯](각 44px 누르는 범위). 복사할 것이 없으면 [복사]만 빠지고 [⋯]는 그 자리 그대로. */
-#appView #basketView .note-row-item > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
-#appView #basketView .note-row-item > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
-#appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
+/* UI-줄점세로: 세로 점이라 ⋯ 칸 폭 32px(누르는 범위는 ::after로 44px 그대로) — 제목이 그만큼 더 길게 보인다. */
+#appView #basketView .basket-row-item > button.basket-row-more{ width:32px; min-width:32px; }
+#appView #basketView .basket-row-item > button.basket-row-more::after{ content:""; position:absolute; inset:0 -6px; }
+#appView #basketView .note-row-item > button.basket-row-copy{ right:32px; }
+#appView #basketView .note-row-item > .basket-row{ padding-right:calc(32px + var(--kptu-touch-target,44px) + 4px); }
+#appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:36px; }
 #appView #basketView button:is([data-note-row-more],[data-basket-row-more]){ font-size:22px; line-height:1; }
 /* UI-모바일노트복사메뉴: 폰(760px 이하)에서는 목록 줄의 [복사] 버튼을 없애고(⋯ 메뉴 맨 위 [복사]로 이동), 줄 글은 ⋯ 바로 왼쪽까지 넓게 쓴다. ⋯ 아래 세로 줄은 비워 둔다. PC는 그대로. */
 @media(max-width:760px){
   #appView #basketView .basket-row-item > button.basket-row-copy{ display:none; }
   #appView #basketView .basket-row-item > .basket-row,
-  #appView #basketView .note-row-item > .basket-row{ padding-right:48px; }
+  #appView #basketView .note-row-item > .basket-row{ padding-right:36px; }
 }
 #appView #basketView .note-row-item + .note-row-item{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .note-row .basket-title{ display:flex; align-items:center; gap:6px; min-width:0; }
@@ -1539,6 +1542,10 @@ button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-bo
       점의 크기·굵기·색만 여기서 정한다(연한 작은 점·굵은 점 섞임 정리). 화면 CSS는 .more-dots의 글자 모양을 따로 정하지 않는다. */
 .more-dots{ display:inline-block; font-size:var(--ds-text-read); font-weight:var(--ds-weight-medium); line-height:1; letter-spacing:0; color:var(--kptu-muted); pointer-events:none; }
 :is(button,summary):hover>.more-dots,:is(button,summary)[aria-expanded="true"]>.more-dots,details[open]>summary>.more-dots{ color:var(--kptu-ink); }
+/* UI-줄점세로(사용자 시안 '나' 2026-11-28 "나"): 목록 줄 끝 ⋯는 네모 테두리·배경 없이 회색 세로 점 세 개(⋮)만. 점은 같은 글자 하나(.more-dots)라 가로 점을 90도 돌려 그린다(읽기 이름·눌림은 그대로).
+   줄 끝 단추 종류는 아래 한 목록 — 새 줄 끝 ⋯ 종류는 여기에 더한다. 사진 칸 모서리 ⋯(.photo-fold-tile·.photos-fx-card)와 머리·도구 줄 ⋯는 가로 점 그대로. */
+:is(.ft-dots:not(.photo-fold-tile > *),.basket-row-more,.nbx-more,.row-more > summary,.le-more,.inbox-todo-more,.diary-lv-more,.task-inline-more,.basket-link-more,.lu-node-more,.lu-more-trigger) > .more-dots{ transform:rotate(90deg); }
+#appView :is(.nbx-more.icon-btn,.basket-row-more){ border:0; background:transparent; box-shadow:none; }
 /* 사진 크게 보기 위의 ⋯는 사진 위 글자색(어두운 사진 바탕). 크기·굵기는 위 공용 규칙 그대로. */
 .basket-photo-more-btn>.more-dots,.basket-photo-more-btn:hover>.more-dots,details[open]>.basket-photo-more-btn>.more-dots{ color:var(--ds-photo-ink); }
 /* UI-색고르기통일(2026-10-29): 색을 고르는 칸은 모두 공용 부품(color-swatch.mjs) 하나. 칸 = 그 색으로 채운 작은 네모(.ui-swatch-fill, 색은 inline).
@@ -1643,7 +1650,7 @@ button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-bo
    폰에서 자판이 열리면(accessibility-dialog.js 공용 감지 하나: body.kptu-mobile-keyboard, 쓰는 칸에 data-keyboard-field)
    화면 아래에 붙은 줄은 모두 숨는다. 그 줄 안의 칸에 쓰는 중일 때만 그 줄이 남는다(홈 빠른 입력에 쓰면 빠른 입력은 자판 위에).
    자판을 내리면 돌아온다. 아래에 붙는 줄을 새로 만들면 이 목록에 더한다(tests/ui-keyboard-cover.test.mjs가 CSS 전체를 보고 막는다).
-   목록: 아래 탭, 일정·일기 [+](전환 줄 안), 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]·노트 보기·조직 보고 [목록|전체 표]·저장한 글 [안 읽음|전체|밑줄]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄, 원문 고른 글 줄(S53-5 .hl-bar). */
+   목록: 아래 탭, 일정·일기 [+](전환 줄 안), 빠른 입력(홈·정리함·할 일), 전환 줄([달력·할 일·업무일지·일기]·노트 보기·조직 보고 [목록|전체 표]·저장한 글 [안 읽음|전체|밑줄]), 긴 글 저장 줄, 사진 도구줄·빠른 넘김 막대, 되돌리기 알림, [파일] 전송 줄, 원문 고른 글 줄(S53-5 .hl-bar), 주간 보고 아래 확정 막대(WEEKLY-화면정돈 ②). */
 body.kptu-mobile-keyboard :is(
   .mobile-tabs,
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn),
@@ -1656,7 +1663,8 @@ body.kptu-mobile-keyboard :is(
   #appView #filesView .fx-xfer,
   #appView #filesView .fx-jobs,
   #uploadDock,
-  .hl-bar
+  .hl-bar,
+  #appView #homeView .weekly-flow-confirm-slot
 ):not(:has([data-keyboard-field])){ display:none !important; }
 /* 팝업·시트 아래 버튼 줄은 숨기지 않고 글 끝에 붙여(제자리 흐름) 칸을 덮지 않게 한다. 팝업 창은 자판 위에서 끝난다(자판이 화면만 덮는 브라우저). */
 body.kptu-mobile-keyboard :is(.modal-foot,#reportAreaTagSheet .area-tag-foot,#gtDetailPane #gtTaskModal.gt-docked .modal-action-footer){ position:static; }

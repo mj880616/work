@@ -72,7 +72,7 @@ for (const [width, height] of WIDTHS) {
     await expect(more.locator('summary')).toHaveText('1개 더');
     await expect(more).not.toHaveAttribute('open', '');
     const first = reads.locator('[data-journal-read="n1"]');
-    await expect(first).toContainText('무슨 일: 가상지부 교섭이 결렬됨');
+    await expect(first).toContainText('요지: 가상지부 교섭이 결렬됨');
     await expect(first).toContainText('왜: 담당 가상지부');
     await expect(first.locator('[data-journal-read-link]')).toHaveAttribute('href', 'https://news.example.test/1');
     await expect(first.locator('[data-journal-read-link]')).toHaveAttribute('target', '_blank');

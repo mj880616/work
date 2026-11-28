@@ -4,7 +4,9 @@
 .fx-dim[hidden], .fx-dest[hidden] { display:none; }
 .fx-dest { position:fixed; z-index:55; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px));
   max-height:min(72dvh, 600px); display:flex; flex-direction:column; background:var(--kptu-surface); color:var(--kptu-ink); border-radius:12px 12px 0 0; box-shadow:var(--kptu-shadow-float); font-size:13px; }
-@media (min-width:761px) { .fx-dest { left:50%; right:auto; width:min(520px, calc(100vw - 32px)); transform:translateX(-50%); bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px); border-radius:12px; } }
+/* PC 가운데: transform 대신 left·right 0 + 좌우 auto 여백으로 맞춘다(FILES-휴지통영구삭제). transform이 있으면 창 안에 붙는 확인창(small-notice askConfirm,
+   모달 창 안에 붙음)의 position:fixed 기준이 화면이 아니라 이 창이 되어 확인창이 화면 오른쪽 밖으로 밀려났다. */
+@media (min-width:761px) { .fx-dest { left:0; right:0; margin-inline:auto; width:min(520px, calc(100vw - 32px)); bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px); border-radius:12px; } }
 .fx-dest-h { display:flex; align-items:center; gap:6px; padding:10px 8px 6px 12px; font-size:14px; font-weight:600; }
 .fx-dest-h span { flex:1; min-width:0; }
 .fx-dest-sub { padding:0 12px 6px; font-size:12px; color:var(--kptu-muted); }
@@ -28,7 +30,7 @@
 dialog.fd-sheet { margin:0; padding:0; border:0; inset:auto 0 calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px)) 0; max-width:none; width:auto; overflow:hidden; }
 dialog.fd-sheet:not([open]) { display:none; }
 dialog.fd-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 28%,transparent); }
-@media (min-width:761px) { dialog.fd-sheet { inset:auto auto calc(var(--kptu-mobile-tab-height,0px) + 16px) 50%; width:min(520px, calc(100vw - 32px)); } }
+@media (min-width:761px) { dialog.fd-sheet { inset:auto 0 calc(var(--kptu-mobile-tab-height,0px) + 16px) 0; margin-inline:auto; width:min(520px, calc(100vw - 32px)); } }
 .fd-sheet .fd-blocked .ft-main { opacity:.55; }
 /* S69-62 [파일] 휴지통 창(files-trash.js): 같은 아래 시트, 줄은 선택 칸 + 이름 + 지운 날·크기 */
 .fx-trash-list { padding:4px 0; }

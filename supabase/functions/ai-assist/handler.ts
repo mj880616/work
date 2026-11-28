@@ -88,7 +88,7 @@ import {
 } from "./journal-memorable.ts";
 import type { FeedRow } from "./journal-memorable.ts";
 import {
-  DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
+  DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_NEWS_READ_MAX, DAY_READS_GROUP_READ_MAX, DAY_SEEN_BACK_DAYS, READS_GROUP_KEYS, rankReads, readTopics, seenReads, DAY_RATINGS_READ_MAX, DAY_RATINGS_LOOKUP_MAX, ratingTaste, readRatingsOf, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
   callDayLine, dayLines, dayPicksOut, daySlot, familyName, startedToday, seoulDayOf, parseHomeDayPicksRequest, parseReads, parseSuggests, readsDue, readsMaterial, runHeld, seoulClock as daySeoulClock, suggestMaterial,
   suggestsDue, toNewsRow, type DayLine, type DayOrg, type DayRow, type HomeDayPicksRequest,
 } from "./home-day-picks.ts";
@@ -4015,7 +4015,16 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
   // NEWS-운영자만(S63-03): '읽을 만한 글'은 News 기사에서 고른다 — 운영자 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지도 고르지도 않는다(AI 없음).
   if ((!state?.reads_slot || (state.reads_slot !== slot && state.reads_slot !== "pm")) && await hasFeature(ctx, "outside")) {
     const from = new Date(Date.parse(`${day}T00:00:00+09:00`) - (DAY_NEWS_BACK_DAYS - 1) * 86400000).toISOString();
-    news = await readRows(`app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at&order=created_at.desc&limit=${DAY_NEWS_MAX}`);
+    // HOME-읽을만한글넓힘: 최근 사흘 일반 기사(DAY_NEWS_READ_MAX) + 읽을 거리 묶음(사설·칼럼·외국 등, 카탈로그 region이 국내 뉴스 밖인 매체) 기사를 따로 읽어 합친다.
+    // AI에 보내는 글 수는 서버가 먼저 줄여(rankReads) 예전과 같은 DAY_NEWS_MAX개 이하다.
+    const base = `app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at,source_key,lang,state&order=created_at.desc`;
+    const [recent, groups] = await Promise.all([
+      readRows(`${base}&limit=${DAY_NEWS_READ_MAX}`),
+      READS_GROUP_KEYS.length ? soft(`${base}&source_key=in.(${READS_GROUP_KEYS.map(encodeURIComponent).join(",")})&limit=${DAY_READS_GROUP_READ_MAX}`) : Promise.resolve([]),
+    ]);
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const r of [...recent, ...(groups || [])]) if (typeof r?.id === "string" && !byId.has(r.id)) byId.set(r.id, r);
+    news = [...byId.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     newest = typeof news[0]?.created_at === "string" ? news[0].created_at as string : null;
     readsNeed = readsDue(state, slot, newest);
   }
@@ -4046,20 +4055,41 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
     try { await save({ run_at: null }); } catch { deps.log("home_day_picks_release_failed"); }
   };
   const family = familyName(deps.env("FAMILY_NAME"));
-  const counts = { news: 0, reads: 0, lines: 0, suggests: 0 };
+  const counts = { news: 0, reads: 0, lines: 0, suggests: 0, rated: 0 };
   try {
     if (readsNeed) {
       // 재료: 최근 뉴스(서버가 읽음) + 내 담당조직·사업영역(서버가 읽음) + 이번 주 일정 제목(화면이 보냄). AI에는 번호만, id·주소는 보내지 않는다.
-      const rows = news.map((r) => toNewsRow(r, ctx.workspaceId)).filter((r): r is NonNullable<typeof r> => !!r);
-      const [orgs, assigned, areas] = await Promise.all([
+      const all = news.map((r) => toNewsRow(r, ctx.workspaceId)).filter((r): r is NonNullable<typeof r> => !!r);
+      // HOME-읽을만한글넓힘: 관심 주제(News '관심 주제'와 같은 표 app_now_interests의 확정 주제 + 기본 주제 − 뺀 주제)와
+      // 지난 이레 홈에 보여 준 글(이 표 app_home_day_picks의 그 날들 reads)을 읽는다. 못 읽으면 기본 주제·빼기 없음으로 그대로 고른다.
+      const seenFrom = new Date(Date.parse(`${day}T00:00:00Z`) - DAY_SEEN_BACK_DAYS * 86400000).toISOString().slice(0, 10);
+      const [orgs, assigned, areas, interests, recentPicks, ratingRows] = await Promise.all([
         soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
         soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
         soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
+        soft(`app_now_interests?workspace_id=eq.${ws}&state=in.(confirmed,dropped)&select=workspace_id,topic,state&limit=200`),
+        soft(`app_home_day_picks?workspace_id=eq.${ws}&day=gte.${seenFrom}&day=lt.${day}&select=workspace_id,day,reads&limit=${DAY_SEEN_BACK_DAYS + 1}`),
+        // HOME-읽을거리평가: 내 최근 👍·👎(owner RLS, 글 id·평가만). 표가 없거나 못 읽으면 평가 없이 예전처럼 고른다.
+        soft(`app_read_ratings?workspace_id=eq.${ws}&select=workspace_id,news_article_id,outside_article_id,rating&order=rated_at.desc&limit=${DAY_RATINGS_READ_MAX}`),
       ]);
       const mineIds = new Set((assigned || []).map((m) => String(m?.organization_id ?? "")));
       const myOrgs = (orgs || []).filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
       const events = input.events.filter((e) => !(family && e.title.includes(family)));
-      const material = readsMaterial(day, rows, { orgs: myOrgs, areas: (areas || []).map((a) => a?.name), events });
+      const myAreas = (areas || []).map((a) => a?.name);
+      const topics = readTopics((interests || []).filter((r) => String(r?.workspace_id).toLowerCase() === ctx.workspaceId));
+      const seen = seenReads((recentPicks || []).filter((r) => String(r?.workspace_id).toLowerCase() === ctx.workspaceId));
+      // 평가한 글의 제목·매체 키는 공용 글 표에서(최근 DAY_RATINGS_LOOKUP_MAX개만, 사용자 토큰). 다시 저장하지 않고 이번 고르기에만 쓴다.
+      const myRatings = (ratingRows || []).filter((r) => String(r?.workspace_id).toLowerCase() === ctx.workspaceId).slice(0, DAY_RATINGS_LOOKUP_MAX);
+      const idsOf = (col: string) => [...new Set(myRatings.map((r) => r?.[col]).filter(isUuid).map((id) => String(id).toLowerCase()))];
+      const newsIds = idsOf("news_article_id"), outsideIds = idsOf("outside_article_id");
+      const [ratedNews, ratedOutside] = await Promise.all([
+        newsIds.length ? soft(`app_news_articles?id=in.(${newsIds.join(",")})&select=id,title,title_ko,source_key,lang&limit=${newsIds.length}`) : Promise.resolve([]),
+        outsideIds.length ? soft(`app_outside_articles?id=in.(${outsideIds.join(",")})&select=id,title,title_ko,source_key&limit=${outsideIds.length}`) : Promise.resolve([]),
+      ]);
+      const taste = ratingTaste(readRatingsOf(myRatings, ratedNews, ratedOutside, ctx.workspaceId), topics);
+      const rows = rankReads(all, { topics, names: [...myOrgs, ...myAreas, ...events.map((e) => e.title)], seen, taste });
+      const material = readsMaterial(day, rows, { orgs: myOrgs, areas: myAreas, events, topics, taste });
+      counts.rated = taste ? myRatings.length : 0;
       counts.news = rows.length;
       let picks: ReturnType<typeof parseReads> = [];
       if (material) {

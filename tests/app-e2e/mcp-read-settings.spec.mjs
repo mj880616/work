@@ -3,6 +3,8 @@
 // - 3판(설계 15.2): 읽을 영역 스위치 다섯(area_*), 가족 방만 기본 꺼짐. 하나씩 그 칸만 PATCH.
 // - 표가 아직 없을 때(DB 적용 전, 404)·행이 없을 때: 칸 없음, 화면 오류 없음.
 // - 동의 화면: [허락]은 consent action=approve 하나, 받은 claude.ai 주소로만 간다. 되돌아갈 곳·클라이언트가 다르거나 설정 행이 없으면 버튼 없이 거절 글.
+// - ③ 첨부 줄(설계 11.6): 파일 수·크기, 붙이지 못한 시도는 '첨부 못 함'(되돌리기 없음), 되돌리기는 첨부 [삭제] 길(trash-file) → app_mcp_attach_undone 순서.
+// - 쓰기(설계 docs/design/mcp-claude-write.md 5.2): 허용 표에 mcp_write가 있을 때만 [Claude 쓰기] 스위치(write_enabled만 저장)와 '최근 Claude가 수정한 것'. 줄을 누르면 되돌리기 RPC 하나.
 // 네트워크 없음(지어낸 서버). 캡처는 docs/design/screens/s67-22/.
 import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
@@ -20,8 +22,13 @@ const LOGS = [
 const CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 const AUTH_ID = 'auth-0123456789abcdef';
 
-async function boot(page, {settings = 'row', row = ROW, logs = LOGS, monthCount = 42, details = null, consent = null} = {}) {
-  const state = {patches: [], consents: [], errors: [], current: row ? {...row} : null};
+const WRITES = [
+  {id: 'w1', called_at: '2026-11-28T01:20:00Z', kind: 'note', action: 'edit', chars_before: 120, chars_after: 1400, undone_at: null},
+  {id: 'w2', called_at: '2026-11-28T01:10:00Z', kind: 'org_record', action: 'create', chars_before: 0, chars_after: 80, undone_at: '2026-11-28T01:15:00Z'},
+];
+
+async function boot(page, {settings = 'row', row = ROW, logs = LOGS, monthCount = 42, details = null, consent = null, features = [], writes = WRITES, undo = null} = {}) {
+  const state = {patches: [], consents: [], errors: [], undos: [], writeReads: 0, current: row ? {...row} : null};
   page.on('pageerror', e => state.errors.push(e.message));
   await page.route('https://claude.ai/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<p>claude</p>'}));
   await page.route(SB, async route => {
@@ -29,7 +36,14 @@ async function boot(page, {settings = 'row', row = ROW, logs = LOGS, monthCount 
     let data = [], status = 200;
     if (path === '/auth/v1/token') data = {access_token: 'qa', refresh_token: 'qa-refresh', expires_in: 86400, expires_at: Math.floor(Date.now() / 1000) + 86400, user};
     else if (path === '/auth/v1/user') data = user;
-    else if (path === '/rest/v1/rpc/app_my_features') data = [];
+    else if (path === '/rest/v1/rpc/app_my_features') data = features;
+    else if (path === '/rest/v1/app_mcp_write_log') { state.writeReads++; data = method === 'GET' ? writes : {message: 'no'}; if (method !== 'GET') status = 403; }
+    else if (path === '/rest/v1/rpc/app_mcp_attach_undone') { state.undos.push({attach: JSON.parse(req.postData() || '{}')}); data = {ok: true}; }
+    else if (path === '/functions/v1/document-actions' && method === 'POST') { state.undos.push({trash: JSON.parse(req.postData() || '{}')}); data = {ok: true, detached: true, drive: 'trashed'}; }
+    else if (path === '/rest/v1/rpc/app_mcp_write_undo') {
+      state.undos.push(JSON.parse(req.postData() || '{}'));
+      if (undo) { status = 400; data = {code: '40001', message: undo}; } else data = {ok: true};
+    }
     else if (path === '/rest/v1/app_workspace_members') data = [{workspace_id: workspace.id, user_id: user.id, role: 'owner'}];
     else if (path === '/rest/v1/app_workspaces') data = [workspace];
     else if (path === '/rest/v1/app_profiles') data = [{user_id: user.id, display_name: 'QA'}];
@@ -208,4 +222,94 @@ test('동의 화면: 이미 허락한 연결이면 받은 claude.ai 주소로 �
   await boot(page, {details: {redirect_url: `${CALLBACK}?code=again`}});
   await openConsent(page, {stay: false});
   await page.waitForURL(/^https:\/\/claude\.ai\/api\/mcp\/auth_callback\?code=again/);
+});
+
+test('쓰기 칸: 허용 표에 mcp_write가 없으면 없음(쓰기 기록도 읽지 않음)', async ({page}) => {
+  const state = await boot(page, {row: {...ROW, write_enabled: false}});
+  await openProfile(page);
+  const p = panel(page);
+  await expect(p.locator('[data-mr-enabled]')).toBeVisible({timeout: 15000});
+  await expect(p.locator('[data-mw-enabled]')).toHaveCount(0);
+  await expect(p).not.toContainText('최근 Claude가 수정한 것');
+  expect(state.writeReads).toBe(0);
+  expect(state.errors).toEqual([]);
+});
+
+for (const width of [412, 1280]) test(`쓰기 칸: 스위치는 write_enabled만, 최근 고친 것 줄, 되돌리기는 RPC 하나 (${width}px)`, async ({page}) => {
+  await page.setViewportSize({width, height: 900});
+  const state = await boot(page, {row: {...ROW, enabled: true, write_enabled: false}, features: ['calls', 'mcp_write']});
+  await openProfile(page);
+  const p = panel(page);
+  const sw = p.locator('[data-mw-enabled]');
+  // 화면 열 때 한 번에 그린다: 연결 스위치가 보이는 순간 쓰기 스위치도 이미 있다.
+  await expect(p.locator('[data-mr-enabled]')).toBeVisible({timeout: 15000});
+  expect(await sw.count()).toBe(1);
+  await expect(sw).toBeVisible();
+  await expect(sw).not.toBeChecked();
+  await expect(p.locator('.sl-group-title', {hasText: '쓰기'})).toBeVisible();
+  await sw.check();
+  await expect.poll(() => state.patches.length).toBe(1);
+  expect(state.patches).toEqual([{write_enabled: true}]);
+  await expect(sw).toBeChecked();
+  await p.locator('[data-mw-log] > summary').click();
+  const rows = p.locator('[data-mw-log] .mr-log li');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText('노트 수정');
+  await expect(rows.first()).toContainText('120→1,400자');
+  await expect(rows.nth(1)).toContainText('되돌림');
+  await expect(rows.nth(1).locator('[data-mw-undo]')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await p.locator('[data-mw-log]').scrollIntoViewIfNeeded();
+  await p.screenshot({path: `docs/design/screens/mcp-claude-write/settings-write-${width}.png`});
+  await p.locator('[data-mw-undo="w1"]').click();
+  await page.locator('.kptu-ask-actions button', {hasText: '되돌리기'}).click();
+  await expect.poll(() => state.undos.length).toBe(1);
+  expect(state.undos).toEqual([{p_log_id: 'w1'}]);
+  await expect.poll(() => state.writeReads).toBeGreaterThan(1);
+  expect(state.patches).toEqual([{write_enabled: true}]);
+  expect(state.errors).toEqual([]);
+});
+
+test('쓰기 칸: 그 뒤에 바뀌어 되돌리기가 거절되면 일상어 한 줄', async ({page}) => {
+  const state = await boot(page, {row: {...ROW, write_enabled: true}, features: ['mcp_write'], undo: 'CHANGED'});
+  await openProfile(page);
+  const p = panel(page);
+  await expect(p.locator('[data-mw-enabled]')).toBeChecked({timeout: 15000});
+  await p.locator('[data-mw-log] > summary').click();
+  await p.locator('[data-mw-undo="w1"]').click();
+  await page.locator('.kptu-ask-actions button', {hasText: '되돌리기'}).click();
+  await expect(p.locator('.mr-error')).toHaveText('그 뒤에 또 바뀌어서 되돌리지 않았어요.');
+  expect(state.undos).toEqual([{p_log_id: 'w1'}]);
+  expect(state.errors).toEqual([]);
+});
+
+test('쓰기 칸 ③: 첨부 줄은 파일 수·크기, 되돌리기는 첨부 삭제 길 → 되돌림 표시 순서', async ({page}) => {
+  const NOTE_ID = '70000000-0000-4000-8000-000000000001';
+  const writes = [
+    {id: 'a1', called_at: '2026-11-28T02:20:00Z', kind: 'note', action: 'attach', chars_before: null, chars_after: null, undone_at: null,
+      target_id: NOTE_ID, files: [{drive_file_id: 'copy-1', mime_type: 'application/pdf', size_bytes: 2097152}], file_bytes: 2097152},
+    {id: 'a2', called_at: '2026-11-28T02:10:00Z', kind: 'update', action: 'attach', chars_before: 1000000, chars_after: 1000000, undone_at: null,
+      target_id: NOTE_ID, files: null, file_bytes: null},
+  ];
+  const state = await boot(page, {row: {...ROW, write_enabled: true}, features: ['mcp_write'], writes});
+  await openProfile(page);
+  const p = panel(page);
+  await expect(p.locator('[data-mw-enabled]')).toBeChecked({timeout: 15000});
+  await p.locator('[data-mw-log] > summary').click();
+  const rows = p.locator('[data-mw-log] .mr-log li');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText('노트 파일 첨부');
+  await expect(rows.first()).toContainText('1개 · 2.0 MB');
+  await expect(rows.nth(1)).toContainText('업데이트 파일 첨부');
+  await expect(rows.nth(1)).toContainText('첨부 못 함');
+  await expect(rows.nth(1).locator('[data-mw-undo]')).toHaveCount(0);
+  await p.locator('[data-mw-undo="a1"]').click();
+  await expect(page.locator('.kptu-ask')).toContainText('Drive 휴지통');
+  await page.locator('.kptu-ask-actions button', {hasText: '되돌리기'}).click();
+  await expect.poll(() => state.undos.length).toBe(2);
+  expect(state.undos).toEqual([
+    {trash: {action: 'trash-file', target: 'note', id: NOTE_ID, drive_file_id: 'copy-1'}},
+    {attach: {p_log_id: 'a1'}},
+  ]);
+  expect(state.errors).toEqual([]);
 });
