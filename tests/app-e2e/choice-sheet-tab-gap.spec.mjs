@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // S48-6b UI-메뉴판쓰기창(2026-11-02 명진 결정, #1708 질문 5): while the write window is open on a phone the bottom tabs are hidden and
 // the window (and its sheets) reach the screen's end, so a press where a tab used to be lands in the window, never on a tab.

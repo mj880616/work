@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox, pickQuickMode, placeTrigger } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {expectChoiceAtButton} from './helpers/choice-anchor.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';

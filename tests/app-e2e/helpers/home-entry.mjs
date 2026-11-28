@@ -14,27 +14,11 @@ const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 // S67-51: 이미 단계를 쓰는 작업공간(예전 기본 11개 모양, 합성 값). 새 기본값은 app DEFAULT_STAGES(업종 없는 5개).
 export const defaultStageRows=()=>EXISTING_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
-// UI-폰하단고정: 접혀 있는 폰 홈 빠른 입력을 칸을 눌러 펼친다(접힌 것이 없으면 아무것도 안 함 — PC·다른 화면).
+// 폰 화면 준비를 기다린다(옛 이름: 폰 홈 빠른 입력 펼치기 — QUICK-입력정리 2026-11-28로 홈 빠른 입력은 없다). PC에서는 아무것도 안 한다.
 // 다시 불러온 뒤(page.reload)나 폭을 폰으로 바꾼 뒤에도 같은 뜻으로 부른다.
-// HOME-입력칸두모양(S61-44): 폰 홈 빠른 입력은 접힘이 없다(늘 한 줄, 펼칠 것 없음). 화면 준비만 기다린다.
 export async function openQuickBox(page){
   if((page.viewportSize()?.width||0)>760)return;
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-}
-// 폰 홈은 [업데이트 | 할 일] 단추 줄이 없고 왼쪽 [종류 ▾]의 작은 목록에서 고른다(mode: 'update'|'task'|'org' = 기록할 곳 선택).
-// 넓은 화면은 단추 줄 그대로([업데이트]·[할 일]·▾). 어느 폭이든 같은 시험 줄로 쓴다.
-export const quickKindButton=(page,root='#homeView [data-home-quick]')=>page.locator(root).locator('[data-quick-kind]');
-export async function pickQuickMode(page,mode,root='#homeView [data-home-quick]'){
-  const q=page.locator(root),kind=q.locator('[data-quick-kind]');
-  if(await kind.isVisible()){
-    await kind.click();
-    await page.locator('#rowMenu').getByRole('button',{name:mode==='task'?'할 일':mode==='org'?'기록할 곳 선택…':'잊지 말기',exact:true}).click();
-  }else await q.locator(mode==='org'?'[data-quick-org]':`[data-quick-mode="${mode}"]`).click();
-}
-// 기록할 곳 고르기 창을 여는 단추(폰: [종류 ▾], 넓은 화면: [업데이트] 옆 ▾) — 창 자리를 재는 시험용.
-export async function placeTrigger(page,root='#homeView [data-home-quick]'){
-  const kind=page.locator(root).locator('[data-quick-kind]');
-  return (await kind.isVisible())?kind:page.locator(root).locator('[data-quick-org]');
 }
 // 운영자 계정(명진)의 메뉴 기능: 통화·텔레그램·파일·아스날·News(MULTI-처음쓰는사람 ④ — 서버 허용 표의 키).
 export const OPERATOR_MENU_FEATURES = Object.freeze(['arsenal', 'calls', 'files', 'outside', 'telegram']);

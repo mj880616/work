@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import {openHome } from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // ED③ 업데이트(설계 11.4 순서 3): 업데이트를 쓰는 곳(상단 줄 [+ 추가] → [업데이트], 홈·바구니 [크게])은 새 편집기 창(#edWindow)을 연다.
@@ -7,7 +7,6 @@ import {typeInto} from './helpers/note-editor.mjs';
 // MTG-프로젝트합치기 3단계: 사업영역(프로젝트) 한 곳은 진행 기록이 아니라 서식을 담은 정리함 업데이트 1건 + 그 사업영역 연결이다.
 // 저장하면 닫힌다(저장하고 닫기). 저장 경로는 기존 그대로.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const quick=page=>page.locator('#homeView [data-home-quick]');
 const win=page=>page.locator('#edWindow');
 const text=page=>win(page).locator('.ed-window-body .ProseMirror');
 const sheet=page=>page.locator('#edwPlaceSheet');

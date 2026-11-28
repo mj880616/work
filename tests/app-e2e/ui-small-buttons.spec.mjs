@@ -151,7 +151,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#calendarView')).toBeHidden();
  await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
  const basketTabsTop=(await page.locator('.mobile-tabs').boundingBox()).y;
- const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(quick.y+quick.height).toBeLessThanOrEqual(basketTabsTop+1);
+ // QUICK-입력정리(2026-11-28): 잊지 말기 목록에는 손 입력칸이 없다.
+ await expect(page.locator('#basketView [data-basket-list] .home-quick')).toHaveCount(0);
  // S52-20 → S71-29 → S71-58: 앱 머리 줄 최신화(↻, 보이는 32px·누르는 44px), 그 아래 한 목록([처리 전 ▾]는 없앰).
  const find=await measure(page.locator('[data-sf-tools="forget"] [data-inbox-find]'));expect(find.h).toBeLessThanOrEqual(32);expect(find.hit).toBe(44);
  const head=await page.locator('[data-sf-tools="forget"] [data-inbox-find]').boundingBox(),listBox=await page.locator('#basketView [data-forget-section]').boundingBox();
@@ -178,17 +179,16 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
 test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려가면 둘 다 돌아온다(일정·정리함)',async({page})=>{
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs');
- // 바구니 메모: 빠른 입력칸에 초점 → 자판.
+ // [할 일] 빠른 입력칸에 초점 → 자판(QUICK-입력정리: 잊지 말기 손 입력칸은 지움).
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
  const sw=page.locator('#appView > .mobile-tabs');await expect(sw).toBeVisible();
- await page.locator('#basketView [data-basket-list] .home-quick [data-quick-input]').focus();await keyboard(page,true);
+ await page.evaluate(()=>window.KPTURouter.go('tasks'));await page.locator('#tasksView .home-quick [data-quick-input]').focus();await keyboard(page,true);
  await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
- // BASKET-정리함한화면: there is no switch row, the dock height is 0.
+ // The switch row is hidden with the keyboard (its dock height is 0), and the input sits right on the keyboard.
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim())).toBe('0px');
- // The input sits right on the keyboard (no room left for the hidden row).
- await expect.poll(async()=>{const b=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();return Math.round(b.y+b.height);}).toBe(444);
- await keyboard(page,false);
+ await expect.poll(async()=>{const b=await page.locator('#tasksView .home-quick').boundingBox();return Math.round(b.y+b.height);}).toBe(444);
+ await keyboard(page,false);await page.evaluate(()=>{document.activeElement?.blur?.();window.KPTURouter.go('basket');});
  await expect(tabs).toBeVisible();await expect(sw).toBeVisible();
  // 노트 검색칸도 같은 공용 감지.
  await openKindMenu(page,'note');await basketKindButton(page,'note').tap();await (await screenFind(page)).focus();await keyboard(page,true);

@@ -2,10 +2,9 @@
 // 할 일 창과 같은 고르기 창(#areaOrgPickSheet) 하나로 열린다. 큰 묶음만 보이고 꺾쇠로 하위, 찾기, '사업영역 없음',
 // 줄을 누르면 바로 고르고 닫힘([넣기] 없음). 저장 값(links:[{project_id}])은 전과 같다.
 import { test, expect } from '@playwright/test';
-import { openHome, createdTaskReply, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
 import { SHEET, pressName } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const quick=page=>page.locator('#homeView [data-home-quick]');
 test.use({timezoneId:'Asia/Seoul'});
 
 
