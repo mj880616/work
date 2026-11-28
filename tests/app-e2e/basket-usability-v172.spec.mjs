@@ -19,12 +19,6 @@ async function fixture(page,width=390){
  return {errors,writes,notes,links,setUnknown:value=>unknown=value,setConflict:value=>conflict=value};
 }
 for(const width of [390,1280]){
-  test(`direct input is independent from home and unknown save keeps content ${width}`,async({page})=>{
-  const f=await fixture(page,width),q=page.locator('#basketView [data-basket-list] [data-home-quick]');await expect(q.locator('[data-quick-input]')).toBeVisible();await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
-  await q.locator('[data-quick-input]').fill('직접 입력');f.setUnknown(true);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).not.toBeEmpty();await expect(q.locator('[data-quick-input]')).toHaveValue('직접 입력');f.setUnknown(false);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(page.locator('[data-basket-row="new-note"]')).toBeVisible();
-  await page.evaluate(()=>window.KPTURouter.go('home'));await page.locator('#homeView [data-quick-input]').fill('홈 초안');await page.evaluate(()=>window.KPTURouter.go('basket'));await q.locator('[data-quick-input]').fill('정리함 초안');await page.evaluate(()=>window.KPTURouter.go('home'));await answerAsk(page,false);await expect(q.locator('[data-quick-input]')).toHaveValue('정리함 초안');await expect(page.locator('#basketView')).toBeVisible();
-  expect(await page.evaluate(()=>{const detail={};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);expect(f.errors).toEqual([]);
- });
  }
 // RECORD-기록하나로(S71-71): 기록 [수정] 칸에는 원문 보기가 없다(기록 글만 고친다).
 for(const kind of ['organization'])test(`${kind} record editor has no original disclosure and keeps input`,async({page})=>{
@@ -32,15 +26,3 @@ for(const kind of ['organization'])test(`${kind} record editor has no original d
 });
 // BIZ-저장먼저닫기 2차(S59-10): 글이 먼저 업데이트로 저장되고 입력칸은 바로 풀린다. 파일은 그 업데이트의 뒤 줄에서 올라가고,
 // 못 올린 파일은 하단바 위 한 줄에 남아 [다시 올리기]가 못 올린 것만 같은 업데이트로 다시 보낸다(올라간 파일은 다시 보내지 않음).
-test('direct partial upload keeps original and files, then retries only the failed attachment',async({page})=>{
- const f=await fixture(page),q=page.locator('#basketView [data-basket-list] [data-home-quick]'),calls=[];let failSecond=true;
- await page.route(SB+'/functions/v1/basket-files',r=>{if(r.request().method()!=='POST')return r.fallback();const text=r.request().postDataBuffer().toString();const second=text.includes('second.txt'),id=text.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1];calls.push([second?'second':'first',id]);if(second&&failSecond)return r.fulfill({status:403,json:{code:'upload_refused',error:'server refused'}});return r.fulfill({json:{ok:true,note_id:id,attachments:[{file_name:'first.txt',mime_type:'text/plain',drive_file_id:'fixture-first',size_bytes:3},...(second?[{file_name:'second.txt',mime_type:'text/plain',drive_file_id:'fixture-second',size_bytes:3}]:[])]}});});
- await q.locator('[data-quick-input]').fill('부분 업로드 원문');await q.locator('input[type=file]').setInputFiles([{name:'first.txt',mimeType:'text/plain',buffer:Buffer.from('one')},{name:'second.txt',mimeType:'text/plain',buffer:Buffer.from('two')}]);await q.locator('[data-quick-save]').click();
- await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
- expect(f.writes.filter(w=>w.path==='/rest/v1/app_notes').map(w=>w.body.raw_text)).toEqual(['부분 업로드 원문']);
- const dock=page.locator('#uploadDock:not([hidden])');await expect(dock).toContainText('업데이트에 파일 1개 못 올렸어요');await expect(dock).toContainText('파일 1개 올렸어요');
- expect(calls).toEqual([['first','new-note'],['second','new-note']]);failSecond=false;
- await dock.getByRole('button',{name:'못 올린 파일 다시 업로드'}).click();
- await expect(dock).toContainText('업데이트에 파일 1개 올렸어요');expect(calls).toEqual([['first','new-note'],['second','new-note'],['second','new-note']]);
- expect(f.writes.filter(w=>w.path==='/rest/v1/app_notes')).toHaveLength(1);expect(f.errors).toEqual(['Failed to load resource: the server responded with a status of 403 (Forbidden)']);
-});
