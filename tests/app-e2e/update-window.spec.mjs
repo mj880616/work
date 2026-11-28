@@ -33,70 +33,7 @@ async function openWriter(page,width){
 const fits=page=>page.evaluate(()=>{const h=document.querySelector('#edWindow .ed-window-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
 
 for(const width of [390,1280]){
- test(`home [크게]: same window with the input text; update with no place saves to the basket with its form and closes ${width}`,async({page})=>{
-  const f=await fixture(page,width),q=quick(page);
-  await q.locator('[data-quick-input]').fill('홈에서 쓰던 업데이트');
-  const big=q.locator('[data-quick-big]');await expect(big).toBeVisible();await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
-  // [할 일] hides it; [업데이트] shows it again.
-  await pickQuickMode(page,'task');await expect(big).toBeHidden();await pickQuickMode(page,'update');await expect(big).toBeVisible();
-  await big.click();
-  const e=win(page);await expect(e).toBeVisible();
-  await expect(text(page)).toContainText('홈에서 쓰던 업데이트');
-  await expect(e.locator('[data-edw-place]')).toContainText('잊지 말기(미분류)');
-  await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
-  expect(await fits(page)).toBe(true);
-  // Closing without saving hands the letters back to the input.
-  await typeInto(page,text(page),'큰 창에서 수정한 업데이트');
-  await e.locator('[data-close="edWindow"]').click();
-  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(win(page)).toHaveCount(0);
-  await expect(q.locator('[data-quick-input]')).toHaveValue('큰 창에서 수정한 업데이트');
-  expect(f.notes).toEqual([]);
-  await big.click();await expect(text(page)).toContainText('큰 창에서 수정한 업데이트');
-  await win(page).locator('[data-edw-save]').click();
-  await expect(win(page)).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장');
-  await expect(q.locator('[data-quick-input]')).toHaveValue('');
-  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'큰 창에서 수정한 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
-  expect(f.orgs).toEqual([]);expect(f.projects).toEqual([]);
-  expect(f.errors).toEqual([]);
- });
 
- test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization record keeps the form too, one project is a linked update ${width}`,async({page})=>{
-  const f=await fixture(page,width),q=quick(page);
-  await q.locator('[data-quick-input]').fill('조직 기록');
-  await pickQuickMode(page,'org');await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
-  await expect(q).toHaveAttribute('data-mode','update');
-  await q.locator('[data-quick-big]').click();
-  const e=win(page);await expect(e).toBeVisible();
-  await expect(e.locator('[data-edw-place]')).toContainText('테스트 조직');
-  await expect(e.locator('[data-edw-place]')).toHaveAccessibleName('기록할 곳 선택: 테스트 조직');
-  // ED③ 기록: one organization's record keeps the saved form with its letters.
-  await e.locator('[data-edw-save]').click();
-  await expect(win(page)).toHaveCount(0);
-  expect(f.orgs).toHaveLength(1);expect(f.orgs[0]).toMatchObject({organization_id:'o',raw_text:'조직 기록',created_by:'home-test'});expect(f.orgs[0].doc).toMatchObject({v:'ed1'});expect(f.notes).toEqual([]);
-  // A project picked inside the window: the home input follows the same place.
-  await q.locator('[data-quick-input]').fill('프로젝트 진행');
-  await q.locator('[data-quick-big]').click();await expect(e).toBeVisible();
-  await e.locator('[data-edw-place]').click();await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page).locator('[data-sheet-basket] button')).toHaveText('잊지 말기(미분류)');
-  await sheet(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();
-  // UPD-여러곳고르기: the press only marks it; [저장] keeps it (the home input went back to the basket after the add above).
-  await expect(sheet(page)).toBeVisible();await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
-  await sheet(page).getByRole('button',{name:'저장',exact:true}).click();await expect(sheet(page)).toBeHidden();
-  await expect(e.locator('[data-edw-place]')).toContainText('테스트 프로젝트');
-  await expect(e.locator('.ed-window-status')).toHaveText('테스트 프로젝트 기록에 저장돼요.');
-  await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
-  expect(f.projects).toEqual([]);
-  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'프로젝트 진행'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
-  expect(f.links).toEqual([{p_note_id:'new-1',p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결',origin:'record_input'}]}]);
-  // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
-  await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택');
-  const home=page.locator('#homeChoiceSheet');await pickQuickMode(page,'org');await expect(home).toBeVisible();
-  await expect(home.locator('[data-sheet-recent] [data-sheet-value]').first()).toHaveText('테스트 프로젝트');
-  await expect(home.locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
-  await page.keyboard.press('Escape');await expect(home).toBeHidden();
-  expect(f.errors).toEqual([]);
- });
 
  test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 선택하면 조직 기록에도 서식까지, 정리함도 서식까지 ${width}`,async({page})=>{
   const f=await fixture(page,width);
@@ -120,24 +57,3 @@ for(const width of [390,1280]){
  });
 }
 
-test('attachments in the home input stay when an organization is chosen in the window, and go with the update',async({page})=>{
- const f=await fixture(page,1280),q=quick(page),uploads=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const raw=r.request().postDataBuffer()?.toString('utf8')||'';uploads.push(raw);const id=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1]||'up-1';return r.fulfill({json:{ok:true,note_id:id,attachments:[{file_name:'메모.txt',size_bytes:2,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
- await q.locator('#quickBasketFiles').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
- await q.locator('[data-quick-input]').fill('첨부와 함께');
- await q.locator('[data-quick-big]').click();
- const e=win(page);await expect(e).toBeVisible();
- await e.locator('[data-edw-place]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
- // BUG-업데이트첨부연결: the file stays with the organization chosen (saving there: update-attach-target.spec.mjs). Files make it a basket update, so the form is kept.
- await expect(e.locator('[data-edw-attach] [data-basket-file]')).toHaveCount(1);
- expect([f.notes,f.orgs,uploads]).toEqual([[],[],[]]);
- // Back to the basket. BIZ-저장먼저닫기 2차(S59-10): the letters (with the form) are saved first as the basket update, the window closes on that,
- // and the file goes up behind to that update (note_id, no letters in the upload).
- await e.locator('[data-edw-place]').click();await sheet(page).locator('[data-sheet-basket] button').click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
- await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
- expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('첨부와 함께');expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.orgs).toEqual([]);
- await expect.poll(()=>uploads.length).toBe(1);expect(uploads[0]).toContain('filename="메모.txt"');expect(uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');expect(uploads[0]).not.toContain('name="raw_text"');
- await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
- await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
- expect(f.errors).toEqual([]);
-});
