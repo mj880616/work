@@ -54,7 +54,7 @@
 //   색은 테마 변수 색판 번호(note-board-decor-model.mjs PALETTE)로만 저장한다. 꾸미기 칸 적용 전(decorReady 거짓)에는 글자·도형·새 꾸미기 단추를 숨긴다.
 import { multiTouchActive, onMultiTouch } from './photo-grid-size.js';
 import { LONG_MS, SLOP } from './reorder-drag.js';
-import { askText, askConfirm, notify } from './small-notice.js';
+import { askText, askConfirm, notify, dropUndo } from './small-notice.js';
 import { confirmDelete } from './select-keys.js'; // K1 지우기 한 규칙(I-6)
 import { openRowMenu, appMenuPoint, ROW_MENU_ICON } from './row-menu.js';
 import { swatchHtml, setSwatchOn } from './color-swatch.mjs';
@@ -600,11 +600,14 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (textSel && ts.includes(textSel)) { textSel = null; closeBar(); }
     if (lineSel && ls.includes(lineSel)) closeLineMenu();
     multi = new Set(); if (selected && cards.some(c => c.id === selected)) select(null); paintSel();
-    const undo = await onRemoveItems({cards, texts:ts, links:ls});
-    if (!undo) return false;
-    const onlyCards = cards.length === n;
-    notify(onlyCards ? (n === 1 ? '보드에서 뺐어요' : `보드에서 ${n}개 뺐어요`) : n === 1 ? '삭제했어요' : `${n}개 삭제했어요`,
-      {label:onlyCards ? `보드에서 빼기 ${n}개` : `보드에서 삭제 ${n}개`, undo});
+    // 화면이 바뀌는 그 자리에서 알림·되돌리기(Ctrl+Z)를 함께 올린다 — 서버 답을 기다리는 동안 누른 Ctrl+Z도 받는다(#3313).
+    // 서버 지우기가 실패하면(부르는 쪽이 이미 알리고 다시 불러옴) 알림과 되돌리기 기록을 거둔다.
+    const asked = onRemoveItems({cards, texts:ts, links:ls});
+    if (!asked) return false;
+    const onlyCards = cards.length === n, label = onlyCards ? `보드에서 빼기 ${n}개` : `보드에서 삭제 ${n}개`;
+    const shown = notify(onlyCards ? (n === 1 ? '보드에서 뺐어요' : `보드에서 ${n}개 뺐어요`) : n === 1 ? '삭제했어요' : `${n}개 삭제했어요`,
+      {label, undo:asked.undo});
+    if (!(await asked.saved)) { shown.close(); dropUndo(shown.undoId); return false; }
     return true;
   }
   // 왼쪽 목록에서 이미 붙은 노트를 누름 → 그 카드가 가운데 오게 옮기고 잠깐 강조(고르기).
@@ -1046,8 +1049,8 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
         // S70-77: 연결점에서 끌어 만든 새 상자 = 상자 + 선 한 묶음. 알림 [되돌리기](Ctrl+Z도) 한 번에 둘 다 지운다(상자를 지우면 붙은 선도 함께 — 서버 cascade).
         if (onRemoveItems) notify('새 상자를 이었어요', {label:'새 상자 잇기', undo:async () => {
           await linkAsk;
-          const back = await onRemoveItems({texts:[saved.id], links:[], cards:[]});
-          return back ? true : {status:'failed', message:'되돌리지 못했어요.'};
+          const back = onRemoveItems({texts:[saved.id], links:[], cards:[]});
+          return back && await back.saved ? true : {status:'failed', message:'되돌리지 못했어요.'};
         }});
       }
       if (refocus && !editing && textEls.has(saved.id)) focusNode(saved.id);
