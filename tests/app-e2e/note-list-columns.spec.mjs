@@ -508,3 +508,60 @@ test('폰 390: 태그는 앞 두 개 + N(아래 작은 줄)', async ({ page }) =
   await expect.poll(() => tagsOf(rowsBox(page).locator('[data-nx-note="n1"]'))).toEqual({ shown: 2, more: '+2' });
   expect(s.errors).toEqual([]);
 });
+
+// NOTE-목록머리겹침(명진 11/27 PC 캡처 "수정일 쪽 뭔가 겹쳐 있네" · "⋯ 이 아니라 보이기 눈동자"): 머리 칸마다 글자·▲▼·너비 금이 서로 다른 자리를 차지한다.
+// 원인(사실): 오른쪽 맞춤 칸(수정일)의 글자·화살표가 칸 오른쪽 끝에 붙는데 너비 금(.col-grip, 24px)이 칸 안쪽 4px 지점에 걸려 화살표 위에 놓이고
+// 그 손잡이가 오른쪽 '첨부' 칸 쪽으로 12px 넘쳐 있었다. 금은 칸 사이 틈 한가운데로 옮기고 글자·화살표는 자기 칸 안에만 둔다.
+const headParts = (page) => head(page).evaluate(h => {
+  const r = el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right }; };
+  const out = {};
+  for (const c of h.querySelectorAll('[data-nl-col]')) {
+    const btn = c.querySelector('.hs-btn'), grip = c.querySelector('.col-grip');
+    const gr = grip ? r(grip) : null, mid = gr ? (gr.l + gr.r) / 2 : null;
+    out[c.dataset.nlCol] = { cell: r(c), btn: btn ? r(btn) : null, line: mid === null ? null : { l: mid - 1, r: mid + 1 } };
+  }
+  return out;
+});
+const hit = (a, b) => !!a && !!b && a.l < b.r && b.l < a.r;
+for (const width of [1100, 1400, 1750]) test(`PC ${width}: 수정일·첨부 머리 칸의 글자·화살표·금이 서로 겹치지 않음(기본 폭과 가장 좁힌 폭)`, async ({ page }) => {
+  const s = await fixture(page, width);
+  const check = async when => {
+    const p = await headParts(page), cells = Object.values(p).map(v => v.cell), why = `${width} ${when}`;
+    // 칸 범위는 서로 겹치지 않는다.
+    for (let i = 1; i < cells.length; i++) expect(cells[i - 1].r, `${why}: 칸 ${i - 1}·${i}`).toBeLessThanOrEqual(cells[i].l + 0.5);
+    // 글자·화살표(단추)는 자기 칸 안, 너비 금(가운데 선)은 어느 단추 위에도 놓이지 않는다.
+    for (const [key, v] of Object.entries(p)) {
+      if (v.btn) { expect(v.btn.l, `${why}: ${key} 단추 왼쪽`).toBeGreaterThanOrEqual(v.cell.l - 0.5); expect(v.btn.r, `${why}: ${key} 단추 오른쪽`).toBeLessThanOrEqual(v.cell.r + 0.5); }
+      for (const [k2, w] of Object.entries(p)) expect(hit(v.line, w.btn), `${why}: ${key} 금이 ${k2} 글자 위`).toBe(false);
+    }
+    // 수정일 값(줄)도 머리 칸과 같은 오른쪽 끝, 첨부 칸 범위를 넘지 않는다.
+    const day = await rowsBox(page).locator('.nl-cols [data-nl-cell="day"]').first().evaluate(e => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right }; });
+    expect(Math.abs(day.r - p.day.cell.r), `${why}: 값·머리 오른쪽 끝`).toBeLessThan(1);
+    expect(day.r, `${why}: 값이 첨부 칸 안으로`).toBeLessThanOrEqual(p.clip.cell.l + 0.5);
+  };
+  await check('기본');
+  const grip = head(page).locator('[data-col-grip="day"]');
+  await grip.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
+  await settle(page);
+  expect((await headCell(page, 'day').boundingBox()).width).toBeLessThan(48);
+  await check('좁힘');
+  expect(s.errors).toEqual([]);
+});
+
+test('PC: 보일 칸 진입 단추는 ⋯가 아니라 눈 아이콘이고 누르면 칸 고르기 메뉴가 열림', async ({ page }) => {
+  const s = await fixture(page, 1280);
+  const btn = head(page).locator('[data-nl-cols-menu]');
+  await expect(btn).toBeVisible();
+  await expect(btn.locator('svg.ui-ico-svg')).toHaveCount(1);
+  await expect(btn.locator('.more-dots')).toHaveCount(0);
+  await expect(btn).toHaveAttribute('aria-label', '보일 칸');
+  const box = await btn.boundingBox();
+  expect(box.width).toBeLessThanOrEqual(34); expect(box.height).toBeLessThanOrEqual(34);
+  await btn.click();
+  const menu = page.locator('#noteDocMenu');
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('[data-nl-col-toggle]')).toHaveCount(8);
+  await expect(menu.locator('[data-nl-cols-reset]')).toHaveText('기본으로');
+  expect(s.errors).toEqual([]);
+});

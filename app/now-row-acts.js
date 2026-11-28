@@ -2,6 +2,8 @@ import {bindRowSwipe, PICK, EDIT} from './row-swipe.js';
 import {notify} from './small-notice.js';
 import {setMark, setSaved, sendSignal, unstar, restoreStar, removeMine, restoreMine} from './now-marks.js';
 import {openRowMenu, appMenuPoint} from './row-menu.js';
+import {loadRatings, ratingOf, rate as rateItem} from './read-ratings.js';
+import {RATE_KEYS, ratePair, rateMenuItems, ratedText} from './read-ratings-model.mjs';
 // NOW-줄밀기(S49-3, 명진 11/03 08:55): Now 글 줄(사회운동·뉴스·보관)의 밀기·마우스 단추를 한 곳에서. 공용 줄 밀기(row-swipe.js)를 그대로 쓴다.
 // S68-26부터 왼쪽 밀기 = 칸 [보관]·[숨기기](사회운동 '관심 없음' 표시 + 목록에서 감춤, 뉴스 hidden_at — 끝까지 밀어도 칸만, 누를 때만 숨김 S70-60), 오른쪽 밀기 = [선택](여러 개).
 // 보관(= 별표, 두 쪽 같음 — S67-09)된 줄은 [보관] 칸이 [보관 풀기]. [보관] 탭은 칸 [보관 풀기]. 저장은 모두 서버(상세와 같은 now-marks.js), 누른 일마다 환류 기록. 알림 '숨겼어요 [되돌리기]'.
@@ -70,8 +72,14 @@ export function rowMenuItems({saved = false, isSaved = false, canDelete = false,
 const nwTitle = el => el.querySelector('.nw-title')?.textContent || '';
 // S70-62 READ-밀기메뉴(명진 11/26 07:41 "읽을 거리에서는 수정 저장 숨기기"): canEdit(item)이 참인 줄은 밀기 칸·⋯·우클릭 맨 앞에 [수정] — onEdit(item)
 //   (부르는 화면이 그 글 보기를 열고 기존 ⋯ [수정] 창을 연다. 새 수정 창 없음). 넘기지 않은 화면(홈·노트)은 전처럼.
-export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle} = {}) {
+// HOME-읽을거리평가(사용자 2026-11-28 07:04 "읽을 거리 왼쪽 스와이프 할 땐 엄지척 엄지다운 버튼 추가 학습해서 추후 추천에 반영"):
+//   rate가 참인 목록(홈 '읽을 만한 글'·읽을 거리 줄 — [저장한 글] 탭 빼고)은 밀기 칸 맨 왼쪽에 평가 칸 하나(위 [좋아요]·아래 [별로예요], 누른 것은 aria-pressed),
+//   ⋯·우클릭 메뉴 맨 앞에 [좋아요]·[별로예요](누른 것은 끝에 ✓). 다시 누르면 취소. 값은 서버(read-ratings.js → feed-shared.js), 다음 추천(ai-assist home_day_picks)에 쓴다.
+//   PC 마우스 올림 단추에는 넣지 않는다(줄 모양이 평가 값에 따라 다시 그려지지 않게 — 평가 칸·메뉴는 열 때 그 자리에서 만든다).
+export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete = () => false, canEdit = () => false, onEdit = null, saved = false, changed = () => {}, enabled = () => true, titleOf = nwTitle, rate = false} = {}) {
   if (!host) return {close() {}};
+  const rates = !!rate && !saved;
+  if (rates) { loadRatings(); globalThis.window?.addEventListener?.('kptu:view-changed', () => { if (host.isConnected) loadRatings(); }); }
   const fail = () => notify('저장하지 못했어요 · 잠시 뒤 다시', {error: true});
   const busy = new Set(); // 같은 글을 빠르게 두 번 눌러도 한 번만
   // 하나를 하고 되돌리기 길을 알림에 건다.
@@ -81,6 +89,12 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
     if (busy.has(id)) return;
     busy.add(id);
     try {
+      if (rates && RATE_KEYS[key]) {
+        // 평가는 목록 줄을 바꾸지 않는다(changed를 부르지 않음 — 칸·메뉴는 열 때 read-ratings.js 값으로 만든다).
+        const pressed = RATE_KEYS[key], next = await rateItem(item, pressed);
+        notify(ratedText(next, pressed));
+        return;
+      }
       if (key === 'hide') {
         await setMark(item, 'dismiss', true); sendSignal(item, 'dismiss'); changed(item, 'hide', true);
         notify('숨겼어요', {label: '글 숨기기', undo: async () => { await setMark(item, 'dismiss', false); sendSignal(item, 'undismiss'); changed(item, 'hide', false); }});
@@ -96,7 +110,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
     finally { busy.delete(id); }
   }
   const editable = item => !!onEdit && !!canEdit(item);
-  const menuItems = item => rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)});
+  const menuItems = item => [...(rates ? rateMenuItems(ratingOf(item)) : []), ...rowMenuItems({saved, isSaved: isSaved(item), canDelete: canDelete(item), canEdit: editable(item)})];
   // UI-줄밀기 Raindrop식(S68-26, 명진 11/22): 왼쪽으로 밀기 = 오른쪽 끝 칸 [보관]/[보관 풀기]·[숨기기](내가 넣은 기사는 [삭제]).
   // 끝까지 밀어도 칸만 열린다(S70-60) — 일은 칸을 누를 때만. 오른쪽으로 밀기 = 여러 개 선택.
   // S70-64b(명진 11/26 07:46 "전체선택 저장 삭제 만 있음 될 듯? 읽을 거리 선택 메뉴에서는"): 막대 = [전체 선택][저장][삭제].
@@ -108,6 +122,7 @@ export function bindNowRows(host, {row, itemOf, isSaved = () => false, canDelete
       const del = canDelete(item) ? {key: 'delete', label: saved || isSaved(item) ? DELETE_BOTH_LABEL : DELETE_LABEL, tone: 'danger'} : null;
       const start = attr ? PICK : null;
       const edit = editable(item) ? [EDIT] : [];
+      if (!saved && rates) edit.unshift(ratePair(ratingOf(item)));
       if (saved) return {start, end: [...edit, {key: 'release', label: RELEASE_LABEL, tone: 'info'}, del].filter(Boolean)};
       return {start, end: [...edit, {key: 'save', label: isSaved(item) ? RELEASE_LABEL : SAVE_LABEL, tone: 'info'}, del || {key: 'hide', label: HIDE_LABEL, tone: 'muted'}]};
     },

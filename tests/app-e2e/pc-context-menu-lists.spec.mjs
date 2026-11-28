@@ -39,7 +39,7 @@ test('파일 1280: 목록 줄 우클릭 → 그 줄 메뉴(고르기 아님), �
   expect(errors).toEqual([]);
 });
 
-test('News 1440: 글 줄 우클릭 → [수정][저장][숨기기](줄 위 단추와 같음, S70-62), [숨기기] 실행',async({page})=>{
+test('News 1440: 글 줄 우클릭 → [좋아요][별로예요](W4) + [수정][저장][숨기기](줄 위 단추와 같음, S70-62), [숨기기] 실행',async({page})=>{
   test.setTimeout(90000);
   const {errors,server}=await startNews(page,1440);
   await openNews(page,1440);
@@ -48,7 +48,7 @@ test('News 1440: 글 줄 우클릭 → [수정][저장][숨기기](줄 위 단�
   await keepLog(page);
   await rightAt(page,c1.locator('.nw-title'));
   await expect(menu(page)).toBeVisible();
-  expect(await labels(menu(page))).toEqual(['수정','저장','숨기기']);
+  expect(await labels(menu(page))).toEqual(['좋아요','별로예요','수정','저장','숨기기']); // HOME-읽을거리평가: 평가 두 항목이 맨 앞
   expect(await page.evaluate(()=>window.__kept)).toEqual([false]);
   await menu(page).getByRole('button',{name:'숨기기'}).click();
   await expect(page.locator('#newsRoot [data-nc-item="c1"]')).toHaveCount(0);

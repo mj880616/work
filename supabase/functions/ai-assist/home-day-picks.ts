@@ -129,7 +129,7 @@ export function runHeld(row: DayRow | null, nowMs: number): boolean {
 // group(HOME-읽을만한글넓힘): 'news'(국내 뉴스) · 'opinion'(사설·칼럼) · 'foreign'(외국) · 'reads'(그 밖 읽을 거리 묶음 — 카탈로그 region이 위 셋이 아닌 것).
 // paid: 유료 매체이거나 본문 상태가 유료벽(paywall). 둘 다 서버가 DB 줄(source_key·lang·state)과 카탈로그로만 정한다.
 export type NewsGroup = "news" | "opinion" | "foreign" | "reads";
-export type NewsRow = { id: string; title: string; publisher: string; summary: string; url: string; at: string; group?: NewsGroup; paid?: boolean };
+export type NewsRow = { id: string; title: string; publisher: string; summary: string; url: string; at: string; group?: NewsGroup; paid?: boolean; sourceKey?: string };
 // 매체 키·언어 → 글 묶음. 카탈로그에 없는 키는 언어로만(한국어 밖 = 외국).
 export function newsGroupOf(sourceKey: unknown, lang: unknown): NewsGroup {
   const src = newsSourceByKey(sourceKey);
@@ -140,6 +140,7 @@ export function newsGroupOf(sourceKey: unknown, lang: unknown): NewsGroup {
   return typeof lang === "string" && lang && lang !== "ko" ? "foreign" : "news";
 }
 // 따로 읽을 읽을 거리 묶음 매체 키(국내 뉴스 밖: 사설·칼럼·외국·새 묶음). 카탈로그 한 곳이 정한다 — 묶음이 늘면 저절로 들어온다(ai-assist 재배포 필요).
+const SOURCE_KEY = /^[a-z0-9][a-z0-9-]{1,39}$/;
 export const READS_GROUP_KEYS: readonly string[] = Object.freeze(NEWS_CATALOG.filter((s) => String(s.region) !== "domestic").map((s) => s.key));
 // 읽은 뉴스 줄 → 보낼 재료 줄. 숨긴 글·제목 없는 글·비밀 모양 글은 뺀다. 연락처는 지운다. 원문 주소는 https만(아니면 빈 값).
 export function toNewsRow(raw: unknown, workspaceId: string): NewsRow | null {
@@ -154,7 +155,8 @@ export function toNewsRow(raw: unknown, workspaceId: string): NewsRow | null {
   try { const u = new URL(String(r.url || "")); if (u.protocol === "https:") url = u.href; } catch { /* 빈 값 */ }
   const atRaw = [r.published_at, r.created_at].find((v) => typeof v === "string" && Number.isFinite(Date.parse(v))) as string | undefined;
   const group = newsGroupOf(r.source_key, r.lang), paid = r.state === "paywall" || newsSourceByKey(r.source_key)?.paid === true;
-  return { id: r.id.toLowerCase(), title, publisher: short(r.publisher, 40), summary, url, at: atRaw ? new Date(Date.parse(atRaw)).toISOString() : "", group, paid };
+  const sourceKey = typeof r.source_key === "string" && SOURCE_KEY.test(r.source_key) ? r.source_key : "";
+  return { id: r.id.toLowerCase(), title, publisher: short(r.publisher, 40), summary, url, at: atRaw ? new Date(Date.parse(atRaw)).toISOString() : "", group, paid, sourceKey };
 }
 
 // ---- HOME-읽을만한글넓힘(사용자 2026-11-28: 아침 메일 '오늘 읽을 글' 대신 홈 '읽을 만한 글'로) ----
@@ -229,14 +231,16 @@ export type ReadCandidate = NewsRow & { topics: string[]; score: number };
 // 서버가 먼저 줄이기: 짧은 글·지난 이레 본 글 빼고, 같은 제목은 하나만, 점수 높은 차례(같으면 새 글 먼저)로 최대 max개.
 // 점수: 담당조직·사업영역·일정 이름이 글에 있으면 +3, 관심 주제 하나마다 +2(둘까지), 사설·칼럼 +3, 외국·읽을 거리 묶음 +2, 요약이 길면(120자~) +1, 유료 -3.
 // 외국 글은 DAY_FOREIGN_SEND 자리까지(한국 글이 모자라면 더). 담당조직·사업 이름 맞추기는 띄어쓰기·대소문자 무시 글자 맞춤.
-export function rankReads(rows: NewsRow[], { topics = [], names = [], seen = { ids: new Set<string>(), titles: new Set<string>() }, max = DAY_NEWS_MAX }:
-  { topics?: readonly ReadTopic[]; names?: unknown[]; seen?: { ids: Set<string>; titles: Set<string> }; max?: number } = {}): ReadCandidate[] {
+// HOME-읽을거리평가: taste(내 👍·👎, ratingTaste)가 있으면 — 👎 받은 글과 같은 제목은 빼고, 매체(평가 합 +1마다 +1, 둘까지 / -1마다 -2, 넷까지)·
+//   묶음(합이 양수 +1, 음수 -1)·관심 주제(그 주제 평가 합이 양수 +1, 음수 -2)만큼 점수를 더한다. 평가가 없으면 예전과 같다.
+export function rankReads(rows: NewsRow[], { topics = [], names = [], seen = { ids: new Set<string>(), titles: new Set<string>() }, max = DAY_NEWS_MAX, taste = null }:
+  { topics?: readonly ReadTopic[]; names?: unknown[]; seen?: { ids: Set<string>; titles: Set<string> }; max?: number; taste?: RatingTaste | null } = {}): ReadCandidate[] {
   const nameKeys = [...new Set((names || []).map((n) => topicKey(cleanCtx(n, 80))).filter((k) => chars(k) >= 3))]; // 두 글자 이름(회의 등)은 너무 흔해 보지 않는다
   const pool: ReadCandidate[] = [], keys = new Set<string>();
   for (const r of rows) {
     if (isBrief(r.title) || seen.ids.has(r.id)) continue;
     const k = titleKeyOf(r.title);
-    if (!k || seen.titles.has(k) || keys.has(k)) continue;
+    if (!k || seen.titles.has(k) || keys.has(k) || taste?.dislikedKeys.has(k)) continue;
     keys.add(k);
     const hay = topicKey(`${r.title} ${r.summary}`), hit = topicsOf(r, topics);
     let score = hit.length * 2;
@@ -245,6 +249,7 @@ export function rankReads(rows: NewsRow[], { topics = [], names = [], seen = { i
     else if (r.group === "foreign" || r.group === "reads") score += 2;
     if (chars(r.summary) >= 120) score += 1;
     if (r.paid) score -= 3;
+    if (taste) score += tasteScore(r, hit, taste);
     pool.push({ ...r, topics: hit, score });
   }
   const order = (a: ReadCandidate, b: ReadCandidate) => b.score - a.score || (b.at > a.at ? 1 : b.at < a.at ? -1 : 0);
@@ -256,13 +261,72 @@ export function rankReads(rows: NewsRow[], { topics = [], names = [], seen = { i
   return pool.filter((r) => pick.has(r.id)).slice(0, max);
 }
 
+// ---- HOME-읽을거리평가(사용자 2026-11-28 07:04 "왼쪽 스와이프 할 땐 엄지척 엄지다운 버튼 추가 학습해서 추후 추천에 반영") ----
+// 사람별 표 app_read_ratings(owner RLS, 글 id·평가·시각만)의 최근 평가 + 공용 글 표(app_news_articles·app_outside_articles)의 제목·매체 키.
+// 서버가 먼저 줄이기(rankReads)에 쓰고, AI 재료 머리에 '좋아한 글 예·싫어한 글 예'(제목만, 각각 최대 DAY_RATING_EXAMPLES개)를 붙인다. AI 호출 횟수는 그대로.
+export const DAY_RATINGS_READ_MAX = 200; // 읽는 최근 평가 수
+export const DAY_RATINGS_LOOKUP_MAX = 100; // 그 가운데 제목·매체를 찾아보는 수(최근 것부터)
+export const DAY_RATING_EXAMPLES = 5;
+export type ReadRating = { rating: 1 | -1; title: string; sourceKey: string; group: NewsGroup | null };
+export type RatingTaste = { sources: Map<string, number>; groups: Map<NewsGroup, number>; topics: Map<string, number>; dislikedKeys: Set<string>; liked: string[]; disliked: string[] };
+// 평가 줄들(최근 것 먼저) + 공용 글 줄들 → 평가 목록. 내 작업공간 줄·값 -1/1·찾은 글만. 제목은 재료와 같은 검사(연락처 지우기·비밀 모양·가족 낱말 버림).
+export function readRatingsOf(rows: unknown, news: unknown, outside: unknown, workspaceId: string): ReadRating[] {
+  const byId = (list: unknown, kind: "news" | "outside") => {
+    const m = new Map<string, ReadRating>();
+    for (const a of Array.isArray(list) ? list : []) {
+      if (!a || typeof a !== "object") continue;
+      const r = a as Record<string, unknown>;
+      if (typeof r.id !== "string" || !UUID.test(r.id)) continue;
+      const title = cleanCtx(typeof r.title_ko === "string" && r.title_ko.trim() ? r.title_ko : r.title, 80);
+      if (!title) continue;
+      const key = typeof r.source_key === "string" && SOURCE_KEY.test(r.source_key) ? r.source_key : "";
+      m.set(r.id.toLowerCase(), { rating: 1, title, sourceKey: key, group: kind === "news" ? newsGroupOf(r.source_key, r.lang) : null });
+    }
+    return m;
+  };
+  const n = byId(news, "news"), o = byId(outside, "outside"), out: ReadRating[] = [];
+  for (const raw of Array.isArray(rows) ? rows : []) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    if (String(r.workspace_id).toLowerCase() !== workspaceId || (r.rating !== 1 && r.rating !== -1)) continue;
+    const hit = typeof r.news_article_id === "string" ? n.get(r.news_article_id.toLowerCase()) : typeof r.outside_article_id === "string" ? o.get(r.outside_article_id.toLowerCase()) : undefined;
+    if (hit) out.push({ ...hit, rating: r.rating });
+  }
+  return out;
+}
+// 평가 목록 → 매체·묶음·관심 주제별 합(좋아요 +1, 별로예요 -1), 별로예요 받은 제목 열쇠, 예로 보일 제목(최근 것부터 각각 최대 DAY_RATING_EXAMPLES개).
+export function ratingTaste(ratings: readonly ReadRating[], topics: readonly ReadTopic[] = []): RatingTaste | null {
+  if (!ratings.length) return null;
+  const t: RatingTaste = { sources: new Map(), groups: new Map(), topics: new Map(), dislikedKeys: new Set(), liked: [], disliked: [] };
+  const add = <K>(m: Map<K, number>, k: K, v: number) => m.set(k, (m.get(k) || 0) + v);
+  for (const r of ratings) {
+    if (r.sourceKey) add(t.sources, r.sourceKey, r.rating);
+    if (r.group) add(t.groups, r.group, r.rating);
+    for (const topic of topicsOf({ title: r.title, summary: "" }, topics)) add(t.topics, topic, r.rating);
+    const list = r.rating === 1 ? t.liked : t.disliked;
+    if (list.length < DAY_RATING_EXAMPLES && !list.includes(r.title)) list.push(r.title);
+    if (r.rating === -1) { const k = titleKeyOf(r.title); if (k) t.dislikedKeys.add(k); }
+  }
+  return t;
+}
+// 글 하나의 평가 점수(rankReads가 더한다).
+export function tasteScore(r: Pick<NewsRow, "sourceKey" | "group">, hit: readonly string[], taste: RatingTaste): number {
+  let score = 0;
+  const src = r.sourceKey ? taste.sources.get(r.sourceKey) || 0 : 0;
+  if (src > 0) score += Math.min(2, src); else if (src < 0) score += Math.max(-4, src * 2);
+  const grp = taste.groups.get(r.group || "news") || 0;
+  if (grp > 0) score += 1; else if (grp < 0) score -= 1;
+  for (const topic of hit) { const v = taste.topics.get(topic) || 0; if (v > 0) score += 1; else if (v < 0) score -= 2; }
+  return score;
+}
+
 const cleanCtx = (v: unknown, n: number) => {
   const s = unContact(short(v, n));
   return s && !looksSecret(s) && !FAMILY_WORDS.test(s) ? s : "";
 };
 const uniq = (xs: unknown[] | undefined, n: number, max: number) => [...new Set((xs || []).map((x) => cleanCtx(x, n)).filter(Boolean))].slice(0, max);
 
-export type ReadsContext = { orgs?: unknown[]; areas?: unknown[]; events?: DayEvent[]; topics?: readonly ReadTopic[] };
+export type ReadsContext = { orgs?: unknown[]; areas?: unknown[]; events?: DayEvent[]; topics?: readonly ReadTopic[]; taste?: RatingTaste | null };
 const GROUP_TAG: Record<NewsGroup, string> = { news: "", opinion: " [사설·칼럼]", foreign: " [외국]", reads: " [읽을 거리]" };
 // ② 재료: 번호는 1부터(서버가 번호↔뉴스 id를 기억한다 — AI에게 id·주소를 주지 않는다).
 // HOME-읽을만한글넓힘: 머리에 '내 관심 주제', 글마다 묶음 꼬리표([사설·칼럼]·[외국]·[유료])와 서버가 맞춘 관심 주제(관심: …).
@@ -272,10 +336,21 @@ export function readsMaterial(day: string, news: (NewsRow & { topics?: string[] 
   const events = uniq((ctx.events || []).map((e) => `${e.day.slice(5)} ${e.title}`), 80, DAY_EVENTS_MAX);
   const topics = (ctx.topics || []).map((t) => t.topic);
   const head = [`오늘: ${day}`, `내 관심 주제: ${topics.length ? topics.join(", ") : "(없음)"}`, `내 담당조직: ${orgs.length ? orgs.join(", ") : "(없음)"}`, `내 사업영역: ${areas.length ? areas.join(", ") : "(없음)"}`,
-    `이번 주 일정:${events.length ? "\n" + events.map((e) => `- ${e}`).join("\n") : " (없음)"}`].join("\n");
+    `이번 주 일정:${events.length ? "\n" + events.map((e) => `- ${e}`).join("\n") : " (없음)"}`,
+    // HOME-읽을거리평가: 평가가 있을 때만 두 줄(없으면 예전 재료 그대로).
+    ...tasteLines(ctx.taste)].join("\n");
   const body = news.map((n, i) => [`${i + 1}.${n.publisher ? ` [${n.publisher}]` : ""}${GROUP_TAG[n.group || "news"]}${n.paid ? " [유료]" : ""} ${n.title}${n.topics?.length ? ` (관심: ${n.topics.join(", ")})` : ""}`,
     n.summary && `요약: ${n.summary}`].filter(Boolean).join("\n"));
   return [head, "글:", ...body].join("\n\n");
+}
+
+// 재료 머리에 붙는 '좋아한 글 예·싫어한 글 예'(제목만). 평가가 없으면 빈 목록.
+export function tasteLines(taste: RatingTaste | null | undefined): string[] {
+  if (!taste) return [];
+  const out: string[] = [];
+  if (taste.liked.length) out.push(`좋아한 글 예(이런 글을 앞에): ${taste.liked.slice(0, DAY_RATING_EXAMPLES).join(" / ")}`);
+  if (taste.disliked.length) out.push(`싫어한 글 예(이와 비슷한 매체·주제는 뒤로, 같은 글은 고르지 않음): ${taste.disliked.slice(0, DAY_RATING_EXAMPLES).join(" / ")}`);
+  return out;
 }
 
 export const READS_INSTRUCTIONS = [

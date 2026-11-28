@@ -30,3 +30,9 @@
    여기서는 목록 위에 붙어 따라오는 자리만 정한다(하단바·하단 칩과 겹치지 않게 위쪽). 단추 모양은 base-ui.css 한 곳(앱 화면 밖 창 — 사업 관리 휴지통 창 — 도 같은 규칙). */
 .row-swipe-pickbar:not([hidden]){ position:sticky; top:var(--kptu-stick-top,0px); z-index:3; margin:2px 0 4px; }
 [data-row-picking] [data-row-swipe-act]{ display:none; }
+/* HOME-읽을거리평가(사용자 2026-11-28 07:04): 평가 칸 하나 = 위 [좋아요]·아래 [별로예요] 두 단추를 포갠 칸(그림만, 테두리 없음).
+   누른 단추는 그림을 채우고 바탕을 조금 더 진하게(aria-pressed) — 다시 열어도 서버 값 그대로 보인다. 폭은 다른 칸과 같은 한 칸. */
+.row-swipe-pair{ display:flex; flex-direction:column; width:64px; min-width:64px; height:100%; }
+.row-swipe-pair > .row-swipe-half{ flex:1 1 50%; width:100% !important; min-width:0; height:auto; }
+.row-swipe-half[aria-pressed="true"]{ --rs-c:var(--kptu-info); background:color-mix(in srgb, var(--rs-c) 40%, var(--kptu-surface)); }
+.row-swipe-half[aria-pressed="true"] svg :is(path){ fill:currentColor; }
