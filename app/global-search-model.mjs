@@ -2,6 +2,7 @@
 // 검색어 나누기·검사(서버 app_search_records와 같은 규칙), 형광 구간, Google 일정·할 일 거르기, 묶음 합치기·정렬,
 // 오류 코드 → 안내 글. 화면(global-search.js)과 자료(global-search-data.js)가 함께 쓴다.
 import {word} from './brand/brand.mjs';
+import {compileFind} from './find-match-model.mjs'; // S70-67 SEARCH-비슷한것찾기: 브라우저가 찾는 묶음(일정·할 일)은 공용 글자 비슷 찾기
 
 export const MIN_WORD = 2, MAX_WORDS = 6, MAX_WORD = 100, MAX_QUERY = 200, CAP = 200, PREVIEW = 3, PAGE = 20, SNIPPET_RADIUS = 40;
 // 서버 종류(설계 7절). 일기는 어디에도 없다(서버 허용 목록이 최종 경계).
@@ -71,7 +72,10 @@ export function errorMessage(error) {
 }
 
 const lower = s => String(s ?? '').toLowerCase();
-const includesAll = (text, words) => { const t = lower(text); return words.every(w => t.includes(lower(w))); };
+// 브라우저 쪽 맞추기(일정·할 일): 공용 판정(띄어쓰기 무시·오타·초성·앞부분). 낱말 묶음마다 한 번만 만든다.
+const finds = new Map();
+const findOf = words => { const k = (words || []).join(' '); let f = finds.get(k); if (!f) { if (finds.size > 50) finds.clear(); f = compileFind(k); finds.set(k, f); } return f; };
+const includesAll = (text, words) => !!findOf(words).test(String(text ?? ''));
 
 // 형광 구간: text를 [{text, mark}] 조각으로 나눈다(겹치는 구간은 합침, 대소문자 무시). 화면은 조각마다 textContent로 그린다.
 export function highlightParts(text, words) {
@@ -210,6 +214,22 @@ export function buildGroups(server, local = {}, per = PREVIEW) {
   return out;
 }
 
+// S71-15 SEARCH-비슷한말전체검색: 같은 검색 결과를 여러 낱말(검색어 + 비슷한 말)로 받은 서버 묶음들(cleanServer Map들)을 하나로.
+// 같은 줄(source·id)은 한 번, 최근 것 먼저. 건수: 모든 묶음이 다 받아졌으면(건수 = 받은 줄 수) 합친 줄 수 그대로, 아니면 합친 줄 수 + 못 받은 만큼 중 가장 큰 것.
+export function mergeServerGroups(maps) {
+  const out = new Map();
+  for (const kind of SEARCH_KINDS) {
+    const gs = (maps || []).map(m => m?.get?.(kind)).filter(Boolean);
+    if (!gs.length) continue;
+    const seen = new Set(), items = [];
+    for (const g of gs) for (const it of g.items || []) { const k = `${it.source}:${it.id}`; if (seen.has(k)) continue; seen.add(k); items.push(it); }
+    items.sort(byRecent);
+    const left = Math.max(0, ...gs.map(g => (g.total || 0) - (g.items?.length || 0)));
+    out.set(kind, {kind, total: items.length + left, capped: gs.some(g => g.capped), offset: 0, items, complete: left === 0});
+  }
+  return out;
+}
+
 export const countLabel = (total, capped) => capped ? `${CAP}+` : String(total || 0);
 // 칩: 전체(합) + 칩 있는 묶음 + 건수.
 export function chipOptions(groups) {
@@ -248,7 +268,9 @@ export function openTarget(item) {
     case 'project': return {view: 'projects', id: item.id};
     case 'progress': case 'milestone': return item.project_id ? {view: 'projects', id: item.project_id} : null;
     case 'organization': return {view: 'team', id: item.id};
-    case 'org_update': case 'org_timeline': return item.organization_id ? {view: 'team', id: item.organization_id} : null;
+    // S71-15 SEARCH-결과원문으로: 조직 기록·타임라인 한 줄은 그 조직의 그 기록으로(조직만 열지 않는다).
+    case 'org_update': return item.organization_id ? {view: 'team', id: item.organization_id, record: {kind: 'update', id: item.id}} : null;
+    case 'org_timeline': return item.organization_id ? {view: 'team', id: item.organization_id, record: {kind: 'timeline', id: item.id}} : null;
     case 'google_task': return {view: 'tasks', id: item.id};
     case 'google_event': return {view: 'calendar', id: item.id, calendarId: item.calendar_id};
     default: return null;

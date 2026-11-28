@@ -7,11 +7,9 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {confirmLinks,ERROR_TEXT,LINK_ORIGIN} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectMyOrganizations} from './my-organizations.js';
-import {createChoiceSheet,orgRow} from './choice-sheet.js';
-// S52-01 ③a UI-사업영역조직고르기창: 담당조직·사업영역과 할 일 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나. 참고 묶음은 이 창의 자기 고르기 창.
+// S52-01 ③a UI-사업영역조직고르기창: 담당조직·사업영역과 할 일 사업영역은 모든 화면과 같은 고르기 창(area-org-picker.js) 하나.
 import {orgWriteInFor} from './feed-link.js';
 import {openAreaOrgPicker,dismissAreaOrgPicker,areaOrgPickerClosed,usedKeysNow,catalogAreas,orderedOrgGroups,areaTree,areaChipText} from './area-org-picker.js';
-import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {announceRecordSaved,basketDetail} from './record-saved.js';
 import {dayKey} from './home-read-model.js';
@@ -27,9 +25,9 @@ import {word} from './brand/brand.mjs';
 export const MANUAL_LINK_REASON='직접 연결';
 export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
-// REF-참고묶음: 'reference' = a reference bundle (app_reference_bundles, link column bundle_id). It is never report material.
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자): 참고 묶음(bundle_id)은 여기서 고르지 않는다. 이미 붙은 참고 연결은 '이미 연결됨'으로만 센다.
 // MTG-프로젝트합치기 2단계: 바구니에서 프로젝트 고르기 버튼·창 이름은 '사업영역 꼬리표 달기'(저장은 같은 연결 줄, 주간보고 ②에 그대로 — 결정 ⑦). 나머지 글자는 3단계에서.
-const KIND_NAME={organization:word('담당조직'),project:word('사업영역'),reference:'참고'};
+const KIND_NAME={organization:word('담당조직'),project:word('사업영역')};
 const MANUAL_ERROR_TEXT=Object.freeze({
   NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
   NOTE_ARCHIVED:'보류한 업데이트는 연결할 수 없어요. 보류를 해제한 뒤 연결해 주세요.',
@@ -86,27 +84,24 @@ export async function readManualChoices(rt=window.KPTURuntime){
   const c=rt.context.read(),workspaceId=c?.workspace?.id,userId=c?.user?.id;
   if(!workspaceId||!userId)throw Error('업무 공간을 확인할 수 없어요.');
   await Promise.all([import('./project-catalog.js'),import('./organization-order.js')]);
-  const [catalog,rows,assignees,bundles]=await Promise.all([
+  const [catalog,rows,assignees]=await Promise.all([
     window.KPTUProjectCatalog.load({workspaceId,userId,force:true}),
     readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,name,active&order=id.asc`,rt),
     readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(userId)}&select=organization_id&order=organization_id.asc`,rt).catch(()=>[]),
-    // REF-참고묶음: the reference bundles (owner RLS). A failed read leaves [참고 ▾] with nothing to choose; the rest still works.
-    readReferenceBundles(rt).catch(()=>[]),
   ]);
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectMyOrganizations(rows,assignees).organizations);
   // all: 활동 중인 조직 전체 — 담당조직 창 [직접 쓰기]가 새로 만들기 전에 비슷한 이름을 찾는 데만 쓴다(S61-52, 중복 방지).
-  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),all:rows.filter(row=>row?.id&&row.active!==false),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active'),bundles};
+  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),all:rows.filter(row=>row?.id&&row.active!==false),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active')};
 }
 
 // One link panel and one task form inside the basket read view. basket.js keeps
 // owning the detail; this controller owns only what is drawn into its host.
-// sheetId: each mounted panel needs its own choice sheet (the basket memo side and the note side, MEMO-노트).
 // UI-바구니첨부메모 ⑦⑧⑨: files (optional) = {read:()=>({files,docs}), put:({projectId,organizationId,projectName,organizationName},isCurrent)=>result}.
 // 글 없이 첨부만 있는 메모는 프로젝트·담당조직을 고르면 요약 없이 [자료로 넣기](진행상황·기록에 안 남음), 원할 때만 [기록도 남기기].
 // 글이 있는 메모는 기록이 되고(요약은 선택, 비우면 본문 표시), 첨부가 있으면 파일은 첫 번째로 고른 프로젝트·첫 번째로 고른 담당조직 자료에도 들어간다.
-export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,files:fileDocs=null,sheetId='basketLinkChoice'}){
+export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,files:fileDocs=null}){
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   const statusHtml=text=>text===WAITING?waitInlineHtml():esc(text);
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
@@ -126,8 +121,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   // S52-01 ③a: a chosen child area reads '상위 › 하위' (the shared picker's tag text).
   const projectPath=id=>(choices?.projects?areaChipText(areaTree(catalogAreas(choices.projects)),'p:'+id):'')||projectName(id);
   const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||word('다른 조직');
-  const bundleName=id=>choices?.bundles?.find(b=>b.id===id)?.name||'참고 묶음';
-  const placeName={project:projectName,organization:organizationName,reference:bundleName};
+  const placeName={project:projectName,organization:organizationName};
   async function loadChoices(){
     if(choices&&choices.owner===scope())return choices;
     if(choicesFlight)return choicesFlight;
@@ -135,34 +129,9 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     choicesFlight=readManualChoices(rt).then(value=>{if(owner===scope())choices=value;return value;}).finally(()=>{choicesFlight=null;});
     return choicesFlight;
   }
-  const sheet=createChoiceSheet({id:sheetId+'Sheet',titleId:sheetId+'Title',historyKey:'kptu'+sheetId[0].toUpperCase()+sheetId.slice(1),
-    canOpen:()=>!!mode&&!!note()&&!isBusy()&&window.KPTURouter.current==='basket',
-    choices:loadChoices,
-    render:()=>{
-      const done=linked(),picked=new Set(link.targets.map(t=>linkKey(t.kind,t.id)));
-      // Already linked places stay visible as text and cannot be chosen again.
-      const doneItem=(state,name)=>`<span class="home-choice-row basket-choice-done" data-sheet-item style="--home-choice-depth:0">${esc(name)} · ${state==='suggested'?'이미 제안됨':'이미 연결됨'}</span>`;
-      // REF-참고묶음 (질문 3: an update may be in an organization and a bundle at once): bundles are rows with a check box, like organizations.
-      const ref=b=>{const name=b.name||'이름 없는 묶음',state=done.get(linkKey('reference',b.id));return state?doneItem(state,name):orgRow(b,picked.has(linkKey('reference',b.id)),esc);};
-      return {title:'참고 묶음 선택',search:'묶음 이름 검색',html:choices.bundles?.length?choices.bundles.map(ref).join(''):'<p class="home-choice-label">선택할 수 있는 참고 묶음이 없어요.</p>'};
-    },
-    onSelect:(kind,value)=>{
-      if(linked().has(linkKey(kind,value)))return;
-      if(!link.targets.some(t=>t.kind===kind&&t.id===value)){
-        if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
-        addTarget(kind,value);
-      }
-      paint();
-      // The sheet returns focus to its trigger once its history entry is gone; the new summary is
-      // the next thing to write, so focus it after that close settles (sheet.close() returns it).
-      queueMicrotask(()=>void sheet.close().then(()=>host?.querySelector(`[data-manual-summary="${CSS.escape(linkKey(kind,value))}"]`)?.focus()));
-    },
-    onError:error=>{const message=error?.message||'선택할 목록을 불러오지 못했어요. 다시 눌러 주세요.';if(mode==='link')link.status=message;else if(task)task.status=message;paint();}
-  });
   function addTarget(kind,value){
-    const name=kind==='organization'?organizationName(value):kind==='reference'?choices?.bundles?.find(b=>b.id===value)?.name:projectPath(value);
-    // A reference link is the whole point of picking a bundle, so it is always made (no [기록도 남기기] choice for it).
-    link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState(),files:newAiState()});link.status='';
+    const name=kind==='organization'?organizationName(value):projectPath(value);
+    link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:!filesOnly(note()),ai:newAiState(),files:newAiState()});link.status='';
   }
   // S52-01 ③a: [담당조직 고르기 ▾]·[사업영역 꼬리표 달기 ▾] open the shared sheet with many choices: the places picked so far start
   // pressed, already linked ones are gray text, and [넣기] keeps the new set of that kind (a place unpressed there is taken out, one
@@ -211,7 +180,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   }
   const dismissPicker=()=>{if(pickTrigger)dismissAreaOrgPicker(pickTrigger);pickTrigger=null;};
   function targetFiles(t){
-    const {files,docs}=fileState();if(!files.length||t.kind==='reference')return '';
+    const {files,docs}=fileState();if(!files.length)return '';
     const into=fileTargets()[t.kind];
     if(into?.id!==t.id)return `<p class="basket-manual-file-note">파일은 ${esc(into?.name||'')} 한 곳에만 들어가요.</p>`;
     const column=t.kind+'_id';
@@ -222,13 +191,12 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   // summarized once for this place and put in the record box. Only for 담당조직·프로젝트. No text → no button (the title shows the file);
   // a photo still being read → '글자 읽는 중'. Works together with [자료로 넣기]: pressing it turns 기록 on for that place.
   function filesMarkup(n,t,key){
-    if(t.kind==='reference')return '';
     const state=attachmentTextState(n);if(state==='none')return '';
     return aiSummaryMarkup(t.files,key,'data-manual',esc,{label:'요약해서 기록으로',slot:'files',aria:'사진·파일 글자를 요약해서 기록으로',waiting:state==='pending'?'글자 읽는 중':''});
   }
   async function runFilesAi(key){
     const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
-    if(mode!=='link'||!n||!t||t.kind==='reference'||t.files.busy||attachmentTextState(n)!=='ready')return;
+    if(mode!=='link'||!n||!t||t.files.busy||attachmentTextState(n)!=='ready')return;
     if(!t.record){t.record=true;}
     const cacheKey=n.id+'|'+key;
     let reused=filesCache.get(cacheKey),result;
@@ -262,7 +230,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   // LIB-연결요약기본(빠짐13, 요청 10/24 13:07 ③): 자료(글 없이 파일만)를 담당조직·사업영역에 [기록도 남기기]로 연결할 때, 파일이 자료실 자료 하나이고
   // 올릴 때 만든 자료 요약('b1:')이 있으면 요약 칸 기본값으로 바로 넣는다(AI를 부르지 않음, 고쳐 쓸 수 있음). 없으면 지금처럼 [요약해서 기록으로]·[AI 요약].
   async function prefillBrief(t){
-    const n=note();if(mode!=='link'||!n||!t||t.kind==='reference'||!t.record||!filesOnly(n)||!isBlankLinkSummary(t.summary)||t.files.busy)return;
+    const n=note();if(mode!=='link'||!n||!t||!t.record||!filesOnly(n)||!isBlankLinkSummary(t.summary)||t.files.busy)return;
     const files=fileState().files;if(files.length!==1)return;
     const doc=fileState().docs.get(files[0].drive_file_id);if(!doc?.id)return;
     const cacheKey='brief|'+doc.id;let brief=filesCache.get(cacheKey);
@@ -275,10 +243,10 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     const done=[...linked().keys()].length,only=filesOnly(n);
     return word`<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?word('조직·사업영역 자료로 넣기'):word('조직·사업영역에 연결')}</h3>
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
-<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 선택 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">사업영역 꼬리표 달기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
+<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 선택 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">사업영역 꼬리표 달기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택할 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?word('담당조직이나 사업영역을 선택하면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.'):'선택한 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" class="row-act" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" class="row-act" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-autogrow data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${statusHtml(link.status)}</p>
 <div class="basket-actions save-row"><button type="button" class="secondary" data-manual-cancel>취소</button><button type="button" class="primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button></div></section>`;
   }
@@ -292,7 +260,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
     const dateLabel=task.dateKind==='date'&&task.due?`${Number(task.due.slice(5,7))}.${Number(task.due.slice(8,10))}`:'날짜';
     return `<section class="basket-manual" data-manual-task data-enter-save aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
 <label class="basket-text-label">할 일 제목<textarea rows="1" data-manual-task-title data-autogrow data-enter-field="single" maxlength="${TASK_LIMITS.title}">${esc(task.title)}</textarea></label>
-<label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
+<label class="basket-text-label">할 일 메모<textarea data-autogrow data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div data-manual-task-files-slot></div>
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc(word('사업영역: ')+project):word('사업영역')}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="after" aria-pressed="${task.dateKind==='after'}">모레</button><button type="button" data-manual-task-day="week" aria-haspopup="true" aria-pressed="${task.dateKind==='week'}">${esc(task.dateKind==='week'&&task.due?weekdayLabel(task.due):'다음주')}</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p data-manual-task-status role="status">${statusHtml(task.status)}</p><div data-manual-task-recover></div>
@@ -376,7 +344,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
     if(next==='task')void loadChoices().then(()=>{if(mode==='task')paintTaskProject();}).catch(()=>{});
     return '';
   }
-  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();dismissPicker();taskFilesPick?.clear();}
+  function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;dismissPicker();taskFilesPick?.clear();}
   function hasDraft(){
     if(mode==='link')return link.targets.length>0;
     if(mode==='task'&&task)return !!task.unknown||task.title!==task.initial.title||task.notes!==task.initial.notes||(task.due||'')!==(task.initial.due||'')||!!task.project||!!(taskFilesOn&&taskFilesPick?.files().length);
@@ -508,7 +476,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
     host=next;
     host.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b||b.disabled||isBusy())return;
-      if(b.dataset.manualPick){if(b.dataset.manualPick==='reference')void sheet.open('reference',b);else void openPlaces(b.dataset.manualPick,b);}
+      if(b.dataset.manualPick)void openPlaces(b.dataset.manualPick,b);
       else if(b.dataset.manualRemove){link.targets=link.targets.filter(t=>linkKey(t.kind,t.id)!==b.dataset.manualRemove);link.status='';paint();host.querySelector('[data-manual-pick="organization"]')?.focus();}
       else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record){host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();void prefillBrief(t);}}}
       else if(b.dataset.manualAiRun)void runAi(b.dataset.manualAiRun);
@@ -543,7 +511,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 선택�
     const n=getNote();if(mode&&(!n||n.id!==noteId))reset();
     paint();
   }
-  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket'){sheet.dismiss();dismissPicker();}});
+  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket')dismissPicker();});
   window.addEventListener('kptu:session-changed',()=>{if(choices&&choices.owner!==scope())choices=null;});
   window.addEventListener('kptu:project-catalog-updated',()=>{choices=null;});
   return {attach,open,cancel,reset:()=>{reset();paint();},isOpen:()=>!!mode,hasDraft,controls};

@@ -9,7 +9,6 @@
 import {createAnchoredMenu} from './anchored-menu.js';
 import {createMovePicker} from './library-move-picker.js';
 import {notify} from './small-notice.js';
-import {uploadLabelHtml} from './upload-label.mjs';
 import {reportPickRows, attachResult, PICK_SECTIONS, PICK_LABEL, DEVICE_LABEL, HERE_TAG, PICK_COLUMNS} from './report-library-pick-model.mjs';
 
 const rt = () => window.KPTURuntime;
@@ -27,7 +26,7 @@ function ensureMenu() {
     id: 'reportAddMenu', className: 'report-add-menu', label: '자료 추가', historyKey: 'kptuReportAddMenu', boxWidth: 180,
     parent: t => t.closest('.modal,[role="dialog"]') || document.body,
     key: t => t.id || 'report-add',
-    render: () => `<button type="button" class="row-act up-clip-btn" data-report-add="device">${uploadLabelHtml(DEVICE_LABEL)}</button><button type="button" class="row-act" data-report-add="library">${esc(PICK_LABEL)}</button>`,
+    render: () => `<button type="button" class="row-act" data-report-add="device">${esc(DEVICE_LABEL)}</button><button type="button" class="row-act" data-report-add="library">${esc(PICK_LABEL)}</button>`,
     onAction: (button, active) => {
       const job = jobs.get(active.trigger), act = button.dataset.reportAdd;
       if (act === 'device') job?.device?.();

@@ -177,7 +177,10 @@ for (const width of [412, 884, 1280]) {
     const all = rows(page, '[data-nw-all]');
     await expect(all).toHaveCount(POSTS.length + NEWS.length);
     await expect(all.first()).toHaveAttribute('data-nw-key', 'news:a1');
-    await expect(root(page).locator('[data-nw-all] .nw-day-head').first()).toHaveText(/^오늘/);
+    // S71-27 NEWS-머리한줄: 맨 위 '오늘' 묶음은 머리 줄 없이 — 새 글 수는 화면 첫 줄(읽을 거리 · 새 글 N). 아래 날짜 묶음 머리는 그대로.
+    await expect(root(page).locator('[data-nw-all] .nw-day-lead')).toHaveCount(1);
+    await expect(root(page).locator('[data-nw-all] .nw-day-head').first()).toHaveText(/^어제/);
+    await expect(page.locator('[data-sf-note="outside"]')).toHaveText('새 글 2');
     await expect(root(page).locator('[data-nw-all] .nw-card')).toHaveCount(4);
     // 줄: 색 띠·같은 색 매체 이름·분류 꼬리표(성명 = 성명·논평·보도자료, 국제 = 외국 글)·시각·★(별표한 기사). 요약 줄은 없다.
     const p1 = row(page, 'outside:p1');
@@ -365,6 +368,38 @@ test('S69 News: 제목 없는 대기·robots 줄은 주소 조각으로, 조각�
   expect(errors).toEqual([]);
 });
 
+// NEWS-수집처늘리기(사용자 요청 2026-11-28: AI 코딩·축구 전술 글): [매체 ▾]에 'AI 코딩'·'축구' 묶음 — 고르면 그 묶음 글만. 폰 412·PC 1280.
+for (const width of [412, 1280]) test(`읽을 거리 ${width}: [매체 ▾] AI 코딩·축구 묶음으로 거르기`, async ({ page }) => {
+  test.setTimeout(90000);
+  const newsCatalog = [...NEWS_CATALOG, { key: 'news-fake-tech', name: 'Fake Coding Notes', region: 'tech', lang: 'en', on: true }, { key: 'news-fake-ball', name: 'Fake Tactics Blog', region: 'football', lang: 'en', on: true }];
+  const base = { lane: 'media', lang: 'en', summary: null, body_kind: null, starred_at: null, scrapped_at: null, state: 'ok' };
+  const news = [...NEWS,
+    { ...base, id: 'k1', url: 'https://example.org/k1', title: 'A fake note on coding agents', title_ko: '코딩 에이전트에 관한 가짜 글', publisher: 'Fake Coding Notes', source_key: 'news-fake-tech', published_at: '2026-10-06T00:40:00Z', created_at: '2026-10-06T00:45:00Z' },
+    { ...base, id: 'b1', url: 'https://example.org/b1', title: 'Fake pressing shape review', title_ko: '가짜 전방 압박 분석', publisher: 'Fake Tactics Blog', source_key: 'news-fake-ball', published_at: '2026-10-06T00:20:00Z', created_at: '2026-10-06T00:25:00Z' },
+  ];
+  const { errors, server } = await start(page, width, null, { newsCatalog, news });
+  server.newsRows.push({ source_key: 'news-fake-tech', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null }, { source_key: 'news-fake-ball', enabled: true, last_ok_at: '2026-10-06T00:30:00Z', last_error: null });
+  await openOutside(page, width);
+  await expect(row(page, 'news:k1')).toBeVisible();
+  await expect(row(page, 'news:b1')).toBeVisible();
+  const dd = page.locator('.sf-tools [data-nw-media]');
+  await dd.click();
+  const pick = page.locator('#nwMediaPicker');
+  await expect(pick.locator('.lu-move-item')).toContainText(['언론 국내', '가짜일보', 'AI 코딩', 'Fake Coding Notes', '축구', 'Fake Tactics Blog', '언론 국제']);
+  await pick.locator('[data-lu-move-folder="r:tech"]').click();
+  await expect(dd).toHaveText('매체: AI 코딩 ▾');
+  await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+  await expect(row(page, 'news:k1')).toBeVisible();
+  expect(server.calls.filter(c => c.what === 'app_news_articles').at(-1).query).toContain('source_key=in.(news-fake-tech)');
+  await dd.click();
+  await pick.locator('[data-lu-move-folder="r:football"]').click();
+  await expect(dd).toHaveText('매체: 축구 ▾');
+  await expect(rows(page, '[data-nw-all]')).toHaveCount(1);
+  await expect(row(page, 'news:b1')).toBeVisible();
+  expect(await noWideScroll(page)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 // S70-17b NEWS-제목꼭얻기(명진 11/25 10:26 "원문 못읽어도 최소한 제목이라도 읽어야함 … 못읽으면 차라리 목록에서 빠지는게 나음"): 폰 390 읽을 거리.
 // 제목을 끝내 못 얻은 기사(동아일보 공유 주소 꼴 — 주소 조각도 없음)는 '못 읽은 기사 · 도메인' 카드로 보이지 않고 '새 글 N'에도 세지 않는다.
 // 서버가 나중에 제목을 얻으면(같은 기사 RSS 줄 등) 다시 읽을 때 보인다. 보관한 글(공유로 넣은 글)은 [직접 넣기]를 위해 남는다.
@@ -381,18 +416,99 @@ test('S70-17b 폰 390: 제목 없는 기사는 읽을 거리 목록·새 글 수
   await expect(row(page, 'news:d1')).toHaveCount(0);
   await expect(row(page, 'news:d2')).toHaveCount(0);
   await expect(root(page)).not.toContainText('못 읽은 기사');
-  // 오늘 묶음 머리의 '새 글 N' = 그 묶음 안 굵은(안 읽은) 줄 수 — 빠진 줄은 세지 않는다.
-  const today = root(page).locator('.nw-day').filter({ has: page.locator('.nw-day-head', { hasText: '오늘' }) }).first();
+  // 첫 줄의 '새 글 N'(S71-27, 옛 '오늘' 묶음 머리) = 맨 위 오늘 묶음 안 굵은(안 읽은) 줄 수 — 빠진 줄은 세지 않는다.
+  const today = root(page).locator('[data-nw-all] .nw-day-lead');
+  const lead = page.locator('[data-sf-note="outside"]');
   await expect(today.locator('.nw-row.is-new').first()).toBeVisible();
   const fresh = await today.locator('.nw-row.is-new').count();
-  await expect(today.locator('.nw-day-head')).toHaveText(`오늘 · 새 글 ${fresh}`);
+  await expect(lead).toHaveText(`새 글 ${fresh}`);
   await page.screenshot({ path: test.info().outputPath('no-title-hidden-390.png') });
   // 서버가 나중에 같은 기사 RSS 줄 제목을 적었다 → 다시 읽으면 보이고 새 글 수에 든다.
   Object.assign(news.find(n => n.id === 'd1'), { title: '나중에 얻은 가짜 제목', publisher: '동아일보' });
   await page.evaluate(() => window.KPTUOutside?.refresh?.());
   await expect(row(page, 'news:d1')).toContainText('나중에 얻은 가짜 제목');
-  await expect(today.locator('.nw-day-head')).toHaveText(`오늘 · 새 글 ${fresh + 1}`);
+  await expect(lead).toHaveText(`새 글 ${fresh + 1}`);
   await expect(row(page, 'news:d2')).toHaveCount(0);
   expect(errors).toEqual([]);
   expect(server.calls.length).toBeGreaterThan(0);
 });
+
+// S71-27 NEWS-머리한줄(명진 11/26 "오늘 새글 이것도 위로 밀어넣으면 될듯"): 첫 줄 = [W] 읽을 거리 · 새 글 N(작은 회색) · (빈 칸) · 찾기 · [매체 ▾] · ⋯.
+// 따로 떨어진 '오늘 · 새 글 N' 줄은 없다(맨 위 '오늘' 묶음은 머리 없이). 아래 '어제'·날짜 묶음 머리는 그대로. 첫 줄은 한 줄 높이·넘침 없음.
+for (const width of [344, 390, 690, 1280]) {
+  test(`S71-27 읽을 거리 ${width}: 새 글 수는 첫 줄 이름 바로 뒤, 따로 된 '오늘 · 새 글' 줄 없음, 첫 줄 한 줄`, async ({ page }) => {
+    test.setTimeout(60000);
+    // 긴 매체 이름(가상) — 좁은 폭에서 [매체: … ▾]가 줄어드는지 보려고.
+    const newsCatalog = NEWS_CATALOG.map(c => (c.key === 'news-fake-a' ? { ...c, name: '가짜일보 아주 긴 이름 매체' } : c));
+    const { errors } = await start(page, width, null, { newsCatalog });
+    await openOutside(page, width);
+    await expect(rows(page, '[data-nw-all]')).toHaveCount(POSTS.length + NEWS.length);
+    const line = page.locator(width <= 760 ? '#appView > .mobile-shell-header' : '[data-app-topline]');
+    const name = width <= 760 ? line.locator('[data-mobile-view-name]') : line.locator('.topline-where [aria-current]');
+    const lead = page.locator('[data-sf-note="outside"]');
+    // 오늘 묶음 안 읽은 글 = p1·a1(p2만 읽음) → '새 글 2'. 첫 줄 안, 화면 이름 바로 뒤(찾기·[매체 ▾]·⋯보다 앞).
+    await expect(lead).toHaveText('새 글 2');
+    await expect(lead).toBeVisible();
+    expect(await lead.evaluate((el, sel) => !!el.closest(sel), width <= 760 ? '.mobile-shell-header' : '[data-app-topline]')).toBe(true);
+    const [nb, lb, mb, more] = await Promise.all([name.boundingBox(), lead.boundingBox(), page.locator('.sf-tools [data-nw-media]').boundingBox(), page.locator('.sf-tools [data-os-more]').boundingBox()]);
+    expect(lb.x).toBeGreaterThanOrEqual(nb.x + nb.width - 1);
+    expect(lb.x - (nb.x + nb.width)).toBeLessThan(16);
+    expect(mb.x).toBeGreaterThan(lb.x + lb.width);
+    // 한 줄: 이름·새 글·[매체 ▾]·⋯의 세로 가운데가 같은 줄, 머리 줄 높이는 한 줄(48px 이하), 오른쪽 끝이 화면 밖으로 넘지 않음.
+    // S71-59 UI-화면메뉴안으로: PC 틀은 [매체 ▾]·⋯가 맨 위 줄이 아니라 화면 안 탭 줄(전체·사회운동·언론·밑줄·메모) 오른쪽 끝.
+    const mid = b => b.y + b.height / 2;
+    if (width <= 760) for (const b of [lb, mb, more]) expect(Math.abs(mid(b) - mid(nb))).toBeLessThan(6);
+    else {
+      expect(Math.abs(mid(lb) - mid(nb))).toBeLessThan(6);
+      await expect(page.locator('[data-app-topline] :is([data-nw-media],[data-os-more])')).toHaveCount(0);
+      const tabs = await page.locator('#outsideRoot > .os-tabs').boundingBox(), view = await page.locator('#outsideView').boundingBox();
+      for (const b of [mb, more]) expect(Math.abs(mid(b) - mid(tabs))).toBeLessThan(6);
+      expect(mb.x).toBeGreaterThan(tabs.x + tabs.width);
+      expect(view.x + view.width - (more.x + more.width)).toBeLessThanOrEqual(12);
+    }
+    expect((await line.boundingBox()).height).toBeLessThanOrEqual(48);
+    expect(more.x + more.width).toBeLessThanOrEqual(width);
+    expect(await lead.evaluate(el => getComputedStyle(el).fontSize)).toBe('12px');
+    expect(await noWideScroll(page)).toBe(true);
+    // 따로 된 '오늘 · 새 글' 줄 없음: 맨 위 묶음은 머리 없는 상자, 아래 날짜 묶음 머리는 그대로.
+    await expect(root(page).locator('.nw-day-head', { hasText: /^오늘/ })).toHaveCount(0);
+    await expect(root(page).locator('[data-nw-all] .nw-day').first()).toHaveClass(/nw-day-lead/);
+    await expect(root(page).locator('[data-nw-all] .nw-day-head').first()).toHaveText(/^어제/);
+    // [사회운동] 탭: 그 목록의 오늘 묶음(p1 하나, 안 읽음) 수로 바뀐다. [밑줄]은 날짜 묶음이 없어 비운다.
+    await tab(page, 'movement').click();
+    await expect(lead).toHaveText('새 글 1');
+    await tab(page, 'marks').click();
+    await expect(lead).toBeHidden();
+    await tab(page, 'all').click();
+    await expect(lead).toHaveText('새 글 2');
+    // 긴 매체 이름을 골라도 한 줄 그대로: 넘치지 않고 이름·새 글 수는 잘리지 않는다(좁으면 [매체 ▾] 칩이 먼저 줄어듦).
+    await page.locator('.sf-tools [data-nw-media]').click();
+    await page.locator('#nwMediaPicker [data-lu-move-folder="g:labor"]').click();
+    await expect(page.locator('.sf-tools [data-nw-media]')).toHaveText('매체: 노동 ▾');
+    await page.locator('.sf-tools [data-nw-media]').click();
+    await page.locator('#nwMediaPicker [data-lu-move-folder="n:news-fake-a"]').click();
+    await expect(page.locator('.sf-tools [data-nw-media]')).toHaveText('매체: 가짜일보 아주 긴 이름 매체 ▾');
+    await expect(page.locator('.sf-tools [data-nw-media]')).toHaveAttribute('aria-label', '매체: 가짜일보 아주 긴 이름 매체');
+    await expect(lead).toHaveText('새 글 1');
+    // 좁은 폰(344)은 앞말 '매체: '를 빼고(그래도 모자라면 이름 끝 말줄임), PC는 그대로.
+    if (width <= 344) await expect(page.locator('.sf-tools [data-nw-media]')).toHaveClass(/is-tight/);
+    if (width >= 1280) await expect(page.locator('.sf-tools [data-nw-media]')).not.toHaveClass(/is-tight/);
+    const fit = await page.evaluate(([sel]) => {
+      const box = document.querySelector(sel), name = box.querySelector('[data-mobile-view-name], .topline-where [aria-current]'), note = document.querySelector('[data-sf-note="outside"]'), more = document.querySelector('.sf-tools [data-os-more]');
+      const r = more.getBoundingClientRect();
+      return { right: r.right, nameCut: name.scrollWidth > name.clientWidth + 1, noteCut: note.scrollWidth > note.clientWidth + 1, h: box.getBoundingClientRect().height };
+    }, [width <= 760 ? '#appView > .mobile-shell-header' : '[data-app-topline]']);
+    if (process.env.S71_SHOT) await page.screenshot({ path: `${process.env.S71_SHOT}/news-head-long-${width}.png` });
+    expect(fit).toMatchObject({ nameCut: false, noteCut: false });
+    expect(fit.right).toBeLessThanOrEqual(width);
+    expect(fit.h).toBeLessThanOrEqual(48);
+    await page.locator('.sf-tools [data-nw-media]').click();
+    await page.locator('#nwMediaPicker [data-lu-move-folder="all"]').click();
+    await expect(lead).toHaveText('새 글 2');
+    if (process.env.S71_SHOT) await page.screenshot({ path: `${process.env.S71_SHOT}/news-head-${width}.png` });
+    // 다른 화면으로 가면 첫 줄에 남지 않는다.
+    await page.evaluate(() => window.KPTURouter?.go?.('home'));
+    await expect(lead).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+}

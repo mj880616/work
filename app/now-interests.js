@@ -14,8 +14,23 @@ const workspaceOf = () => rt()?.context?.read?.()?.workspace?.id || '';
 const COLS = 'id,topic,state,origin,reason,decided_at,created_at';
 const saveFailNote = e => (e?.status === 409 ? '이미 있음' : e?.status ? `저장하지 못함 · HTTP ${e.status}` : '저장하지 못함 · 잠시 뒤 다시');
 
-export function createNowInterests({box, onChanged} = {}) {
+// defaults(HOME-읽을만한글넓힘, 홈 '읽을 만한 글' ⋯ [관심 주제]에서만): 표에 줄이 없는 기본 주제를 '확정' 칸에 '기본' 표시로 함께 보인다(서버 고르기와 같은 규칙).
+// 기본 주제 [빼기] = 그 이름으로 'dropped' 줄 넣기, [수정] = 새 이름 '확정' 줄 + 기본 이름 'dropped' 줄. 저장은 늘 이 표 하나(News 화면은 defaults 없이 예전 그대로).
+const DEFAULT_ID = 'default:';
+export function createNowInterests({box, onChanged, defaults = []} = {}) {
   let rows = [], loaded = false, failed = false, busy = new Set(), note = '', editing = '', draft = '';
+  const keyOf = t => String(t).replace(/\s+/g, '').toLowerCase();
+  // 표에 어떤 줄도 없는 기본 주제만(확정·후보·뺀 줄이 있으면 그 줄이 정한다).
+  const virtualRows = () => defaults.filter(t => !rows.some(r => keyOf(r.topic) === keyOf(t))).map(t => ({id: DEFAULT_ID + t, topic: t, state: 'confirmed', isDefault: true}));
+  const rowOf = id => rows.find(r => r.id === id) || virtualRows().find(r => r.id === id) || null;
+  const activeTopics = except => [...rows.filter(r => r.id !== except && r.state !== 'dropped'), ...virtualRows().filter(r => r.id !== except)].map(r => r.topic);
+  async function insertRow(topic, state) {
+    const got = await rt().api(`/rest/v1/app_now_interests?select=${COLS}`, {method: 'POST', body: {workspace_id: workspaceOf(), topic, state, decided_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
+    const row = Array.isArray(got) ? got[0] : null;
+    if (!row) throw new Error('save');
+    rows = [...rows.filter(r => r.id !== row.id), row];
+    return row;
+  }
 
   async function load() {
     const w = workspaceOf();
@@ -41,31 +56,35 @@ export function createNowInterests({box, onChanged} = {}) {
     busy.delete(id); paint(); onChanged?.();
   }
   const accept = id => act(id, () => patch(id, {state: 'confirmed', decided_at: new Date().toISOString()}));
-  const drop = id => act(id, () => patch(id, {state: 'dropped', decided_at: new Date().toISOString()}));
+  const drop = id => act(id, () => (rowOf(id)?.isDefault ? insertRow(rowOf(id).topic, 'dropped') : patch(id, {state: 'dropped', decided_at: new Date().toISOString()})));
   function rename(id, raw) {
-    const row = rows.find(r => r.id === id);
+    const row = rowOf(id);
     if (!row) return;
-    const c = cleanTopic(raw, rows.filter(r => r.id !== id && r.state !== 'dropped').map(r => r.topic));
+    const c = cleanTopic(raw, activeTopics(id));
     if (!c.ok) { note = c.reason; paint(); return; }
     editing = '';
     if (c.topic === row.topic) { paint(); return; }
+    if (row.isDefault) {
+      // 기본 주제 고치기: 새 이름을 확정(뺀 줄이 있으면 그 줄을 되살림)하고 기본 이름은 뺀 줄로 남긴다.
+      act(id, async () => {
+        const old = rows.find(r => r.state === 'dropped' && r.topic === c.topic);
+        if (old) await patch(old.id, {state: 'confirmed', decided_at: new Date().toISOString()}); else await insertRow(c.topic, 'confirmed');
+        await insertRow(row.topic, 'dropped');
+      });
+      return;
+    }
     // 후보를 고치면 그 이름으로 확정한다(수정 = 수용).
     act(id, () => patch(id, {topic: c.topic, state: 'confirmed', decided_at: new Date().toISOString()}));
   }
   async function add(raw) {
     const w = workspaceOf();
-    const c = cleanTopic(raw, rows.filter(r => r.state !== 'dropped').map(r => r.topic));
+    const c = cleanTopic(raw, activeTopics(''));
     if (!w) return;
     if (!c.ok) { draft = String(raw ?? ''); note = c.reason; paint(); box?.querySelector('[data-ni-add-input]')?.focus(); return; }
     const old = rows.find(r => r.state === 'dropped' && r.topic === c.topic);
     if (old) { draft = ''; await accept(old.id); return; }
     busy.add('add'); note = ''; draft = ''; paint();
-    try {
-      const got = await rt().api(`/rest/v1/app_now_interests?select=${COLS}`, {method: 'POST', body: {workspace_id: w, topic: c.topic, state: 'confirmed', decided_at: new Date().toISOString()}, prefer: 'return=representation', singleFlight: false});
-      const row = Array.isArray(got) ? got[0] : null;
-      if (!row) throw new Error('save');
-      rows = [...rows, row];
-    } catch (e) { draft = c.topic; note = saveFailNote(e); }
+    try { await insertRow(c.topic, 'confirmed'); } catch (e) { draft = c.topic; note = saveFailNote(e); }
     busy.delete('add'); paint(); onChanged?.();
     box?.querySelector('[data-ni-add-input]')?.focus({preventScroll: true});
   }
@@ -74,12 +93,12 @@ export function createNowInterests({box, onChanged} = {}) {
     const dis = busy.has(r.id) ? ' disabled' : '';
     if (editing === r.id) return `<form class="ni-row" data-ni-edit-form="${esc(r.id)}"><input type="text" data-ni-edit-input maxlength="30" value="${esc(r.topic)}" aria-label="주제 수정"><button type="submit" class="secondary">저장</button><button type="button" class="secondary" data-ni-edit-cancel>취소</button></form>`;
     const yes = kind === 'candidate' ? `<button type="button" class="ni-btn" data-ni-confirm="${esc(r.id)}"${dis}>ㅇ 확정</button>` : '';
-    return `<div class="ni-row" data-ni-row="${esc(r.id)}" data-state="${esc(r.state)}"><span class="ni-topic">${esc(r.topic)}</span>${r.reason && kind === 'candidate' ? `<span class="ni-reason">${esc(r.reason)}</span>` : ''}<span class="ni-acts">${yes}<button type="button" class="ni-btn" data-ni-edit="${esc(r.id)}"${dis}>수정</button><button type="button" class="ni-btn" data-ni-drop="${esc(r.id)}"${dis}>빼기</button></span></div>`;
+    return `<div class="ni-row" data-ni-row="${esc(r.id)}" data-state="${esc(r.state)}"${r.isDefault ? ' data-ni-default' : ''}><span class="ni-topic">${esc(r.topic)}</span>${r.isDefault ? '<small class="ni-reason">기본</small>' : ''}${r.reason && kind === 'candidate' ? `<span class="ni-reason">${esc(r.reason)}</span>` : ''}<span class="ni-acts">${yes}<button type="button" class="ni-btn" data-ni-edit="${esc(r.id)}"${dis}>수정</button><button type="button" class="ni-btn" data-ni-drop="${esc(r.id)}"${dis}>빼기</button></span></div>`;
   }
   function paint() {
     if (!box) return;
     if (!loaded) { box.innerHTML = failed ? failHtml({retry: 'data-ni-retry'}) : waitHtml({rows: 4}); return; }
-    const cand = sortByName(candidateRows(rows), r => r.topic), conf = sortByName(rows.filter(r => r.state === 'confirmed'), r => r.topic); // 가나다(NEWS-출처목록가나다)
+    const cand = sortByName(candidateRows(rows), r => r.topic), conf = sortByName([...rows.filter(r => r.state === 'confirmed'), ...virtualRows()], r => r.topic); // 가나다(NEWS-출처목록가나다)
     const head = '';
     const candHtml = cand.length ? `<section class="ni-sec" aria-label="관심 주제 후보"><h3 class="ni-h">후보 ${cand.length}</h3>${cand.map(r => rowHtml(r, 'candidate')).join('')}</section>` : '';
     const confHtml = `<section class="ni-sec" aria-label="확정한 관심 주제"><h3 class="ni-h">확정</h3>${conf.length ? conf.map(r => rowHtml(r, 'confirmed')).join('') : emptyHtml('확정한 주제 없음')}</section>`;

@@ -3,7 +3,7 @@ import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs'
 import {screenFind} from './helpers/screen-find.mjs';
 // LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html):
 // 폰·PC 경계는 사업 보고 위쪽과 같은 760px.
-// - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾][찾기 칸] + 오른쪽 끝 [+][⋯] 작은 아이콘.
+// - PC·펼친 폴드(761px~): 위 한 줄 = [폴더 ▾][분류: 전체 ▾] + 오른쪽 끝 [+][⋯] 작은 아이콘(S71-59, 찾기는 상단 줄 칸).
 // - 폰(~760px): 첫 줄 = 제목 '자료실' + ⌕·+·⋯, 둘째 줄 = [폴더 ▾][분류: 전체 ▾]. ⌕ → 첫 줄이 [찾기 칸][✕], ✕로 닫음.
 // 분류 칩 줄·'✎ 분류 수정' 줄 끝 버튼·묶기 칩 탭·아래 알약·떠 있는 동그란 [+]는 없다. 이름은 지어낸 것.
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A'}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -25,7 +25,7 @@ const measure=page=>page.evaluate(sels=>{
   return out;
 },TOP);
 
-for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 칸 하나, [+]·⋯는 맨 위 줄, 본문 첫 줄은 [사업영역 ▾][분류 ▾] · 칩 줄·알약·떠 있는 [+] 없음`,async({page})=>{
+for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 칸 하나, [+]·⋯는 폰 머리 줄·PC 본문 첫 줄 끝, 본문 첫 줄은 [사업영역 ▾][분류 ▾] · 칩 줄·알약·떠 있는 [+] 없음`,async({page})=>{
   test.setTimeout(90000);
   const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,docs:DOCS});
   await expect(pick(page)).toHaveText('분류: 회의 빼고');
@@ -35,8 +35,8 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
   await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
   await expect(page.locator('#libraryGroupBy option')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
   await expect(page.locator('#libraryGroupBy option:checked')).toHaveText('사업영역');
-  // S56-11: [폴더 ▾]에 공용 ▾ 그림이 보인다(사업 보고 [목록 ▾]·사진 [사진 ▾]와 같은 고르기 상자). 바탕 줄임 표기로 지워지지 않게.
-  expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('linear-gradient');
+  // S56-11: [폴더 ▾]에 공용 ▾ 그림이 보인다(사업 보고 [목록 ▾]·사진 [사진 ▾]와 같은 고르기 상자). 바탕 줄임 표기로 지워지지 않게. UI-화살표선명: 그림은 벡터 세모 한 장(--ds-select-arrow).
+  expect(await page.locator('#libraryGroupBy').evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('data:image/svg+xml');
   // S56-11: [분류 ▾] 단추도 같은 공용 ▾ 그림·자리·바탕·선이다(글자 ▾ 없음).
   const look=sel=>page.locator(sel).evaluate(el=>{const c=getComputedStyle(el);return [c.backgroundImage,c.backgroundPosition,c.backgroundSize,c.backgroundColor,c.borderTopColor,c.borderTopWidth,c.borderRadius,c.height,c.paddingRight].join('|')});
   expect(await look('#libraryView .lu-cat-pick')).toBe(await look('#libraryGroupBy'));
@@ -70,10 +70,12 @@ for(const width of [390,884,1440])test(`자료실 ${width}: 찾기는 맨 위 �
     await find.press('Escape');await expect(find).toHaveValue('');
     expect(await shownDocs(page)).toEqual(['a-1','a-2','n-1']);
   }else{
-    // PC·펼친 폴드: 상단 줄 [자료실에서 찾기 ……][+][⋯] 같은 줄.
+    // PC 틀(S71-59 UI-화면메뉴안으로): 찾기는 상단 줄 칸, [+][⋯]는 맨 위 줄이 아니라 본문 첫 줄 [사업영역 ▾][분류 ▾] …… [+][⋯] 오른쪽 끝.
     const find=await screenFind(page);await expect(find).toHaveAttribute('placeholder','자료실에서 찾기');
-    for(const sel of ['#newDocumentBtn','#libraryTopMenuBtn'])same('#gsTopInput',sel);
-    expect(m['#gsTopInput'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);expect(m['#newDocumentBtn'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);
+    for(const sel of ['#newDocumentBtn','#libraryTopMenuBtn'])same('#libraryGroupBy',sel);
+    await expect(page.locator('#appView>.app-topline :is(#newDocumentBtn,#libraryTopMenuBtn)')).toHaveCount(0);
+    expect(m['#libraryCategoryPick'].right).toBeLessThanOrEqual(m['#newDocumentBtn'].x);expect(m['#newDocumentBtn'].right).toBeLessThanOrEqual(m['#libraryTopMenuBtn'].x);
+    expect(m.bar.right-m['#libraryTopMenuBtn'].right).toBeLessThanOrEqual(2);
     expect(m['#libraryGroupBy'].mid).toBeGreaterThan(m['#gsTopInput'].mid+16);
     await find.fill('결의');expect(await shownDocs(page)).toEqual(['a-2']);await find.fill('');
   }

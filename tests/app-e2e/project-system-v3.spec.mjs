@@ -950,13 +950,13 @@ test('V3 more menu and record lines use native keyboard disclosure behavior',asy
   await expect(menu).toHaveAttribute('open','');
   await page.locator('#ps3Title,#ps3Summary').first().click();
   await expect(menu).not.toHaveAttribute('open','');
-  // Each linked record line is a keyboard link (opens the update) followed by its ⋯ button (opens the record menu).
+  // Each linked record line is plain text (S71-57: a record from 잊지 말기 opens nothing), so Tab goes ⋯ → next ⋯ (opens the record menu).
   // MTG-프로젝트합치기 3단계: 맨 위 입력칸·⤢가 없어져 첫 기록 줄에서 시작한다(입력칸 → ⤢ → [기록] 순서 검사는 기능과 함께 없앴다).
   await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big],#ps3-progress [data-ps3-record]')).toHaveCount(0);
   const first=page.locator('[data-ps3-record-menu="basket:kb-first"]'),second=page.locator('[data-ps3-record-menu="basket:kb-second"]');
   await first.focus();
   await expect(first).toBeFocused();
-  await page.keyboard.press('Tab');await expect(page.locator('[data-basket-link="kb-second"] a.ps3-rec-line')).toBeFocused();
+  await expect(page.locator('[data-basket-link="kb-second"] a')).toHaveCount(0);
   await page.keyboard.press('Tab');await expect(second).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
   // Tab stays inside the menu and wraps: Shift+Tab from the first item reaches the last.
@@ -1118,9 +1118,10 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   expect(state.trash.calls.map(c=>c.fn)).toContain('app_trash_purge');
 });
 
-// UI-줄밀기 Raindrop식 2/2(S68-26b): 폰 휴지통 줄 — 왼쪽 밀기 [되돌리기]·[영구 삭제](영구 삭제는 끝까지 밀어도 칸만, 누르면 확인창),
-// 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'. 상위가 휴지통인 줄은 [영구 삭제]만. PC는 밀기 없음.
-test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, 오른쪽 밀기 [선택] → 여러 개 되돌리기',async({page})=>{
+// UI-줄밀기 Raindrop식 2/2(S68-26b): 폰 휴지통 줄 — 왼쪽 밀기 [되살리기]·[영구 삭제](영구 삭제는 끝까지 밀어도 칸만, 누르면 확인창),
+// 오른쪽 밀기 = 그 줄이 바로 골라짐(S70-64) → 'n개 선택됨 · [되살리기]'. 상위가 휴지통인 줄은 [영구 삭제]만. PC는 밀기 없음.
+// S70-65 UI-밀기메뉴통일: 휴지통에서 꺼내기 이름은 용어 기준표대로 '되살리기'(밀기 칸·선택 막대·줄 끝 단추 모두).
+test('TRASH 줄 밀기 412: 왼쪽 밀기 [되살리기]·[영구 삭제] 칸, 오른쪽 밀기 = 고르기 → 여러 개 되살리기',async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width:412,height:900});
   const state=baseState();
@@ -1150,23 +1151,26 @@ test('TRASH 줄 밀기 412: 왼쪽 밀기 [되돌리기]·[영구 삭제] 칸, �
   await expect(ends).toHaveCount(2);
   await expect(ends.nth(0)).toHaveAttribute('data-row-swipe-key','restore');
   await expect(ends.nth(1)).toHaveAttribute('data-row-swipe-key','purge');
+  await expect(ends.locator('.row-swipe-tx')).toHaveText(['되살리기','영구 삭제']);
+  await expect(list.locator('[data-ps3-trash-row="solo-1"] [data-ps3-trash-restore]')).toHaveText('되살리기');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
   await tap(list.locator('[data-row-swipe-key="purge"]'));
   expect((await askWithNote(page,false)).join(' ')).toContain('영구 삭제할까요');
   expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
-  // [되돌리기] 칸 = 줄 끝 [되돌리기]와 같은 길.
+  // [되살리기] 칸 = 줄 끝 [되살리기]와 같은 길.
   await tick();await swipe('solo-1',-60);
   await tap(list.locator('[data-row-swipe-key="restore"]'));
   await expect.poll(()=>state.spaces.some(x=>x.id==='solo-1')).toBe(true);
   await expect(list.locator('[data-ps3-trash-row]')).toHaveCount(3);
-  // 오른쪽 밀기 [선택] → 'n개 선택됨 · [되돌리기]'(상위가 휴지통인 줄은 건너뜀).
+  // 오른쪽 밀기 = 그 줄이 바로 골라진다(S70-64, 칸이 열려 남지 않음) → 'n개 선택됨 · [되살리기]'(상위가 휴지통인 줄은 건너뜀).
   await tick();await swipe('solo-2',320);
   const bar=page.locator('#ps3ArchiveModal .row-swipe-pickbar');
   await expect(bar).toBeVisible();
+  await expect(list.locator('[data-row-swipe-key="select"]')).toHaveCount(0);
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('1개 선택됨');
   await list.locator('[data-ps3-trash-row="main-1"]').click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['되돌리기']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['되살리기']);
   await bar.locator('[data-row-pick-act="restore"]').click();
   await expect.poll(()=>['main-1','solo-2'].every(id=>state.spaces.some(x=>x.id===id))).toBe(true);
   await expect(bar).toBeHidden();
@@ -1230,7 +1234,8 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   expect(asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
   expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 삭제하지 않으며');
   expect(state.trash.others.library_folder.length).toBe(2);
-  await first.locator('summary').click();
+  // [영구 삭제]를 누르면 ⋯ 메뉴는 닫힌다(STD-메뉴바깥닫기: 메뉴가 열린 채 바깥 [되돌리기]를 누르면 닫기만 하므로 열린 채 두지 않는다).
+  await expect(first.locator('details[open]')).toHaveCount(0);
   // 되돌리기는 그 종류로 가고, 이미 열려 있는 자료실에는 폴더 표를 다시 읽으라고 알린다.
   const told=await page.evaluate(()=>{window.__folderEvents=0;window.addEventListener('kptu:library-folders-changed',()=>{window.__folderEvents++});return true});expect(told).toBe(true);
   await first.locator('[data-ps3-trash-restore]').click();
@@ -1261,7 +1266,7 @@ test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·�
   expect(asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
   expect(asked).toContain('연결 2곳도 함께 삭제되고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
   expect(state.trash.others.note.length).toBe(2);
-  await first.locator('summary').click();
+  await expect(first.locator('details[open]')).toHaveCount(0); // [영구 삭제]를 누르면 ⋯ 메뉴는 닫힌다(STD-메뉴바깥닫기)
   // 되돌리기는 그 종류로 가고, 열려 있는 정리함에는 목록을 다시 읽으라고 알린다.
   await page.evaluate(()=>{window.__noteEvents=0;window.addEventListener('kptu:basket-notes-restored',()=>{window.__noteEvents++})});
   await first.locator('[data-ps3-trash-restore]').click();
@@ -1491,7 +1496,7 @@ async function openRecords(page,state){
   await expect(item.locator('[data-ps3-record-input]')).toHaveCount(0);
   return item;
 }
-async function editSummary(page,row){await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'요약 수정',exact:true}).click();const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input}
+async function editSummary(page,row){await row.locator('[data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();const input=row.locator('[data-link-summary-input]');await expect(input).toBeFocused();return input}
 test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({page})=>{
   const state=linkedState(),item=await openRecords(page,state);
   const record=item.locator('[data-basket-link="l-a"]');
@@ -1499,7 +1504,7 @@ test('PRJ linked record lines fit 390px and 1280px with 44px targets',async({pag
   await expect(item.locator('[data-ps3-progress-ws],[data-ps3-record]')).toHaveCount(0);
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:844});
-    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('a.ps3-rec-line')).width,h:r(el.querySelector('a.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
+    const layout=await record.evaluate(el=>{const r=x=>x.getBoundingClientRect(),list=el.closest('[data-ps3-records]');return {row:r(el).width,list:r(list).width,line:{w:r(el.querySelector('.ps3-rec-line')).width,h:r(el.querySelector('.ps3-rec-line')).height},buttons:[...el.querySelectorAll('button')].map(b=>({w:r(b).width,h:r(b).height})),overflow:document.documentElement.scrollWidth-innerWidth}});
     expect(layout.overflow).toBeLessThanOrEqual(1);
     expect(Math.round(layout.row)).toBe(Math.round(layout.list));
     expect(layout.line.h).toBeGreaterThanOrEqual(44);expect(layout.line.w).toBeGreaterThan(width>500?300:250);
@@ -1539,7 +1544,7 @@ for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e reco
   const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),row=b.closest('[data-basket-link]').getBoundingClientRect(),list=b.closest('[data-ps3-records]').getBoundingClientRect();return {w:r.width,h:r.height,right:Math.round(r.right),rowRight:Math.round(row.right),row:Math.round(row.width),list:Math.round(list.width)}});
   expect(page.viewportSize().width).toBe(width);expect(geometry.row).toBe(geometry.list);expect(geometry.right).toBe(geometry.rowRight);expect(geometry.w).toBeGreaterThanOrEqual(44);expect(geometry.h).toBeGreaterThanOrEqual(44);
   const r=await trigger.boundingBox();await page.mouse.click(r.x+r.width-4,r.y+4);await expect(panel).toBeVisible();
-  await expect(panel.locator('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);
+  await expect(panel.locator('button')).toHaveText(['수정','메모','삭제']); // S71-71 RECORD-기록하나로: 기록 ⋯ 한 벌
   for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
   const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();

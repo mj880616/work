@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // OD-속도: 원드라이브 사진 받기 대기열(app/od-thumb-loader.js). 지어낸 받기 함수와 지어낸 시계만 쓴다(네트워크 없음).
-const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS, BATCH_REST_S, GATHER_MS} = await import('../app/od-thumb-loader.js');
+const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS, BATCH_REST_S, GATHER_MS, HOLD_MAX_MS} = await import('../app/od-thumb-loader.js');
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 async function settle(n = 6) { for (let i = 0; i < n; i++) await tick(); }
@@ -192,6 +192,38 @@ test('gather: cells that arrive one by one within gatherMs leave as full batches
   };
   assert.deepEqual(await run(0), [1, 1, 1, 1], 'without gathering: four one-photo requests, 36 cells wait for a second round trip');
   assert.deepEqual(await run(GATHER_MS), [20, 20], 'with gathering: two full batches at once, nobody waits behind them');
+});
+
+// FIX-main시험(이슈 3270): 기기가 바쁘면 보관본 찾기 답이 GATHER_MS보다 늦게 와서 첫 묶음이 1~4장짜리로 쪼개졌다(CI 사진 속도 시험 간헐 실패).
+// 찾는 동안 hold()로 알리면, 모으기는 그 칸들이 다 답할 때까지 한다 — 답이 언제 오든 꽉 찬 묶음. 답이 안 와도 HOLD_MAX_MS 뒤에는 보낸다.
+test('gather: cells still looking in the phone copy are waited for, so slow lookups do not split the first batches', async () => {
+  const m = manual(), c = clock();
+  const l = createThumbLoader({fetchUrls: m.fn, fetchBytes: async () => 'blob:x', now: c.now, setTimer: c.setTimer, gatherMs: GATHER_MS});
+  const releases = Array.from({length: 40}, () => l.hold());
+  // 첫 칸은 바로, 나머지는 모으기 창이 지난 뒤에 하나씩 답이 온다.
+  l.get('p0', 'small', VISIBLE).catch(() => {}); releases[0]();
+  c.advance(GATHER_MS * 3); await settle();
+  assert.equal(m.calls.length, 0, 'waits while other cells are still looking');
+  for (let i = 1; i < 40; i++) { l.get('p' + i, 'small', i < 24 ? VISIBLE : NEAR).catch(() => {}); releases[i](); c.advance(5); await tick(); }
+  c.advance(GATHER_MS); await settle();
+  assert.deepEqual(m.calls.map(x => x.args[0].length), [20, 20], 'two full batches, not a one-photo request first');
+});
+
+test('gather: a lookup that never answers holds the queue at most HOLD_MAX_MS, and a cleared queue forgets old holds', async () => {
+  const m = manual(), c = clock();
+  const l = createThumbLoader({fetchUrls: m.fn, fetchBytes: async () => 'blob:x', now: c.now, setTimer: c.setTimer, gatherMs: GATHER_MS});
+  l.hold(); // 답하지 않는 칸
+  l.get('a', 'small', VISIBLE).catch(() => {});
+  c.advance(GATHER_MS); await settle();
+  assert.equal(m.calls.length, 0);
+  c.advance(HOLD_MAX_MS); await settle();
+  assert.deepEqual(m.calls.map(x => x.args[0]), [['a']], 'sent once the hold limit passed');
+  const old = l.hold(); l.clear(); old();
+  l.get('b', 'small', VISIBLE).catch(() => {});
+  c.advance(GATHER_MS); await settle();
+  assert.equal(m.calls.length, 2, 'holds from before clear() do not delay the new queue');
+  const bytes = createThumbLoader({fetchBytes: async () => 'blob:x', gatherMs: GATHER_MS});
+  assert.equal(typeof bytes.hold(), 'function', 'one-by-one path: hold is a no-op');
 });
 
 test('gather: visible cells still go before nearby ones, and the bytes path is not delayed', async () => {

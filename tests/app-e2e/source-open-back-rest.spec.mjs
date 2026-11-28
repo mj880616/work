@@ -91,9 +91,8 @@ for(const width of [412,1280]){
     await openHome(page,{beforeLoad:()=>searchRoutes(page)});
     let input,row;
     if(width<761){
-      await page.locator('#mobileMenuTab').click();
-      await page.locator('#mobileMenu .gs-menu-entry').click();
-      input=page.locator('#searchView .gs-view-input input');
+      await page.locator('#homeView [data-journal-find]').click(); // S71-41: 폰 전체 검색 입구는 홈 날짜 줄 끝 돋보기
+      input=page.locator('#gsHeadInput'); // S71-07: 전체 검색 화면 머리 줄 칸(돋보기 줄 자리)
       row=page.locator('#searchView .gs-row').filter({hasText:'가상 교섭 메모'});
     }else{
       input=page.locator('[data-search-slot] input[type="search"]');

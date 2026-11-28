@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 import { readZip } from '../../app/weekly-hwpx/zip.mjs';
 // S52-44 FILES-관리자마무리 2/2 ②(설계 docs/design/files-manager-audit.md G·H·I): 찾기 거르기(이 폴더/전체 · 종류 · 날짜 · 크기),
 // 한글 미리보기(쪽 그림), ⋯ [여러 개 받기](zip), 큰 폴더는 화면 밖 줄을 그리지 않음, PC 두 칸 종류 열. 서버·클라우드는 흉내(파일 이름은 모두 가짜).
@@ -20,7 +21,7 @@ async function begin(page, { width = 1440, items = [], prefs = null } = {}) {
   return { errors, server };
 }
 async function search(page, q) {
-  await root(page).locator('[data-fx-search]').fill(q);
+  await (await screenFind(page)).fill(q);
   await expect(root(page).locator('[data-fx-find-bar]')).toBeVisible();
 }
 
@@ -61,7 +62,7 @@ test('PC 1440 찾기 거르기: [이 폴더|전체] · 종류 · 날짜 · 크�
   await page.locator('#rowMenu').getByRole('button', { name: '7일 안' }).click();
   await expect(row(page, 'od:OD!50')).toBeVisible();
   // 찾기를 지우면 거르기도 처음으로.
-  await root(page).locator('[data-fx-search]').fill('');
+  await (await screenFind(page)).fill('');
   await expect(row(page, 'od:OD!11')).toBeVisible();
   await search(page, '가짜');
   await expect(root(page).locator('[data-fx-fdim="kind"]')).toHaveText('종류');

@@ -20,7 +20,7 @@
 //   placeholder, label — the editor's hint and accessible name.
 //   head, foot   — ED③ 노트: the opener's own nodes above the text (a title row with [폴더 ▾]) and under it (the [📎 첨부] row). The opener owns them.
 //   dirty()      — ED③ 노트: the opener's own fields changed (title, chosen files). Counts as a change for saving and for the leave check.
-//   photos, files, shortcuts — passed to the editor (ed-editor.js createDocEditor): [사진]·[파일] for this text, and the markdown line shortcuts.
+//   photos, files, shortcuts, forms — passed to the editor (ed-editor.js createDocEditor): [사진]·[파일] for this text, and the markdown line shortcuts.
 //   onClose({saved, changed, value, text}) — when it closes (not when silent): saved = the last save is still the latest, changed = there
 //                  are edits not saved, value/text = what was written, so the opener can keep an unsaved draft in this tab's memory.
 // Opening and closing without a change never calls save (설계 결정 D). One check for "a big window is open": big-window-open.js.
@@ -104,7 +104,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
-  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, blocks = null, noteLinks = null, onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, files = null, onFiles = null, shortcuts = false, blocks = null, noteLinks = null, tasks = null, forms = null, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -324,7 +324,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     await ensureStyles();
     if (closed) return handle;
     // NOTE-노션편집 ①(나): blocks — the opener's 블록 편집 state and switch (notes), the same as its edit field.
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true, blocks, noteLinks}); // S69-98 ⑧ noteLinks: '[[' 노트 연결(노트만) // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, files, onFiles, shortcuts, lineWidth: true, blocks, noteLinks, tasks, forms}); // S71-65 forms: [넣기 ▾] › [서식](새 노트 창만) · S69-98 ⑧ noteLinks: '[[' 노트 연결(노트만) // NOTE-글폭: 큰 창 글 줄도 같은 폭·같은 손잡이
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".

@@ -117,19 +117,14 @@ test('PRJ-기록입력 one list holds only basket links; old records and items a
   expect(texts).toEqual(['9.20 현장 간부 면담 결과 정리 ⋯']);
   await expect(page.locator('#ps3-progress [data-ps3-record]')).toHaveCount(0);
   for(const text of ['토론회 발제자 확정','국토부 협의 시작','정책 대응','빈 옛 항목'])await expect(page.locator('#ps3-progress')).not.toContainText(text);
-  // 🧺 line: opens the original basket memo; its ⋯ holds only [메모 열기]·[연결 해제] (BUG-바구니연결해제), nothing to edit or delete.
-  const basket=lines(page).first().locator('a');
-  await expect(basket).toHaveAttribute('href','./?view=basket&note=note-1');
-  // UI-기록아이콘: the mark is the update icon (an outline drawing), no longer 🧺.
-  await expect(basket.getByRole('img',{name:'잊지 말기 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).first()).not.toContainText('🧺');
-  await expect(lines(page).first().locator('button')).toHaveCount(1);await expect(lines(page).first().getByRole('button',{name:'잊지 말기 기록 메뉴'})).toBeVisible();
+  // S71-57 RECORD-잊지말기연결표시삭제: 잊지 말기에서 온 줄은 그냥 기록 — 표시 아이콘·링크 없음, 눌러도 어디로도 가지 않는다. ⋯ 하나만.
+  const basket=lines(page).first();
+  await expect(basket.locator('a')).toHaveCount(0);await expect(basket.locator('[data-record-mark]')).toHaveCount(0);await expect(basket).not.toContainText('🧺');
+  await expect(basket.locator('button')).toHaveCount(1);await expect(basket.getByRole('button',{name:'기록 메뉴',exact:true})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
-  await basket.click();
-  // UI-모바일업데이트겹쳐보기: on a phone the line first comes up as a card over the detail; [바구니에서 열기] is the full open.
-  const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(sheet.locator('[data-record-sheet-text]')).not.toBeEmpty();
-  await sheet.getByRole('button',{name:'잊지 말기에서 열기'}).click();
-  await expect(page.locator('#ps3DetailModal')).toBeHidden();
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+  await basket.locator('.ps3-rec-text').click();
+  await expect(page.locator('#kptuRecordSheet:not(.hidden)')).toHaveCount(0);await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTURouter.current)).not.toBe('basket');
   expect(state.calls('app_record_links','PATCH').length+state.calls('app_record_links','DELETE').length).toBe(0);
 });
 
@@ -140,10 +135,10 @@ test('PRJ-기록입력 old records and items have no line to edit or delete, and
   const before={progress:structuredClone(state.tables.app_project_progress_updates),workstreams:structuredClone(state.tables.app_project_workstreams)};
   await expect(lines(page)).toHaveCount(1);
   await expect(page.locator('#ps3-progress [data-ps3-record],#ps3-progress [data-ps3-record-kind="item"],[data-ps3-edit-record]')).toHaveCount(0);
-  // 남은 줄의 ⋯ 메뉴는 정리함 연결 메뉴라 진행 기록 [수정]·[삭제]가 없다.
-  await lines(page).first().getByRole('button',{name:'잊지 말기 기록 메뉴'}).click();
+  // 남은 줄의 ⋯ 메뉴는 연결 기록 메뉴(S71-71 기록 ⋯ 한 벌 [수정][메모][삭제] — 그 연결 기록만 다룬다). 옛 진행 기록을 고치는 길은 없다.
+  await lines(page).first().getByRole('button',{name:'기록 메뉴',exact:true}).click();
   const menu=page.locator('#ps3RecordMenu');await expect(menu).toBeVisible();
-  await expect(menu.getByRole('button',{name:'수정',exact:true})).toHaveCount(0);await expect(menu.getByRole('button',{name:'삭제',exact:true})).toHaveCount(0);
+  await expect(menu.getByRole('button')).toHaveText([/^수정$/,/^메모( \d+)?$/,/^삭제$/]);
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();
   await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
   // 상세는 두 표를 그대로 읽어 오고, 쓰지 않는다.

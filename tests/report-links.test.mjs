@@ -96,9 +96,6 @@ test('양쪽 연결 일치: 프로젝트 쪽에서 연결하면 사업 보고 �
   r=await R.changeOneTarget('m1',O1,'remove',rt);assert.equal(r.ok,true);
   assert.deepEqual((await R.readLinkedReports(O1,rt)).rows,[]);
   assert.deepEqual((await R.readLinkedReports(P1,rt)).rows.map(m=>m.id),['m1']);
-  // 5초 되돌리기: 해제 전 목록으로 다시 맞춘다
-  const back=await R.restoreTargets('m1',r.previous,rt);assert.equal(back.ok,true);
-  assert.deepEqual((await R.readLinkedReports(O1,rt)).rows.map(m=>m.id),['m1']);
 });
 
 test('버전이 다르면 거절하고 아무것도 바꾸지 않는다(오류 글자는 일상어)', async()=>{
@@ -129,7 +126,7 @@ test('주간보고·업무일지 줄: 회의가 아닌 칸은 [칸 이름]을 �
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('화면 문구: 입력·결과 창과 프로젝트·조직 화면은 사업 보고 기준(회의 칸 이름 \'회의\'는 유지)', () => {
   const html=read('app/index.html');
-  assert.match(html,/id="meetingModalTitle">사업 보고</);assert.match(html,/>\+ 사업 보고</);assert.match(html,/id="meetingPlaces"/);
+  assert.match(html,/id="meetingModalTitle">사업 보고</);assert.match(read('app/team.js'),/data-report-new>새 사업 보고</); // BIZ-머리한줄(S71-23): [+] 메뉴 '새 사업 보고'assert.match(html,/id="meetingPlaces"/);
   assert.doesNotMatch(html,/회의 결과 저장|\+ 회의 결과|<label>회의명<input id="meetingTitle"/);
   const ps=read('app/project-system-v3.js');assert.match(ps,/<h3>사업 보고 \$\{count/);assert.doesNotMatch(ps,/<h3>회의 \$\{count/);
   const wd=read('app/workplace-detail.js');assert.match(wd,/id="wdReports"/);assert.match(wd,/<h3>사업 보고 </);

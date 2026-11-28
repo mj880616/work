@@ -36,7 +36,7 @@ const detail = page => root(page).locator('[data-basket-detail]');
 const shape = page => root(page).evaluate(el => {
   const b = e => { if (!e || e.hidden || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), right: Math.round(r.right), bottom: Math.round(r.bottom) }; };
   return { split: el.classList.contains('basket-split'), view: b(el), list: b(el.querySelector('[data-basket-list]')), rows: b(el.querySelector('[data-basket-rows]')), detail: b(el.querySelector('[data-basket-detail]')),
-    head: b(el.querySelector('.basket-switch-row')), vw: innerWidth, docW: document.documentElement.scrollWidth, sticky: getComputedStyle(el.querySelector('[data-basket-detail]')).position };
+    head: b(document.querySelector('[data-sf-tools="forget"]')), vw: innerWidth, docW: document.documentElement.scrollWidth, sticky: getComputedStyle(el.querySelector('[data-basket-detail]')).position };
 });
 
 for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900]]) {
@@ -61,7 +61,7 @@ for (const [width, height] of [[690, 1000], [750, 1000], [884, 1104], [1199, 900
     expect(m.detail.x).toBeGreaterThanOrEqual(m.rows.right + 8);
     expect(Math.abs(m.detail.right - m.view.right)).toBeLessThanOrEqual(2);
     expect(m.detail.w).toBeGreaterThanOrEqual(m.rows.w);
-    // 위쪽 [처리 전 ▾] 줄은 화면 폭 전체 그대로(상세를 열어도 움직이지 않음), 그 아래 한 줄을 목록과 상세가 나눠 쓴다(같은 높이에서 시작).
+    // 맨 위 줄 [처리 전 ▾]·최신화(S71-29: 앱 머리 줄·PC 맨 위 줄)는 그대로(상세를 열어도 움직이지 않음), 그 아래 한 줄을 목록과 상세가 나눠 쓴다(같은 높이에서 시작).
     expect(m.head).toEqual(headBefore);
     expect(Math.abs(m.detail.y - m.list.y)).toBeLessThanOrEqual(2);
     expect(m.detail.y).toBeGreaterThanOrEqual(m.head.bottom - 1);

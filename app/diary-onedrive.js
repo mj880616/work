@@ -248,8 +248,7 @@ export async function odCopyCheck(rt, pairs) {
   return {ok: idsOf(d?.ok), missing: idsOf(d?.missing), unsure: idsOf(d?.unsure)};
 }
 export async function odTrashLog(rt, pairs) { const d = await odCall(rt, {action: 'trash-log', pairs}); return Number.isInteger(d?.saved) ? d.saved : 0; }
-export async function odTrashWatch(rt) { const d = await odCall(rt, {action: 'trash-watch'}); return Number.isInteger(d?.gone) && d.gone > 0 ? d.gone : 0; }
-export async function odTrashSeen(rt) { await odCall(rt, {action: 'trash-seen'}); }
+// S71-25 PHOTO-정리삭제: 'trash-watch'·'trash-seen'(다음 확인 때 사본 사라짐 경고)를 부르던 화면은 [정리] 칸뿐이라 여기 부르는 함수도 지웠다(서버 동작은 그대로).
 // S48-17 PHOTO-지우기두갈래: '폰 공간만 비우기'로 비운 사진 목록 [{logId, phoneId, relPath, takenAt, photo(library 모양)}] · 기록 지우기(100개씩).
 const LOG_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export async function odKeptList(rt) {
@@ -820,12 +819,14 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
     // 폰에 보관된 작은 그림이 있으면 대기열을 거치지 않고 바로 보여 준다.
     if (keep) {
       looking = true;
+      // 보관본을 찾는 동안 대기열에 알려, 함께 찾던 칸들의 요청이 한 묶음으로 나가게 한다(od-thumb-loader.js hold). 없으면 대기열에 넣은 뒤 푼다.
+      const release = l.hold?.() || (() => {});
       keepStore().get(keep.owner, item.id, size, keep.month).then(blob => {
         looking = false;
         if (blob) return showBlob(blob, null, keep);
         if (!force && !wanted()) { busy = false; box.dataset.state = 'idle'; return; }
         fromLoader(keep, force);
-      });
+      }).finally(release);
       return;
     }
     fromLoader(null, force);

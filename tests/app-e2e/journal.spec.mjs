@@ -504,6 +504,42 @@ test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 그 줄들 뒤�
  expect(f.errors).toEqual([]);
 });
 
+// UI-입력칸자동높이(STD-INPUT-01, 사용자 결정 2026-11-26): '오늘 한 일' 칸은 글만큼 아래로 늘어난다 — 안쪽 스크롤 없음·첫 줄 보임,
+// 화면 높이 절반을 넘으면 그때부터만 칸 안 스크롤. [저장]은 칸 오른쪽 그대로. 고치기 칸도 같다.
+const fieldBox=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {h:Math.round(r.height),top:r.top,right:r.right,scrollTop:el.scrollTop,inner:el.scrollHeight-el.clientHeight,overflow:cs.overflowY,screen:innerHeight};});
+for(const width of [390,1280])test(`홈 ${width}: 오늘 한 일 칸은 다섯 줄 글만큼 늘고, 화면 절반에서 멈춘 뒤에만 칸 안 스크롤`,async({page})=>{
+ await fixture(page,{width,height:900});await openJournal(page,width);
+ const input=page.locator('#journalRoot [data-journal-input]'),save=page.locator('#journalRoot [data-journal-save]');
+ await expect(input).toBeVisible();
+ const start=await fieldBox(input);
+ // 다섯 줄쯤 되는 한 줄 글(줄바꿈 없음, 300자 안).
+ const five='가나다라마바사아자차카타파하 '.repeat(width<=760?9:20).slice(0,width<=760?130:290);
+ await input.click();await input.pressSequentially(five.slice(0,20));await input.fill(five);
+ const grown=await fieldBox(input);
+ expect(grown.h).toBeGreaterThan(start.h+30);
+ expect(grown.inner,JSON.stringify(grown)).toBeLessThanOrEqual(1);
+ expect(grown.scrollTop).toBe(0);
+ // [저장]은 칸 오른쪽 그대로.
+ const btn=await save.boundingBox();expect(btn.x).toBeGreaterThanOrEqual(grown.right-1);
+ // 지우면 처음 높이로.
+ await input.fill('');expect((await fieldBox(input)).h).toBe(start.h);
+ // 화면 절반을 넘는 글(300자를 넘는 긴 글, 저장은 거절되지만 칸 모양은 같다): 절반에서 멈추고 그때부터 칸 안 스크롤.
+ await page.setViewportSize({width,height:420});
+ await input.fill('가'.repeat(900));
+ const capped=await fieldBox(input);
+ expect(capped.h).toBeLessThanOrEqual(Math.round(capped.screen/2)+1);
+ expect(capped.inner).toBeGreaterThan(0);expect(capped.overflow).toBe('auto');
+});
+test('홈 390: 저장한 줄 고치기 칸도 글만큼 늘어난다',async({page})=>{
+ const f=await fixture(page,{width:390});
+ f.rows.push({id:'k9',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'가나다라마바사 '.repeat(30).trim().slice(0,240),occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ await openJournal(page,390);
+ await lineTexts(page).first().click();
+ const box=page.locator('#journalRoot [data-journal-edit-input]');await expect(box).toBeVisible();
+ const r=await fieldBox(box);
+ expect(r.h).toBeGreaterThan(80);expect(r.inner,JSON.stringify(r)).toBeLessThanOrEqual(1);
+});
+
 test('줄마다 300자: 301자·줄바꿈·빈 줄은 저장하지 않고 이유를 보여 준다',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
  const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]'),save=page.locator('#journalRoot [data-journal-save]');
@@ -1291,7 +1327,8 @@ async function hwpxFixture(page,options={}){
   const file=options.rawFiles?.[body.document_id]??files[body.document_id]??bytes,fileName=file===bytes?'team.hwpx':`${body.document_id}.hwpx`;
   return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:fileName,format:'hwpx',size:file.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:file});
  });
- await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
+ await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
  // WEEKLY-기본HWP: [확정하고 한글 파일 받기]·[확정 없이 파일만 받기]는 만든 .hwpx를 숨은 칸막이 엔진(hwp-frame.js)으로 .hwp로 바꾼다.
  // 기본은 가짜 엔진(fakeEngine — 빨리·늘 같게), engine:'real' = 진짜 엔진(servePagesCors는 시험이 부른다), 'broken' = 엔진이 뜨지 않음(.hwpx로 받고 알림).
  if(options.engine!=='real')await page.route(u=>u.pathname.endsWith('/app/hwp-frame.js'),r=>r.fulfill({contentType:'text/javascript; charset=utf-8',body:fakeEngine(options.engine==='broken')}));
@@ -1512,6 +1549,8 @@ for(const width of [412,1280])test(`[주간 정리] 확정 전 환류 정리: �
   return r.fulfill({json:{ok:true,kind:'weekly_review',week_start:body.week_start,saved:true,review:{at,candidates:['가상 실시간 규칙 후보'],suggestions:[]}}});
  });
  await openJournal(page,width);await openWeekly(page);
+ // FIX-main시험(이슈 3270): 바탕 칸이 다 그려진 뒤 ⋯ 를 연다. 바탕이 늦게 그려지면 열린 메뉴가 화면 아래로 밀리고, 항목까지 스크롤하면 공용 규칙(바깥 스크롤 = 닫기)이 메뉴를 닫는다.
+ await openDraft(page);
  const row=()=>f.exec.rows.find(x=>x.week_start==='2026-10-05');
  await expect.poll(()=>row().draft.picks.reviews?.length??0,{timeout:15000}).toBe(1);
  expect(ai.filter(k=>k==='weekly_review')).toHaveLength(1);
@@ -1711,7 +1750,8 @@ test('[주간 보고] 자료실에 확정본이 없으면 백지 + [파일 업�
  const uploads=[],catAdds=[],SRC='0b8f5a3e-1111-4222-8333-444455556666';
  await page.route(SB+'/rest/v1/rpc/app_document_category_add',r=>{catAdds.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,categories:['교섭','투쟁','교육','선전','정책','회의','노조 서식','기타'],documents:0}});});
  await page.unroute(SB+'/functions/v1/library-files');
- await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());uploads.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:SRC,title:body.title}}});});
+ await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());uploads.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:SRC,title:body.title}}});});
  await openJournal(page,1280);await openWeekly(page);
  // WEEKLY-내양식자유변형 핫픽스 ①(S62-23): 자료실에 바탕이 없으면 [주간 보고]는 백지 + 한 줄 [파일 올리기] — 다른 팀 양식(항목 이름·표 칸)은 하나도 안 보인다.
  const weekly=page.locator('#journalRoot [data-journal-weekly]').first();
@@ -3375,8 +3415,9 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
  expect(db.writes.at(-1)).toMatchObject({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'});
- // 자기 칸(고르지 않으면 사업영역 칸)
+ // 자기 칸(글이 보이는 칸이 열리므로 수정할 칸에서 사업영역 칸을 고른다)
  await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('select[data-bp-target]').selectOption({label:'사업영역 가'});
  await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸');
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-hand-line').first()).toHaveText('가상 가 자기 칸');
@@ -3387,6 +3428,58 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  const {report}=await savedReport(d1);
  expect(report.summary[0].rows[0].progress).toEqual(['가상 가 자기 칸','◦ 세부 과제 가-1','가상 가-1 상황','◦ 세부 과제 가-2','가상 가-2 새 상황']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-수정열기·글지우기: 묶음 표 [수정]은 글이 보이는 칸을 기존 글 그대로 열고(자기 칸이 비고 세부 과제 칸에 글이 있어도), 저장하면 그 칸이 바뀌며,
+// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 삭제]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
+for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글을 채워 열고 글 칸을 지울 수 있다 ${width}`,async({page})=>{
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n1','wa1','2026-11-09','가상 가-1 상황')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const table=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box] table[data-bp-grouped]');
+ await expect(table).toBeVisible();
+ const ga=table.locator('tbody tr').filter({has:page.locator('td',{hasText:/^사업영역 가$/})});
+ const field=ga.locator('textarea[data-bp-field]');
+ // 자기 칸은 비고 글은 세부 과제 가-1에만 있다 → [수정]은 그 글을 채워 연다(빈 칸이 뜨면 새로 쓰기).
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await expect(field).toHaveValue('가상 가-1 상황');
+ await expect(ga.locator('select[data-bp-target] option:checked')).toHaveText('◦ 세부 과제 가-1');
+ expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([9,9]); // '가상 가-1 상황' 끝
+ // 취소하면 원문 그대로, 저장 요청도 없다.
+ const writes=db.writes.length;
+ await field.fill('가상 고친 글');
+ await ga.locator('[data-bp-edit-cancel]').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
+ expect(db.writes.length).toBe(writes);
+ // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await field.fill('가상 가-1 고친 상황');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
+ await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ expect(db.writes.at(-1)).toMatchObject({space_id:'wa1',body:'가상 가-1 고친 상황'});
+ // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 삭제]는 없다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('select[data-bp-target]').selectOption({label:'◦ 세부 과제 가-2'});
+ await expect(field).toHaveValue('');
+ await expect(ga.locator('[data-bp-edit-clear]')).toHaveCount(0);
+ await ga.locator('[data-bp-edit-cancel]').click();
+ // 삭제: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
+ await ga.locator('[data-bp-cell="progress"]').click();
+ await ga.locator('[data-bp-edit-clear]').click();
+ await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 삭제할까요?');
+ await page.locator('.kptu-ask .kptu-ask-actions .danger').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveCount(0);
+ expect(db.writes.at(-1)).toMatchObject({body:''});
+ await page.locator('.kptu-notice-undo').click();
+ await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
+ expect(db.writes.at(-1)).toMatchObject({body:'가상 가-1 고친 상황'});
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
@@ -3508,7 +3601,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
 });
 
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
-// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
+// 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '삭제할까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const siteCell=(page,name)=>page.locator('#journalRoot [data-weekly-flow-cells="sites"] [data-flow-cell]').filter({has:page.locator('.weekly-flow-label',{hasText:new RegExp(`^${name}$`)})});
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
 async function stageFixture(page,width,{history,fail=false,noEnd=false,team=SITES_TEAM}){
@@ -4010,7 +4103,8 @@ for(const width of [412,1280])test(`S67-29 상집 논의 요청 한글 파일: �
  const f=await hwpxFixture(page,{width,rawFiles:{'doc-new':doc}});
  // 두 번째 올리기(구형 .hwp)는 다른 자료 id로 답한다.
  await page.unroute(SB+'/functions/v1/library-files');
- let n=0;await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());f.sent.library.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:n++?'doc-old':'doc-new',title:body.title,file_name:body.file?.file}}});});
+ let n=0;await page.route(SB+'/functions/v1/library-files',r=>{if(/^\{"action":"drive-auto"\}$/.test(r.request().postData()||''))return r.fulfill({status:200,headers:{'access-control-allow-origin':'*'},json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+const body=multipartBody(r.request());f.sent.library.push(body);return r.fulfill({headers:{'access-control-allow-origin':'*'},json:{ok:true,document:{id:n++?'doc-old':'doc-new',title:body.title,file_name:body.file?.file}}});});
  await page.unroute(SB+'/functions/v1/document-actions');
  await page.route(SB+'/functions/v1/document-actions',r=>{
   const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};

@@ -6,6 +6,7 @@
 // 자료 이름·문장은 모두 예시. 서버는 흉내(표 읽기는 owner RLS REST).
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { briefMore, briefTopMenu } from './helpers/brief-head.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const D = n => `d0000000-0000-4000-8000-00000000000${n}`;
@@ -32,7 +33,7 @@ async function open(page) {
     beforeLoad: async () => {
       await page.route(SB + '/rest/v1/app_document_briefs**', r => r.fulfill({ json: s.briefs }));
       await page.route(SB + '/rest/v1/app_library_folders**', r => r.fulfill({ json: r.request().method() === 'GET' ? [{ id: 'f-brief' }] : [] }));
-      await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: r.request().method() === 'GET' ? [{ document_id: D(3) }] : [] }));
+      await page.route(SB + '/rest/v1/app_library_folder_items**', r => r.fulfill({ json: r.request().method() === 'GET' ? [] : [] }));
       await page.route(SB + '/rest/v1/app_documents?**', r => {
         if (r.request().method() !== 'GET') return r.fallback();
         return new URL(r.request().url()).searchParams.get('id')?.startsWith('in.') ? r.fulfill({ json: docs }) : r.fallback();
@@ -133,8 +134,15 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
 
     // [브리핑만 삭제] → 밑줄·노트 지우는 요청 없음. 노트 › 밑줄 [원문에서 보기] 길만 꺼진다.
     if (width <= 760) await page.locator('#briefView [data-br-back]').click();
-    await page.locator(`#briefView [data-br-more="${D(3)}"]`).click();
-    await page.locator('#brRowMenu [data-br-act="brief"]').click();
+    // 자료실에 있던 자료(브리핑 요청함 폴더 밖)라 [삭제]는 브리핑만 지운다. 폰 = 왼쪽 밀기, PC = 줄 우클릭.
+    const brow = page.locator(`#briefView .br-row[data-br-open="${D(3)}"]`);
+    if (width <= 760) {
+      await expect(async () => { await brow.evaluate(el => { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 12; const f = (t, cx) => el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: y })); f('pointerdown', x); for (let i = 1; i <= 12; i++) f('pointermove', x - 200 * i / 12); f('pointerup', x - 200); }); await expect(page.locator('[data-row-swipe-key="delete"]')).toBeVisible({ timeout: 1000 }); }).toPass({ timeout: 15000 });
+      await page.locator('[data-row-swipe-key="delete"]').click();
+    } else {
+      await brow.locator('.br-nm').click({ button: 'right' });
+      await page.locator('#rowMenu [data-row-item="delete"]').click();
+    }
     await page.locator('.kptu-ask .kptu-ask-actions button', { hasText: '삭제' }).click();
     await expect.poll(() => s.briefs.length).toBe(0);
     expect(s.hlDeletes).toBe(0);
@@ -152,9 +160,15 @@ for (const [label, width, height] of [['phone-390', 390, 844], ['pc-1280', 1280,
     const { prefs } = await open(page);
     await page.evaluate(() => window.KPTURouter.go('brief'));
     await expect(page.locator('#briefView .br-row')).toHaveCount(1);
-    // 목록만 보일 때: 목록 머리 줄 끝에 하나.
-    const listCtl = page.locator('#briefView [data-br-list] .br-head [data-text-size-ctl]');
-    await expect(listCtl).toBeVisible();
+    // 목록만 보일 때(폰): S71-30 머리 [⋯] 메뉴 안에 하나(목록 칸에는 없음). S70-84: 두 칸 폭(600px~)은 맨 위 다 된 브리핑이 오른쪽에 바로 열려 보기 머리 줄에 하나 — ⋯에는 없음.
+    await expect(page.locator('#briefView [data-br-list] [data-text-size-ctl]')).toHaveCount(0);
+    await briefMore(page).click();
+    const listCtl = briefTopMenu(page).locator('[data-text-size-ctl]');
+    await expect(briefTopMenu(page)).toBeVisible();
+    if (width < 600) await expect(listCtl).toBeVisible();
+    else await expect(listCtl).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(briefTopMenu(page)).toBeHidden();
     await page.locator('#briefView .br-row').first().click();
     await expect(body(page).locator('.br-items li').first()).toContainText(LINE1);
     // 보기가 열리면 글자 크기 단추는 보기 머리 줄 하나뿐.

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>버튼 묶음 정리 시안</title>
+<!-- UI-버튼묶음정리(S70-71) 시안. 정적·외부 주소 없음·가짜 내용. 색·크기는 app/theme-tokens.css 기본 테마 값을 옮겨 적은 것(시안 전용). -->
+<style>
+:root{
+  --bg:#f3f1ea;--surface:#fffefa;--subtle:#f7f5ee;--ink:#2a2a23;--muted:#6e6c60;--faint:#8f8c7f;
+  --line:#e2ddd0;--line2:#cfc8b6;--primary:#22262b;--soft:#e7e5df;--danger:#b42318;--danger-soft:#fdecea;
+  --h32:32px;--h28:28px;--r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1b1c1a;--surface:#242522;--subtle:#2b2c29;--ink:#e9e7df;--muted:#b3b0a4;--faint:#8f8c7f;
+  --line:#3a3b36;--line2:#4a4b45;--primary:#e9e7df;--soft:#34352f;--danger:#f0918a;--danger-soft:#3b201d;}}
+:root[data-theme="dark"]{
+  --bg:#1b1c1a;--surface:#242522;--subtle:#2b2c29;--ink:#e9e7df;--muted:#b3b0a4;--faint:#8f8c7f;
+  --line:#3a3b36;--line2:#4a4b45;--primary:#e9e7df;--soft:#34352f;--danger:#f0918a;--danger-soft:#3b201d;}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:13px/1.5 "Pretendard","Noto Sans KR",system-ui,sans-serif}
+h1{font-size:16px;margin:0 0 4px}
+h2{font-size:14px;margin:22px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+.lead{color:var(--muted);font-size:12px;margin:0 0 10px;max-width:880px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.cap{font-size:12px;font-weight:600;margin:0 0 6px;display:flex;flex-wrap:wrap;gap:2px 6px;align-items:baseline;white-space:nowrap}
+.cap .tag{white-space:normal}
+.cap small{font-weight:400;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.tag.bad{background:var(--danger-soft);color:var(--danger)}
+.note{font-size:11.5px;color:var(--muted);margin:6px 0 0;padding-left:14px}
+.note li{margin:1px 0}
+/* 가짜 상세 칸 */
+.pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.pane.w300{width:300px;max-width:100%}
+.phead{display:flex;align-items:center;gap:6px;min-height:28px}
+.phead .nm{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb{height:96px;margin:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--subtle);display:grid;place-items:center;color:var(--faint);font-size:22px}
+.meta{display:grid;grid-template-columns:52px 1fr;gap:1px 8px;font-size:12px;margin:0 0 8px}
+.meta dt{color:var(--faint)}.meta dd{margin:0;color:var(--muted)}
+.toolbar{display:flex;gap:4px;align-items:center;padding:0 0 8px;margin:0 0 8px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.toolbar .sp{flex:1}
+/* 버튼 모양들 */
+button{font:inherit;color:inherit;cursor:pointer}
+.b32{height:var(--h32);padding:0 12px;border:1px solid var(--line2);border-radius:var(--r);background:var(--surface);font-size:13px;font-weight:500}
+.b32.redfill{background:var(--danger);border-color:var(--danger);color:#fff}
+.b28{height:var(--h28);padding:0 8px;border:1px solid var(--line2);border-radius:var(--r);background:var(--surface);font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.b28 svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.txt{height:var(--h28);padding:0 6px;border:0;background:none;font-size:12px;color:var(--ink);font-weight:500;white-space:nowrap}
+.dots{width:var(--h28);height:var(--h28);border:0;background:none;border-radius:var(--r);color:var(--muted);font-size:16px;line-height:1;display:inline-grid;place-items:center}
+.dots:hover,.txt:hover{background:var(--subtle)}
+.ico{width:var(--h28);height:var(--h28);border:0;background:none;border-radius:var(--r);display:inline-grid;place-items:center;color:var(--muted)}
+.ico svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.one{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;min-width:0}
+.one .grow{flex:1}
+.sep{width:1px;height:16px;background:var(--line);margin:0 2px}
+/* ⋯ 펼친 작은 메뉴(시안에서는 늘 펼쳐 보여 줌) */
+.menu{margin:6px 0 0 auto;width:150px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:4px;font-size:12.5px}
+.menu div{padding:5px 8px;border-radius:6px}
+.menu div:hover{background:var(--subtle)}
+.menu .dz{color:var(--danger);border-top:1px solid var(--line);margin-top:3px;padding-top:7px;border-radius:0 0 6px 6px}
+.ruler{font-size:11px;color:var(--faint);margin-top:6px}
+.phone{width:360px;max-width:100%}
+table{border-collapse:collapse;font-size:12px;width:100%;max-width:980px;background:var(--surface);border:1px solid var(--line)}
+th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{background:var(--subtle);font-weight:600;color:var(--muted)}
+.footnote{color:var(--muted);font-size:11.5px;margin-top:20px}
+@media (max-width:420px){body{padding:16px 12px}.pane.w300,.phone{width:100%}}
+</style>
+</head>
+<body>
+<h1>버튼 묶음 정리 — 시안</h1>
+<p class="lead">사용자 요청(11/26 08:48): [파일] 오른쪽 상세 칸 버튼이 위쪽 버튼보다 크고 두 줄로 들쭉날쭉. 아래는 같은 칸을 가안·나안으로 다시 그린 것과, 같은 규칙을 다른 곳에 적용한 모습이다. 이름·파일은 모두 가짜. 숫자는 실제 앱을 시험 브라우저로 잰 값.</p>
+
+<h2>① 파일 상세 칸 (PC 오른쪽 칸 폭 300px)</h2>
+<div class="grid">
+  <!-- 지금 -->
+  <div>
+    <p class="cap">지금 <span class="tag bad">버튼 32px · 위쪽 28~30px보다 큼 · 4+3 두 줄 · 휴지통 빨간 채움</span></p>
+    <div class="pane w300">
+      <div class="toolbar"><span>원드라이브</span><span class="sp"></span><button class="b28" style="height:26px">새 폴더</button><button class="b28" style="height:26px">업로드</button></div>
+      <div class="phead"><span class="nm">가짜 안내문.pdf</span><button class="ico" aria-label="별표"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg></button></div>
+      <div class="thumb">PDF</div>
+      <dl class="meta"><dt>위치</dt><dd>원드라이브</dd><dt>크기</dt><dd>1.2MB</dd><dt>바뀐 날</dt><dd>2026-10-05 03:00</dd></dl>
+      <div class="row"><button class="b32">열기</button><button class="b32">받기</button><button class="b32">자료실로 보내기</button><button class="b32">이름</button><button class="b32">복사</button><button class="b32">옮기기</button><button class="b32 redfill">휴지통</button></div>
+    </div>
+    <ul class="note"><li>버튼 7개가 칸 폭에 따라 4+3(PC)·5+2(폰)로 접힌다. 줄 끝이 맞지 않는다.</li><li>[휴지통]만 빨간 채움 — 사이트 규칙(②는 흰 바탕, 빨강은 글자)과 다름. 원인: 공용 <code>.danger</code> 기본이 빨간 채움이고, 창(.modal)·창 아래 줄 안에서만 글자색으로 바뀜.</li></ul>
+  </div>
+
+  <!-- 가안 -->
+  <div>
+    <p class="cap">가안 <small>아이콘+글자 작은 버튼 한 줄 + ⋯</small></p>
+    <div class="pane w300">
+      <div class="toolbar"><span>원드라이브</span><span class="sp"></span><button class="b28">새 폴더</button><button class="b28">업로드</button></div>
+      <div class="phead"><span class="nm">가짜 안내문.pdf</span><button class="ico" aria-label="별표"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg></button></div>
+      <div class="thumb">PDF</div>
+      <dl class="meta"><dt>위치</dt><dd>원드라이브</dd><dt>크기</dt><dd>1.2MB</dd><dt>바뀐 날</dt><dd>2026-10-05 03:00</dd></dl>
+      <div class="one">
+        <button class="b28"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>열기</button>
+        <button class="b28"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>받기</button>
+        <button class="b28"><svg viewBox="0 0 24 24"><path d="M4 6h6l2 2h8v10H4z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>자료실로</button>
+        <span class="grow"></span>
+        <button class="dots" aria-label="더 보기">⋯</button>
+      </div>
+      <div class="menu"><div>공유</div><div>이름 바꾸기</div><div>복사</div><div>옮기기</div><div class="dz">휴지통으로</div></div>
+    </div>
+    <ul class="note"><li>버튼 높이 28px = 위쪽 [새 폴더]·[업로드]와 같거나 작게. 늘 한 줄.</li><li>밖에는 자주 쓰는 3개(열기·받기·자료실로). 나머지는 [⋯] 안. 휴지통은 ⋯ 맨 아래 빨간 글자.</li><li>폰(390)에서도 같은 한 줄이 들어간다(아래 폰 칸).</li></ul>
+  </div>
+
+  <!-- 나안 -->
+  <div>
+    <p class="cap">나안 <small>글자 버튼 한 줄 3개 + ⋯ (테두리 없음)</small></p>
+    <div class="pane w300">
+      <div class="toolbar"><span>원드라이브</span><span class="sp"></span><button class="b28">새 폴더</button><button class="b28">업로드</button></div>
+      <div class="phead"><span class="nm">가짜 안내문.pdf</span><button class="ico" aria-label="별표"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6L3.4 9.3l6-.7z"/></svg></button></div>
+      <div class="thumb">PDF</div>
+      <dl class="meta"><dt>위치</dt><dd>원드라이브</dd><dt>크기</dt><dd>1.2MB</dd><dt>바뀐 날</dt><dd>2026-10-05 03:00</dd></dl>
+      <div class="one"><button class="txt">열기</button><span class="sep"></span><button class="txt">받기</button><span class="sep"></span><button class="txt">자료실로 보내기</button><span class="grow"></span><button class="dots" aria-label="더 보기">⋯</button></div>
+      <div class="menu"><div>공유</div><div>이름 바꾸기</div><div>복사</div><div>옮기기</div><div class="dz">휴지통으로</div></div>
+    </div>
+    <ul class="note"><li>테두리·바탕 없는 글자 버튼(공용 ③ 종류, 진한 글자). 가장 가볍다.</li><li>버튼처럼 안 보일 수 있어 세로 가는 선으로 나눔. 누르는 범위는 44px 그대로.</li><li>⋯ 안은 가안과 같다.</li></ul>
+  </div>
+</div>
+
+<h2>① 폰(390)에서 같은 칸</h2>
+<div class="grid">
+  <div><p class="cap">지금 <span class="tag bad">5+2 두 줄</span></p>
+    <div class="pane phone"><div class="row"><button class="b32">열기</button><button class="b32">받기</button><button class="b32">자료실로 보내기</button><button class="b32">이름</button><button class="b32">복사</button><button class="b32">옮기기</button><button class="b32 redfill">휴지통</button></div></div></div>
+  <div><p class="cap">가안</p>
+    <div class="pane phone"><div class="one"><button class="b28"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>열기</button><button class="b28"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>받기</button><button class="b28"><svg viewBox="0 0 24 24"><path d="M4 6h6l2 2h8v10H4z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>자료실로</button><span class="grow"></span><button class="dots" aria-label="더 보기">⋯</button></div></div></div>
+  <div><p class="cap">나안</p>
+    <div class="pane phone"><div class="one"><button class="txt">열기</button><span class="sep"></span><button class="txt">받기</button><span class="sep"></span><button class="txt">자료실로 보내기</button><span class="grow"></span><button class="dots" aria-label="더 보기">⋯</button></div></div></div>
+</div>
+
+<h2>② 같은 규칙을 다른 곳에 (가안 모양 기준)</h2>
+<p class="lead">전수 조사에서 걸린 대표 3곳. 규칙: 머리줄보다 크지 않게 · 늘 한 줄 · 자주 쓰는 2~3개만 밖, 나머지 ⋯ · 지우기는 ⋯ 맨 아래 빨간 글자 · 한 묶음 한 모양. 나안을 고르면 밖 버튼이 선 없는 글자 버튼이 된다.</p>
+<div class="grid">
+  <div>
+    <p class="cap">브리핑 룸 상세 머리 (폰) <span class="tag bad">지금: 두 줄</span></p>
+    <div class="pane phone">
+      <div class="row" style="max-width:250px"><button class="ico" aria-label="목록으로"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span style="font-weight:600;flex:1">가짜 회의 정리</span><button class="b32">노트로 보관</button><button class="b32">수정</button></div>
+      <div class="ruler">지금 — 좁으면 [노트로 보관][수정]이 아래 줄로 내려감</div>
+      <div class="one" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)"><button class="ico" aria-label="목록으로"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span class="nm" style="flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">가짜 회의 정리</span><button class="b28">수정</button><button class="dots" aria-label="더 보기">⋯</button></div>
+      <div class="ruler">고친 뒤 — 한 줄. [노트로 보관]은 ⋯ 안</div>
+    </div>
+  </div>
+  <div>
+    <p class="cap">잊지 말기 상세 카드 (폰) <span class="tag bad">지금: 첨부 줄 1+2 · 아래 32px 세 개</span></p>
+    <div class="pane phone">
+      <div style="font-size:12.5px">가짜 교섭 결과 공유 — 다음 회의 10/27</div>
+      <div style="display:flex;gap:8px;margin:8px 0;align-items:flex-start"><div class="thumb" style="width:44px;height:44px;margin:0;font-size:11px">HWP</div><div style="flex:1;min-width:0;font-size:12px"><b style="font-weight:500">가짜 요구안.hwp</b><div style="color:var(--faint)">2KB</div><div style="display:flex;flex-wrap:wrap;gap:0 14px;max-width:150px"><span style="text-decoration:underline">내려받기</span><span style="text-decoration:underline">자료실로</span><span style="text-decoration:underline">수정</span></div></div></div>
+      <div class="row"><button class="b32">연결하기</button><button class="b32">할 일 만들기</button><button class="b32">노트로 옮기기</button></div>
+      <div class="ruler">지금</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+        <div style="display:flex;gap:8px;margin:0 0 8px;align-items:center"><div class="thumb" style="width:36px;height:36px;margin:0;font-size:10px">HWP</div><div style="flex:1;min-width:0;font-size:12px"><b style="font-weight:500">가짜 요구안.hwp</b> <span style="color:var(--faint)">2KB</span></div><button class="txt">받기</button><button class="dots" aria-label="첨부 더 보기">⋯</button></div>
+        <div class="one"><button class="b28">연결하기</button><button class="b28">할 일 만들기</button><button class="b28">노트로 옮기기</button></div>
+        <div class="ruler">고친 뒤 — 첨부는 이름 줄 끝 [받기][⋯](자료실로·수정), 아래 줄은 28px 한 줄</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="cap">할 일 창 기한 칩 <span class="tag bad">지금: 한 줄 안에 32·36px 섞임</span></p>
+    <div class="pane phone">
+      <div class="row"><button class="b32" style="height:36px">오늘</button><button class="b32">내일</button><button class="b32">모레</button><button class="b32">다음주</button><button class="b32" style="font-size:12px">기한 없음</button></div>
+      <div class="ruler">지금</div>
+      <div class="one" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)"><button class="b28">오늘</button><button class="b28">내일</button><button class="b28">모레</button><button class="b28">다음주</button><button class="b28">기한 없음</button></div>
+      <div class="ruler">고친 뒤 — 한 높이·한 글자 크기</div>
+    </div>
+  </div>
+</div>
+
+<h2>규칙 한눈에</h2>
+<table>
+<tr><th>규칙</th><th>지금 걸린 곳(조사)</th></tr>
+<tr><td>1. 머리줄 버튼보다 크지 않게(28px·12px, 누르는 범위 44px 그대로)</td><td>파일 상세 칸 32px &gt; 머리줄 26~30px</td></tr>
+<tr><td>2. 늘 한 줄 — 밖 2~3개 + ⋯</td><td>파일 상세 칸(4+3·5+2) · 브리핑 룸 머리 · 잊지 말기 첨부 줄 · 폰 메뉴 설정 칸(4+4+2)</td></tr>
+<tr><td>3. 지우기는 채움 빨강 금지 — ⋯ 맨 아래 빨간 글자</td><td>파일 상세 칸 [휴지통] (원인: 공용 <code>.danger</code> 기본이 빨간 채움)</td></tr>
+<tr><td>4. 한 묶음 한 모양(같은 높이·글자, 아이콘은 모두 있거나 모두 없거나)</td><td>할 일 창 기한 칩(32/36px) · 텔레그램 하루 묶음 줄(글자·아이콘 섞임)</td></tr>
+<tr><td>5. 예외: 창 아래 [취소][저장] 줄 · 보기 탭 · 거르기 칩 · 고르기 막대 · 서식 줄</td><td>각자 기존 규칙 그대로</td></tr>
+</table>
+
+<p class="footnote">시안 전용 정적 페이지. 실제 구현은 공용 부품(UI-버튼6가지 ②·③·⑥ + 공용 ⋯ 작은 메뉴)만 쓰고 화면 CSS는 자리만 정한다.</p>
+</body>
+</html>

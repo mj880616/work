@@ -60,7 +60,7 @@ async function open(page, state, width, view = 'meetings') {
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
 }
 
-const BAR = '#meetingsView .report-kind-bar', CHIP = '#reportFilterChip';
+const BAR = '#reportFilterBar', CHIP = '#reportFilterChip';
 const box = e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
 // 칩·상자 줄의 자리, 칩 글자가 칩 안에 다 들어갔는지(말줄임 포함), ▾ 자리(오른쪽 여백).
 const chipState = page => page.evaluate(([barSel, chipSel]) => {
@@ -75,7 +75,9 @@ const chipState = page => page.evaluate(([barSel, chipSel]) => {
 }, [BAR, CHIP]);
 const noPageScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
-for (const width of [360, 412]) {
+// S70-57: 이름 '사업 관리'가 앱 머리 줄로 올라갔다. S71-10(11/26 명진 '한 줄에 우겨넣고 싶어'): 주 줄(‹ 날짜 › · n건)도 같은 줄에 들어가
+// 폰(412까지)은 상자 네 개가 다 안 들어가 칩 하나다. 펼친 폴드(700·880)는 네 개 그대로(아래 줄).
+for (const width of [320, 360, 412]) {
   test(`phone ${width}: 사업 관리 top line shows one filter chip (never cut) instead of four boxes; the chip opens one small window with the same four boxes, and a pick there filters the list and renames the chip`, async ({ page }) => {
     await open(page, makeState(), width);
     const chip = page.locator(CHIP);
@@ -83,11 +85,13 @@ for (const width of [360, 412]) {
     await expect(chip).toHaveText('전체');
     await expect(page.locator('#reportAreaSelect')).toBeHidden();
     await expect(page.locator('#meetingList')).toContainText('◇◇ 결의대회');
-    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox(), title = await page.locator('#meetingsView .report-top-title').boundingBox();
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox(), head = await page.locator('#appView > .mobile-shell-header').boundingBox();
     let s = await chipState(page);
-    // 한 줄: [사업 관리] 다음에 칩, 칩은 [+] 왼쪽에서 끝나고, [+]·[⋯]는 화면 안. 칩은 통째로 보인다(글자 잘림·말줄임 없음, ▾ 자리 있음).
+    // 한 줄: 칩은 [+] 왼쪽에서 끝나고, [+]·찾기는 화면 안. 칩은 통째로 보인다(글자 잘림·말줄임 없음, ▾ 자리 있음).
+    // BIZ-머리한줄(S71-23): 칩·[+]는 앱 머리 줄 안(이름 '사업 관리' 뒤, 찾기 앞).
     expect(s.bar).toBeNull();
-    expect(s.chip.left).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(s.chip.top).toBeGreaterThanOrEqual(head.y - 0.5);
+    expect(s.chip.bottom).toBeLessThanOrEqual(head.y + head.height + 0.5);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
     expect(Math.abs((s.chip.top + s.chip.bottom) / 2 - (add.y + add.height / 2))).toBeLessThanOrEqual(2);
@@ -122,7 +126,8 @@ for (const width of [360, 412]) {
     await chip.click();
     await page.locator('#reportViewSelect').selectOption('calendar');
     await expect(chip).toHaveText('합성 사업 · 달력');
-    await chip.click();
+    // S70-57: 달력은 기간 상자가 빠져, 남은 상자가 줄에 다 들어가면 칩 없이 상자 그대로다(칩/상자는 실제 폭이 정함).
+    if (await chip.isVisible()) await chip.click();
     await expect(page.locator('#reportPeriodPick')).toBeHidden();
     await page.locator('#reportViewSelect').selectOption('list');
     await expect(chip).toHaveText('합성 사업');
@@ -146,7 +151,7 @@ for (const width of [360, 412]) {
     expect(await noPageScroll(page)).toBe(true);
   });
 
-  test(`phone ${width}: a long chip label (several picks) ends with … inside the line and keeps ▾, [+] and [⋯] in place`, async ({ page }) => {
+  test(`phone ${width}: a long chip label (several picks) ends with … inside the line and keeps ▾, [+] and find in place`, async ({ page }) => {
     await open(page, makeState(), width);
     const chip = page.locator(CHIP);
     await expect(chip).toBeVisible({ timeout: 10000 });
@@ -156,7 +161,7 @@ for (const width of [360, 412]) {
       await expect(page.locator('#reportAreaSelect')).toBeHidden();
     }
     await expect(chip).toHaveText(/ · .* · 전체 기간$/);
-    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
+    const add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox();
     const s = await chipState(page);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
@@ -166,23 +171,26 @@ for (const width of [360, 412]) {
   });
 }
 
+// BIZ-머리한줄(S71-23): 폴드 펼침(700)은 고르기·건수·[+]가 앱 머리 줄 안에서 찾기 칸과 폭을 나눠, 다 안 들어가면 칩 하나(넘침 없음).
+// PC 틀(880)은 화면 안 첫 줄이라 네 개 그대로.
 for (const width of [700, 880]) {
-  test(`fold open ${width}: all four boxes fit in the line, so they stay four (no chip)`, async ({ page }) => {
+  test(`fold open ${width}: the boxes stay on one line — four when they fit (PC frame 880), one chip otherwise, never overflowing`, async ({ page }) => {
     await open(page, makeState(), width);
-    await expect(page.locator('#reportAreaSelect')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#reportAreaSelect:visible, #reportFilterChip:visible').first()).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(150);
     const s = await chipState(page);
-    expect(s.chip).toBeNull();
-    expect(s.selects.length).toBe(4);
-    expect(s.bar.sw).toBeLessThanOrEqual(s.bar.cw + 1);
+    if (width >= 761) { expect(s.chip).toBeNull(); expect(s.selects.length).toBe(4); }
+    if (!s.chip) {
+      expect(s.bar.sw).toBeLessThanOrEqual(s.bar.cw + 1);
+      for (const c of s.selects) { expect(c.left).toBeGreaterThanOrEqual(s.bar.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.bar.right + 1); }
+    } else expect(s.textCut).toBe(false);
     expect(s.mask).toBe('none');
-    for (const c of s.selects) { expect(c.left).toBeGreaterThanOrEqual(s.bar.left - 0.5); expect(c.right).toBeLessThanOrEqual(s.bar.right + 1); }
     expect(await noPageScroll(page)).toBe(true);
   });
 }
 
-test('phone → wide: folding the window open while the chip window is open closes it and shows the four boxes', async ({ page }) => {
-  await open(page, makeState(), 412);
+test('phone 360 → wide: folding the window open while the chip window is open closes it and shows the four boxes', async ({ page }) => {
+  await open(page, makeState(), 360);
   const chip = page.locator(CHIP);
   await expect(chip).toBeVisible({ timeout: 10000 });
   await chip.click();
@@ -191,30 +199,30 @@ test('phone → wide: folding the window open while the chip window is open clos
   await expect(chip).toBeHidden();
   await expect.poll(async () => (await chipState(page)).open).toBe(false);
   await expect(page.locator('#reportAreaSelect')).toBeVisible();
-  await page.setViewportSize({ width: 412, height: 800 });
+  await page.setViewportSize({ width: 360, height: 800 });
   await expect(chip).toBeVisible();
   await expect(page.locator('#reportAreaSelect')).toBeHidden();
 });
 
 for (const width of [360, 412]) {
-  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep the chip, [+]·[⋯] on the line and the page from scrolling sideways`, async ({ page }) => {
+  test(`phone ${width}: long names a person gave (custom_words, up to 20 letters) keep the chip, [+]·find on the line and the page from scrolling sideways`, async ({ page }) => {
     const state = makeState(LONG_WORDS);
     await open(page, state, width);
-    const title = page.locator('#meetingsView .report-top-title');
+    const title = page.locator('#appView > .mobile-shell-header [data-mobile-view-name]'); // S70-57: 이름은 앱 머리 줄
     await expect(title).toHaveText(LONG_WORDS.menu_biz);
     await expect(page.locator(CHIP)).toBeVisible({ timeout: 10000 });
     await page.locator(CHIP).click();
     await expect(page.locator('#reportAreaSelect')).toHaveText(new RegExp(LONG_WORDS.area));
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
-    const t = await title.boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#reportMore').boundingBox();
+    const t = await title.boundingBox(), add = await page.locator('#newMeetingBtn').boundingBox(), more = await page.locator('#appView > .mobile-shell-header .mobile-shell-find').boundingBox();
     const s = await chipState(page);
-    // 아주 긴 이름만 줄 끝에서 …(칩 자리·버튼 자리를 지킴). 버튼은 화면 안, 이름과 같은 줄.
-    expect(t.x + t.width).toBeLessThanOrEqual(s.chip.left);
+    // 아주 긴 이름은 앱 머리 줄에서 …(칩 최소 폭·[+]·찾기 돋보기 자리를 지킴). BIZ-머리한줄: 칩·버튼도 같은 머리 줄, 화면 안.
+    expect(t.x + t.width).toBeLessThanOrEqual(s.chip.left + 0.5);
     expect(s.chip.right).toBeLessThanOrEqual(add.x + 0.5);
     expect(s.chip.width).toBeGreaterThan(40);
     expect(more.x + more.width).toBeLessThanOrEqual(width);
-    expect(Math.abs((more.y + more.height / 2) - (t.y + t.height / 2))).toBeLessThanOrEqual(4);
+    expect(Math.abs((more.y + more.height / 2) - (s.chip.top + s.chip.bottom) / 2)).toBeLessThanOrEqual(4);
     expect(await noPageScroll(page)).toBe(true);
     // 다른 화면의 윗줄(앱 머리줄: 아이콘 · 이름)도 긴 이름에 넘치지 않는다.
     for (const [view, word] of [['team', LONG_WORDS.menu_org], ['calendar', null], ['basket&pane=note', null], ['library', null]]) {

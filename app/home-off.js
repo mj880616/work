@@ -7,6 +7,7 @@ import {viewPrefs} from './view-prefs.js';
 import {HOME_OFF_CARDS, offList, toggledOff, savedOff, homeOffCard} from './home-off-model.mjs';
 import {openRowMenu} from './row-menu.js';
 import {notify} from './small-notice.js';
+import {groupHtml, switchRow} from './settings-list.mjs';
 
 export {HOME_OFF_CARDS};
 export const HOME_OFF_EVENT = 'kptu:home-off';
@@ -43,13 +44,13 @@ export function openHomeOffMenu(trigger, id) {
     }});
 }
 
-// 내 프로필 '홈 칸': 끌 수 있는 칸마다 한 줄 + 스위치(켜짐 = 홈에 보임). 바꾸면 바로 서버 저장.
-export function mountHomeOffSettings(host) {
+// 내 프로필 '홈 칸' 장: 끌 수 있는 칸마다 한 줄 + 스위치(켜짐 = 홈에 보임). 바꾸면 바로 서버 저장. 줄은 공용 설정 줄(settings-list.mjs).
+// 첫 화면 요약은 켜진 칸 수(onSummary).
+export function mountHomeOffSettings(host, {onSummary} = {}) {
   const render = () => {
     const off = new Set(homeOffList());
-    host.innerHTML = '<div class="rb-head"><h3>홈 칸</h3></div><div class="rb-list">'
-      + HOME_OFF_CARDS.map(c => `<label class="rb-row"><span>${c.name}</span><input type="checkbox" role="switch" class="rb-switch" data-home-off-switch="${c.id}"${off.has(c.id) ? '' : ' checked'} aria-label="홈에 '${c.name}' 보이기"></label>`).join('')
-      + '</div>';
+    host.innerHTML = groupHtml(HOME_OFF_CARDS.map(c => switchRow({label: c.name, checked: !off.has(c.id), attrs: {'data-home-off-switch': c.id}, ariaLabel: `홈에 '${c.name}' 보이기`})));
+    onSummary?.({text: `${HOME_OFF_CARDS.filter(c => !off.has(c.id)).length}개 켜짐`});
   };
   host.addEventListener('change', e => {
     const box = e.target.closest?.('[data-home-off-switch]');

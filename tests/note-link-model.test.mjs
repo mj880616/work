@@ -49,9 +49,12 @@ test('가리키는 노트: doc 안 링크만 세고, 자기·잠긴 노트 제�
 });
 test('연결: 노트 편집기만 [[ 목록, 읽기 화면은 앱 안에서 열기, 가리키는 노트는 관련 칸 한 곳', () => {
   const ed = readFileSync(new URL('../app/ed-editor.js', import.meta.url), 'utf8');
-  assert.match(ed, /if \(noteLinks\) \{\n    const \{mountNoteLink\} = await import\('\.\/ed-note-link\.js'\);/);
+  // #3284: 편집기와 함께 불러온다(늦게 불러오면 편집기가 뜬 뒤 친 '[['를 놓친다). 붙이는 것은 노트(noteLinks)에서만.
+  assert.match(ed, /^import \{mountNoteLink\} from '\.\/ed-note-link\.js';$/m);
+  assert.doesNotMatch(ed, /import\('\.\/ed-note-link\.js'\)/);
+  assert.match(ed, /if \(noteLinks\) \{\n    noteLinkPart = mountNoteLink\(/);
   const notes = readFileSync(new URL('../app/basket-notes.js', import.meta.url), 'utf8');
-  assert.match(notes, /noteLinks:linksFor\(id\)\}\);/);
+  assert.match(notes, /noteLinks:linksFor\(id\), tasks:noteTaskProvider\(id, \{rt\}\)\}\);/); // S69-97: 노트 칸은 구글 할 일(tasks)도 함께 넘긴다
   assert.match(notes, /const target = noteLinkId\(a\.getAttribute\('href'\)\); if \(!target\) return;/);
   assert.match(readFileSync(new URL('../app/note-related.js', import.meta.url), 'utf8'), /backlinks\(note\.id, notes, \{hidden, titleOf\}\)/);
   assert.doesNotMatch(readFileSync(new URL('../app/ed-note-link.js', import.meta.url), 'utf8'), /(?:local|session)Storag[e]|fetch\(/);

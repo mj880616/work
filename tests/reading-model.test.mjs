@@ -158,7 +158,7 @@ test('메뉴: [저장한 글](옛 이름 읽을 거리, S68-34)은 모든 사람
   assert.deepEqual(DEFAULT_REST.slice(0, 2), ['basket', 'reading']);
   assert.ok(withFeatures(defaultLayout(), []).rest.includes('reading'), '운영자 기능이 없어도 보인다');
   const loader = read('app/view-loader.js');
-  assert.match(loader, /async function reading\(\)\{ await module\('\.\/reading\.js'\); return \{ok:true\} \}/);
+  assert.match(loader, /async function reading\(\)\{ await screen\('\.\/reading\.js','__KPTU_READING_READY__'\); return \{ok:true\} \}/);
   assert.match(loader, /reading:\['\.\/feed\.css',[^\]]*'\.\/reading\.css'/);
   assert.match(read('app/index.html'), /data-view="reading" href="\.\/\?view=reading">저장한 글</);
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
@@ -255,7 +255,8 @@ test('titleFixes: 손으로 넣은 기사 제목이 사본과 다를 때만 고�
 
 test('저장한 글 [수정]: ⋯ 맨 앞 [수정](다른 화면과 같은 순서), News 뉴스 기사는 그 글 보기 ⋯ [수정] 창, 직접 넣은 줄은 이 화면 칸 — 새 창 부품 없음', () => {
   const js = readFileSync('app/reading.js', 'utf8'), out = readFileSync('app/outside-statements.js', 'utf8'), nd = readFileSync('app/now-detail.js', 'utf8');
-  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}\$\{note\}<button type="button" class="row-act" data-rd-act="read">/); // S70-40b: 글 보기 머리 ⋯은 [수정] 다음 [밑줄을 노트로]
+  assert.match(js, /\$\{editKind\(id\) \? '<button type="button" class="row-act" data-rd-act="edit">수정<\/button>' : ''\}\$\{toNews\}\$\{note\}<button type="button" class="row-act" data-rd-act="read">/); // S70-40b: 글 보기 머리 ⋯은 [수정] 다음 [밑줄을 노트로]. S70-58: 두 칸에서 읽을 거리에서 온 줄은 그 사이 [읽을 거리에서 보기]
+  assert.match(js, /const toNews = headMenu && split\(\) && newsLinkOf\(id\) \?/);
   assert.match(js, /openNews\(link, \{edit: true\}\)/);
   assert.match(out, /openItem: async \(item, \{edit = false\} = \{\}\) =>/);
   assert.match(out, /if \(edit && detail\.current\(\)\) void detail\.edit\(\);/);

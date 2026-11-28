@@ -163,15 +163,27 @@ test('workspace-drive drive-mirror: 로그인 없으면 401, owner 작업공간�
     assert.deepEqual(h.calls, { db: [], fetch: [] });
   }
   const h = harness();
-  const r = await send(h, { token: 'token-a', action: 'drive-mirror', body: { mode: 'align' } });
-  assert.equal(r.status, 403);
+  const r = await send(h, { token: 'token-a', action: 'drive-mirror', body: { mode: 'auto' } });
+  assert.equal(r.status, 403, '남의 작업공간·owner 아님은 거절');
   assert.deepEqual(h.calls.fetch, []);
-  for (const body of [{}, { mode: 'all' }, { mode: 'auto', workspace_id: 'x' }, null]) {
+  // S70-76: [드라이브 폴더 맞추기]('align')는 지웠다 — 모양이 틀린 요청과 같이 400.
+  for (const body of [{}, { mode: 'all' }, { mode: 'align' }, { mode: 'auto', workspace_id: 'x' }, null]) {
     const b = harness();
     const bad = await send(b, { token: 'token-a', action: 'drive-mirror', body });
     assert.equal(bad.status, 400, JSON.stringify(body));
     assert.deepEqual(b.calls, { db: [], fetch: [] });
   }
+});
+
+// S70-76: [드라이브와 맞는지 보기](POST ?action=drive-check)는 지웠다 — 로그인해도 알 수 없는 요청(400), DB·드라이브 호출 없음.
+test('workspace-drive drive-check: 지운 갈래라 400(DB·드라이브 호출 없음)', async () => {
+  for (const body of [{ op: 'scan' }, { op: 'fix', all: true }, { op: 'undo', batch: 'abcdefgh1' }]) {
+    const h = harness();
+    const r = await send(h, { token: 'token-a', action: 'drive-check', body });
+    assert.equal(r.status, 400, JSON.stringify(body));
+    assert.deepEqual(h.calls.fetch, []);
+  }
+  assert.doesNotMatch(SOURCE, /drive-check'|scanLibrary|fixLibrary|undoLibrary/);
 });
 
 // S69-22: [앱 폴더 모으기](POST ?action=gather-folders)도 같은 로그인 확인 뒤에만, 자기 owner 작업공간만. 폴더 id 같은 다른 값은 400.
@@ -197,4 +209,15 @@ test('workspace-drive gather-folders: 로그인 없으면 401(DB·드라이브 �
   assert.match(SOURCE, /if\(!dryRun\)return json\(\{error:'더 이상 쓰지 않는 요청입니다\.',code:'gone'\},410\);/, 'S70-29: 옮기기 요청(dry_run 없음)은 410 — 버튼이 없어졌고 맨 위 앱 폴더를 처음 만들 때 서버가 저절로 한다');
   assert.doesNotMatch(SOURCE, /if\(!root\)root=await ensureRoot\(own,token\)/, '세기 요청은 맨 위 앱 폴더를 만들지 않는다');
   assert.deepEqual(getAsk.calls.fetch, []);
+});
+
+// S70-29: 자료실 ⋯ [드라이브와 맞는지 보기](POST ?action=drive-check)는 지웠다 — 어떤 모양이든 '없는 요청'(DB·드라이브 호출 없음).
+test('workspace-drive drive-check: 지운 요청은 DB·드라이브를 부르지 않고 200 성공을 주지 않는다', async () => {
+  for (const body of [{ op: 'scan' }, { op: 'fix', lines: [], all: true }, { op: 'undo', batch: 'abcdefgh1234' }]) {
+    const h = harness();
+    const r = await send(h, { token: 'token-a', action: 'drive-check', body });
+    assert.notEqual(r.status, 200, JSON.stringify(body));
+    assert.deepEqual(h.calls.fetch, []);
+  }
+  assert.doesNotMatch(SOURCE, /driveCheckOf|scanLibrary|fixLibrary|undoLibrary|action==='drive-check'/);
 });

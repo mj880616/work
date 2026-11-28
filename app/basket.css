@@ -12,8 +12,10 @@
    ORG-기록첨부이름반영(S60-14): 첨부 이름 끝 ✎(.fr-edit)도 공용 모양(file-rename.css, 테두리 없는 흐린 연필) 그대로 — 이 규칙이 테두리 단추로 덮어썼다.
    UI-이름고치기단추(S69-100): 이름 고치는 칸의 [이름 추천 받기][저장][취소](.fr-acts)도 공용 ② 작은 버튼 그대로 — 이 규칙이 44px 상자로 덮어썼다.
    NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head, 공용 icon-btn·secondary)·날짜 숫자(.rv-table, month-cal.css)도 공용 모양 그대로.
-   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로. */
-#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .up-rows *, .ds-seg-btn, .ed-video *, .rv-cal-head *, .rv-table *, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
+   S69-82: 노트 보드 생각 지도 상자 안(접기 동그라미)·선택한 상자 위 막대(.nb-text·.nb-node-bar, 공용 icon-btn·ds-chip·ui-swatch)도 공용 모양 그대로.
+   S71-59: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot, screen-tools.js)의 ⋯도 공용 icon-btn 모양 그대로(맨 위 줄에 있을 때와 같게).
+   S71-50: 보드 배경색 고르기(.nbb-bg)도 공용 색 칸 모양 그대로. */
+#basketView button:not(.ed-editor *, .ft-btn, .nbx *, .nb-node-bar *, .nb-text *, .nbb-bg *, .up-rows *, .ds-seg-btn, .screen-line-slot *, .ed-video *, .rv-cal-head *, .rv-table *, .nxt-q, .fr-edit, .fr-acts *) { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
 .basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -52,8 +54,6 @@
 #basketView .home-quick { margin:12px 0; }
 #basketView .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 #basketView .home-quick-input-wrap { flex:1; min-width:0; position:relative; }
-#basketView [data-quick-input] { min-height:72px; }
-#basketView [data-quick-file-picker] { position:absolute; top:10px; left:8px; z-index:1; }
 #basketView [data-quick-options][hidden],#basketView [data-quick-basket-options][hidden],#basketView [data-quick-file-picker][hidden] { display:none; }
 #basketView .basket-title { font-size:15px; font-weight:600; }
 #basketView .basket-preview { font-size:13px; color:var(--kptu-muted); }
@@ -64,7 +64,7 @@
 #basketView .basket-approval-footer { bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); margin-bottom:0; padding:8px 0; }
 #basketView .basket-approval-footer .basket-actions { justify-content:flex-end; }
 body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static; }
-#basketView .home-quick-save { background:var(--kptu-primary); color:var(--kptu-on-primary); border:0; min-height:44px; }
+#basketView .home-quick-save { background:var(--kptu-primary); color:var(--kptu-on-primary); border:0; }
 
 [data-basket-ocr] { width:100%; min-width:0; }
 .basket-ocr-text { white-space:pre-wrap; overflow-wrap:anywhere; }
@@ -134,14 +134,30 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView > .basket-head:not([hidden]) { display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0 0 4px; }
 /* NOTE-최근5개 ③: 보일 것이 없는 머리줄(제목은 읽기 프로그램용, 요약·[다시 찾기]는 감춤 — PC 노트 쪽)은 높이 없이 둔다(위쪽 빈 띠 56px). 제목은 읽기 프로그램에 그대로 남는다. */
 #appView #basketView > .basket-head:not([hidden]):not(:has(> :not(.a11y-only,[hidden]))) { min-height:0; margin:0; }
-/* S52-20: 정리함 머리 줄 [처리 전 ▾](② 작은 버튼, 모양은 공용) 오른쪽 끝 정렬. */
-#appView #basketView .forget-head:not([hidden]) { justify-content:flex-end; }
-#forgetViewMenu .forget-view-sep { margin:4px 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
-#forgetViewMenu button[aria-checked="true"] { color:var(--ds-select-ink); font-weight:var(--ds-weight-medium); }
-/* UI-점검1030손질 C5: [다시 찾기]는 거르기 칩(처리 전·보냄·무시)이 아니라 동작이므로 칩 모양이 아니라 홈·업무일지 '챙길 것'의 [다시 찾기]와 같은 글자 버튼(todo-radar.css .radar-find). 누르는 범위 44px은 아래 ::after. */
-#appView #basketView .inbox-find { position:relative; flex:none; height:var(--ds-compact-height-sm,28px); min-height:0; margin:0; padding:0 2px; border:0; border-radius:0; background:transparent; background-image:none; box-shadow:none; color:var(--kptu-primary-ink); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; cursor:pointer; }
-#appView #basketView .inbox-find:disabled { color:var(--kptu-muted); cursor:default; }
-#appView #basketView .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* S71-29 FORGET-머리한줄(사용자 결정 11/26, 다른 화면처럼 한 줄로): 최신화(↻)는 맨 위 줄 단추 상자(.sf-tools.forget-tools, basket.js)에 산다 — 따로 된 둘째 줄 없음.
+   FORGET-처리전만(S71-58, 사용자 결정 11/26): 보기 고르기 [처리 전 ▾]는 없앴다(목록은 늘 처리 전).
+   폰·폴드 앱 머리 줄 = [W] 잊지 말기 ……… ↻ · 찾기: 동작(↻)은 찾기 바로 앞(머리줄 규칙 '… · 찾기 · [+]'), 가운데는 빈 칸.
+   그래서 이 상자가 보일 때만 찾기 칸을 줄 끝으로 보내고(order), 상자가 남은 폭을 쓰며 ↻를 상자 오른쪽 끝에 붙인다. 폰에서 찾기 칸을 펼치면(.sf-open) 칸이 남은 폭을 쓴다.
+   PC 틀(761px~)은 다른 화면과 같이 맨 위 줄 찾기 칸 오른쪽([+ 추가] 앞). */
+@media(max-width:760px){
+  #appView > .mobile-shell-header:has(> [data-screen-tools="head"] > .forget-tools:not([hidden])) > .mobile-shell-find { order:1; }
+}
+/* 접은 폰(~599px): 찾기는 돋보기 하나라 상자가 남은 폭을 쓴다(↻는 상자 오른쪽 끝 = 돋보기 바로 앞). 폴드 펼침(600~760px)은 찾기 칸이 늘 보이며 남은 폭을 쓴다. */
+@media(max-width:599px){
+  #appView > .mobile-shell-header:not(.sf-open):has(> [data-screen-tools="head"] > .forget-tools:not([hidden])) > .mobile-shell-find { flex:none; }
+  #appView > .mobile-shell-header:not(.sf-open) > [data-screen-tools="head"]:has(> .forget-tools:not([hidden])) { flex:1 1 auto; min-width:0; }
+  #appView > .mobile-shell-header:not(.sf-open) .forget-tools { flex:1 1 auto; }
+  #appView > .mobile-shell-header:not(.sf-open) .forget-tools > .inbox-find { margin-left:auto; }
+}
+/* 최신화(↻): 다른 머리 줄 아이콘 단추와 같은 크기 — 보이는 32px, 누르는 범위 44px(UI-버튼기준). 바탕·테두리 없음. 찾는 중·못 찾는 때는 흐리게(마지막 찾기 시각은 title). */
+.forget-tools .inbox-find { position:relative; box-sizing:border-box; display:inline-grid; place-items:center; flex:none; width:var(--ds-compact-height,32px); min-width:var(--ds-compact-height,32px); height:var(--ds-compact-height,32px); min-height:0; margin:0; padding:0; border:0; border-radius:var(--kptu-radius-md); background:transparent; background-image:none; box-shadow:none; color:var(--kptu-muted); line-height:1; cursor:pointer; }
+.forget-tools .inbox-find:hover:not(:disabled) { background:var(--kptu-surface-subtle); color:var(--kptu-ink); }
+.forget-tools .inbox-find:disabled { opacity:.5; cursor:default; }
+.forget-tools .inbox-find[aria-busy] svg { animation:forget-spin 1s linear infinite; }
+.forget-tools .inbox-find::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.forget-tools .inbox-find:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:1px; }
+@keyframes forget-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .forget-tools .inbox-find[aria-busy] svg { animation:none; } }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰의 [+ 노트]는 위 입력칸으로 바뀌었다(BASKET-노트입력창). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
@@ -191,8 +207,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
   html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) #appView > .mobile-shell-header{ display:none; }
   #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head > .note-head-main{ justify-content:flex-end; }
 }
-/* BASKET-노트입력창: 노트 입력칸(PC)은 왼쪽 여백만(NOTE-파일붙이기: PC 클립은 입력칸 밖 [추가] 앞, 폰은 ui-standard.css가 클립 자리를 둔다). */
-#basketView .home-quick[data-note-only] [data-quick-input] { padding-left:10px; }
 /* NOTE-큰창잘림: 폰 한 줄 입력칸의 안내 글은 둘째 줄로 내려가 잘리지 않게 한 줄(폰은 폴더 이름을 옆 [폴더 ▾]가 이미 보이므로 '노트 추가'만, home-quick.js). */
 #basketView .home-quick[data-note-only] [data-quick-input]::placeholder { white-space:nowrap; }
 /* BASKET-본문폭(폰·PC 공통): 업데이트 카드는 제목 줄만 오른쪽 버튼([원문 보기]·[복사]) 자리를 비우고, 그 아래 글·표는 카드 오른쪽 끝까지 쓴다.
@@ -204,17 +218,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .basket-read-text.md-body :is(td,th){ overflow-wrap:normal; word-break:keep-all; }
 #appView #basketView .basket-read-text.md-body table{ -webkit-overflow-scrolling:touch; }
 
-/* NOTE-추가폴더표시: 노트 입력칸의 [폴더 ▾]. UI-버튼기준 보조 작은 버튼(보이는 32px·누르는 범위 44px). PC는 입력칸 → [폴더 ▾] → [첨부] → [추가] 순서(간격 8px), 폰은 입력칸 위 한 줄. */
-#appView #basketView .home-quick button.home-quick-folder { position:relative; flex:0 0 auto; box-sizing:border-box; max-width:none; height:var(--ds-compact-height, 32px); min-height:var(--ds-compact-height, 32px); margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:pre; font-family:inherit; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--kptu-border); border-radius:var(--ds-radius-control, 8px); }
-#appView #basketView .home-quick button.home-quick-folder[hidden] { display:none; }
-#appView #basketView .home-quick button.home-quick-folder::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
-#appView #basketView .home-quick button.home-quick-folder:hover { background:var(--kptu-primary-soft); }
-/* S52-34 UI-전체정리(노트): 폰도 [폴더 ▾]가 입력칸과 한 줄(입력칸 위 따로 줄 없음). 폴더 이름은 짧게 잘라 입력칸 폭을 남긴다. */
-/* NOTE-큰창잘림(요청함 10/28 00:14 ③): 버튼은 flex(가운데)라 버튼 자체의 '…'가 듣지 않아 이름 앞뒤가 잘리고 ▾가 사라졌다.
-   '…'는 안쪽 이름(span)이 맡고 ▾는 늘 남는다(' ▾' 빈칸은 white-space:pre로 지킴). 폰은 입력칸 폭을 남기려 버튼 폭을 묶는다. */
-#appView #basketView .home-quick button.home-quick-folder .home-quick-folder-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-@media(max-width:760px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:center; max-width:7em; } }
-@media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
+/* NOTE-추가폴더표시 → NOTE-입력줄높이(S71-67): 노트 입력 줄 폴더 단추의 모양·높이는 ui-standard.css 'NOTE-입력줄높이' 한 곳. */
 /* NOTE-입력창한줄(S70-05, 명진 11/25 09:30 "pc에서 노트를 입력하세요 입력창 한줄로 / 어차피 크게 누르면 전체화면인데"):
    PC 노트 입력칸은 늘 한 줄 높이([추가]와 같은 --kptu-control-height)로 고정한다. 글이 길어도 늘지 않고(칸 안에서 넘김), 길게 쓸 때는 칸 안 [⤢ 크게].
    여러 줄 붙여넣기는 값에 그대로 담긴다(보이는 높이만 한 줄). 줄 높이 = 칸 안 높이라 넘겨 볼 때도 늘 한 줄만 온전히 보인다(반쪽 줄 없음). 크기 손잡이 없음. [폴더 ▾]·[첨부]·[추가]는 칸과 가운데를 맞춘 한 줄, 감싼 상자 여백도 줄인다.
@@ -222,8 +226,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 @media(min-width:761px) {
   #appView #basketView .home-quick[data-note-only] { margin:8px 0; padding:6px 8px; }
   #appView #basketView .home-quick[data-note-only] .home-quick-entry { align-items:center; }
-  #appView #basketView .home-quick[data-note-only] .home-quick-entry > button.home-quick-folder { align-self:center; margin-top:0; }
-  #appView #basketView .home-quick[data-note-only] [data-quick-input] { box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); max-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; line-height:calc(var(--kptu-control-height) - 2px); resize:none; overflow-y:auto; scrollbar-width:none; }
+  #appView #basketView .home-quick[data-note-only] [data-quick-input] { max-height:var(--ds-quick-row-height); resize:none; overflow-y:auto; scrollbar-width:none; }
   #appView #basketView .home-quick[data-note-only] [data-quick-input]::-webkit-scrollbar { display:none; }
 }
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
@@ -242,28 +245,22 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-pane { min-width:0; }
 /* S69-27 '왼쪽은 목록 오른쪽에는 노트 내용'(PC·펼친 폴드 [폴더] 보기): 노트를 열면 오른쪽 칸 자리에 그 노트(basket-notes.js placeDetail). */
 [data-note-list].nx-reading .nx-body > [data-note-detail] { min-width:0; }
-/* 왼쪽 나무 안 노트 줄: 제목 한 줄(태그·날짜 없음)·낮은 줄·⋯ 한 칸만 비움. 지금 연 노트는 옅은 바탕(폴더 줄 '지금 고른 곳'과 같은 색). */
-#appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .note-row { min-height:30px; gap:4px; }
+/* 왼쪽 나무 안 노트 줄: 제목 한 줄(태그·날짜 없음)·⋯ 한 칸만 비움. 지금 연 노트는 옅은 바탕(폴더 줄 '지금 고른 곳'과 같은 색).
+   NOTE-폴더디자인통일(S70-82): 높이·글자·제목 시작 자리는 공용 항목 줄(folder-tree.css .ft-leaf — 보드 왼쪽 목록 노트 줄)과 같은 값(줄 크기 단계를 따른다). */
+#appView #basketView [data-note-list] .nx-tree .nx-note.nx-side { padding-left:0; }
+#appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .note-row { min-height:var(--ft-sub-h); gap:4px; padding-top:0; padding-bottom:0; padding-left:calc(12px + var(--ft-depth,0) * var(--ft-indent) + var(--ft-ico) + var(--ft-gap)); }
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-side > .basket-row { padding-right:32px; }
-#appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .basket-title { font-weight:400; font-size:13px; }
+#appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .basket-title { font-weight:400; font-size:var(--ft-font); }
 #appView #basketView [data-note-list] .nx-tree .nx-note.nx-side .basket-title-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#appView #basketView [data-note-list] .nx-tree .nx-note.nx-current { background:var(--kptu-primary-soft); border-radius:var(--ds-radius-control,8px); }
-/* S69-27 노트 휴지통(note-trash.js): 지운 노트 한 줄씩 — 제목 · 지운 날 · [되돌리기] · ⋯([영구 삭제]). 작고 낮게. */
+#appView #basketView [data-note-list] .nx-tree .nx-note.nx-current { background:var(--kptu-primary-soft); }
+/* S69-27 노트 휴지통(note-trash.js): 지운 노트 한 줄씩 — 제목 · 지운 날 · 그림 단추(되살리기·영구 삭제, 줄 모양은 trash-row.css). 작고 낮게. */
 .nxt:not([hidden]) { display:block; }
 .nxt-head { display:flex; align-items:center; gap:6px; min-height:28px; font-size:14px; }
 .nxt-n { font-size:12px; color:var(--kptu-muted); }
-.nxt-list { display:flex; flex-direction:column; }
-.nxt-row { display:flex; align-items:center; gap:6px; min-height:36px; padding:0 2px 0 6px; border-top:1px solid var(--kptu-border); }
-.nxt-row:first-child { border-top:0; }
-.nxt-main { flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:8px; }
-.nxt-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
-.nxt-day { flex:none; font-size:12px; color:var(--kptu-muted); }
-#appView #basketView .nxt-row button.nxt-restore { flex:none; }
-.nxt-more { position:relative; flex:none; }
-.nxt-more > summary { list-style:none; cursor:pointer; }
-.nxt-more > summary::-webkit-details-marker { display:none; }
-.nxt-more-panel { position:absolute; right:0; top:calc(100% + 2px); z-index:5; min-width:120px; padding:4px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
-#appView #basketView .nxt-more-panel button.nxt-purge { display:flex; width:100%; justify-content:flex-start; }
+/* 휴지통 줄 단추: 공용 글자 버튼(row-act)·아이콘 버튼(icon-btn) — 모양은 ui-standard.css 한 곳, 여기는 자리만. */
+#appView #basketView .nxt-empty { color:var(--kptu-danger); }
+#appView #basketView .nxt-empty-head { margin-left:auto; }
+.nxt-bar { display:flex; justify-content:flex-end; }
 .nx-here:not([hidden]) { display:flex; align-items:center; gap:2px; min-height:28px; margin:0 0 2px; font-size:12px; color:var(--kptu-muted); }
 .nx-here-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--kptu-ink); font-weight:500; }
 .nx-here-num { flex:none; }
@@ -335,7 +332,16 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nb-card.nb-flash { animation:nb-flash 1.2s ease-out; }
 @keyframes nb-flash { 0%, 40% { outline:3px solid var(--kptu-primary); outline-offset:3px; } 100% { outline-offset:1px; } }
 @media (prefers-reduced-motion:reduce) { .nb-card.nb-flash { animation:none; outline:2px solid var(--kptu-primary); } }
-.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface-subtle); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+.nb-scroll { position:relative; height:calc(100dvh - 210px); min-height:320px; overflow:hidden; overscroll-behavior:none; touch-action:none; user-select:none; -webkit-user-select:none; cursor:default; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); --nb-board-bg:var(--kptu-surface-subtle); background:var(--nb-board-bg); background-image:radial-gradient(var(--kptu-border) 1px, transparent 1px); background-size:22px 22px; }
+/* S71-50 NOTE-보드배경색: 보드마다 고른 바탕색(data-nb-bg, 값은 theme-tokens.css --ds-board-bg-*). 점 무늬·선 글자 테두리는 그 색 위에 그대로. */
+.nb-scroll[data-nb-bg="sand"] { --nb-board-bg:var(--ds-board-bg-sand); }
+.nb-scroll[data-nb-bg="sage"] { --nb-board-bg:var(--ds-board-bg-sage); }
+.nb-scroll[data-nb-bg="sky"] { --nb-board-bg:var(--ds-board-bg-sky); }
+.nb-scroll[data-nb-bg="lilac"] { --nb-board-bg:var(--ds-board-bg-lilac); }
+.nb-scroll[data-nb-bg="peach"] { --nb-board-bg:var(--ds-board-bg-peach); }
+.nb-scroll[data-nb-bg="mint"] { --nb-board-bg:var(--ds-board-bg-mint); }
+.nb-scroll[data-nb-bg="rose"] { --nb-board-bg:var(--ds-board-bg-rose); }
+.nb-scroll[data-nb-bg="gray"] { --nb-board-bg:var(--ds-board-bg-gray); }
 @media (min-width:761px) { .nb-scroll { height:calc(100dvh - 150px); } }
 .nb.nb-space .nb-scroll { cursor:grab; } /* S69-33: PC는 Space+끌기·가운데 단추로 판 이동(빈 곳 끌기 = 사각형 고르기) */
 .nb.nb-panning .nb-scroll { cursor:grabbing; }
@@ -370,7 +376,7 @@ html.nb-full-on #noteDocMenu { z-index:60; }
 /* 누르는 범위: 보이지 않는 굵은 선(폰 손가락으로도 잡힘). */
 .nb-hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; outline:none; }
 .nb-hit:focus-visible { stroke:color-mix(in srgb,var(--nb-link-on) 28%,transparent); }
-.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--kptu-surface-subtle); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
+.nb-label { font-size:11px; fill:var(--kptu-ink); stroke:var(--nb-board-bg,var(--kptu-surface-subtle)); stroke-width:4px; stroke-linejoin:round; paint-order:stroke; pointer-events:none; }
 .nb-temp[hidden] { display:none; }
 .nb-temp { fill:none; stroke:var(--nb-link-on); stroke-width:1.6; stroke-dasharray:4 4; }
 .nb-cards { position:absolute; left:0; top:0; width:0; height:0; }
@@ -391,20 +397,26 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-photo { display:block; flex:1 1 auto; width:100%; height:100%; min-width:0; overflow:hidden; border-radius:inherit; }
 .nb-photo .nb-photo-img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }
 .nb-lock-ico { display:inline-flex; }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder.nbb-locked .ui-ico { flex:none; display:inline-flex; color:var(--kptu-muted); }
 /* ×·⋯·손잡이: 고른 카드(마우스를 올린 카드도 — nb-hover, note-board.js가 마우스일 때만 붙임)에서만 작게. */
 #appView #basketView .nb-card :is(.nb-more,.nb-x) { position:absolute; top:-36px; display:none; width:20px; height:18px; min-width:0; min-height:0; margin:0; padding:0; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--ds-radius-control,8px); background:var(--kptu-surface); box-shadow:none; color:var(--kptu-muted); font-size:12px; line-height:1; cursor:pointer; }
 #appView #basketView .nb-card .nb-more { right:0; }
 #appView #basketView .nb-card .nb-x { right:22px; }
-.nb-h { position:absolute; display:none; width:10px; height:10px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:50%; background:var(--kptu-surface); cursor:crosshair; touch-action:none; }
-/* 손잡이 누르는 범위(보이는 점보다 넓게). */
-/* 점은 카드 바깥에 둔다(카드를 누르거나 끄는 손가락이 손잡이에 걸리지 않게). 누르는 범위는 점 둘레 24px. */
-.nb-h::after { content:""; position:absolute; left:-7px; top:-7px; width:24px; height:24px; }
-/* S69-88: 잇기 동그라미는 변에서 더 떨어뜨린다 — 변 위의 크기 손잡이(.nb-rz, 누르는 범위 변 ±12px)와 누르는 범위가 겹치지 않게(동그라미 범위는 변 바깥 14~38px). */
-.nb-h-top { left:calc(50% - 5px); top:-31px; }
-.nb-h-bottom { left:calc(50% - 5px); bottom:-31px; }
-.nb-h-left { left:-31px; top:calc(50% - 5px); }
-.nb-h-right { right:-31px; top:calc(50% - 5px); }
+/* S70-77 NOTE-보드연결점끌기(명진 11/26 "선을 시작하는 위치랑 동그라미가 뜨는 위치가 서로 달라서"): 연결점 동그라미 = 선을 잡는 곳 하나.
+   보이는 점 지름 12px, 잡는 범위는 점 가운데 둘레 24px(손가락 화면은 40px). 끌면 선이 이 점 가운데에서 시작한다(note-board.js wire.origin).
+   마우스를 올리면 살짝 커지고 진해진다. 점 가운데는 변 바깥 26px(손가락 화면 34px). */
+.nb-h { --nb-h-out:32px; position:absolute; display:none; z-index:3; width:12px; height:12px; box-sizing:border-box; border:var(--ds-line-width,1px) solid var(--nb-link-on); border-radius:50%; background:var(--kptu-surface); cursor:crosshair; touch-action:none; transition:transform .08s ease-out, background-color .08s ease-out; }
+.nb-h::after { content:""; position:absolute; left:-7px; top:-7px; width:24px; height:24px; border-radius:50%; }
+.nb-h:hover, .nb-h.nb-h-on { transform:scale(1.3); background:var(--nb-link-on); }
+/* S69-88: 잇기 동그라미는 변에서 떨어뜨린다 — 변 위의 크기 손잡이(.nb-rz, 누르는 범위 변 ±12px)와 누르는 범위가 겹치지 않게(동그라미 범위는 변 바깥 14~38px). */
+.nb-h-top { left:calc(50% - 6px); top:calc(-1 * var(--nb-h-out)); }
+.nb-h-bottom { left:calc(50% - 6px); bottom:calc(-1 * var(--nb-h-out)); }
+.nb-h-left { left:calc(-1 * var(--nb-h-out)); top:calc(50% - 6px); }
+.nb-h-right { right:calc(-1 * var(--nb-h-out)); top:calc(50% - 6px); }
+/* 손가락 화면: 잡는 범위 40px, 점은 변 바깥 34px(범위 변 바깥 14~54px — 크기 손잡이와 겹치지 않게). */
+@media (pointer:coarse) {
+  .nb-h { --nb-h-out:40px; }
+  .nb-h::after { left:-15px; top:-15px; width:40px; height:40px; }
+}
 .nb:not([data-nb-small]) .nb-card.nb-sel .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-card .nb-h { display:block; }
 /* 아주 작게 본 판(0.5배 미만, data-nb-small)에서는 손잡이를 보이지 않는다(카드가 작아 누르기와 겹침) — 키워서 긋는다. */
 #appView #basketView .nb-card.nb-sel :is(.nb-more,.nb-x) { display:block; }
@@ -439,7 +451,7 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 .nb-text.nb-dragging, .nb-text.nb-held { cursor:grabbing; box-shadow:var(--ds-note-shadow-lift); opacity:.85; }
 .nb-text.nb-pending { opacity:.6; }
 /* 놓을 곳 강조: 가운데 = 그 아래 가지로, 위·아래 끝 = 앞·뒤 형제로. 잇는 중 놓을 끝(nb-target)은 노트 카드도 같이. */
-.nb-text.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
+.nb-text.nb-drop-in, .nb-card.nb-drop-in, :is(.nb-text,.nb-card).nb-target { outline:2px dashed var(--nb-link-on); outline-offset:3px; }
 .nb-text.nb-drop-before { box-shadow:0 -3px 0 0 var(--nb-link-on); }
 .nb-text.nb-drop-after { box-shadow:0 3px 0 0 var(--nb-link-on); }
 /* 글 고치기: 상자 안 글(.nb-tx)은 보이지 않게 폭·높이만 잡고, 입력칸이 그 위에 겹친다(상자가 글 길이만큼 늘고 줄어듦). */
@@ -484,9 +496,9 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nb-text .nb-fold { position:absolute; top:calc(50% - 11px); left:calc(100% + 1px); width:22px; min-width:0; padding:0; z-index:1; }
 #appView #basketView .nb-text[data-side="-1"] .nb-fold { left:auto; right:calc(100% + 1px); }
 .nb-fold-dot { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16px; height:16px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:50%; background:var(--kptu-surface); color:var(--kptu-muted); font-size:10px; line-height:1; }
-.nb-text:has(.nb-fold) .nb-h-right { right:-45px; }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:-31px; }
-.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:-45px; }
+.nb-text:has(.nb-fold) .nb-h-right { right:calc(-14px - var(--nb-h-out)); }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-right { right:calc(-1 * var(--nb-h-out)); }
+.nb-text[data-side="-1"]:has(.nb-fold) .nb-h-left { left:calc(-14px - var(--nb-h-out)); }
 .nb:not([data-nb-small]) .nb-text.nb-sel:not(.nb-editing,.nb-pending) .nb-h, .nb.nb-wiring:not([data-nb-small]) .nb-text:not(.nb-pending,.nb-draft) .nb-h { display:block; }
 .nb:not(.nb-panning,[data-nb-small]) .nb-text.nb-hover:not(.nb-editing,.nb-pending) .nb-h { display:block; }
 /* S69-88 크기 손잡이 8개(파워포인트 글 상자처럼): 고른 상자·카드(글 쓰는 중에도)의 네 모서리·네 변 가운데 작은 네모. 누르는 범위는 손가락 크기(24px).
@@ -544,35 +556,23 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .nbb .nbb-chip { max-width:12em; overflow:hidden; text-overflow:ellipsis; }
 #appView #basketView .nbb .nbb-chip[aria-pressed="true"] { background:var(--ds-select-bg); border-color:var(--ds-select-line); color:var(--ds-select-ink); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .nbb .nbb-new { border-style:dashed; background:transparent; }
+/* S71-50 NOTE-보드배경색: 보드 메뉴 안 '배경색' 한 묶음(공용 ui-swatch 칸 그대로 — 위 #basketView button 규칙에서 .nbb-bg 안은 뺐다). */
+#appView #basketView .nbb-bg { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; padding:4px 8px 6px; max-width:220px; }
+#appView #basketView .nbb-bg-label { width:100%; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); line-height:1.6; }
 .nbw-body { display:block; }
 /* S70-21 NOTE-보드탭자리: 오른쪽 칸 = 보드 칸 줄 + 판. 왼쪽 노트 목록은 그 칸 높이에 맞춰 늘고(contain:size — 목록 길이가 줄 높이를 키우지 않음) 안에서 스크롤. */
 .nbw-main { min-width:0; }
 .nbw-body.nbw-split > .nbb-side { align-self:stretch; height:auto; contain:size; }
 /* UI-칸폭끌기전수: 노트 목록 | 보드 경계를 끌어 폭 조절(split-resize.js가 --ds-split-list·detail에 fr 값을 넣음, 기본 16:84·목록 최소 150px). */
 .nbw-body.nbw-split { --ds-split-list:16fr; --ds-split-detail:84fr; --ds-split-list-min:150px; display:grid; grid-template-columns:minmax(var(--ds-split-list-min), var(--ds-split-list)) minmax(0, var(--ds-split-detail)); gap:8px; align-items:start; }
-.nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; padding:4px 2px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); font-size:12.5px; }
-.nbb-side-head { padding:2px 6px 4px; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
-:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note) { display:flex; align-items:center; gap:4px; width:100%; min-width:0; min-height:0; height:26px; box-sizing:border-box; margin:0; padding:0 6px 0 calc(6px + var(--nx-indent, 0) * 12px); border:0; border-radius:6px; background:transparent; box-shadow:none; color:var(--kptu-ink); font:inherit; font-size:12.5px; line-height:1; text-align:left; cursor:pointer; }
-:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note):hover { background:var(--kptu-surface-subtle); }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder { color:var(--kptu-muted); }
-#appView #basketView .nbb-side .nbb-note[draggable="true"] { cursor:grab; }
-/* S69 보드목록폴더놓기: 노트를 끌어 놓을 수 있는 폴더 줄(노트 목록 폴더 나무와 같은 옅은 바탕). */
-#appView #basketView .nbb-side .nbb-folder.nx-drop { background:var(--kptu-primary-soft); color:var(--kptu-ink); }
-#appView #basketView .nbb-side .nbb-note.re-dragging { opacity:.55; }
-/* S69-33: 왼쪽 목록에서 보드에 이미 있는 노트는 흐리게가 아니라 글자는 보통 진하기 + 오른쪽 작은 점(누르면 그 카드로). 폰 고르기 창은 지금처럼 흐리게(고를 수 없음). */
-.nbb-pick .nbb-note.nbb-on { opacity:.45; cursor:default; }
-#appView #basketView .nbb-side .nbb-dot { flex:none; width:6px; height:6px; margin-left:4px; border-radius:50%; background:var(--kptu-primary); opacity:.75; }
-.nbb-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.nbb-num { flex:none; font-size:11px; color:var(--kptu-faint,var(--kptu-muted)); }
-.nbb-caret { flex:none; width:16px; font-size:15px; } /* S51-25: 세모 대신 폴더 그림(열림/닫힘) */
-/* UI-폴더목록한모양(S69-90): 보드 옆 노트 목록·노트 고르기 창의 폴더 줄도 [파일] 폴더 줄과 같은 폴더 그림(20px)·이름 글자색·개수(작은 흐린 글씨)·들여쓰기 단(22px).
-   줄 높이는 옆 칸 작은 목록이라 32px(넓은 화면 [파일] 하위 줄과 같은 값). */
-:is(#appView #basketView .nbb-side, .nbb-pick) :is(.nbb-folder,.nbb-note) { height:32px; gap:9px; padding-left:calc(6px + var(--nx-indent, 0) * 22px); font-size:var(--ds-compact-text,13px); }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-folder { color:var(--kptu-ink); }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-caret { width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-caret svg { width:19px; height:19px; }
-:is(#appView #basketView .nbb-side, .nbb-pick) .nbb-num { font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
-.nbb-check { flex:none; width:14px; color:var(--kptu-primary-text); font-size:12px; }
+.nbb-side { height:calc(100dvh - 186px); min-height:320px; overflow:auto; box-sizing:border-box; }
+/* NOTE-폴더디자인통일(S70-82, 명진 11/26 09:27 "노트메뉴 안에 보드쪽, 폴더쪽 디자인이 살짝 달라 … 파일쪽에 맞춰서"): 보드 왼쪽 '노트 목록'·폰 [+ 노트 붙이기] 고르기 창·
+   잊지 말기 노트 고르기 줄은 [파일]·노트 [폴더] 나무와 같은 공용 상자·줄(folder-tree.css .ft-*, note-tree-row.js)이다 — 여기서 줄 높이·글자·간격을 따로 정하지 않는다.
+   노트 전용으로 남는 것: 끄는 중 흐림, 보드에 이미 있는 노트 오른쪽 작은 점(글자는 보통 진하기, 누르면 그 카드로), 끌 수 있는 줄의 손 모양. */
+.nbb-side > .ft-box { margin:0; }
+#appView #basketView .nbb-side .ft-main[draggable="true"] { cursor:grab; }
+#appView #basketView .nbb-side .ft-row.re-dragging { opacity:.55; }
+.ft-on-dot { flex:none; width:6px; height:6px; margin-left:auto; border-radius:50%; background:var(--kptu-primary); opacity:.75; }
 .nb-empty { position:absolute; left:0; right:0; top:38%; margin:0; text-align:center; font-size:13px; color:var(--kptu-muted); pointer-events:none; }
 .nb.nb-drop .nb-scroll { outline:2px dashed var(--kptu-primary); outline-offset:-2px; }
 .nbb-pick { width:min(420px, calc(100vw - 24px)); max-height:min(76dvh, 640px); box-sizing:border-box; margin:auto auto calc(12px + env(safe-area-inset-bottom, 0px)); padding:8px; border:var(--ds-line-width,1px) solid var(--kptu-border); border-radius:var(--kptu-radius-md,10px); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float,none); }
@@ -618,7 +618,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .note-meta-tags :is(.ntf-x,.ntf-add,.note-meta-tag), #appView #basketView .ntf-panel :is(.ntf-close,.ntf-item) { position:relative; min-height:0; height:auto; margin:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; cursor:pointer; }
 #appView #basketView .note-meta-tags .ntf-x { padding:0 2px; color:var(--kptu-muted); line-height:1; }
 #appView #basketView .note-meta-tags .ntf-x::after { content:""; position:absolute; inset:-12px -4px; }
-#appView #basketView .note-meta-tags .ntf-add { padding:0 2px; color:var(--kptu-muted); }
+/* NOTE-태그단추키움(2026-11-28 사용자 "노트 수정시 태그+ 글자 너무 작음 좀 크게해서 누르기 용이하게"): 글자는 본문 단추 크기, 누르는 높이는 compact 이상. [+ 태그]는 note-tag-field.js 한 부품이라 읽기·고치기·큰 창이 같이 바뀐다. */
+#appView #basketView .note-meta-tags .ntf-add { display:inline-flex; align-items:center; min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-text-button); color:var(--kptu-muted); }
 #appView #basketView .note-meta-tags .ntf-add::after { content:""; position:absolute; inset:-12px -4px; }
 #appView #basketView .note-meta-tags .ntf-add[aria-expanded="true"] { color:var(--kptu-primary-ink,var(--kptu-primary)); }
 #basketView .note-edit-tags { display:flex; flex-direction:column; gap:4px; margin:6px 0 0; font-size:12px; }
@@ -747,24 +748,48 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
   .nl-cols .nl-c > .nx-path[data-tone] { padding:0 4px; }
 }
 @media (min-width:600px) {
-  [data-note-list][data-notes-view="list"] [data-note-rows] { --nl-grid:var(--nl-w-title,minmax(0,1fr)) var(--nl-w-folder,120px) var(--nl-w-tags,140px) var(--nl-w-day,64px) var(--nl-w-clip,48px); }
-  [data-note-list][data-notes-view="list"] .nl-head { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; align-items:center; height:28px; padding:0 48px 0 var(--ds-row-pad-x); font-size:12px; color:var(--kptu-muted);
+  [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) [data-note-rows] { --nl-grid:var(--nl-w-title,minmax(0,1fr)) var(--nl-w-folder,120px) var(--nl-w-tags,140px) var(--nl-w-day,64px) var(--nl-w-clip,48px); }
+  [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nl-head { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; align-items:center; height:28px; padding:0 48px 0 var(--ds-row-pad-x); font-size:12px; color:var(--kptu-muted);
     position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--nx-bar-h,0px)); z-index:2; background:var(--kptu-bg); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border)); }
   .nl-head > [role="columnheader"] { position:relative; min-width:0; overflow:visible; white-space:nowrap; }
   .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) { text-align:right; }
   .nl-head .hs-btn { padding:0; min-height:0; font:inherit; color:inherit; }
+  /* S70-82: 머리 칸 글자 단추는 [파일] 머리 줄(.fx-head)처럼 테두리·바탕 없는 글자(노트 화면 공용 단추 모양이 덮지 않게 같은 범위로 한 번 더). */
+  #appView #basketView [data-note-list] .nl-head :is(.hs-btn, .nl-cols-btn) { min-height:0; border:0; background:none; box-shadow:none; }
+  #appView #basketView [data-note-list] .nl-head .hs-btn { height:auto; padding:0; }
+  /* 머리 칸 글자 단추의 넓은 누르는 자리(공용 row-act ::after 44px)가 머리 줄 아래 첫 줄 위를 덮지 않게 머리 줄 높이 안으로(첫 줄 끌기·누르기를 가로채지 않게). */
+  #appView #basketView [data-note-list] .nl-head .hs-btn::after { top:-6px; height:calc(100% + 12px); max-height:28px; }
   .nl-head > :is([data-nl-col="day"], [data-nl-col="made"], [data-nl-col="clip"], [data-nl-col="memo"], [data-nl-col="chars"]) .hs-btn { margin-left:auto; }
   /* ② 머리 줄 오른쪽 끝 작은 ⋯ = '보일 칸' 메뉴(줄의 ⋯ 자리와 같은 세로 줄). */
   .nl-head > .nl-cols-btn { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--kptu-muted); }
   .nl-cols .nl-made, .nl-cols .nl-memo, .nl-cols .nl-chars { text-align:right; }
   .nl-head > [role="columnheader"] > .col-grip { right:-8px; }
-  #appView #basketView [data-note-list][data-notes-view="list"] .nx-note.nl-cols .note-row { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; }
+  #appView #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nx-note.nl-cols .note-row { display:grid; grid-template-columns:var(--nl-grid); column-gap:8px; }
   #appView #basketView .nx-note.nl-cols .note-row .nl-c:empty { display:block; }
   .nl-cols .nl-day, .nl-cols .nl-clip { text-align:right; }
   .nl-cols .nl-c > .nx-path { display:inline-block; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }
+  /* NOTE-폴더디자인통일(S70-82): [폴더] 보기 오른쪽 목록도 같은 머리·칸([목록]과 같은 grid). 펼친 하위 폴더 안 노트는 제목 칸 안에서만 들여 써서
+     날짜·폴더 칸이 머리 줄과 세로로 맞는다(줄 전체를 들이지 않는다). */
+  #appView #basketView [data-note-list] [data-note-rows] .nx-note.ft-item.nl-cols { padding-left:0; }
+  #appView #basketView [data-note-list] [data-note-rows] .nx-note.ft-item.nl-cols .basket-title { padding-left:calc(var(--ft-depth,0) * var(--ft-indent,22px)); }
 }
 .nl-head > .nl-cols-btn { display:none; }
-@media (min-width:600px) { [data-note-list][data-notes-view="list"] .nl-head > .nl-cols-btn { display:inline-grid; place-items:center; } }
+@media (min-width:600px) { [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nl-head > .nl-cols-btn { display:inline-grid; place-items:center; } }
+/* NOTE-폰머리줄(시안 '가', docs/design/approved/note-list-phone-head.md): 폰(600px 미만) [목록]·[폴더] 맨 위 얇은 머리 줄 하나 — 왼쪽 '노트 N', 오른쪽 '고친 날 순 ▾'·'칸'.
+   보기 탭이 아래 전환 줄로 내려가 비어 있던 .note-list-head(위아래 여백 8px씩)가 앱 위 줄과 첫 노트 사이 빈 띠였다 — 그 자리를 이 줄이 쓰고(여백은 줄 안으로), 다른 보기는 빈 머리가 자리를 먹지 않는다.
+   PC 머리 줄(.nl-head)과 같은 방식으로 목록을 내려도 위에 붙는다(--kptu-stick-top + 고르기 막대 높이). 높이·글자는 --ds-* 기준값. */
+.nl-ph { display:none; }
+@media (max-width:599px) {
+  #basketView .note-list-head { margin:0; }
+  #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .note-list-head { position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--nx-bar-h,0px)); z-index:2; background:var(--kptu-bg); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border)); }
+  #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nl-ph { display:flex; flex:1; min-width:0; align-items:center; justify-content:space-between; gap:8px; box-sizing:border-box; height:var(--ds-compact-height-sm); padding:0 var(--ds-row-pad-x); font-size:var(--ds-text-meta); line-height:1; color:var(--kptu-muted); }
+  .nl-ph-count { flex:none; min-width:4.5em; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .nl-ph-acts { display:flex; flex:none; align-items:center; gap:12px; min-width:0; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn { position:relative; display:inline-flex; align-items:center; box-sizing:border-box; height:auto; min-height:0; margin:0; padding:0; border:0; border-radius:0; background:none; box-shadow:none; font:inherit; color:inherit; white-space:nowrap; cursor:pointer; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn::after { content:""; position:absolute; inset:-6px -6px; height:auto; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:is(:hover,[aria-expanded="true"]) { color:var(--kptu-ink); }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; }
+}
 /* '보일 칸' 메뉴 체크 줄: 왼쪽 고정 폭 체크 자리(켜진 칸만 ✓). */
 #noteDocMenu .nl-check { display:inline-block; width:1.2em; color:var(--kptu-primary-ink,var(--kptu-primary)); }
 .nl-cols .nl-pub { color:var(--kptu-link); }

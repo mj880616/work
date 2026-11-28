@@ -63,6 +63,9 @@ import {
 import {
   hasOwnTitle, NOTE_TITLE_INSTRUCTIONS, NOTE_TITLE_MAX_OUTPUT_TOKENS, NOTE_TITLE_SCHEMA, noteTitleMaterial, parseNoteTitle, parseNoteTitleRequest,
 } from "./note-title.ts";
+import {
+  FIND_EXPAND_INSTRUCTIONS, FIND_EXPAND_MAX_OUTPUT_TOKENS, FIND_EXPAND_SCHEMA, findExpandMaterial, parseFindExpand, parseFindExpandRequest,
+} from "./find-expand.ts";
 import { aiNoteRow, maskSecret, looksSecret as fileTextSecret } from "./note-secret.ts";
 import {
   needsOneLine, ONE_LINE_INSTRUCTIONS, ONE_LINE_MAX_OUTPUT_TOKENS, ONE_LINE_SCHEMA, oneLineMaterial, parseOneLine, parseRecordOneLineRequest,
@@ -85,7 +88,7 @@ import {
 } from "./journal-memorable.ts";
 import type { FeedRow } from "./journal-memorable.ts";
 import {
-  DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
+  DAY_NEWS_BACK_DAYS, DAY_NEWS_MAX, DAY_NEWS_READ_MAX, DAY_READS_GROUP_READ_MAX, DAY_SEEN_BACK_DAYS, READS_GROUP_KEYS, rankReads, readTopics, seenReads, DAY_READS_MAX_OUTPUT_TOKENS, DAY_SUGGEST_MAX_OUTPUT_TOKENS, READS_INSTRUCTIONS, READS_SCHEMA, SUGGEST_INSTRUCTIONS, SUGGEST_SCHEMA,
   callDayLine, dayLines, dayPicksOut, daySlot, familyName, startedToday, seoulDayOf, parseHomeDayPicksRequest, parseReads, parseSuggests, readsDue, readsMaterial, runHeld, seoulClock as daySeoulClock, suggestMaterial,
   suggestsDue, toNewsRow, type DayLine, type DayOrg, type DayRow, type HomeDayPicksRequest,
 } from "./home-day-picks.ts";
@@ -189,7 +192,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 // 숫자는 _shared/ai-daily-usage.mjs 한 곳(녹음 요약·초안 함수와 같은 한도).
 export { DAILY_TOTAL_LIMIT };
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, home_day_picks: 8, share_draft: SHARE_LIMITS.daily, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, todo_recheck: 3, todo_rules_review: 2, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, library_sort: 30, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20, note_title: 60, find_expand: 30, record_one_line: 120, file_name: 60, journal_draft: 3, journal_memorable: 24, home_day_picks: 8, share_draft: SHARE_LIMITS.daily, area_suggest: 60, org_people_brief: 60, ask_web2: ASK_DAILY_LIMIT, weekly_draft: 10, weekly_review: 5, work_scope: 30, now_detail: NOW_DETAIL_DAILY, now_interests: NOW_INTERESTS_DAILY });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -538,6 +541,7 @@ type WeeklyReviewInput = { kind: "weekly_review"; week_start: string };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
 type NoteTitleInput = { kind: "note_title"; id: string };
+type FindExpandInput = { kind: "find_expand"; text: string };
 type RecordOneLineInput = { kind: "record_one_line"; id: string };
 type FileNameInput = { kind: "file_name" } & FileNameRequest;
 type LibrarySortInput = { kind: "library_sort" } & LibrarySortRequest;
@@ -585,7 +589,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | HomeDayPicksInput | AreaSuggestInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput | AiMonthInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRecheckInput | TodoRulesReviewInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgPeopleBriefInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput | NoteTitleInput | FindExpandInput | RecordOneLineInput | FileNameInput | LibrarySortInput | JournalDraftInput | JournalMemorableInput | HomeDayPicksInput | AreaSuggestInput | ShareDraftRequest | AskWeb2Input | WeeklyDraftInput | WeeklyReviewInput | WorkScopeInput | NowInput | AiMonthInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -637,6 +641,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | TodoRe
     const parsed = parseNoteTitleRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "note_title", ...parsed };
+  }
+  // 찾기 풀이(find_expand, SEARCH-비슷한것찾기 ②): 검색 칸에 친 글 하나만 받는다. 서버는 사용자 자료를 읽지 않는다.
+  if (b.kind === "find_expand") {
+    const parsed = parseFindExpandRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "find_expand", ...parsed };
   }
   // 조직 기록 AI 한 줄(record_one_line, RECORD-한줄AI요약): 기록 ID 하나만 받는다. 글은 서버가 로그인 토큰으로 읽는다.
   if (b.kind === "record_one_line") {
@@ -4005,7 +4015,16 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
   // NEWS-운영자만(S63-03): '읽을 만한 글'은 News 기사에서 고른다 — 운영자 기능 키 'outside'가 없는 작업공간은 뉴스를 읽지도 고르지도 않는다(AI 없음).
   if ((!state?.reads_slot || (state.reads_slot !== slot && state.reads_slot !== "pm")) && await hasFeature(ctx, "outside")) {
     const from = new Date(Date.parse(`${day}T00:00:00+09:00`) - (DAY_NEWS_BACK_DAYS - 1) * 86400000).toISOString();
-    news = await readRows(`app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at&order=created_at.desc&limit=${DAY_NEWS_MAX}`);
+    // HOME-읽을만한글넓힘: 최근 사흘 일반 기사(DAY_NEWS_READ_MAX) + 읽을 거리 묶음(사설·칼럼·외국 등, 카탈로그 region이 국내 뉴스 밖인 매체) 기사를 따로 읽어 합친다.
+    // AI에 보내는 글 수는 서버가 먼저 줄여(rankReads) 예전과 같은 DAY_NEWS_MAX개 이하다.
+    const base = `app_news_items?workspace_id=eq.${ws}&hidden_at=is.null&created_at=gte.${encodeURIComponent(from)}&select=id,workspace_id,title,title_ko,publisher,summary,url,published_at,created_at,hidden_at,source_key,lang,state&order=created_at.desc`;
+    const [recent, groups] = await Promise.all([
+      readRows(`${base}&limit=${DAY_NEWS_READ_MAX}`),
+      READS_GROUP_KEYS.length ? soft(`${base}&source_key=in.(${READS_GROUP_KEYS.map(encodeURIComponent).join(",")})&limit=${DAY_READS_GROUP_READ_MAX}`) : Promise.resolve([]),
+    ]);
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const r of [...recent, ...(groups || [])]) if (typeof r?.id === "string" && !byId.has(r.id)) byId.set(r.id, r);
+    news = [...byId.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     newest = typeof news[0]?.created_at === "string" ? news[0].created_at as string : null;
     readsNeed = readsDue(state, slot, newest);
   }
@@ -4040,16 +4059,25 @@ async function runHomeDayPicks(ctx: Ctx, input: HomeDayPicksInput, deps: RadarDe
   try {
     if (readsNeed) {
       // 재료: 최근 뉴스(서버가 읽음) + 내 담당조직·사업영역(서버가 읽음) + 이번 주 일정 제목(화면이 보냄). AI에는 번호만, id·주소는 보내지 않는다.
-      const rows = news.map((r) => toNewsRow(r, ctx.workspaceId)).filter((r): r is NonNullable<typeof r> => !!r);
-      const [orgs, assigned, areas] = await Promise.all([
+      const all = news.map((r) => toNewsRow(r, ctx.workspaceId)).filter((r): r is NonNullable<typeof r> => !!r);
+      // HOME-읽을만한글넓힘: 관심 주제(News '관심 주제'와 같은 표 app_now_interests의 확정 주제 + 기본 주제 − 뺀 주제)와
+      // 지난 이레 홈에 보여 준 글(이 표 app_home_day_picks의 그 날들 reads)을 읽는다. 못 읽으면 기본 주제·빼기 없음으로 그대로 고른다.
+      const seenFrom = new Date(Date.parse(`${day}T00:00:00Z`) - DAY_SEEN_BACK_DAYS * 86400000).toISOString().slice(0, 10);
+      const [orgs, assigned, areas, interests, recentPicks] = await Promise.all([
         soft(`app_suborganizations?workspace_id=eq.${ws}&active=eq.true&select=id,name&order=name.asc&limit=200`),
         soft(`app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx.userId)}&select=organization_id&limit=500`),
         soft(`app_spaces?workspace_id=eq.${ws}&status=eq.active&select=name&order=name.asc&limit=200`),
+        soft(`app_now_interests?workspace_id=eq.${ws}&state=in.(confirmed,dropped)&select=workspace_id,topic,state&limit=200`),
+        soft(`app_home_day_picks?workspace_id=eq.${ws}&day=gte.${seenFrom}&day=lt.${day}&select=workspace_id,day,reads&limit=${DAY_SEEN_BACK_DAYS + 1}`),
       ]);
       const mineIds = new Set((assigned || []).map((m) => String(m?.organization_id ?? "")));
       const myOrgs = (orgs || []).filter((o) => !mineIds.size || mineIds.has(String(o?.id ?? ""))).map((o) => o?.name);
       const events = input.events.filter((e) => !(family && e.title.includes(family)));
-      const material = readsMaterial(day, rows, { orgs: myOrgs, areas: (areas || []).map((a) => a?.name), events });
+      const myAreas = (areas || []).map((a) => a?.name);
+      const topics = readTopics((interests || []).filter((r) => String(r?.workspace_id).toLowerCase() === ctx.workspaceId));
+      const seen = seenReads((recentPicks || []).filter((r) => String(r?.workspace_id).toLowerCase() === ctx.workspaceId));
+      const rows = rankReads(all, { topics, names: [...myOrgs, ...myAreas, ...events.map((e) => e.title)], seen });
+      const material = readsMaterial(day, rows, { orgs: myOrgs, areas: myAreas, events, topics });
       counts.news = rows.length;
       let picks: ReturnType<typeof parseReads> = [];
       if (material) {
@@ -4351,6 +4379,55 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
   const sentChars = chars(material);
   deps.log("note_title_done", { size: sentChars });
   return json({ ok: true, kind: "note_title", id: input.id, title });
+}
+
+// ---- 쓰임 find_expand: 찾기 풀이(SEARCH-비슷한것찾기 ②, find-expand.ts) -------------------------------------------------------------
+// 검색 칸에 친 글을 {기간, 낱말 여러 개}로만 바꾼다. 사용자 자료(노트·일정·기록 등)는 읽지 않고 AI에도 보내지 않는다 — 보내는 것은 그 글과 오늘 날짜뿐.
+// 월 AI 상한·하루 횟수 안에서만 부르고 사용량 줄에 더한다(한도를 넘으면 429 → 화면은 글자 비슷 찾기 결과만 보인다). 저장하지 않는다.
+async function runFindExpand(ctx: Ctx, input: FindExpandInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "find_expand", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = findExpandMaterial(input.text, budget.day);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: FIND_EXPAND_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: FIND_EXPAND_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "find_expand", strict: true, schema: FIND_EXPAND_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FIND_EXPAND_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsageAfterAi(ctx, budget, used, config.model, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseFindExpand(outputText(result.raw, 16 * 1024) ?? "");
+  if (!parsed) {
+    deps.log("find_expand_empty");
+    return json({ ok: true, kind: "find_expand", words: [], from: "", to: "" });
+  }
+  deps.log("find_expand_done", { words: parsed.words.length, period: parsed.from || parsed.to ? 1 : 0 });
+  return json({ ok: true, kind: "find_expand", ...parsed });
 }
 
 // ---- 쓰임 file_name: 첨부 파일 [AI 이름] 추천(ATT-이름고치기, file-name.ts) -------------------------------------------------------
@@ -4963,6 +5040,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "weekly_review") return await runWeeklyReview(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "find_expand") return await runFindExpand(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "note_title") return await runNoteTitle(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "record_one_line") return await runRecordOneLine(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "file_name") return await runFileName(ctx, input, { env: deps.env, now, sleep, log, doFetch });

@@ -86,7 +86,7 @@ function screenTrigger(target) {
   if (!node || node.closest('.modal,[role="dialog"],[role="menu"],[popover]')) return null;
   const panel = node.closest('.view-panel');
   if (!panel) return null;
-  const list = [...panel.querySelectorAll(SCREEN), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN}`) : [])].filter(el => isMore(el) && visible(el)); // 화면 이름 줄로 옮긴 ⋯(screen-tools.js)
+  const list = [...new Set([...panel.querySelectorAll(SCREEN), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN}`) : [])])].filter(el => isMore(el) && visible(el)); // 화면 이름 줄로 옮긴 ⋯(screen-tools.js)
   return list.length === 1 ? list[0] : null;
 }
 
@@ -100,7 +100,8 @@ function screenItems(target) {
   const panel = node.closest('.view-panel');
   if (!panel) return null;
   // 화면 이름 줄로 옮긴 단추(screen-tools.js, data-screen-tools-for)도 그 화면 것 — screenTrigger와 같은 길.
-  const list = [...panel.querySelectorAll(SCREEN_ITEM), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN_ITEM}`) : [])].filter(el => visible(el) && !el.closest('.modal,[role="dialog"]'));
+  // PC 틀에서는 옮기는 단추 묶음이 화면 안 제자리에 있어(screen-tools.js {wide:false}, 사업 관리 첫 줄) 두 길에 같은 단추가 함께 잡힌다 — 한 번만.
+  const list = [...new Set([...panel.querySelectorAll(SCREEN_ITEM), ...(panel.id ? document.querySelectorAll(`[data-screen-tools-for="${CSS.escape(panel.id)}"] ${SCREEN_ITEM}`) : [])])].filter(el => visible(el) && !el.closest('.modal,[role="dialog"]'));
   return list.length ? list : null;
 }
 const itemLabel = el => (el.dataset.ctxScreenItem || el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').replace(/^\+\s*/, '').trim();

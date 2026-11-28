@@ -14,6 +14,8 @@ import {hasDoc, needsMarkdown, noteStartDoc} from './note-doc.mjs';
 import {diaryPhotoUrl} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {slotLoading, slotImg, slotFailed} from './img-slot.js';
+import {openPhotoView, photoViewZoom} from './photo-view.js';
+import {pinchOpens} from './photo-viewer-model.mjs';
 
 const STYLES = ['./ed-doc.css'];
 function ensureStyles() {
@@ -34,16 +36,43 @@ async function markdownFor(note) {
 export async function startValue(note) { return noteStartDoc(note, await markdownFor(note)); }
 
 // A shown photo that opens large when pressed: a button for touch, mouse and keyboard (Enter·Space), named for screen readers.
+// PHOTO-글속사진확대(S73-13): 두 손가락을 사진 위에 대고 벌려도 크게 보기가 열리고, 손을 떼지 않은 채 그 손가락으로 이어 확대된다
+// (열린 크게 보기의 공용 확대 손동작이 비율을 이어받음 — photo-view.js photoViewZoom). 한 손가락은 글 스크롤 그대로(막지 않음).
 function zoomable(place, open, name) {
   if (place.dataset.edZoom) return;
   place.dataset.edZoom = '1'; place.tabIndex = 0; place.setAttribute('role', 'button'); place.setAttribute('aria-label', `${name} 크게 보기`);
   place.addEventListener('click', e => { e.preventDefault(); open(); });
   place.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  let d0 = 0, from = 0, live = null;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  place.addEventListener('touchstart', e => { if (e.touches.length === 2) { d0 = dist(e.touches); live = null; } else if (!live) d0 = 0; }, {passive: true});
+  place.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !d0) return;
+    if (e.cancelable) e.preventDefault(); // 사진 위 두 손가락은 화면 확대가 아니라 이 사진 크게 보기
+    const d = dist(e.touches);
+    if (live) { live.follow(d / from); return; }
+    if (!pinchOpens(d0, d) || !open()) return;
+    from = d; live = photoViewZoom();
+  }, {passive: false});
+  const end = e => { if (e.touches.length >= 2) return; live?.release(); live = null; d0 = 0; };
+  place.addEventListener('touchend', end, {passive: true}); place.addEventListener('touchcancel', end, {passive: true});
 }
 // The note's photos: drive:<id> of a file in this note's attachments, shown through the owner-only photo view.
 const fileOf = (note, id) => (note?.attachments || []).find(f => f?.drive_file_id === id) || null;
 // 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
-export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} = {}) {
+// PHOTO-크게보기넘기기(S71-72): 본문에 놓인 사진(이 노트 첨부의 그림)을 본문 순서대로, 같은 사진은 한 번 — 크게 보기에서 서로 넘긴다.
+function bodyPhotos(box, note) {
+  const seen = new Set(), out = [];
+  for (const place of box.querySelectorAll('[data-ed-drive]')) {
+    const file = fileOf(note, place.dataset.edDrive);
+    if (file && /^image\//.test(file.mime_type || '') && !seen.has(file.drive_file_id)) { seen.add(file.drive_file_id); out.push(file); }
+  }
+  return out;
+}
+// 글 읽기 화면(노트·잊지 말기·하루 기록)의 본문 사진은 모두 여기서 공용 크게 보기(photo-view.js — 확대·넘기기·뒤로가기 닫기)로 연다.
+// 같은 본문 사진끼리 넘긴다(bodyPhotos). 크게 보기는 본문과 같은 큰 판(1600px)을 쓴다(이미 받아 둔 것이라 바로 뜬다).
+const openBody = (box, note, file, place, rt) => openPhotoView({row: note, file, files: bodyPhotos(box, note), trigger: place, rt});
+export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
   for (const place of box.querySelectorAll('[data-ed-drive]')) {
     const file = fileOf(note, place.dataset.edDrive);
     if (!file || !/^image\//.test(file.mime_type || '')) continue;
@@ -58,7 +87,7 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
           retry: () => { img.remove(); load(); },
           onShown: () => {
             place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img);
-            if (onOpen) zoomable(place, () => onOpen(file, place), attachmentName(file, '사진'));
+            zoomable(place, () => openBody(box, note, file, place, rt), attachmentName(file, '사진'));
           },
         });
       }, () => { if (place.isConnected) slotFailed(place, load, 'photo'); });
@@ -67,17 +96,35 @@ export function fillPhotos(box, note, {rt = window.KPTURuntime, onOpen = null} =
   }
 }
 // The read view of a note with doc. Returns true when it drew (false: the caller keeps the old view).
-// onOpen(file, trigger): NOTE-파일그림넣기 ② — a shown photo in the text is pressed (or Enter/Space) to see it large (the opener's own
-// photo view, the same one as the attachment cards). Without it the photos only show.
-export function paintDoc(box, note, {rt, onOpen = null} = {}) {
+// NOTE-파일그림넣기 ② · S73-13: a shown photo in the text is pressed (or Enter/Space, or spread with two fingers) to see it large in the shared
+// photo view (photo-view.js, the same one as the attachment cards) — fillPhotos does this for every reading screen.
+// tasks: S69-97 — the note screen's Google task provider (noteTaskProvider). A check linked to a Google task reads Google's state
+// (the source): the box is redrawn when Google says otherwise. Reading never writes the note; the next edit takes Google's state in.
+export function paintDoc(box, note, {rt, tasks = null} = {}) {
   if (!hasDoc(note)) return false;
   ensureStyles();
   // NOTE-유튜브보기: 노트·업데이트 읽기 화면은 유튜브 링크 아래 영상 칸(▶ 누를 때 재생).
-  const doc = renderDoc(note.doc, null, {videos: true});
+  const doc = renderDoc(note.doc, null, {videos: true, tasks: true});
   box.replaceChildren(doc);
   box.dataset.noteView = 'doc';
-  fillPhotos(box, note, {rt, onOpen});
+  fillPhotos(box, note, {rt});
+  if (tasks) void readTaskState(doc, tasks);
   return true;
+}
+async function readTaskState(doc, tasks) {
+  const items = [...doc.querySelectorAll('li[data-gtask]')];
+  const ids = [...new Set(items.map(li => li.dataset.gtask))].slice(0, 50);
+  if (!ids.length) return;
+  let r; try { r = await tasks.pick(ids); } catch { return; }
+  const done = new Map((r?.tasks || []).map(t => [t.id, t.status === 'completed'])), gone = new Set(r?.gone || []);
+  for (const li of items) {
+    if (!li.isConnected) continue;
+    const id = li.dataset.gtask;
+    if (gone.has(id)) { li.classList.remove('ed-gtask'); li.removeAttribute('data-gtask'); continue; }
+    if (!done.has(id)) continue;
+    li.classList.toggle('ed-done', done.get(id));
+    if (done.get(id)) li.setAttribute('data-checked', 'true'); else li.removeAttribute('data-checked');
+  }
 }
 
 // What [복사] puts on the clipboard for a note with doc (title first), or null to use the old one.
@@ -138,7 +185,7 @@ export function noteFiles({getNote, upload, open = url => window.open(url, '_bla
 // lead: NOTE-제목서식줄고정 — the 제목 칸 put in the editor's top band with the button row (createDocEditor lead).
 // blocks: NOTE-노션편집 ①(나) — null, or {on, onToggle(on)} (createDocEditor blocks: the handle ⋮⋮ and the [블록] switch).
 // noteLinks: S69-98 NOTE-에버노트 ⑧ — null, or the '[[' note list's source (createDocEditor noteLinks).
-export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null} = {}) {
+export async function mountEditField(host, note, {photos = null, files = null, label = '본문', lead = null, blocks = null, noteLinks = null, tasks = null} = {}) {
   const [{createDocEditor}, start] = await Promise.all([editorModule(), startValue(note)]);
   // UI-뒤로가기겹규칙: 편집기 안의 작은 상자(글자색 목록·표 칸 메뉴·버튼 줄 판)가 열리면 라우터 겹 하나 — 뒤로가기 = 상자만 닫기(일기·창과 같은 onBox 계약).
   let editor = null, boxLayer = null;
@@ -147,8 +194,12 @@ export async function mountEditField(host, note, {photos = null, files = null, l
     if (open) boxLayer ||= window.KPTURouter?.layer?.open('note-edit-box', {close:() => { boxLayer = null; editor?.closeBoxes(); return true; }}) || null;
     else dropBox();
   };
-  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks});
+  editor = await createDocEditor({host, value: start, label, placeholder: '노트 본문을 쓰세요', photos, files, shortcuts: true, onBox, lead, lineWidth: true, blocks, noteLinks, tasks});
   let base = JSON.stringify(editor.getValue());
+  // S69-97: the first read of the linked Google tasks may tick boxes (Google's state). That alone is not the person's change.
+  const bare = text => text.replace(/,?"(checked|gtask)":(true|false|null|"[^"]*")/g, '');
+  const first = editor.syncTasks?.();
+  if (first) void first.then(() => { const now = JSON.stringify(editor.getValue()); if (bare(now) === bare(base)) base = now; });
   return {
     editor,
     getValue: () => editor.getValue(),

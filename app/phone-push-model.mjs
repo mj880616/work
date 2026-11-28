@@ -21,7 +21,16 @@ export const FAMILY_KIND = Object.freeze(['family', '잊지 말기']);
 // OPS-새가입알림(S62-25): 운영자(서버 허용 표 dev_inbox)에게만 보이는 종류 '새 가입'. family와 같은 방식 — 기본 켬, 끌 때만 kinds.signup=false
 // (DB 검사 20261115234500_signup_notify가 이 키를 받는다). 알림은 서버가 운영자 작업공간에만 보내므로 칩을 빼는 것은 보안이 아니다.
 export const SIGNUP_KIND = Object.freeze(['signup', '새 가입']);
+// S69-97 노트 알림: 노트에 건 알림(정한 시각)을 서버(phone-push 15분 예약)가 보낸다. 모든 사람에게 보이는 칩. family·signup과 같은 방식 —
+// 기본 켬, 끌 때만 kinds.note=false(DB 검사 20261125130000_note_alarm_push_kind가 이 키를 받는다. 켬일 때는 칸을 만들지 않아
+// DB 변경 전에도 저장 모양이 그대로 통과한다).
+export const NOTE_KIND = Object.freeze(['note', '노트 알림']);
 export const SIGNUP_FEATURE = 'dev_inbox';
+// S71-36 PROFILE-설정화면: '알림 설정' 장의 종류 줄 아래 회색 설명 한 줄(사용자 확정 시안 글자). 운영자만 받는 종류는 '운영자만 · '로 시작.
+export const KIND_DESC = Object.freeze({
+  task_due: '기한이 다가오면', meeting_done: '회의 요약이 다 되면', collect_stall: '운영자만 · 수집이 멈추면',
+  morning: '아침에 오늘 할 일 모아서', evening: '저녁에 하루 정리', note: '노트에 단 알림 시각', family: '정해 둔 때', signup: '운영자만 · 새 사람이 가입하면',
+});
 export const DEFAULT_QUIET = Object.freeze({from: '22:00', to: '07:00'});
 export const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 export const TOKEN = /^[A-Za-z0-9_:-]{20,4096}$/;
@@ -35,7 +44,7 @@ export function parsePrefs(raw) {
   for (const key of KIND_KEYS) kinds[key] = typeof given[key] === 'boolean' ? given[key] : true;
   const q = src.quiet && typeof src.quiet === 'object' ? src.quiet : {};
   const quiet = TIME.test(q.from) && TIME.test(q.to) ? {from: q.from, to: q.to} : {...DEFAULT_QUIET};
-  return {kinds, quiet, family: given.family !== false, signup: given.signup !== false};
+  return {kinds, quiet, family: given.family !== false, signup: given.signup !== false, note: given.note !== false};
 }
 
 /** 화면 값 → 저장 값(검사 제약에 맞는 모양만). 시간 모양이 틀리면 null(저장하지 않음). */
@@ -43,13 +52,14 @@ export function serializePrefs(prefs) {
   const p = parsePrefs({kinds: prefs?.kinds});
   const from = prefs?.quiet?.from, to = prefs?.quiet?.to;
   if (!TIME.test(from ?? '') || !TIME.test(to ?? '')) return null;
-  const kinds = {...p.kinds, ...(prefs?.family === false ? {family: false} : {}), ...(prefs?.signup === false ? {signup: false} : {})};
+  const kinds = {...p.kinds, ...(prefs?.family === false ? {family: false} : {}), ...(prefs?.signup === false ? {signup: false} : {}), ...(prefs?.note === false ? {note: false} : {})};
   return {kinds, quiet: {from, to}};
 }
 
 export function toggleKind(prefs, key) {
   if (key === FAMILY_KIND[0]) return {...prefs, family: prefs.family === false};
   if (key === SIGNUP_KIND[0]) return {...prefs, signup: prefs.signup === false};
+  if (key === NOTE_KIND[0]) return {...prefs, note: prefs.note === false};
   if (!KIND_KEYS.includes(key)) return prefs;
   return {...prefs, kinds: {...prefs.kinds, [key]: !prefs.kinds[key]}};
 }

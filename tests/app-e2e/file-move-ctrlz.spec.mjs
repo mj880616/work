@@ -48,7 +48,9 @@ test('PC 1280: 파일을 다른 폴더로 옮긴 뒤 Ctrl+Z → 원래 폴더로
   await treeGo(page, 'od', '');
   await enterRow(page, row(page, 'od:OD!1'));
   await row(page, 'od:OD!13').click();
-  await root(page).locator('[data-fx-prev] [data-fx-rename-one]').click();
+  // S70-72: PC 넓은 폭 상세 칸에는 동작 줄이 없다 — 줄 우클릭 [이름 바꾸기].
+  await row(page, 'od:OD!13').click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '이름 바꾸기', exact: true }).click();
   await ask(page).locator('.kptu-ask-field').fill('가짜 메모 고침');
   await ask(page).getByRole('button', { name: '바꾸기' }).click();
   await expect(row(page, 'od:OD!13').locator(':is(.fx-name, .ft-name)')).toHaveText('가짜 메모 고침.txt');

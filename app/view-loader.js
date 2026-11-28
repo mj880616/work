@@ -26,35 +26,34 @@ function style(path){
 // (part-styles.js) 여기 적으면 화면 프로그램과 함께 미리 받아 첫 화면이 모양 받기를 따로 기다리지 않는다. 빠지면 tests/part-styles.test.mjs가 잡는다.
 // 예외: 일정의 할 일 창 모양(google-tasks.css)은 전처럼 ui-standard.css 뒤에 붙어야 PC 할 일 칸 빠른 기한 단추가 작은 크기로 이긴다(시험의 LATE 표).
 const routeStyles={
-  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
+  basket:['./basket.css','./month-cal.css','./news-mark-rows.css','./home-quick.css','./row-swipe.css','./folder-tree.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./todo-radar.css','./folder-look.css','./area-org-picker.css','./filter-chips.css','./od-link.css','./marquee-select.css','./folder-dest-sheet.css','./memo-thread.css','./trash-row.css','./ui-standard.css'],
   home:['./journal.css','./weekly-org-lines.css','./biz-summary.css','./home-quick.css','./library-upload.css','./row-swipe.css','./od-link.css','./basket-picker.css','./choice-sheet.css','./google-tasks.css','./area-org-picker.css','./folder-look.css','./todo-radar.css','./folder-tree.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./area-org-picker.css','./od-link.css','./calendar-ui.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
-  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./ui-standard.css'],
-  diary:['./diary.css','./od-link.css','./ed-doc.css','./folder-look.css','./basket-picker.css','./folder-tree.css','./ui-standard.css'],
-  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./ui-standard.css'],
+  tasks:['./task-layout.css','./row-swipe.css','./google-tasks.css','./area-org-picker.css','./home-quick.css','./library-upload.css','./basket-picker.css','./folder-look.css','./choice-sheet.css','./folder-tree.css','./od-link.css','./ui-standard.css'],
+  diary:['./diary.css','./od-link.css','./row-swipe.css','./ed-doc.css','./folder-look.css','./basket-picker.css','./folder-tree.css','./ui-standard.css'],
+  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./basket-picker.css','./choice-sheet.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./od-link.css','./ui-standard.css'],
   library:['./filter-chips.css','./choice-sheet.css','./library-upload.css','./folder-tree.css','./compact-list.css','./markdown-view.css','./folder-look.css','./list-edit.css','./area-org-picker.css','./row-swipe.css','./marquee-select.css','./od-link.css','./folder-dest-sheet.css','./record-sheet.css','./ui-standard.css'],
   meetings:['./first-use.css','./filter-chips.css','./weekly-org-lines.css','./biz-summary.css','./choice-sheet.css','./od-link.css','./month-cal.css','./meeting-ui.css','./markdown-view.css','./google-tasks.css','./area-org-picker.css','./todo-radar.css','./basket-picker.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./memo-thread.css','./ui-standard.css'],
   team:['./first-use.css','./suborganizations.css','./weekly-org-lines.css','./workplace-detail.css','./library-upload.css','./basket-picker.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./area-org-picker.css','./list-edit.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./home-quick.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./folder-look.css','./folder-tree.css','./ui-standard.css'],
-  reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./area-org-picker.css','./ui-standard.css'],
-  telegram:['./choice-sheet.css','./feed.css','./area-org-picker.css','./folder-look.css','./folder-tree.css','./news-mark-rows.css','./memo-thread.css','./ui-standard.css'],
+  telegram:['./choice-sheet.css','./feed.css','./row-swipe.css','./od-link.css','./area-org-picker.css','./folder-look.css','./folder-tree.css','./news-mark-rows.css','./memo-thread.css','./ui-standard.css'],
   photos:['./diary.css','./od-link.css','./source-chips.css','./photos.css','./folder-tree.css','./folder-look.css','./basket-picker.css','./folder-dest-sheet.css','./ui-standard.css'],
   arsenal:['./arsenal.css','./ui-standard.css'],
   // OUTSIDE-글상세·관심환류 ③: Now 한 메뉴(사회운동·뉴스·보관·문장 찾기 탭 + 글 상세). 옛 news 화면은 Now [뉴스] 탭.
   outside:['./od-link.css','./outside-statements.css','./news-clipping.css','./row-swipe.css','./library-upload.css','./now.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./folder-dest-sheet.css','./memo-thread.css','./ui-standard.css'],
-  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./folder-look.css','./marquee-select.css','./ui-standard.css'],
+  files:['./od-link.css','./folder-tree.css','./source-chips.css','./folder-dest-sheet.css','./files.css','./row-swipe.css','./folder-look.css','./marquee-select.css','./ui-standard.css'],
   updates:['./release-notes.css','./update-news.css','./small-form-modal.css','./ui-standard.css'],
   whatsnew:['./update-news.css','./ui-standard.css'],
   feedback:['./feedback.css','./ui-standard.css'],
   signups:['./signups.css','./ui-standard.css'],
   // SEC-기능PIN잠금 ②: 잠금 화면(설정 목록·숫자 판).
   lock:['./lock.css','./ui-standard.css'],
-  brief:['./feed.css','./news-mark-rows.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./ui-standard.css'],
+  brief:['./feed.css','./news-mark-rows.css','./files.css','./folder-tree.css','./folder-dest-sheet.css','./brief-room.css','./first-use.css','./folder-look.css','./library-upload.css','./od-link.css','./row-swipe.css','./ui-standard.css'],
   // S68-09 READ-읽을거리함: 읽을 거리 목록·글 보기(줄 메뉴는 feed.css 공용 작은 메뉴).
-  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./ui-standard.css'],
+  reading:['./feed.css','./choice-sheet.css','./area-org-picker.css','./filter-chips.css','./news-mark-rows.css','./folder-look.css','./folder-tree.css','./row-swipe.css','./reading.css','./memo-thread.css','./od-link.css','./ui-standard.css'],
   // HELP-메뉴안쓰는법: 쓰는 법 화면. 앱 내려받기 탭·단계는 빈 화면 안내와 같은 모양(first-use.css).
   help:['./help.css','./first-use.css','./ui-standard.css']
 };
@@ -73,6 +72,22 @@ async function module(path,readyName){
   await import(path);
   const ready=readyName?window[readyName]:null;
   if(ready&&typeof ready.then==='function')await ready;
+  return true
+}
+// RULE-한번에그리기(AGENTS.md 4절, docs/design/screen-open-once-audit.md): 화면은 열 때 한 번에 최종 모양으로 그린다.
+// 라우터(app-router.js go)는 이 도구의 화면 불러오기가 끝난 뒤에야 화면을 보이므로, 화면 모듈은 첫 그림에 필요한 서버 값(연결 상태·목록·설정)을
+// 받아 그리는 약속을 window[readyName]에 두고, 여기서 그 약속을 기다린다(screen). 기다리는 동안은 위쪽 가는 줄(loader-v2.js loadThen)만 보인다.
+// 약속이 FIRST_PAINT_MS를 넘으면 기다리지 않고 연다 — 그때는 화면 모듈이 받은 뒤 한 번 그린다(늦은 서버의 예외 길, 기본 모양을 먼저 그리지 않음).
+// 모듈 import만 기다리고 자료는 화면을 보인 뒤에 읽어 '기본 모양 → 덮어쓰기'가 되는 화면을 새로 만들지 않는다(tests/screen-open-once.test.mjs).
+const FIRST_PAINT_MS=4000;
+async function screen(path,readyName){
+  await import(path);
+  const ready=window[readyName];
+  if(ready&&typeof ready.then==='function'){
+    let timer=null;
+    await Promise.race([Promise.resolve(ready).catch(err=>console.warn('first paint',readyName,err?.name||'Error')),new Promise(resolve=>{timer=setTimeout(resolve,FIRST_PAINT_MS)})]);
+    clearTimeout(timer);
+  }
   return true
 }
 async function team(view){
@@ -164,15 +179,13 @@ async function organizations(){
 // HOME-업무일지홈: 홈은 업무일지 화면이다(journal.js가 #homeView 안 #journalRoot의 유일한 renderer). 옛 홈 칸 화면은 코드째 삭제.
 async function home(){ await module('./journal.js'); return {ok:true} }
 async function basket(){ await module('./basket.js'); return {ok:true} }
-// HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
+// HWP-편집기(S71-61부터 노트 화면 ⋯ [HWP 편집]·노트 ⋯ [이 노트를 HWP로]·자료실 [편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
 async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await organizationOrder(); await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
-// REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
-async function reference(){ await module('./reference-bundles.js'); return {ok:true} }
 // CALL-통화메뉴·TG-소식메뉴: [통화](?view=calls)·[텔레그램 소식](?view=telegram), 사이드바 맨 아래·폰 메뉴 판. loadAll에 넣지 않고 열 때만 불러온다.
 async function calls(){ await organizationOrder(); await module('./call-feed.js'); return {ok:true} }
 async function telegram(){ await organizationOrder(); await module('./telegram-feed.js'); return {ok:true} }
@@ -194,7 +207,7 @@ async function outside(){
   await module('./outside-statements.js'); await module('./news-clipping.js'); return {ok:true}
 }
 // FILES-클라우드탐색기 ④: [파일](?view=files, 위 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #filesView를 만든다).
-async function files(){ await module('./files.js'); return {ok:true} }
+async function files(){ await screen('./files.js','__KPTU_FILES_READY__'); return {ok:true} }
 // UI-업데이트기록입구: [업데이트 기록](?view=updates, 계정 메뉴 [내 프로필] 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #updatesView를 만든다).
 async function updates(){ await module('./release-notes-ui.js'); return {ok:true} }
 // UPDATE-운영자전용기록업데이트소식 PR3: [업데이트 소식](?view=whatsnew, 계정 메뉴 — 모든 이용자). 열 때만 불러온다(모듈이 #whatsnewView를 만든다).
@@ -204,14 +217,14 @@ async function feedback(){ await module('./feedback-inbox.js'); return {ok:true}
 // OPS-새가입알림 ③·OPS-가입자현황: 운영자 '가입자 현황'(?view=signups, 운영자 계정 메뉴·새 가입 알림). 열 때만 불러온다(모듈이 #signupsView를 만든다, 읽기는 서버가 운영자만).
 async function signups(){ await module('./signups-view.js'); return {ok:true} }
 // BRIEF-브리핑룸 ③: [브리핑 룸](?view=brief, 메뉴 자료실 바로 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #briefView를 만든다).
-async function brief(){ await module('./brief-room.js'); return {ok:true} }
+async function brief(){ await screen('./brief-room.js','__KPTU_BRIEF_READY__'); return {ok:true} }
 // S68-09 READ-읽을거리함: [읽을 거리](?view=reading, 위 메뉴 잊지 말기 다음). 열 때만 불러온다(모듈이 #readingView를 만든다).
-async function reading(){ await module('./reading.js'); return {ok:true} }
+async function reading(){ await screen('./reading.js','__KPTU_READING_READY__'); return {ok:true} }
 // HELP-메뉴안쓰는법: [쓰는 법](?view=help, 계정 › 쓰는 법·각 화면 ⋯ 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #helpView를 만든다).
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,reference,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
@@ -258,7 +271,6 @@ const warmModules={
   library:/*static-chain*/['./library-upload.js'],
   meetings:/*static-chain*/['./team-report-kit.js','./task-workflow.js','./meeting-round-detail.js','./meeting-from-files.js'],
   team:/*static-chain*/['./suborganizations.js','./workplace-detail.js'],
-  reference:/*static-chain*/['./reference-bundles.js'],
   calls:/*static-chain*/['./call-feed.js'],
   telegram:/*static-chain*/['./telegram-feed.js'],
   photos:/*static-chain*/['./photos.js'],

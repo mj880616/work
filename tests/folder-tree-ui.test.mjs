@@ -115,18 +115,19 @@ test('L2 폴더 줄: 이름 칸 title = 전체 이름(특수문자 이스케이�
   assert.match(ftFolderRowHtml({name: ''}), /<span class="ft-name" title="">/);
 });
 
-// S51-25 FOLDER-PC나무: PC 나무는 아이콘이 따로인 단추(줄 = 열기 + 펼침, 아이콘 = 접기·펼치기만). 세모 없음.
-test('toggle: 폴더 아이콘이 줄 앞 따로인 단추, 열린 그림 = 펼침, 펼칠 것이 없으면 단추 없이 닫힌 그림', () => {
+// S51-25 FOLDER-PC나무 → TREE-탐색기꺾쇠(S70-81b, T10): 넓은 화면 나무는 폴더 아이콘 왼쪽 작은 회색 꺾쇠 단추(펼치기·접기만), 아이콘은 이름 단추 안.
+test('toggle: 아이콘 왼쪽 꺾쇠 단추(펼침 상태를 알림), 아이콘·이름은 이름 단추 안, 펼칠 것이 없으면 꺾쇠 없이 같은 폭 빈 자리', () => {
   const open = ftFolderRowHtml({name: '문서함', depth: 1, open: true, hasContent: true, mainAttrs: {'data-x-go': 'a'}, toggle: {attrs: {'data-x-tog': 'a'}}});
   assert.match(open, /^<div class="ft-row ft-folder ft-sub ft-open ft-has-tog"/);
-  assert.match(open, /<button type="button" class="ft-btn ft-tog" data-x-tog="a" aria-expanded="true" aria-label="문서함 접기"><span class="ft-ico" data-ft-shape="open"/);
-  // 이름 단추에는 아이콘도 aria-expanded도 없다(펼침은 아이콘 단추가 알림).
-  assert.match(open, /<button type="button" class="ft-btn ft-main" data-x-go="a"><span class="ft-name" title="문서함">문서함<\/span><\/button>/);
+  assert.match(open, /<button type="button" class="ft-btn ft-tog" data-x-tog="a" aria-expanded="true" aria-label="문서함 접기"><i class="kptu-chev ft-chev" aria-hidden="true"><\/i><\/button>/);
+  // 이름 단추에는 열린 폴더 아이콘이 들고 aria-expanded는 없다(펼침은 꺾쇠 단추가 알림).
+  assert.match(open, /<button type="button" class="ft-btn ft-main" data-x-go="a"><span class="ft-ico" data-ft-shape="open"[^]*<span class="ft-name" title="문서함">문서함<\/span><\/button>/);
   const shut = ftFolderRowHtml({name: '문서함', open: false, hasContent: true, toggle: {attrs: {'data-x-tog': 'a'}}});
-  assert.match(shut, /aria-expanded="false" aria-label="문서함 펼치기"><span class="ft-ico" data-ft-shape="closed"/);
+  assert.match(shut, /aria-expanded="false" aria-label="문서함 펼치기"><i class="kptu-chev ft-chev"/);
+  assert.match(shut, /ft-main"><span class="ft-ico" data-ft-shape="closed"/);
   const leaf = ftFolderRowHtml({name: '빈 폴더', open: true, hasContent: false, toggle: {attrs: {'data-x-tog': 'b'}}});
-  assert.doesNotMatch(leaf, /data-x-tog|<button[^>]*ft-tog/);
-  assert.match(leaf, /<span class="ft-tog ft-tog-none"><span class="ft-ico" data-ft-shape="closed"/);
+  assert.doesNotMatch(leaf, /data-x-tog|<button[^>]*ft-tog|kptu-chev/);
+  assert.match(leaf, /<span class="ft-tog ft-tog-none" aria-hidden="true"><\/span><button type="button" class="ft-btn ft-main"><span class="ft-ico" data-ft-shape="closed"/);
   for (const html of [open, shut, leaf]) assert.doesNotMatch(html, /[▸▾▶▼›]/);
 });
 
@@ -135,7 +136,7 @@ test('toggle: 폴더 아이콘이 줄 앞 따로인 단추, 열린 그림 = 펼�
 test('전수: 폴더 나무를 그리는 파일에 세모 글자·세모 모양이 없다', () => {
   const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').replace(/\/\*[^]*?\*\//g, '');
   // 고르기 단추·이동 글자(폴더 펼침 아님), '최근' 상자 머리 ▴▾(S51-22 #1969 — 폴더가 아닌 최근 파일 상자 접기, 따로 결정)
-  const ALLOWED = [/SORT_SHORT\[sort\]\} ▾/, /fx-xfer-open">목록 ▸/, /libraryManageModal/, /ft-box-caret/];
+  const ALLOWED = [/SORT_SHORT\[sort\]\} ▾/, /fx-xfer-open">목록 ▸/, /libraryManageModal/, /ft-box-caret/, /data-nl-ph-sort/]; // data-nl-ph-sort: 폰 노트 머리 줄 '수정한 날 순 ▾' 정렬 고르기 단추(NOTE-폰머리줄, 폴더 펼침 아님)
   const bad = [];
   for (const f of ['folder-tree-ui.mjs', 'library-tree.js', 'note-tree.mjs', 'note-boards.js', 'news-clipping.js', 'od-settings.js', 'tree-icons.js', 'photos.js', 'basket-notes.js', 'files.js', 'library-upload.js', 'library-folders.js']) {
     read(f).split('\n').forEach((line, i) => {

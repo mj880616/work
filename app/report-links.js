@@ -119,13 +119,5 @@ export async function changeOneTarget(meetingId,target,mode,rt=rtOf(),summaries=
   const same=t=>t.kind===target.kind&&t.id===target.id;
   const next=mode==='add'?(current.some(same)?current:[...current,{kind:target.kind,id:target.id}]):current.filter(t=>!same(t));
   if(next.length>20)return {ok:false,error:'INVALID_TARGETS',message:setLinksErrorText('INVALID_TARGETS')};
-  const result=await saveReportTargets(row,next,rt,summaries);
-  return {...result,previous:current};
-}
-
-// 5초 되돌리기: 해제 전 연결 목록으로 다시 맞춘다(그 사이 사업 보고가 바뀌었으면 최신 버전으로 읽어 다시 맞춘다).
-export async function restoreTargets(meetingId,targets,rt=rtOf()){
-  const row=(await rt.api(`/rest/v1/app_meetings?id=eq.${enc(meetingId)}&workspace_id=eq.${enc(workspaceOf(rt))}&select=id,updated_at`))?.[0];
-  if(!row)return {ok:false,error:'MEETING_MISSING',message:setLinksErrorText('MEETING_MISSING')};
-  return saveReportTargets(row,targets,rt);
+  return saveReportTargets(row,next,rt,summaries);
 }

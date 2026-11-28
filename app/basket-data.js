@@ -317,6 +317,16 @@ export function setNoteBlockEdit(note, on, rt = window.KPTURuntime) {
     return metadata;
   }, rt);
 }
+// S69-97 노트 알림: metadata.alarm = {at: ISO UTC}(새 칸·DB 변경 없음), null이면 칸을 지운다. 고치기가 아니라 updated_at은 그대로, 다른 metadata 칸도 그대로.
+// 시각이 되면 서버(phone-push)가 폰으로 한 번 알린다. 같은 값이면 쓰지 않는다.
+export function setNoteAlarm(note, at, rt = window.KPTURuntime) {
+  return patchNoteMetadata(note, metadata => {
+    const now = plainObject(metadata.alarm) ? metadata.alarm.at : undefined;
+    if (at) { if (now === at) return null; metadata.alarm = {at}; }
+    else { if (!('alarm' in metadata)) return null; delete metadata.alarm; }
+    return metadata;
+  }, rt);
+}
 // NOTE-주소로 가져오기 2단계(docs/design/note-import-by-url.md 5절): 원문 정보는 노트 행의 기존 metadata jsonb(metadata.source) 하나(새 칸·DB 변경 없음).
 // setNoteSource: 원문 정보만 바꾼다(실패 표시·[주소만 두기]·[다시 시도] 표시). 수정이 아니라 updated_at은 그대로, 다른 metadata 칸도 그대로
 // (고정·폴더와 같은 읽고-지키며-쓰기). change(지금 source 또는 null) → 새 source, 객체가 아니면 쓰지 않는다.
@@ -475,8 +485,9 @@ export function noteState(note, links, docs = []) {
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
 // 'project' and 'library'), Google tasks made from it (metadata.tasks, basket-note-tasks.js) and the work-journal memo
 // mark (metadata.journal_at, update-journal.js; place 'journal' = [업무일지]).
-// REF-참고묶음: [참고] = a confirmed link to a reference bundle (read and shown only; attaching comes with the next screen PR).
-export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization',word('담당조직')], ['project',word('사업영역')], ['reference','참고'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): [분류] 칩에 [참고]는 두지 않는다. 이미 참고 묶음에 붙은 업데이트는
+// 그대로 '분류됨'이고 [전체]에 보인다(notePlaces·placeSubOptions의 'reference' 읽기는 남김 — 데이터 보존).
+export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization',word('담당조직')], ['project',word('사업영역')], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
 export function notePlaces(note, links, docs = []) {
   const places = new Set();
   for (const link of links) {

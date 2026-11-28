@@ -1,6 +1,6 @@
-# TG-요약고치기 (텔레그램 소식 요약을 명진이 직접 고치기)
+# TG-요약고치기 (텔레그램 소식 요약을 사용자가 직접 고치기)
 
-요청함 2026-10-27 16:35. 시안은 명진이 보고 승인함.
+요청함 2026-10-27 16:35. 시안은 사용자가 보고 승인함.
 
 ## 규칙
 - 고친 값은 AI 값과 따로 서버에 둔다: `app_feed_summary_edits`(PK workspace_id+target, vals jsonb), 고친 기록 `app_feed_summary_edit_history`(추가만). 쓰기는 `public.app_feed_summary_edit` 하나(소유자 확인, SECURITY DEFINER). 마이그레이션 `20261027200000_tg_summary_edit`.

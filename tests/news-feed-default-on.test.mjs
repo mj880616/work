@@ -67,10 +67,17 @@ const DEFAULT_ON = ['news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'n
   'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
 // S69 NEWS-사설칼럼: 신문 사설·칼럼 피드(실측 점검으로 열리는 것만). 기본 켬·다 받기·본문 안 읽음은 같고 묶음만 'opinion'.
 const OPINION_ON = ['news-khan-opinion', 'news-hani-opinion', 'news-chosun-opinion', 'news-segye-opinion', 'news-hankyung-opinion'];
+// S71-70 NEWS-수집처더하기(사용자 2026-11-26 "지금 니가 언급한 곳들 다 가져와"): 새 두 곳은 위와 같은 규칙,
+// 앞서 있던 두 곳은 기본 켬으로만 바꿈(수집 때 본문 읽기 규칙 extract는 그대로).
+const ADDED_ON = ['news-newscham', 'news-mediatoday'];
+const TURNED_ON = ['news-labortoday', 'news-pressian'];
+// NEWS-수집처늘리기(사용자 2026-11-28): 주제 묶음(AI 코딩·축구)과 사회·정치 양질 블로그 — 기본 켬·다 받기·본문 안 읽음, 맨 끝 순서(tests/news-more-sources.test.mjs).
+const MORE_ON = ['news-simonwillison', 'news-lucumr', 'news-mitchellh', 'news-addyosmani', 'news-harperreed', 'news-martinfowler', 'news-latentspace', 'news-steipete', 'news-geeknews',
+  'news-arseblog', 'news-arseblognews', 'news-spielverlagerung', 'news-mastermind', 'news-analyticsfc', 'news-slownews', 'news-guardian-opinion', 'news-noahpinion', 'news-lpeproject', 'news-opendemocracy', 'news-phenomenalworld', 'news-nlr-sidecar'];
 
 test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·수집 때 본문 안 읽음, 주소는 https, 화면 목록에 on이 실림', () => {
   // 기본 켬 매체는 이 목록과 정확히 같아야 한다(카탈로그에 줄을 더하면 여기도 고친다).
-  assert.deepEqual(C.NEWS_CATALOG.filter(x => x.on === true).map(x => x.key).sort(), [...DEFAULT_ON, ...OPINION_ON].sort());
+  assert.deepEqual(C.NEWS_CATALOG.filter(x => x.on === true).map(x => x.key).sort(), [...DEFAULT_ON, ...OPINION_ON, ...ADDED_ON, ...TURNED_ON, ...MORE_ON].sort());
   for (const key of OPINION_ON) {
     const s = C.newsSourceByKey(key);
     assert.deepEqual([s.on, s.take, s.extract, s.region, s.lang, s.sections], [true, 'all', false, 'opinion', 'ko', ['opinion']], key);
@@ -78,14 +85,15 @@ test('카탈로그: 종합지는 기본 켬·다 받기(NEWS-다받기 11/09)·�
     for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); assert.ok(O.allowedUrl(s, l), l); }
     assert.equal(C.publicNewsCatalog().find(x => x.key === key).region, 'opinion', '화면 목록은 사설·칼럼 묶음');
   }
-  for (const key of DEFAULT_ON) {
+  for (const key of [...DEFAULT_ON, ...ADDED_ON]) {
     const s = C.newsSourceByKey(key);
     assert.ok(s, key);
     assert.equal(s.on, true); assert.equal(s.take, 'all'); assert.equal(s.extract, false); assert.equal(s.region, 'domestic');
     for (const l of s.lists) { const u = new URL(l); assert.equal(u.protocol, 'https:'); assert.ok(s.hosts.includes(u.hostname), l); assert.ok(O.allowedUrl(s, l), `주소 검사 통과(쿼리 포함): ${l}`); }
   }
   // 앞서 있던 매체는 기본 켬이 아니다(사용자가 켠 것만 — 지금 동작 유지).
-  for (const key of ['news-labortoday', 'news-beminor', 'news-pressian', 'news-psi', 'news-itf', 'news-labourstart']) assert.equal(C.newsSourceByKey(key).on, undefined, key);
+  for (const key of ['news-beminor', 'news-psi', 'news-itf', 'news-labourstart']) assert.equal(C.newsSourceByKey(key).on, undefined, key);
+  for (const key of TURNED_ON) { const s = C.newsSourceByKey(key); assert.equal(s.on, true, key); assert.equal(s.take, 'all', key); assert.notEqual(s.extract, false, `${key}: 본문 읽기 규칙 그대로`); }
   const pub = C.publicNewsCatalog();
   assert.equal(pub.find(s => s.key === 'news-khan').on, true);
   assert.equal(pub.find(s => s.key === 'news-beminor').on, false);
@@ -141,7 +149,7 @@ test('run_plan: 기본 켬 매체는 뉴스 쓰는 작업공간이 있을 때만
     return (await h(new Request(`${FN}?action=run_plan`, {method: 'POST', headers: {[H.CRON_HEADER]: SECRET, 'content-type': 'application/json'}, body: '{}'}))).json();
   };
   const on = await plan([], [{workspace_id: WS1, word: '철도'}]);
-  assert.deepEqual(on.media.sort(), [...DEFAULT_ON, ...OPINION_ON].sort());
+  assert.deepEqual(on.media.sort(), [...DEFAULT_ON, ...OPINION_ON, ...ADDED_ON, ...TURNED_ON, ...MORE_ON].sort());
   const off = await plan([], []);
   assert.deepEqual(off.media, [], '뉴스를 안 쓰는 작업공간뿐이면 읽지 않음');
 });
@@ -192,7 +200,8 @@ const NEW_RSS = {
   'news-redian': ['https://www.redian.org/rss/allArticle.xml', ['www.redian.org', 'redian.org']],
   'news-mt': ['https://rss.mt.co.kr/mt_news.xml', ['rss.mt.co.kr', 'www.mt.co.kr', 'mt.co.kr']],
 };
-const REMOVED = ['news-edaily', 'news-mediatoday', 'news-kyeonggi', 'news-kyeongin', 'news-newsone', 'news-busan', 'news-kookje', 'news-yeongnam'];
+// S71-70: news-mediatoday는 분야 목록 쪽(HTML)으로 다시 넣었다(같은 키 — 예전 켬·끔 줄이 그대로 이어진다).
+const REMOVED = ['news-edaily', 'news-kyeonggi', 'news-kyeongin', 'news-newsone', 'news-busan', 'news-kookje', 'news-yeongnam'];
 const outside = w => w.calls.filter(c => !c.url.startsWith(SB));
 const posted = w => w.calls.filter(c => c.method === 'POST' && c.url.includes('/rest/v1/app_news_items')).flatMap(c => c.body);
 const rssOf = items => `<rss><channel>${items.join('')}</channel></rss>`;
@@ -224,7 +233,7 @@ test('카탈로그(S59-1): 길이 있는 6곳은 자기 RSS 줄(기본 켬·다 
   // 남은 6곳은 예전 자리 그대로(키 순서): 앞선 매체의 순서가 그대로다.
   assert.deepEqual([...C.NEWS_SOURCE_KEYS], ['news-labortoday', 'news-beminor', 'news-pressian', 'news-khan', 'news-ohmynews', 'news-hankyung', 'news-mk', 'news-sisain',
     'news-newstapa', 'news-hani', 'news-yna', 'news-donga', 'news-jtbc', 'news-sbs', 'news-nocut', 'news-chosun', 'news-newsis', 'news-sedaily', 'news-imaeil',
-    'news-psi', 'news-itf', 'news-labourstart', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt', ...OPINION_ON]);
+    'news-psi', 'news-itf', 'news-labourstart', 'news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt', ...ADDED_ON, ...OPINION_ON, ...MORE_ON]);
   // 키는 카탈로그 파일에 줄마다 글자 그대로(`{ key: "news-…"`) 적혀 있다 — 색 표 시험(tests/news-colors.test.mjs)이 파일을 글자로 읽어 키를 찾는다.
   const {readFileSync} = await import('node:fs');
   const written = [...readFileSync(new URL('../supabase/functions/_shared/news-catalog.ts', import.meta.url), 'utf8').matchAll(/^\s*\{?\s*key: "([a-z-]+)"/gm)].map(m => m[1]);
@@ -445,4 +454,74 @@ test('언론 거르기: 종합지 섹션 피드에서 주식·날씨·관련 없
   const out = await w.cron({step: 'media', source: 'news-khan'});
   assert.deepEqual([out.status, out.listed, out.dropped, out.inserted], ['ok', 5, 3, 2]);
   assert.deepEqual(posted(w).map(r => r.title).sort(), ['합성 동네 화재', '합성 철도 파업 기사']);
+});
+
+// S71-70 NEWS-수집처더하기·분야: 새 두 곳(예시 매체 D·E). 글·쪽 모양은 실측 점검에서 본 꼴을 본뜬 가짜(제목·주소 번호 모두 지어냄).
+const listPage = (rows, side = '') => `<html><body><nav><a href="/news/articleList.html?sc_section_code=S1N5&view_type=sm">문화</a></nav>
+<section id="section-list"><ul class="type1">${rows.map(([id, title]) => `<li><a href="/news/articleView.html?idxno=${id}" class="thumb"><img src="/x.jpg" alt=""></a>
+<h4 class="titles"><a href="/news/articleView.html?idxno=${id}">${title}</a></h4><span class="byline"><em>가짜기자</em><em>2026.11.08 10:00</em></span></li>`).join('')}</ul></section>${side}</body></html>`;
+
+test('news-mediatoday(분야 목록 쪽): 피드(/rss/)는 robots 금지 그대로 읽지 않고, 허용된 분야 목록 쪽 네 곳만 읽어 분야별로 받는다', async () => {
+  const s = C.newsSourceByKey('news-mediatoday');
+  assert.equal(s.mode, 'html');
+  assert.deepEqual(s.sections, ['politics', 'economy', 'society', 'opinion']);
+  assert.ok(s.lists.every(l => /^https:\/\/www\.mediatoday\.co\.kr\/news\/articleList\.html\?sc_section_code=S1N[2348]&view_type=sm$/.test(l)), '분야 목록 쪽만(피드·문화·세계·IT 없음)');
+  const [pol, eco, soc, opn] = s.lists;
+  const w = world({
+    sources: [{workspace_id: WS1, source_key: 'news-mediatoday', enabled: true}], keywords: [],
+    sites: {
+      'https://www.mediatoday.co.kr/robots.txt': {body: 'User-agent: *\nDisallow: /rss/\n'},
+      [pol]: {body: listPage([[101, '여야 대표 회동 결렬'], [102, '공공기관 통폐합 국회 논의']]), type: 'text/html'},
+      [eco]: {body: listPage([[201, '가짜 회사 실적 발표'], [202, '가스 민영화 논란']]), type: 'text/html'},
+      [soc]: {body: listPage([[301, '가짜 방송사 기자 징계'], [302, '가짜 노조 파업 돌입']]), type: 'text/html'},
+      [opn]: {body: listPage([[401, '[사설] 가짜 정책의 문제']]), type: 'text/html'},
+    },
+  });
+  const out = await w.cron({step: 'media', source: 'news-mediatoday'});
+  assert.equal(out.status, 'ok');
+  // 정치·경제는 관련 있는 글만(지금 규칙 그대로), 사회·칼럼·사설은 전부.
+  assert.deepEqual(posted(w).map(r => [r.url, r.title, r.publisher]).sort(), [
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=102', '공공기관 통폐합 국회 논의', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=202', '가스 민영화 논란', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=301', '가짜 방송사 기자 징계', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=302', '가짜 노조 파업 돌입', s.name],
+    ['https://www.mediatoday.co.kr/news/articleView.html?idxno=401', '[사설] 가짜 정책의 문제', s.name],
+  ].sort());
+  const urls = [...new Set(outside(w).map(c => c.url))];
+  assert.deepEqual(urls.sort(), ['https://www.mediatoday.co.kr/robots.txt', ...s.lists].sort(), '읽은 주소는 robots.txt와 분야 목록 쪽 넷뿐(글 쪽·피드·문화 목록은 안 읽음)');
+  // robots가 목록 쪽까지 막으면 읽지 않는다(우회 없음).
+  const w2 = world({sources: [{workspace_id: WS1, source_key: 'news-mediatoday', enabled: true}], keywords: [],
+    sites: {'https://www.mediatoday.co.kr/robots.txt': {body: 'User-agent: *\nDisallow: /rss/\nDisallow: /news/articleList.html\n'}, [pol]: {body: listPage([[101, '가짜 노조 파업']]), type: 'text/html'}}});
+  const out2 = await w2.cron({step: 'media', source: 'news-mediatoday'});
+  assert.equal(out2.inserted, 0);
+  assert.ok(!outside(w2).some(c => s.lists.includes(c.url)), '막힌 목록 쪽은 요청하지 않음');
+});
+
+test('news-newscham(노동·사회운동 전문 매체): 자기 피드 하나, 분야 상관없이 전부 받는다', async () => {
+  const s = C.newsSourceByKey('news-newscham');
+  assert.deepEqual([s.mode, s.lists, s.hosts, s.beat, s.take, s.on, s.extract, s.region], ['rss', ['https://newscham.net/feed/'], ['newscham.net'], 'labor', 'all', true, false, 'domestic']);
+  const feed = rssOf([rItem('가짜 공장 노동자 집회', 'https://newscham.net/123451/'), rItem('가짜 영화제 개막', 'https://newscham.net/123452/'),
+    rItem('남의 매체 글', 'https://other.example.org/1')]);
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-newscham', enabled: true}], keywords: [],
+    sites: {'https://newscham.net/robots.txt': {body: 'User-agent: *\nDisallow: /wp/wp-admin/\nAllow: /wp/wp-admin/admin-ajax.php\n'}, [s.lists[0]]: {body: feed, type: 'application/rss+xml'}}});
+  const out = await w.cron({step: 'media', source: 'news-newscham'});
+  assert.deepEqual([out.status, out.raw, out.listed, out.inserted], ['ok', 3, 2, 2]);
+  assert.deepEqual(posted(w).map(r => r.title).sort(), ['가짜 공장 노동자 집회', '가짜 영화제 개막'].sort());
+});
+
+test('분야 거르기(섞인 피드): 국제·생활·연예·스포츠 주소 글은 받지 않고, 사회·정치(관련 있음)는 받는다', async () => {
+  const s = C.newsSourceByKey('news-mt');
+  const feed = rssOf([
+    rItem('가짜 동네 화재', 'https://www.mt.co.kr/society/2026/11/08/2026110800001'),
+    rItem('공공기관 통폐합 논의', 'https://www.mt.co.kr/politics/2026/11/08/2026110800002'),
+    rItem('가짜 나라 선거', 'https://www.mt.co.kr/world/2026/11/08/2026110800003'),
+    rItem('가짜 요리법', 'https://www.mt.co.kr/living/2026/11/08/2026110800004'),
+    rItem('가짜 배우 결혼', 'https://www.mt.co.kr/entertainment/2026/11/08/2026110800005'),
+    rItem('가짜 구단 우승', 'https://www.mt.co.kr/sports/2026/11/08/2026110800006'),
+  ]);
+  const w = world({sources: [{workspace_id: WS1, source_key: 'news-mt', enabled: true}], keywords: [],
+    sites: {'https://rss.mt.co.kr/robots.txt': {body: ''}, [s.lists[0]]: {body: feed, type: 'application/xml'}}});
+  const out = await w.cron({step: 'media', source: 'news-mt'});
+  assert.deepEqual([out.listed, out.dropped, out.inserted], [6, 4, 2]);
+  assert.deepEqual(posted(w).map(r => r.title).sort(), ['가짜 동네 화재', '공공기관 통폐합 논의'].sort());
 });

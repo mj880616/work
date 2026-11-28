@@ -31,7 +31,7 @@ import {HEAD_MARK_HTML} from './head-mark.mjs'; // S67-64 UI-윗줄한줄: 폰 �
 // usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
 // and the same scroll and focus.
 import {rowMore} from './row-more.js';
-import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
+import {fitAll, fitHeight} from './auto-grow.js'; // UI-줄입력늘어나기: 글만큼 늘어나는 공용 칸
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
@@ -97,14 +97,17 @@ const length = text => [...String(text ?? '')].length;
 //   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
-root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div></div>
+// S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
+//   이 머리줄 맨 오른쪽 돋보기(…· [하루|주간 보고] · 찾기)를 누르면 전체 검색 화면의 머리 줄 칸(global-search.js openHere — 이 줄과 같은 첫 줄 자리)에 바로 입력.
+//   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 그대로라 돋보기는 폰 틀에서만 보인다(journal.css).
+root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <div class="journal-day-right" data-journal-day-right>
 <section class="journal-done-day" data-journal-done-day aria-labelledby="journalDoneTitle"><h4 class="journal-heading" id="journalDoneTitle" data-journal-done-title>오늘 한 일</h4>
-<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="a11y-only" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-autogrow data-keep-breaks data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 수정해서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-done-tasks" data-journal-done-tasks></div>
 </section>
@@ -118,6 +121,8 @@ const $ = selector => root.querySelector(selector);
 const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 // HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).
+// HOME-오늘사진은사진으로(S73-07): '오늘 사진' 칸의 썸네일·+n·[사진 보기 ›]는 일기가 아니라 [사진] 화면의 그날로 간다(썸네일은 그 사진 크게 보기).
+const openPhotoDay = (day, key = '') => import('./photo-day-request.mjs').then(req => { req.requestPhotoDay(day, {key, scope:ownerScope(rt)}); window.KPTURouter?.go?.('photos', {source:'delegated'}); }).catch(() => {});
 const openDiaryDay = day => import('./diary-data.js').then(diary => { diary.requestDiaryDay(day); window.KPTURouter?.go?.('diary', {source:'delegated'}); }).catch(() => {});
 // ③ [일기 쓰기]: 그날 일기 쓰기 창을 제안 한 줄이 채워진 채로 연다. 저장하면 그 제안을 서버 표에서 '썼음'으로(다른 기기에서도 사라짐).
 const writeDiary = (day, text, id) => import('./diary-data.js').then(diary => {
@@ -141,7 +146,16 @@ function dropSuggest(day, id) {
     return setSuggestDone(day, id, false, rt);
   }});
 }
-const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openDiaryDay, onWrite:writeDiary, onDrop:dropSuggest});
+// HOME-읽을만한글넓힘(사용자 2026-11-28): ② 글 줄을 누르면 그 글의 글 보기(News 글 상세 — 요약·시사점·원문)로. 뒤로가기 한 번 = 홈(openOnScreen).
+const openRead = id => Promise.all([import('./news-request.mjs'), import('./source-open.js')])
+  .then(([req, src]) => { if (req.requestNewsOpen({type:'news', id})) return src.openOnScreen('outside'); }).catch(() => {});
+// ② 칸 ⋯ [관심 주제]: News '관심 주제'와 같은 서버 표(app_now_interests)를 고치는 작은 창 + 기본 주제(home-read-topics.mjs). 다음 고르기부터 쓴다.
+const openReadTopics = trigger => Promise.all([import('./small-form-modal.js'), import('./now-interests.js'), import('./home-read-topics.mjs')])
+  .then(([modal, ni, topics]) => modal.openFormModal({id:'homeReadTopics', title:'관심 주제', okLabel:'닫기', cancel:false, className:'hrt-modal', trigger,
+    foot:'읽을 만한 글은 이 주제에 맞춰 선택해요. 바꾼 주제는 다음 선택부터 써요.',
+    fill: body => { body.innerHTML = '<div class="now-interests hrt-box" data-home-read-topics></div>'; ni.createNowInterests({box:body.firstElementChild, defaults:topics.DEFAULT_READ_TOPIC_NAMES}).load(); return null; },
+    onSubmit: async () => true})).catch(() => {});
+const dayFill = mountDayFill($('[data-journal-fill]'), {rt, owner:() => ownerScope(rt), onOpenDay:openPhotoDay, onWrite:writeDiary, onDrop:dropSuggest, onOpenRead:openRead, onReadTopics:openReadTopics});
 // 칸을 끄거나 다시 켜면 그 자리를 다시 그린다(켰으면 서버에 다시 묻는다 — 끈 동안은 기록 제안을 고르지 않았으므로).
 window.addEventListener(HOME_OFF_EVENT, () => { if (!fillReady) return; if (dayPicks.askedSlot && !homeCardOff('suggests')) dayPicks.askedSlot = ''; renderFill(); });
 
@@ -209,10 +223,24 @@ const waiting = key => !materials[key] || materials[key].status === 'loading' ||
 // 조용히 다시 읽는 칸이 남아 있는 동안 #journalRoot[data-journal-refreshing](글자·모양 없음). 다시 읽은 칸을 다 그린 뒤 사라진다 — 시험·수치 잴 때의 '다 왔다' 신호.
 const markRefreshing = () => root?.toggleAttribute('data-journal-refreshing', refreshing.size > 0);
 
+// S71-41 HOME-머리한줄: 폰 첫 줄(날짜 · [하루|주간 보고] · 찾기)에 날짜가 다 안 들어가면 짧은 꼴('11월 26일 (목)', 주는 '11.23 ~ 11.29')로 쓴다.
+// 실제 폭을 재어 고른다(그래도 넘치면 끝 말줄임 — journal.css). 화면 폭이 바뀌면 다시 잰다. 글자의 주인은 이 함수 하나.
+let titleText = {full: '', short: ''};
+function fitTitle() {
+  const title = $('[data-journal-title]'); if (!title) return;
+  title.textContent = titleText.full;
+  if (title.clientWidth && title.scrollWidth > title.clientWidth) title.textContent = titleText.short;
+}
+// 화면 폭이 바뀌거나 홈이 다시 보일 때(숨어 있던 동안은 폭 0) 다시 잰다. 폰 틀은 날짜 칸 폭이 글자와 상관없어(journal.css 바탕 폭 0) 되풀이되지 않는다.
+if (window.ResizeObserver) new ResizeObserver(() => { if (titleText.full) fitTitle(); }).observe($('[data-journal-title]'));
 function renderWeek() {
   const list = weekDays(start), today = todayKey(), last = list[6];
   // HOME-업무일지홈: 머리줄 제목은 [하루]면 고른 날('10월 30일 금요일'), [주간 정리]면 그 주 범위.
-  $('[data-journal-title]').textContent = mode === 'week' ? `${monthDay(list[0])} ~ ${seoulParts(list[0]).month === seoulParts(last).month ? `${seoulParts(last).day}일` : monthDay(last)}` : longDay(selected);
+  const first = seoulParts(list[0]), end = seoulParts(last);
+  titleText = mode === 'week'
+    ? {full: `${monthDay(list[0])} ~ ${first.month === end.month ? `${end.day}일` : monthDay(last)}`, short: `${first.month + 1}.${first.day} ~ ${end.month + 1}.${end.day}`}
+    : {full: longDay(selected), short: `${monthDay(selected)} (${formatSeoulTime(selected, {weekday:'short'})})`};
+  fitTitle();
   days.replaceChildren(...list.map((day, i) => {
     const button = document.createElement('button'), line = lines.get(day);
     button.type = 'button'; button.className = 'journal-date'; button.dataset.journalDate = day;
@@ -252,7 +280,7 @@ function renderList() {
     item.className = 'journal-line-item'; item.dataset.journalItem = String(index);
     if (edit?.index === index) {
       item.dataset.editing = ''; item.dataset.enterSave = '';
-      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 수정" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
+      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-autogrow data-keep-breaks data-enter-field="single" aria-label="${index + 1}번째 줄 수정" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
       const box = item.querySelector('[data-journal-edit-input]');
       box.value = edit.value; box.disabled = saving;
       item.querySelectorAll('button').forEach(button => { button.disabled = saving; });
@@ -279,11 +307,13 @@ function renderList() {
 function editCount(item = root.querySelector('[data-journal-item][data-editing]')) {
   const box = item?.querySelector('[data-journal-edit-input]'), counter = item?.querySelector('[data-journal-edit-count]');
   if (!box || !counter) return;
+  fitHeight(box); // UI-입력칸자동높이
   const n = length(box.value.trim());
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(box.value));
 }
 function count() {
+  fitHeight(input); // UI-입력칸자동높이: 글만큼 아래로(처음 두 줄, 화면 절반에서 칸 안 스크롤) — 공용 auto-grow.js
   const n = length(input.value.trim());
   const counter = $('[data-journal-count]');
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
@@ -1724,10 +1754,17 @@ async function carryRequests(week, items) {
     return {status:result.skipped ? 'before' : 'saved', added:result.skipped ? 0 : added};
   } catch { return {status:'failed', added:0}; }
 }
+// S71-41: 머리줄 돋보기 = 전체 검색(global-search.js가 칸·결과의 주인). 검색 모듈을 아직 받지 않았으면 받은 뒤 연다.
+function openFind() {
+  const open = () => window.KPTUGlobalSearch?.openHere?.();
+  if (window.KPTUGlobalSearch?.openHere) return open();
+  void Promise.resolve(window.KPTUViewLoader?.load?.('search')).then(open).catch(() => {});
+}
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
   if (button.matches('[data-journal-mode]')) return setMode(button.dataset.journalMode);
+  if (button.matches('[data-journal-find]')) return openFind();
   if (button.matches('[data-journal-weekly-retry]')) {
     for (const key of button.dataset.journalWeeklyRetry.split(' ')) {
       if (key === 'lines') { if (linesState === 'failed') loadLines(epoch, owner); else if (lineScope.status === 'failed') { lineScope = {key:'', status:'idle', drop:null}; renderWeekly_(); } }

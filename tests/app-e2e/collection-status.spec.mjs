@@ -9,6 +9,8 @@ const status=copy=>({ok:true,checked_at:'2026-10-06T01:00:00.000Z',copy:{state:'
 async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.000Z'}),state=[{last_success_at:'2026-10-06T00:30:00Z'}],width=1280,features=['calls']}={}){
   await page.setViewportSize({width,height:900});
   await openHome(page,{query:'?view=profile'});
+  // S71-36: 첫 화면의 사용 현황 읽기(로그인 뒤에 붙음)가 끝난 뒤에 세기 시작한다(앞 화면의 늦은 읽기를 이 시험의 요청으로 세지 않게).
+  await page.waitForLoadState('networkidle');
   const calls=[];
   await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/drive-summary',route=>{
     const req=route.request();
@@ -25,7 +27,8 @@ async function fixture(page,{copy=status({last_success_at:'2026-10-05T21:17:00.0
   });
   // MULTI-다른담당자맞춤 ④: 수집·사용량 줄은 서버 운영자 기능(app_my_features)이 있는 작업공간에서만 그린다.
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',route=>route.fulfill({json:features}));
-  await page.reload();
+  // S71-36: 운영자 기능 답을 정한 뒤 '사용 현황' 장(?view=profile&pane=status)을 연다(먼저 열면 운영자 아님으로 읽어 첫 화면으로 돌아간다).
+  await page.goto(new URL('?view=profile&pane=status',page.url()).href);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#profileView')).toBeVisible();
   return {calls,card:page.locator('#psStatusPanel [data-ps-collect]')};

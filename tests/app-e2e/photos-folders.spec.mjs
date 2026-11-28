@@ -4,6 +4,7 @@ import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { checkSplit } from './helpers/split-check.mjs';
 import { folderSheet, sheetRow, sheetGo, pickInSheet } from './helpers/folder-sheet.mjs';
+import { treeEnter } from './helpers/tree-enter.mjs';
 // 사진 메뉴 ②(2026-10-29 08:07 요청): [폴더](원드라이브 폴더 나무·폴더 안 사진·여러 장 옮기기·끌어 놓기·되돌리기·우클릭/⋯ 메뉴·새 폴더)와
 // [앨범](#태그: 새 앨범에 넣기·앨범 카드·앨범 사진·앨범에서 빼기). 지어낸 Supabase: onedrive-photos(Edge)·app_photo_tags·app_photo_tag_items·app_diary_stars.
 // 폭: 폰 412(한 화면씩)·폴드 펼침 884(한 화면씩)·PC 1440(왼쪽 나무 + 오른쪽 격자).
@@ -90,8 +91,8 @@ for (const width of [412, 884, 1440]) {
   test(`사진 메뉴 ② 폴더: 폴더 나무·폴더 안 사진·여러 장 옮기기·되돌리기·메뉴·새 폴더 ${width}`, async ({ page }) => {
     const f = await fixture(page, width), wide = width>=1200;
     await openPhotos(page);
-    await root(page).locator('[data-photos-view]').selectOption('folders');
-    await expect(root(page).locator('[data-photos-view]')).toHaveValue('folders');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
+    await expect(page.locator('[data-sf-tools="photos"] [data-photos-view]')).toHaveValue('folders');
     // S51-24: 폰·폴드 '그 폴더만'은 상자 맨 위 위치 줄(위 단계만, 지금 폴더는 바로 아래 머리 줄). PC는 지금 위치 줄 그대로.
     // FILES-폰폴더위로 ②: 폰 [‹]는 위치 줄이 아니라 그 폴더 줄(이름) 맨 앞.
     const at = (...names) => (wide ? ['사진', ...names].join('›') : `${['사진', ...names.slice(0, -1)].join('›')}›`);
@@ -109,10 +110,10 @@ for (const width of [412, 884, 1440]) {
       await tree.locator('[data-photos-fx-tog="S2"]').click();
       await expect(tree.locator('.ft-name')).toHaveText(['카메라', '2026', '여행', '제주']);
       // S69-38 UI-탐색기나무누르기: 이름 누르기 = 그 폴더 열기 + 펼침(하위 폴더가 있는 여행도), 오른쪽에 하위 폴더 줄(제주). 우클릭 [이 폴더로 들어가기]도 같은 곳.
-      await tree.locator('[data-photos-fx-open="S2"]').click();
+      await treeEnter(tree.locator('[data-photos-fx-open="S2"]'));
       await expect(tree.locator('[data-photos-folder="S2"]')).toHaveClass(/ft-current/);
       await expect(root(page).locator('.photos-fx-pane [data-photos-fx-open="S21"]')).toBeVisible();
-      await tree.locator('[data-photos-fx-open="S1"]').click();
+      await treeEnter(tree.locator('[data-photos-fx-open="S1"]'));
       await expect(tree.locator('[data-photos-folder="S1"]')).toHaveClass(/ft-current/);
       await path(page).locator('[data-photos-fx-at]').first().click();
       await expect(tree.locator('[data-photos-folder="S1"]')).not.toHaveClass(/ft-current/);
@@ -199,7 +200,7 @@ for (const width of [412, 884, 1440]) {
 test('사진 메뉴 ② 폴더 PC 1440: 선택한 사진을 왼쪽 폴더로 끌어 놓기 → 옮김·되돌리기, 사진 우클릭 메뉴 맨 위 [선택]', async ({ page }) => {
   const f = await fixture(page, 1440);
   await openPhotos(page);
-  await root(page).locator('[data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   const tree = root(page).locator('[data-photos-fx-tree]');
   await tree.locator('[data-photos-folder="S1"] .ft-name').click({ button: 'right' }); // UI-폴더누르기한규칙: 들어가기 = 우클릭 [이 폴더로 들어가기]
   await page.locator('#photosFolderMenu').getByRole('button', { name: '이 폴더로 들어가기' }).click();
@@ -232,9 +233,9 @@ test('사진 [폴더] PC 1280: 사진 옮긴 뒤 Ctrl+Z → 원래 폴더로, �
   const f = await fixture(page, 1280), shots = process.env.S61_17_SHOTS;
   const notice = page.locator('#kptuNotice:not([hidden])'), moves = () => f.edge.filter(b => b.action === 'photos-move');
   await openPhotos(page);
-  await root(page).locator('[data-photos-view]').selectOption('folders');
+  await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
   const tree = root(page).locator('[data-photos-fx-tree]');
-  await tree.locator('[data-photos-fx-open="S1"]').click();
+  await treeEnter(tree.locator('[data-photos-fx-open="S1"]'));
   await expect.poll(() => ids(page)).toEqual(['B1', 'B2', 'B3']);
   await items(page).nth(2).click({ button: 'right' });
   await page.locator('#photosPhotoMenu').locator('button', { hasText: '선택' }).click();
@@ -274,10 +275,13 @@ for (const width of [412, 1440]) {
   test(`사진 메뉴 ② 앨범: 선택한 사진을 새 앨범에 넣기 → 앨범 카드 → 앨범 사진 → 앨범에서 빼기 ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     await openPhotos(page);
-    await root(page).locator('[data-photos-view]').selectOption('albums');
-    await expect(root(page).locator('[data-photos-al-new]')).toHaveText('+ 새 앨범');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('albums');
+    // S71-25 PHOTO-머리한줄: [새 앨범]은 맨 위 줄 ⋯ 메뉴 안.
+    await page.locator('[data-sf-tools="photos"] [data-photos-head-more]').click();
+    await expect(page.locator('#photosHeadMenu [data-photos-al-new]')).toHaveText('새 앨범');
+    await page.keyboard.press('Escape');
     await expect(root(page).locator('[data-photos-album]')).toHaveCount(0);
-    await root(page).locator('[data-photos-view]').selectOption('all');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('all');
     await expect.poll(() => ids(page)).toEqual(['A1', 'A2', 'B1', 'B2', 'B3', 'C1']);
     await hold(page, items(page).nth(0));
     await items(page).nth(2).click();
@@ -293,7 +297,7 @@ for (const width of [412, 1440]) {
     expect(f.rest.find(x => x.table === 'items' && x.method === 'POST').body.every(x => x.tag_id === 'tag-1' && x.source === 'onedrive')).toBe(true);
     await expect(root(page).locator('[data-photos-sel]')).toBeHidden();
     // [앨범]: 카드(#이름·장수) → 누르면 그 앨범 사진(서버 library에 그 사진 id만).
-    await root(page).locator('[data-photos-view]').selectOption('albums');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('albums');
     const card = root(page).locator('[data-photos-album="tag-1"]');
     await expect(card.locator('.photos-album-name')).toHaveText('#제주');
     await expect(card.locator('.photos-album-n')).toHaveText('2');
@@ -320,7 +324,7 @@ test('사진 메뉴 ② 폴더 PC 1440: 나무 | 사진 경계 끌기·키보드
   const f = await fixture(page, 1440);
   const open = async () => {
     await openPhotos(page);
-    await root(page).locator('[data-photos-view]').selectOption('folders');
+    await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders');
     await expect(root(page).locator('[data-photos-fx-tree]')).toBeVisible();
     await expect.poll(() => ids(page)).toEqual(['A1', 'A2']);
   };
@@ -337,7 +341,7 @@ for (const [width, device] of [[412, 'phone']]) {
     const prefs = await installViewPrefsServer(page);
     const box = () => root(page).locator('[data-photos-box="onedrive"]');
     const tog = () => box().locator('[data-photos-fxbox="onedrive"]');
-    const openFolders = async () => { await openPhotos(page); await root(page).locator('[data-photos-view]').selectOption('folders'); await expect(tog()).toBeVisible(); };
+    const openFolders = async () => { await openPhotos(page); await page.locator('[data-sf-tools="photos"] [data-photos-view]').selectOption('folders'); await expect(tog()).toBeVisible(); };
     await openFolders();
     await expect(tog()).toHaveAttribute('aria-expanded', 'true');
     await box().locator('[data-photos-ftog="o:S2"]').click();

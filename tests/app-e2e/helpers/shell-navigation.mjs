@@ -35,6 +35,8 @@ export async function clickView(page,view){
     await direct.click();
     return;
   }
+  // S71-61 HWP-노트안으로: [HWP 편집] 메뉴가 없다. 사람처럼 노트 화면 ⋯ → [HWP 편집]으로 연다(노트 › HWP 편집).
+  if(view==='hwp'){await openHwpFromNote(page);return}
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없다. 사업영역 관리(라우터 이름 projects)는 사람처럼 사업 보고 ⋯ → [사업영역 관리]로 연다.
   if(view==='projects'){
     // MTG-프로젝트합치기 ①: 사업영역 관리는 사업 보고 위 창. 이미 떠 있으면(새로고침으로 다시 뜬 창 등) 그대로 둔다.
@@ -42,8 +44,8 @@ export async function clickView(page,view){
     await clickView(page,'meetings');
     // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
     await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);
-    await page.locator('#meetingsView #reportMore:visible').click();
-    await page.locator('#reportMoreMenu [data-report-areas]:visible').click();
+    await page.locator('#newMeetingBtn:visible').click(); // BIZ-머리한줄: 사업영역 관리는 [+] 메뉴 구분선 아래
+    await page.locator('#bizAddMenu [data-report-areas]:visible').click();
     return;
   }
   // Phone (8-9e-2): the [일정] tab always opens 달력 (UI-일정탭달력기본); [달력 | 할 일] on top switches.
@@ -59,4 +61,14 @@ export async function clickView(page,view){
   // S68-37: 새 계정 기본 하단바에서 빠진 화면(조직·사업 관리 등)은 [메뉴] 창으로 연다. 사람처럼 창이 다 닫힌 뒤 다음 조작을 한다
   // (창을 닫으며 지우는 방문 기록 한 칸이 그 사이 연 작은 창을 같이 닫지 않게).
   await page.locator('#mobileMenu').waitFor({state:'hidden'});
+}
+
+// S71-61 HWP-노트안으로: 노트 화면(하단바·왼쪽 메뉴의 [노트], 없으면 [메뉴] 창) → 노트 화면 ⋯ → [HWP 편집].
+export async function openHwpFromNote(page){
+  const {chooseBasketKind}=await import('./basket-kind.mjs');
+  if(await page.evaluate(()=>window.KPTURouter?.current!=='basket'||document.querySelector('#basketView')?.dataset.kind!=='note'))await chooseBasketKind(page,'note');
+  const more=page.locator('[data-note-folder-more]:visible').first(),item=page.locator('#noteDocMenu:not([hidden]) [data-nx-hwp]');
+  await more.click();
+  await item.click();
+  await page.waitForFunction(()=>!document.querySelector('#hwpView')?.classList.contains('hidden'));
 }

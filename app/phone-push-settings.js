@@ -11,8 +11,9 @@
 import {myFeaturesOrNull, collectsFeeds} from './my-features.js';
 import {barHtml, failHtml} from './wait-state.js';
 import {goPlace} from './notice-place.js';
-import {KINDS, FAMILY_KIND, SIGNUP_KIND, SIGNUP_FEATURE, COLLECT_KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage} from './phone-push-model.mjs';
+import {KINDS, FAMILY_KIND, SIGNUP_KIND, NOTE_KIND, SIGNUP_FEATURE, COLLECT_KINDS, parsePrefs, serializePrefs, toggleKind, bridgeState, appVersion, isPhoneApp, errorText, testResultText, deviceLabel, TIME, recentItems, noticeClearMessage, KIND_DESC} from './phone-push-model.mjs';
 import {word} from './brand/brand.mjs';
+import {groupHtml, switchRow, infoRow, actionRow, foldRow, shortTime} from './settings-list.mjs';
 
 const ENDPOINT = '/functions/v1/phone-push';
 const BRIDGE = 'KPTUAppShell';
@@ -116,7 +117,7 @@ export function startDeviceSync(win = window) {
 
 // ---- 내 프로필 '폰 알림' 칸 ------------------------------------------------------------------------------------------------
 
-export function mountPhonePushSettings(host, {rt, win = window}) {
+export function mountPhonePushSettings(host, {rt, win = window, onSummary} = {}) {
   phone.rt = phone.rt || rt;
   const inApp = !!bridgeOf(win);
   let state = {phase: 'loading', prefs: parsePrefs(null), family: false, signup: false, collector: true, devices: [], devicesOk: false, recent: [], recentOk: false, busy: false, note: '', result: ''};
@@ -124,57 +125,68 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
   const userId = () => rt.context?.read?.()?.user?.id || '';
   const workspaceId = () => rt.context?.read?.()?.workspace?.id || '';
 
-  function phoneLine() {
+  // S71-36 PROFILE-설정화면: 장 안은 공용 설정 줄(settings-list.mjs). 이 폰 알림(앱에서만) / 알림 종류 묶음 / 조용한 시간 ›·시험 알림 보내기·등록된 폰 ›·최근 알림 7일 ›.
+  // 어떤 종류가 보이는지는 지금과 같다(서버 app_my_features 답). 저장·서버 호출도 그대로다.
+  function phoneRow() {
     if (!inApp) return '';
-    const busy = state.busy ? ' disabled' : '';
-    let text = '', button = '';
-    switch (phone.state) {
-      case 'on': text = phone.error ? `등록 못 함 · ${errorText(phone.error)}` : '켜짐'; button = `<button type="button" class="row-act" data-ps-push-forget${busy}>이 폰 끊기</button>`; break;
-      case 'off': text = '꺼짐'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>이 폰에서 받기</button>`; break;
-      case 'denied': text = word('알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › WORK ON+ › 알림'); button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 묻기</button>`; break;
-      case 'fail': text = '폰 주소를 받지 못했어요'; button = `<button type="button" class="row-act" data-ps-push-enable${busy}>다시 받기</button>`; break;
-      case 'none': text = '이 앱 판은 알림을 받지 못해요 · 새 판으로 업데이트해 주세요'; break;
-      default: return '';
-    }
-    return `<div class="ps-calref-row" data-ps-push-phone="${esc(phone.state)}"><span class="ps-calref-label">이 폰</span><span class="ps-calref-line">${esc(text)}</span>${button}</div>`;
+    const busy = state.busy;
+    const desc = {on: phone.error ? `등록 못 함 · ${errorText(phone.error)}` : '이 폰으로 알림 받기', off: '이 폰으로 알림 받기',
+      denied: word('알림 허용 꺼짐 · 폰 설정 › 애플리케이션 › WORK ON+ › 알림'), fail: '폰 주소를 받지 못했어요'}[phone.state];
+    if (phone.state === 'none') return infoRow({label: '이 폰 알림', desc: '이 앱 판은 알림을 받지 못해요 · 새 판으로 업데이트해 주세요', attrs: {'data-ps-push-phone': 'none'}});
+    if (!desc) return '';
+    return switchRow({label: '이 폰 알림', desc, checked: phone.state === 'on', disabled: busy, attrs: {'data-ps-push-phone-switch': true}, rowAttrs: {'data-ps-push-phone': phone.state}});
   }
 
-  function devicesPart() {
-    if (!state.devicesOk) return '<p class="ps-calref-line" data-ps-push-devices="failed">등록된 폰을 읽지 못했어요</p>';
+  function devicesRow() {
+    if (!state.devicesOk) return infoRow({label: '등록된 폰', desc: '등록된 폰을 읽지 못했어요', attrs: {'data-ps-push-devices': 'failed'}});
     const busy = state.busy ? ' disabled' : '';
     const rows = state.devices.map(d => {
       const mine = inApp && phone.deviceId && d.id === phone.deviceId;
       const label = deviceLabel(d) + (mine ? ' · 이 폰' : '');
-      return `<li class="ps-todo-room"><span class="ps-todo-room-name">${esc(label)}</span><button type="button" class="row-act" data-ps-push-remove="${esc(d.id)}" aria-label="${esc(label)} 끊기"${busy}>끊기</button></li>`;
+      return infoRow({label, end: `<button type="button" class="row-act" data-ps-push-remove="${esc(d.id)}" aria-label="${esc(label)} 끊기"${busy}>끊기</button>`});
     }).join('');
-    const head = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-push-devices="${state.devices.length}">${state.devices.length ? `등록된 폰 ${state.devices.length}대` : '등록된 폰 없음'}</span></div>`;
-    return head + (rows ? `<ul class="ps-todo-rooms">${rows}</ul>` : '');
+    return foldRow({label: '등록된 폰', sum: state.devices.length ? `${state.devices.length}대` : '없음', sumAttrs: {'data-ps-push-devices': state.devices.length}, body: rows, attrs: {'data-ps-push-fold': 'devices'}, open: isOpen('devices')});
   }
 
-  function recentPart() {
-    if (!state.recentOk) return '<p class="ps-calref-line" data-ps-push-recent="failed">최근 알림을 읽지 못했어요</p>';
-    const head = `<div class="ps-calref-row"><span class="ps-calref-label" data-ps-push-recent="${state.recent.length}">${state.recent.length ? '최근 알림 7일' : '최근 7일 알림 없음'}</span></div>`;
-    const rows = state.recent.map((r, i) => `<li class="ps-push-recent-row"><button type="button" class="ps-push-recent" data-ps-push-recent-open="${i}"${r.opened ? ' data-opened' : ''}>${esc(r.line)}</button></li>`).join('');
-    return head + (rows ? `<ul class="ps-push-recent-list">${rows}</ul>` : '');
+  function recentRow() {
+    if (!state.recentOk) return infoRow({label: '최근 알림 7일', desc: '최근 알림을 읽지 못했어요', attrs: {'data-ps-push-recent': 'failed'}});
+    const rows = state.recent.map((r, i) => actionRow({label: r.line, attrs: {'data-ps-push-recent-open': i, 'data-opened': r.opened ? true : null, class: 'ps-push-recent'}})).join('');
+    return foldRow({label: '최근 알림 7일', sum: state.recent.length ? `${state.recent.length}건` : '없음', sumAttrs: {'data-ps-push-recent': state.recent.length}, body: rows, attrs: {'data-ps-push-fold': 'recent'}, open: isOpen('recent')});
+  }
+
+  let openFolds = new Set();
+  const isOpen = key => openFolds.has(key);
+  const keepFolds = () => { if (host.querySelector('[data-ps-push-fold]')) openFolds = new Set([...host.querySelectorAll('[data-ps-push-fold][open]')].map(el => el.dataset.psPushFold)); };
+
+  function summary() {
+    if (state.phase !== 'ready') return;
+    const where = inApp && ['on', 'off', 'denied', 'fail'].includes(phone.state) ? (phone.state === 'on' ? '켜짐' : '꺼짐')
+      : state.devicesOk ? (state.devices.length ? `폰 ${state.devices.length}대` : '폰 없음') : '';
+    const quiet = `조용한 시간 ${shortTime(state.prefs.quiet.from)}–${shortTime(state.prefs.quiet.to)}`;
+    onSummary?.({text: where ? `${where} · ${quiet}` : quiet});
   }
 
   function render() {
     if (!host.isConnected) return;
-    const head = `<div class="ps-panel-head"><h3>폰 알림</h3><span class="ps-state" data-ps-push-state role="status" aria-live="polite">${esc(state.note)}</span></div>`;
-    if (state.phase === 'loading') { host.innerHTML = `${head}${barHtml()}`; return; }
-    if (state.phase === 'failed') { host.innerHTML = `${head}<div class="ps-calref">${failHtml()}</div>`; return; }
-    const busy = state.busy ? ' disabled' : '';
+    keepFolds();
+    const status = `<p class="sl-status" data-ps-push-state role="status" aria-live="polite">${esc(state.note)}</p>`;
+    if (state.phase === 'loading') { host.innerHTML = `${status}${barHtml()}`; return; }
+    if (state.phase === 'failed') { host.innerHTML = `${status}${failHtml()}`; return; }
+    summary();
+    const busy = state.busy;
     const {prefs} = state;
-    // 잊지 말기 칩은 운영자 기능 family가 있을 때만(서버 app_my_features). 화면 숨김은 보안이 아님(알림은 서버가 family 작업공간에만 보냄).
+    // 잊지 말기 줄은 운영자 기능 family가 있을 때만(서버 app_my_features). 화면에서 빼는 것은 보안이 아님(알림은 서버가 family 작업공간에만 보냄).
     // MULTI-처음쓰는사람 ⑤: '수집 멈춤·아침 묶음·저녁 묶음'은 통화·텔레그램 수집이 있는 운영자 계정에만(서버 app_my_features). 저장값은 그대로 둔다.
-    // OPS-새가입알림: '새 가입' 칩은 운영자(dev_inbox)일 때만. 알림 자체는 서버가 운영자 작업공간에만 보낸다.
-    const kinds = [...KINDS.filter(([key]) => state.collector || !COLLECT_KINDS.has(key)), ...(state.family ? [FAMILY_KIND] : []), ...(state.signup ? [SIGNUP_KIND] : [])];
-    const on = key => key === FAMILY_KIND[0] ? prefs.family !== false : key === SIGNUP_KIND[0] ? prefs.signup !== false : prefs.kinds[key];
-    const chips = kinds.map(([key, label]) => `<button type="button" class="ps-push-kind" data-ps-push-kind="${key}" aria-pressed="${on(key) ? 'true' : 'false'}"${busy}>${esc(label)}</button>`).join('');
-    const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy}>`;
-    const quiet = `<div class="ps-calref-row"><span class="ps-calref-label">조용한 시간</span>${time('from', '조용한 시간 시작')}<span class="ps-calref-line">~</span>${time('to', '조용한 시간 끝')}<button type="button" class="row-act" data-ps-push-test${state.busy ? ' disabled aria-busy="true"' : ''}>시험 알림</button></div>`;
-    const result = state.result ? `<p class="ps-calref-line ps-todo-result" data-ps-push-result>${esc(state.result)}</p>` : '';
-    host.innerHTML = `${head}<div class="ps-calref"><div class="ps-push-kinds" role="group" aria-label="받을 알림 종류">${chips}</div>${quiet}${result}${phoneLine()}${devicesPart()}${recentPart()}</div>`;
+    // OPS-새가입알림: '새 가입' 줄은 운영자(dev_inbox)일 때만. 알림 자체는 서버가 운영자 작업공간에만 보낸다.
+    // S69-97: '노트 알림' 줄은 모두에게(노트에 건 알림은 누구나 쓴다). 기본 켬, 끌 때만 kinds.note=false로 저장.
+    const kinds = [...KINDS.filter(([key]) => state.collector || !COLLECT_KINDS.has(key)), NOTE_KIND, ...(state.family ? [FAMILY_KIND] : []), ...(state.signup ? [SIGNUP_KIND] : [])];
+    const on = key => key === FAMILY_KIND[0] ? prefs.family !== false : key === SIGNUP_KIND[0] ? prefs.signup !== false : key === NOTE_KIND[0] ? prefs.note !== false : prefs.kinds[key];
+    const kindRows = kinds.map(([key, label]) => switchRow({label, desc: KIND_DESC[key] || '', checked: !!on(key), disabled: busy, attrs: {'data-ps-push-kind': key}, ariaLabel: `${label} 알림`}));
+    const time = (end, label) => `<input type="time" class="ps-push-time" data-ps-push-quiet="${end}" value="${esc(prefs.quiet[end])}" aria-label="${label}" step="300"${busy ? ' disabled' : ''}>`;
+    const quiet = foldRow({label: '조용한 시간', desc: '이 시간엔 소리 없이', sum: `${prefs.quiet.from}–${prefs.quiet.to}`, sumAttrs: {'data-ps-push-quiet-sum': true}, attrs: {'data-ps-push-fold': 'quiet'}, open: isOpen('quiet'),
+      body: `<div class="sl-row ps-push-quiet-row">${time('from', '조용한 시간 시작')}<span aria-hidden="true">~</span>${time('to', '조용한 시간 끝')}</div>`});
+    const test = actionRow({label: '시험 알림 보내기', desc: state.result || '', descAttrs: state.result ? {'data-ps-push-result': true} : null, disabled: busy, busy, attrs: {'data-ps-push-test': true}});
+    host.innerHTML = `${status}${groupHtml([phoneRow()])}${groupHtml(kindRows, {title: '알림 종류', attrs: {role: 'group', 'aria-label': '받을 알림 종류'}})}${groupHtml([quiet, test, devicesRow(), recentRow()])}`;
   }
   const say = note => { state = {...state, note}; const el = host.querySelector('[data-ps-push-state]'); if (el) el.textContent = note; };
   const onPhone = () => render();
@@ -268,12 +280,6 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
       goPlace(item.open, win);
       return;
     }
-    const kind = b.dataset.psPushKind;
-    if (kind) {
-      await savePrefs(toggleKind(state.prefs, kind));
-      host.querySelector(`[data-ps-push-kind="${kind}"]`)?.focus({preventScroll: true});
-      return;
-    }
     if ('psPushTest' in b.dataset) {
       await withBusy(async () => {
         if (inApp && phone.state !== 'on' && !(await enablePhone())) { await reloadDevices(); return; }
@@ -284,17 +290,6 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
         } catch (e) {
           say(errorText(e?.message));
         }
-        await reloadDevices();
-      });
-      return;
-    }
-    if ('psPushEnable' in b.dataset) {
-      await withBusy(async () => { if (await enablePhone()) say('이 폰에서 받아요'); await reloadDevices(); });
-      return;
-    }
-    if ('psPushForget' in b.dataset) {
-      await withBusy(async () => {
-        try { await forgetPhone(); say('이 폰을 끊었어요'); } catch (e) { say(errorText(e?.message)); }
         await reloadDevices();
       });
       return;
@@ -311,7 +306,26 @@ export function mountPhonePushSettings(host, {rt, win = window}) {
       });
     }
   });
-  host.addEventListener('change', event => {
+  host.addEventListener('change', async event => {
+    const kindBox = event.target.closest('[data-ps-push-kind]');
+    if (kindBox) {
+      if (state.busy || state.phase !== 'ready') return;
+      const kind = kindBox.dataset.psPushKind;
+      await savePrefs(toggleKind(state.prefs, kind));
+      host.querySelector(`[data-ps-push-kind="${kind}"]`)?.focus({preventScroll: true});
+      return;
+    }
+    const phoneBox = event.target.closest('[data-ps-push-phone-switch]');
+    if (phoneBox) {
+      if (state.busy || state.phase !== 'ready') { render(); return; }
+      if (phoneBox.checked) await withBusy(async () => { if (await enablePhone()) say('이 폰에서 받아요'); await reloadDevices(); });
+      else await withBusy(async () => {
+        try { await forgetPhone(); say('이 폰을 끊었어요'); } catch (e) { say(errorText(e?.message)); }
+        await reloadDevices();
+      });
+      host.querySelector('[data-ps-push-phone-switch]')?.focus({preventScroll: true});
+      return;
+    }
     const input = event.target.closest('[data-ps-push-quiet]');
     if (!input || state.phase !== 'ready') return;
     const end = input.dataset.psPushQuiet;

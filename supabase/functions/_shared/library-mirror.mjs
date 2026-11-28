@@ -1,16 +1,21 @@
 // S69-20 ③④⑤(명진 11/24 08:48 "ㄱ 폴더도"): 자료실 앱 폴더 구조를 구글 드라이브 '자료실' 폴더 아래에 똑같이 맞춘다.
-// workspace-drive POST ?action=drive-mirror {mode:'auto'|'align'}가 부른다(새 자료실 폴더 표시 MIRROR_MARK는 library-files도 씀). DOM·네트워크 없음(db·drive는 부르는 쪽이 넣는다, 시험 tests/library-drive-mirror.test.mjs).
+// workspace-drive POST ?action=drive-mirror {mode:'auto'}가 부른다(새 자료실 폴더 표시 MIRROR_MARK는 library-files도 씀). DOM·네트워크 없음(db·drive는 부르는 쪽이 넣는다, 시험 tests/library-drive-mirror.test.mjs).
 //
 // 규칙(한 곳):
 // - 기준은 앱(DB). 앱 폴더마다 짝 드라이브 폴더(app_library_folders.drive_folder_id). 짝이 없거나 드라이브에서 지워졌으면
 //   부모 짝 폴더 안의 같은 이름 폴더(아직 아무 앱 폴더와도 짝이 아닌 것)를 다시 쓰고, 없으면 만든다. 이름·부모가 다르면 드라이브 쪽을 고친다.
 // - 자료: 폴더 안 자료는 그 폴더의 짝, '폴더 밖' 자료는 '자료실' 폴더로. 파일 id는 그대로 두고 부모(parents)만 바꾼다(링크가 깨지지 않음).
 //   지금 '자료실' 나무(자료실 폴더와 짝 폴더들) 안에 있는 파일만 옮긴다. 회의자료·바구니처럼 다른 곳에 있는 파일은 건드리지 않는다.
+//   S71-05: 단, 드라이브에서 사람이 옮긴 자료(자료실 열 때 따라가기 drive-auto가 자료실을 고칠 것)는 덮지 않는다 — 판정은 followTarget 한 곳.
+//   앱이 옮긴 지 FOLLOW_QUIET_MS 안(앱이 이김)·폴더 밖·맨 위·짝 없는 곳·옮긴 시각 모름은 지금처럼 앱 자리로 민다. 숫자 drive_wins.
 // - 휴지통에 간 앱 폴더(화면에서 안 보이는 폴더)와 그 안 자료는 드라이브에서 그대로 둔다(되살리면 다시 맞춘다). 드라이브의 폴더·파일은 절대 지우지 않는다.
-// - 'auto'(앞으로 같게)는 드라이브 '자료실' 폴더에 맞춤 표시(appProperties won_mirror=1)가 있을 때만 돈다. 표시는
-//   새 사용자의 자료실 폴더를 만들 때(library-files) 또는 명진이 [드라이브 폴더 맞추기]('align')를 끝까지 마쳤을 때 붙는다.
-//   그 전에는 서버가 기존 자료를 몰래 옮기지 않는다.
-// - 시간 한도(budgetMs) 안에서만 하고, 남으면 more:true(이어서 다시 부르면 이어서 함). 'align'은 드라이브 실패가 나면 거기서 멈춘다.
+// - S70-76 LIB-드라이브늘같게(명진 11/24·11/26 "자료실은 그냥 드라이브를 항상 반영하는걸로"): 갈래는 'auto' 하나다. 화면은 자료를 옮기거나
+//   폴더를 만들거나 이름을 바꾸거나 옮길 때마다 그 자리에서 부르고(app/drive-follow.mjs), 자료실에 들어올 때도 한 번 부른다.
+//   [드라이브 폴더 맞추기]('align')·[드라이브와 맞는지 보기]는 일회용이 되어 지웠다(AGENTS.md 4절). 맞춤 표시(appProperties won_mirror=1)가
+//   아직 없는 자료실(옛 사용자)도 'auto'가 기존 자료까지 맞추고, 끝까지(남은 것·대기 없이) 마치면 표시를 붙인다(표시는 기록일 뿐 막지 않음).
+// - 밀린 것: 기준은 서버 DB(자료실 폴더·연결 줄)이고 드라이브와 다른 곳을 부를 때마다 서버가 다시 계산한다. 그래서 드라이브 쪽이 실패해도
+//   잃지 않고, 다음 부름(어느 기기든 자료실 열기·다음 옮기기·[다시])에서 서버가 다시 한다. 밀린 수는 pending·left로 돌려준다.
+// - 시간 한도(budgetMs) 안에서만 하고, 남으면 more:true(이어서 다시 부르면 이어서 함). 드라이브 실패는 멈추지 않고 대기(pending)로 센다.
 //   S69-40(명진 11/24 13시 "폴더 0개 만들고 자료 0개 옮겼어요"가 되풀이): 한도는 화면 기다림(45초)보다 훨씬 짧게(10초) 두고, 드라이브 읽기는
 //   폴더 하나씩 묻지 않고 부모 폴더 여러 개를 한 번에(drive.list) 묻는다. 그래서 한 번 부를 때마다 앞에서 읽기만 하다 끝나지 않고 꼭 몇 개씩 옮긴다.
 //   left = 아직 옮길 자료 수(화면 진행 표시), stage = 멈춘 단계(library·folders·list·files·mark — 화면 일상어 한 줄).
@@ -23,7 +28,7 @@
 //     드라이브만 바뀜(이름·부모) → 자료실이 따라간다(앱 폴더 이름·부모를 고침, 내 토큰·owner RLS·나무 검사 그대로).
 //     자료실만 바뀜 → 드라이브를 고친다(지금까지와 같음). 표식이 아직 없는 옛 짝 → 지금까지와 같이 자료실 기준(legacy).
 //     둘 다 바뀜·따라갈 수 없음(드라이브에서 자료실 밖·짝 없는 폴더로 옮김, 이름이 자료실 규칙(1~40자)에 안 맞음) → 아무것도 바꾸지 않고
-//     conflicts로 센다([드라이브와 맞는지 보기] 목록에 뜸, library-drive-check.mjs).
+//     conflicts로 센다(S70-76: 점검 창은 지웠고, 숫자만 서버 기록에 남는다).
 
 export const MIRROR_MARK = 'won_mirror';
 export const MIRROR_BUDGET_MS = 10000;
@@ -91,9 +96,38 @@ export function stampFor(drive, name, parent) {
   return out;
 }
 
+/**
+ * S71-05 자료 한 개의 자리가 앱과 드라이브에서 다를 때 '드라이브가 이기는가' — 한 곳의 규칙.
+ * 드라이브 맞추기(mirrorLibrary 2단계)와 자료실 열 때 따라가기(library-files drive-auto planFollow)가 같이 쓴다(중복 구현 금지).
+ *   답 {to}: 드라이브에서 사람이 옮긴 것 → 자료실이 드라이브 부모의 짝 폴더(to)로 따라가고, 맞추기는 드라이브를 덮지 않는다.
+ *   답 {skip}: 드라이브가 이기지 않음 → 따라가기는 그대로 두고, 맞추기는 앱 자리로 민다(지금까지와 같음).
+ *     same(이미 같음) · loose(폴더 밖 자료 — 연결 줄이 없어 앱에서 언제 뺐는지 모름) · trashed(휴지통·안 보이는 폴더) · parents(부모가 하나가 아님)
+ *     · top(드라이브 부모가 자료실 맨 위) · nopair(짝 없는 폴더) · unknown(옮긴 시각을 모름 — DB 칸 적용 전) · quiet(앱에서 FOLLOW_QUIET_MS 안에 옮김 = 앱이 이김).
+ * 두 쪽이 같은 답을 쓰므로 어느 쪽이 먼저 돌아도 끝 자리가 같다: 따라가기가 먼저면 자료실이 바뀌어(옮긴 시각도 새로) 맞추기는 '이미 같음',
+ *   맞추기가 먼저면 드라이브를 그대로 두고 다음 따라가기가 자료실을 고친다. 앱이 막 옮긴 것(quiet)은 따라가기가 쉬고 맞추기가 드라이브로 민다.
+ * item: {folder_id, moved_at} | null · parents: 파일의 드라이브 부모 id들 · appPair: Map(보이는 자료실 폴더 id → 짝 드라이브 id 또는 null)
+ * · pairOf: Map(드라이브 폴더 id → 보이는 자료실 폴더 id)
+ */
+export const FOLLOW_QUIET_MS = 30 * 60 * 1000; // S70-73c: 앱에서 옮긴 지 이 안이면 드라이브 위치를 따라가지 않음(드라이브 맞추기가 끝나기 전)
+export function followTarget({ item, parents, appPair, pairOf, libraryId, now = Date.now(), quietMs = FOLLOW_QUIET_MS }) {
+  if (!item?.folder_id) return { skip: 'loose' };
+  if (!appPair.has(item.folder_id)) return { skip: 'trashed' };
+  const ps = (Array.isArray(parents) ? parents : []).filter(isDriveId);
+  if (ps.length !== 1) return { skip: 'parents' };
+  const dp = ps[0];
+  if (appPair.get(item.folder_id) === dp) return { skip: 'same' };
+  if (dp === libraryId) return { skip: 'top' };
+  const to = pairOf.get(dp);
+  if (!to || to === item.folder_id) return { skip: 'nopair' };
+  const at = Date.parse(String(item.moved_at ?? ''));
+  if (!Number.isFinite(at)) return { skip: 'unknown' };
+  if (now - at < quietMs) return { skip: 'quiet' };
+  return { to };
+}
+
 export function parseMirrorBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).join(',') !== 'mode') return null;
-  return body.mode === 'auto' || body.mode === 'align' ? body.mode : null;
+  return body.mode === 'auto' ? 'auto' : null; // S70-76: 'align'([드라이브 폴더 맞추기])은 지웠다
 }
 
 /** 앱 폴더를 위에서 아래 차례로. 부모가 보이지 않는 폴더(휴지통 아래 등)는 뺀다. */
@@ -118,7 +152,7 @@ export function topDown(folders) {
 /**
  * deps:
  *  db.folders() → [{id,parent_id,name,sort_order,drive_folder_id}] (owner RLS, 휴지통 숨김)
- *  db.items() → [{document_id, folder_id}]
+ *  db.items() → [{document_id, folder_id, moved_at?}] (S71-05 moved_at: 드라이브에서 옮긴 것을 덮지 않는 판정 followTarget)
  *  db.documents() → [{id, file_id}]
  *  db.setDrive(id, drive, expect) → {ok, taken?}
  *  drive.get(id) → meta|null, drive.children(parentId) → [{id,name,mimeType,parents}], drive.createFolder(name,parent) → id,
@@ -126,21 +160,20 @@ export function topDown(folders) {
  *  drive.patch(id, {name?, addParents?, removeParents?, appProperties?, trashed?}) — 실패는 DriveFail(status) throw.
  *  db.renameFolder?(id, name), db.moveFolder?(id, parentId|null) — S69-52 드라이브에서 바뀐 것을 자료실이 따라갈 때(없으면 따라가지 않고 conflicts로 셈).
  *  drive.createFolder(name, parent, appProperties?) — S69-52 새 짝 폴더에 처음부터 표식.
- *  now() → ms
+ *  now() → ms(시간 한도), clock() → ms(S71-05 옮긴 시각과 견주는 실제 시각)
  */
-export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now, budgetMs = MIRROR_BUDGET_MS }) {
+export async function mirrorLibrary({ libraryId, db, drive, now = Date.now, clock = Date.now, budgetMs = MIRROR_BUDGET_MS }) {
   const started = now();
-  const out = { ok: true, state: 'not_aligned', folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0, pending: 0, left: 0, more: false, stopped: false, stage: null, app_renamed: 0, app_moved: 0, conflicts: 0, stamped: 0 };
+  const out = { ok: true, state: 'not_aligned', folders_made: 0, folders_fixed: 0, files_moved: 0, cant: 0, pending: 0, left: 0, more: false, stopped: false, stage: null, app_renamed: 0, app_moved: 0, conflicts: 0, stamped: 0, drive_wins: 0 };
   if (typeof libraryId !== 'string' || !DRIVE_ID.test(libraryId)) return { ...out, state: 'none' };
   let lib;
   try { lib = await drive.get(libraryId); } catch (e) { return { ...out, ok: false, code: 'drive_unavailable', stage: 'library', pending: 1 }; }
   if (!lib || lib.trashed === true) return { ...out, ok: false, code: 'library_missing', stage: 'library' };
   const aligned = lib.appProperties?.[MIRROR_MARK] === '1';
   out.state = aligned ? 'aligned' : 'not_aligned';
-  if (mode === 'auto' && !aligned) return out;
 
   const late = () => now() - started > budgetMs;
-  const failed = (e, stage) => { if (mode === 'align') { out.stopped = true; out.stage = out.stage || stage; } out.pending++; return e; };
+  const failed = (e, stage) => { out.stage = out.stage || stage; out.pending++; return e; };
 
   // 부모 드라이브 폴더 → 바로 아래(폴더·파일). 여러 부모를 한 번에 묻는다.
   const kids = new Map();
@@ -172,13 +205,14 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
   let level = byParent.get('') || [];
   while (level.length && !out.stopped && !out.more) {
     const parents = level.map(f => f.parent_id ? pair.get(f.parent_id) : libraryId).filter(Boolean);
-    try { await listMany(parents); } catch (e) { failed(e, 'list'); if (mode === 'align') break; }
+    try { await listMany(parents); } catch (e) { failed(e, 'list'); }
     const next = [];
     for (const f of level) {
       if (out.stopped) break;
       if (late()) { out.more = true; break; }
       const parent = f.parent_id ? pair.get(f.parent_id) : libraryId;
       if (!parent) { out.pending++; continue; }
+      if (!kids.has(parent)) { out.pending++; continue; } // 그 부모 목록을 못 읽었으면 같은 이름 폴더를 또 만들지 않게 다음 부름으로
       try {
         let id = isDriveId(f.drive_folder_id) ? f.drive_folder_id : null;
         let meta = id ? childrenOf(parent).find(c => c.id === id) || null : null;
@@ -232,18 +266,22 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
     const managed = [libraryId, ...pair.values()];
     try { await listMany(managed); } catch (e) { failed(e, 'list'); }
     if (!out.stopped) {
-      const where = new Map();
-      for (const folderId of managed) for (const c of childrenOf(folderId)) if (c.mimeType !== FOLDER_MIME) where.set(c.id, folderId);
-      const itemOf = new Map((await db.items()).map(i => [i.document_id, i.folder_id]));
+      const where = new Map(), parentsOf = new Map();
+      for (const folderId of managed) for (const c of childrenOf(folderId)) if (c.mimeType !== FOLDER_MIME) { where.set(c.id, folderId); parentsOf.set(c.id, Array.isArray(c.parents) && c.parents.length ? c.parents : [folderId]); }
+      const itemOf = new Map((await db.items()).map(i => [i.document_id, i]));
+      const followNow = clock(); // 옮긴 시각과 견주는 실제 시각(now는 시간 한도용 — 시험이 작은 수로 돌림)
       const todo = [];
       for (const doc of await db.documents()) {
         const file = doc.file_id, cur = where.get(file);
         if (!file || !cur) continue; // 자료실 나무 밖 파일(회의자료·바구니 등)은 그대로
-        const folderId = itemOf.get(doc.id);
+        const item = itemOf.get(doc.id) || null, folderId = item?.folder_id || null;
         if (folderId && !visible.has(folderId)) continue; // 휴지통 폴더 안 자료는 그대로
         const target = folderId ? pair.get(folderId) : libraryId;
         if (!target) { out.pending++; continue; }
-        if (target !== cur) todo.push([file, cur, target]);
+        if (target === cur) continue;
+        // S71-05: 드라이브에서 사람이 옮긴 것(따라가기가 자료실을 고칠 것)은 덮지 않는다 — followTarget 한 곳의 규칙.
+        if (followTarget({ item, parents: parentsOf.get(file), appPair: pair, pairOf: appOfDrive, libraryId, now: followNow }).to) { out.drive_wins++; continue; }
+        todo.push([file, cur, target]);
       }
       out.left = todo.length;
       for (const [file, cur, target] of todo) {
@@ -270,8 +308,8 @@ export async function mirrorLibrary({ libraryId, mode, db, drive, now = Date.now
     }
   }
 
-  // 3) 맞춤 표시: [드라이브 폴더 맞추기]를 끝까지(남은 것·대기 없이) 마쳤을 때만.
-  if (mode === 'align' && !aligned && !out.more && !out.stopped && out.pending === 0) {
+  // 3) 맞춤 표시: 처음으로 끝까지(남은 것·대기 없이) 맞췄을 때 한 번(S70-76: 'auto'가 저절로).
+  if (!aligned && !out.more && !out.stopped && out.pending === 0) {
     try { await drive.patch(libraryId, { appProperties: { [MIRROR_MARK]: '1' } }); out.state = 'aligned'; }
     catch (e) { failed(e, 'mark'); }
   }

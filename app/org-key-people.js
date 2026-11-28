@@ -17,6 +17,7 @@ import {askConfirm, notify} from './small-notice.js';
 import {savedNamesDraft, collectRecords, collectOpen, onlyPerson, dday, shortDay, briefStale, recordTag, PEOPLE_MAX} from './org-key-people-model.mjs';
 import {openCallSource, openTelegramSource} from './source-open.js';
 import {word} from './brand/brand.mjs';
+import {lockedLineHtml} from './locked-line.mjs';
 
 const TABLE = '/rest/v1/app_org_key_people', BRIEFS = '/rest/v1/app_org_key_people_briefs';
 const FIELDS = 'id,workspace_id,organization_id,name,match_names,sort_order,created_at';
@@ -151,7 +152,7 @@ function paint() {
   html += `<h4 class="okp-h">지난 기록<small>${recs.length || ''}</small></h4>`;
   html += recs.length ? `<ul class="okp-list">${recs.map(r => `<li><button type="button" class="okp-row" data-okp-open="${esc(r.key)}"><span class="okp-day">${esc(shortDay(r.day, today))}</span><span class="okp-tag ${r.kind}">${esc(recordTag(r))}</span><span class="okp-text">${esc(r.text)}</span>${many ? `<span class="okp-who">${esc(whoText(r.people))}</span>` : ''}</button></li>${failHtml(r.key)}`).join('')}</ul>`
     : hiddenRecs ? '' : emptyHtml('최근 120일 기록 없음');
-  if (hiddenRecs) html += `<p class="okp-faint" data-okp-locked data-lock-here="calls telegram">통화·텔레그램 ${hiddenRecs}줄 · 잠김 <button type="button" class="row-act lk-open">풀기</button></p>`;
+  if (hiddenRecs) html += lockedLineHtml({features: ['calls', 'telegram'], label: '통화·텔레그램', count: hiddenRecs, cls: 'okp-faint', attrs: 'data-okp-locked'});
   if (data.partial) html += '<p class="okp-faint">일부 기록을 불러오지 못했어요.</p>';
   host.innerHTML = html;
   ui.rows = new Map([...open, ...recs].map(r => [r.key, r]));

@@ -67,13 +67,14 @@ test('날짜를 바꿔도 보고용 표시는 줄 열쇠(기록 id)에 붙어 �
   assert.equal(M.orgCell({org: ORG, week: W, records: [far], marks}).shown.length, 0);
 });
 
-test('화면 연결: 표 줄 ⋯·날짜 누름, 조직 상세 ⋯ [날짜 수정], 같은 칸 모양 하나', () => {
+test('화면 연결: 표 줄 ⋯·날짜 누름, 조직 상세 ⋯ [수정] 칸 안 날짜(RECORD-기록하나로), 같은 칸 모양 하나', () => {
   const view = read('app/record-window-view.js'), wd = read('app/workplace-detail.js'), de = read('app/record-day-edit.js');
   assert.match(view, /text: '날짜 수정', data: \{rwDay: l\.id\}/);
   assert.match(view, /data-rw-day="/);
   assert.match(view, /DE\.dayFormHtml\(/);
-  assert.match(wd, /\['day','날짜 수정'\]/);
-  assert.match(wd, /openDayEditor\(/);
+  assert.doesNotMatch(wd, /'날짜 수정'|openDayEditor|wdUpDay\(/);
+  assert.match(wd, /mountDayField\(\{host:form\.querySelector\('\[data-wd-up-day\]'\)/);
+  assert.match(de, /export function mountDayField/);assert.match(de, /bare: true/);
   assert.match(de, /export function dayFormHtml/);
   // 쓰기는 그 조직의 그 기록 한 행(owner RLS 길)만, 글(raw_text)은 보내지 않는다
   assert.match(de, /app_suborganization_updates\?id=eq\.\$\{enc\(id\)\}&organization_id=eq\.\$\{enc\(org\)\}/);
