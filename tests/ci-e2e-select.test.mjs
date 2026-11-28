@@ -150,3 +150,21 @@ test('실제 저장소: 기준 사진 → 그 시험, 화면 CSS → 기준 사�
   const css = select(['app/calendar-ui.css'], appFiles, testFiles);
   assert.ok(css.mode === 'full' || css.specs.includes(vb), `${css.mode} ${css.specs.length}`);
 });
+
+// LAYOUT-폭별검사(사용자 2026-11-28): 폴드 펼침에서 노트 목록이 깨진 회귀(#3239·#3277 뒤)는 노트 화면 CSS만 고친 PR이었다.
+// 화면 CSS·폭에 따라 모양을 바꾸는 공용 부품(폭 판정·줄 밀기·목록 줄·폴더 나무)을 고친 PR은 폭별 모양 검사도 함께 돌고,
+// 그 시험은 칸이 많아 갈래를 여럿으로 나눈다.
+test('실제 저장소: 화면 CSS·폭 공용 부품 → 폭별 모양 검사도 함께(갈래 여럿)', () => {
+  const {appFiles, testFiles} = loadRepo('.');
+  const wl = 'tests/app-e2e/width-layout.spec.mjs';
+  assert.ok(testFiles.has(wl));
+  for (const f of ['app/basket-notes.css', 'app/list-row.css', 'app/row-swipe.css', 'app/files.css', 'app/screen-width.mjs', 'app/row-swipe.js', 'app/folder-tree.css']) {
+    const sel = select([f], appFiles, testFiles);
+    assert.ok(sel.mode === 'full' || sel.specs.includes(wl), `${f}: ${sel.mode} ${sel.specs.join(' ')}`);
+    if (sel.mode === 'some') assert.ok(sel.shards >= 8, `${f}: 갈래 ${sel.shards}`);
+  }
+  // 그 화면 하나만 쓰는 스크립트(모양과 상관없는 계산)는 여전히 그 화면 시험만.
+  assert.ok(!select(['app/calendar-drag.js'], appFiles, testFiles).specs.includes(wl));
+  // 시험 파일만 고쳐도 갈래를 나눈다.
+  assert.ok(select([wl], appFiles, testFiles).shards >= 8);
+});

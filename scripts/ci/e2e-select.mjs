@@ -59,7 +59,13 @@ export const SCREEN_SPECS = [
   [/^app\/(team|files|report-filter-chip)[^/]*\.(m?js|css)$/, ['screen-open-once.spec.mjs']],
   // DESIGN-검증하네스 ③(S73-04): 화면 CSS를 고치면 주요 화면 기준 사진도 함께(공용 CSS는 위 FULL_PATTERNS로 이미 전체).
   [/^app\/[^/]+\.css$/, ['visual-baseline.spec.mjs']],
+  // LAYOUT-폭별검사(사용자 2026-11-28 "폴드 펼친 화면에서 노트 화면 완전 깨져 있던 부분 이런 게 또 있는지"): 화면 CSS나 폭에 따라 모양을 바꾸는
+  // 공용 부품(폭 판정·두 칸 전환·줄 밀기·목록 줄·폴더 나무)을 고치면 폭별 모양 검사(폭 표 × 화면 표)를 함께 돈다. 노트 목록 깨짐(#3239·#3277 뒤)은
+  // 노트 CSS만 고친 PR이라 이 시험이 없었으면 고르기에서 빠졌다. 공용 CSS·첫 화면 사슬은 위 FULL_PATTERNS로 이미 전체.
+  [/^app\/([^/]+\.css|(screen-width|row-swipe|row-swipe-model|list-row|folder-tree|split-[^/]+|[^/]+-split|[^/]+-layout)\.m?js)$/, ['width-layout.spec.mjs']],
 ];
+// 시험 수가 많은 시험 파일: 갈래 수를 셀 때 파일 하나가 아니라 이 값만큼 센다(width-layout = 폭 13 × 화면·동작 약 37칸 ≈ 480개 — 한 갈래에 몰면 60분을 넘는다).
+export const SPEC_WEIGHT = new Map([['width-layout.spec.mjs', 48]]);
 export function screenSpecsFor(file, testFiles) {
   const out = new Set();
   for (const [re, names] of SCREEN_SPECS) if (re.test(file)) for (const n of names) if (testFiles.has(`${SPEC_DIR}/${n}`)) out.add(`${SPEC_DIR}/${n}`);
@@ -178,7 +184,8 @@ export function specsFor(names, specs) {
 export function shardsFor(selection) {
   if (selection.mode === 'full') return MAX_SHARDS;
   if (selection.mode === 'none') return 0;
-  return Math.min(MAX_SHARDS, Math.max(1, Math.ceil(selection.specs.length / SPECS_PER_SHARD)));
+  const weight = selection.specs.reduce((n, spec) => n + (SPEC_WEIGHT.get(basename(spec)) || 1), 0);
+  return Math.min(MAX_SHARDS, Math.max(1, Math.ceil(weight / SPECS_PER_SHARD)));
 }
 
 // changed: 고친 파일 목록. appFiles·testFiles: Map<경로, 내용>(지금 PR head 기준).
