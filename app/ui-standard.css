@@ -2079,7 +2079,7 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* ===== UI-창아래버튼통일(2026-11-07 명진 요청 10:55 '삭제 완료 저장 … 같은 디자인에서의 배리에이션으로 안느껴짐', 시안 docs/design/mockups/sheet-footer-buttons.html 'A') =====
    창 아래 버튼 줄은 공용 부품 하나다: 팝업·아래에서 올라오는 창의 .modal-action-footer(base-ui.css)와 화면 안 창·칸의 .save-row(위 UI-저장자리). ②(S54-08)에서 이름이 다른 같은 종류의 줄 .home-choice-foot(고르기 창)·.record-sheet-foot(노트 기록 창)·.diary-od-foot(원드라이브 설정 창)도 같은 부품으로 넣었다.
-   (작은 확인 말풍선 .kptu-ask-actions는 창이 아니라 누른 자리 옆 말풍선이라 이 가족에 넣지 않는다 — 6가지 작은 버튼 그대로.)
+   (작은 확인 말풍선 .kptu-ask-actions는 창이 아니라 누른 자리 옆 말풍선이라 이 가족에 넣지 않는다 — 아래 'UI-반복단추줄이기 확인 상자' 규칙이 따로 작게 정한다.)
    그 줄 안의 ① 주 동작·② 작은 버튼·지우기는 한 가족 — 높이(--kptu-control-height)·모서리(--ds-radius-control)·글자(--ds-text-button / --ds-weight-medium)·
    안쪽 여백(--ds-control-pad-x)이 똑같고 테두리 선이 없다. 다른 것은 채움 정도 하나뿐이다.
      저장(주 동작 .primary) = 진한 주 색 채움 · 완료·취소 같은 보조(.secondary·.ghost) = 연한 주 색 채움(--kptu-primary-soft) · 삭제(.danger·.tl-danger 등 지우기 클래스) = 바탕 없는 빨간 글자.
@@ -2105,3 +2105,15 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
 .forget-locked{margin:0;padding:.5em var(--ds-row-pad-x)}
+
+/* ===== UI-반복단추줄이기 확인 상자(2026-11-28 14:05 사용자 결정 "뜨는 창도 버튼이 좀 부담스러워", docs/design-decisions.md UI-버튼기준 '반복 줄 단추') =====
+   공용 작은 확인 상자(small-notice.js askConfirm·askActions·askText·askDate 등, .kptu-ask-actions)의 단추는 모두 작은 크기(--ds-compact-height) 한 가지.
+   위험한 실행 단추(button.danger — 삭제·거두기·모든 연결 끊기 등)는 큰 빨강 채움 대신 바탕·테두리 없는 빨간 글자(창 아래 버튼 줄의 삭제와 같은 꼴).
+   [취소]는 ② 작은 버튼 그대로, 위험하지 않은 실행(.primary)은 채움 그대로 크기만 작게. 화면·창 규칙(.modal button.danger 등)이 더 세서 !important로 고정한다. */
+.kptu-ask-actions button:is(.primary,.secondary,.ghost,.danger):not(.row-act,.icon-btn,.ds-chip,.ds-seg-btn){
+  box-sizing:border-box !important; height:var(--ds-compact-height) !important; min-height:var(--ds-compact-height) !important;
+  padding:0 var(--ds-compact-pad-x) !important; border-radius:var(--ds-radius-control) !important;
+  font-size:var(--ds-compact-text) !important; font-weight:var(--ds-weight-medium) !important; line-height:1 !important;
+}
+.kptu-ask-actions button.danger:not(.row-act,.icon-btn,.ds-chip,.ds-seg-btn){ background:transparent !important; border:0 !important; box-shadow:none !important; color:var(--kptu-danger) !important; }
+@media (hover:hover){ .kptu-ask-actions button.danger:not(:disabled,.row-act,.icon-btn,.ds-chip,.ds-seg-btn):hover{ background:var(--kptu-danger-soft) !important; } }

@@ -37,8 +37,10 @@ function noteRow(item,current,words){
   // S67-73(명진 11/21 "보내기 버튼이 보냄으로 바뀌어야지"): 이미 보낸 기록은 따로 '보냄' 꼬리표를 달지 않고 같은 버튼이 [보냄]으로 바뀐다.
   // S68-14(명진 11/22 "보낸 후 거둬들일 수가 없음"): [보냄]을 누르면 그 기록이 든 소식을 거둔다(같은 버튼 하나, 새 버튼 없음).
   // S68-46(명진 11/23 "기본 자동으로 보내고 수동으로는 회수 가능하게"): 새 기록은 서버가 자동으로 보내 처음부터 [보냄]이고, 거둔 기록은 [다시 보내기].
+  // UI-반복단추줄이기(2026-11-28 14:05 사용자 "어떤 줄은 위, 어떤 줄은 아래 … 그냥 텍스트만 보여 줘도"): 줄마다 붙는 단추라 테두리 없는 ③ 글자 버튼(row-act)이고,
+  // 자리는 줄마다 같은 곳 — 날짜 줄 오른쪽 끝(폰에서 첫 줄 글이 다음 줄로 내려가도 단추는 날짜 줄에 남는다, release-notes.css).
   if(news.admin){
-    const send=el('button','rn-send mini');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
+    const send=el('button','rn-send row-act');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
     head.append(send);
   }
   const body=el('div','rn-body');
@@ -149,12 +151,12 @@ function paintNews(){
   for(const item of loose){
     const extra=[];
     if(item.withdrawn_at){
-      const again=el('button','mini','다시 보내기');again.type='button';again.dataset.unResend=item.id;
+      const again=el('button','row-act','다시 보내기');again.type='button';again.dataset.unResend=item.id;
       extra.push(el('span','un-date','거둠'),again);
     }else{
       extra.push(el('span','un-date',`읽음 ${item.reads??0}/${admin.users??0}`));
-      const edit=el('button','mini','수정');edit.type='button';edit.dataset.unEdit=item.id;
-      const pull=el('button','mini','거두기');pull.type='button';pull.dataset.unWithdraw=item.id;
+      const edit=el('button','row-act','수정');edit.type='button';edit.dataset.unEdit=item.id;
+      const pull=el('button','row-act','거두기');pull.type='button';pull.dataset.unWithdraw=item.id;
       extra.push(edit,pull);
     }
     const row=newsRow(item,extra);if(item.withdrawn_at)row.classList.add('is-withdrawn');
