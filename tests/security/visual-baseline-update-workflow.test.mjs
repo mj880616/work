@@ -96,6 +96,9 @@ test('이름 목록 읽기: 빈칸 허용·중복 제거, 모양이 틀리면 �
   assert.deepEqual(parseNames(''), []);
   assert.deepEqual(parseNames(' home:phone, note:phone,library:pc,home:phone '), [
     { name: 'home', tag: 'phone' }, { name: 'note', tag: 'phone' }, { name: 'library', tag: 'pc' }]);
+  // FIX-노트폴드목록: 폴드 펼침 폭 사진(<화면>:fold, 712px)도 이름으로 고를 수 있다.
+  assert.deepEqual(parseNames('note-folder:fold'), [{ name: 'note-folder', tag: 'fold' }]);
+  assert.match('visual-baseline.spec.mjs 기준 사진 note-folder (fold 712px)', new RegExp(grepFor(parseNames('note-folder:fold'))));
   assert.deepEqual(parseNames('menu-edit:pc'), [{ name: 'menu-edit', tag: 'pc' }]);
   for (const bad of ['home', 'home:tablet', 'Home:pc', '../x:pc', 'home:pc;ls', 'a b:pc', '-x:pc', 'x-:pc', '$(id):pc']) {
     assert.throws(() => parseNames(bad), /이름 모양/, bad);

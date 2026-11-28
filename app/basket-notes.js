@@ -414,7 +414,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   // 머리 줄(PC·펼친 폴드만, 폰은 CSS가 숨김). 칸 오른쪽 금을 끌면 그 칸 너비(공용 col-resize.js, 서버 view_prefs.col_widths.notes, 화면 종류별). 마지막 칸은 금 없음.
   const LIST_COL_VARS = Object.fromEntries(['title', ...NOTE_COLS].map(k => [k, `--nl-w-${k}`]));
-  const listGrid = cols => ['var(--nl-w-title,minmax(0,1fr))', ...cols.map(k => `var(--nl-w-${k},${LIST_COL_WIDTH[k]}px)`)].join(' ');
+  // FIX-노트폴드목록: 칸 정의는 여기 한 곳(머리 줄·노트 줄이 같은 --nl-grid). 제목 칸은 최소 --ds-col-title-min을 늘 갖고 남는 폭을 받는다.
+  // 글이 잘려도 되는 칸(폴더·태그)은 좁은 목록 칸(폴드 펼침 두 칸)에서 저장한 폭·기본 폭보다 LIST_COL_SHRINK까지 줄어든다(그리드가 제목 최소 폭부터 채움).
+  // 숫자 칸(수정일·첨부 등)은 머리 글자가 들어가는 제 폭 그대로. 칸 합이 그래도 넓으면 줄이 넘칠 뿐 제목이 0으로 사라지지 않는다.
+  const LIST_COL_SHRINK = {folder:48, tags:48};
+  const listColTrack = k => { const w = `var(--nl-w-${k},${LIST_COL_WIDTH[k]}px)`; return LIST_COL_SHRINK[k] ? `minmax(min(${LIST_COL_SHRINK[k]}px,${w}),${w})` : w; };
+  const listGrid = cols => ['minmax(var(--ds-col-title-min),var(--nl-w-title,1fr))', ...cols.map(listColTrack)].join(' ');
   // ①-2: 머리 칸 = 공용 head-sort.mjs headCellHtml(누르면 그 칸 정렬, 다시 누르면 반대, ▲/▼·aria-sort). 태그·공유 칸은 정렬하지 않는다. 너비 손잡이는 버튼 밖이라 끌어도 정렬되지 않는다.
   const LIST_HEAD_SORT = {title:'title', folder:'folder', day:'changed', made:'created', clip:'clip', memo:'memo', chars:'chars'};
   // NOTE-목록머리겹침: '보일 칸' 진입 단추 = 보이기 뜻의 눈 아이콘(tree-icons.js show, 줄 밀기 [다시 보이기]와 같은 그림). 칸 이름 줄의 ⋯(줄 메뉴)와 헷갈리지 않게.

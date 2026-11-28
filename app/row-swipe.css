@@ -6,7 +6,9 @@
   /* S68-50: 열린 칸 위에서 시작한 좌우 밀기도 줄 밀기로 받는다(브라우저가 가로 밀기를 가져가 손동작이 끊기지 않게). */
   .row-swipe-acts,.row-swipe-act{ touch-action:pan-y; }
 }
-.row-swipe-host{ position:relative; }
+/* FIX-노트폴드목록: 밀린 줄은 자기 목록 칸 안에서만 보인다 — 두 칸 화면(폴드 펼침·PC)에서 왼쪽으로 밀린 줄이 옆 칸(폴더 나무)을 덮지 않게.
+   clip은 스크롤 칸을 만들지 않아 머리 줄 틀 고정(sticky)과 세로 넘침은 그대로다. */
+.row-swipe-host{ position:relative; overflow-x:clip; }
 .row-swipe-row{ position:relative; z-index:1; background:var(--kptu-surface); transition:transform .18s ease; }
 .row-swipe-row.is-drag{ transition:none; }
 .row-swipe-acts{ position:absolute; z-index:0; left:0; right:0; display:flex; justify-content:space-between; overflow:hidden; list-style:none; margin:0; padding:0; }

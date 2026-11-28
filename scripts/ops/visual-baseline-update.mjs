@@ -14,13 +14,13 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const SNAP_DIR = 'tests/app-e2e/visual-baseline.spec.mjs-snapshots';
-const SNAP_FILE = /^([a-z0-9]+(?:-[a-z0-9]+)*)-(pc|phone)-chromium-linux\.png$/;
-const NAME_ITEM = /^([a-z0-9]+(?:-[a-z0-9]+)*):(pc|phone)$/;
+const SNAP_FILE = /^([a-z0-9]+(?:-[a-z0-9]+)*)-(pc|phone|fold)-chromium-linux\.png$/;
+const NAME_ITEM = /^([a-z0-9]+(?:-[a-z0-9]+)*):(pc|phone|fold)$/;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 export const MAX_PNG_BYTES = 5 * 1024 * 1024;
 export const MAX_NAMES = 40;
 
-const WIDTH = { pc: 1280, phone: 412 };
+const WIDTH = { pc: 1280, phone: 412, fold: 712 };
 
 // PR 번호: 1~7자리 숫자만.
 export function checkPrNumber(raw) {
