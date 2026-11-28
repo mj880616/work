@@ -44,6 +44,22 @@ async function libraryData(page){
   await page.route(`${SB}/rest/v1/app_library_folders**`,route=>route.request().method()==='GET'?ok(route,folders):route.fallback());
   await page.route(`${SB}/rest/v1/app_library_folder_items**`,route=>route.request().method()==='GET'?ok(route,[{workspace_id:'w',document_id:'d1',folder_id:'f1'}]):route.fallback());
 }
+// FIX-노트폴드목록(2026-11-28): 폴드 펼침 두 칸(왼쪽 폴더 나무 | 오른쪽 노트 목록)에서 폴더를 누른 화면 — 제목 칸이 0으로 줄던 화면.
+// 지어낸 노트 5개(날짜 고정)를 한 폴더(하위 폴더 하나)에 두고, 나무에서 그 폴더를 누른 뒤 찍는다.
+async function noteFolderData(page){
+  const at=i=>`2026-10-0${i}T01:00:00Z`;
+  const notes=[1,2,3,4,5].map(i=>({id:'vn'+i,workspace_id:'w',kind:'note',title:`가상 노트 제목 ${i}번`,raw_text:`가상 본문 ${i} #가상`,occurred_at:at(i),created_at:at(i),updated_at:at(i),archived_at:null,ai_export_allowed:true,attachments:i===2?[{id:'va1',name:'가상.pdf'}]:[],metadata:{folder_id:'00000000-0000-4000-8000-000000000001'}}));
+  const folders=[{id:'00000000-0000-4000-8000-000000000001',workspace_id:'w',parent_id:null,name:'01. 가상 메모',sort_order:1024,created_at:'2026-10-01T00:00:00Z'},
+    {id:'00000000-0000-4000-8000-000000000002',workspace_id:'w',parent_id:'00000000-0000-4000-8000-000000000001',name:'가상 하위',sort_order:1024,created_at:'2026-10-01T00:00:00Z'}];
+  const ok=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',route=>route.request().method()==='GET'?ok(route,notes):route.fallback());
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_note_folders',route=>route.request().method()==='GET'?ok(route,folders):route.fallback());
+}
+async function openNoteFolder(page){
+  await chooseBasketKind(page,'note');
+  await page.locator('[data-nx-tree] [data-nx-folder="00000000-0000-4000-8000-000000000001"]').first().click();
+  await expect(page.locator('#noteRows .nx-note.nl-cols')).toHaveCount(5,{timeout:20000});
+}
 async function openDiary(page){
   // 폰: [일정] 탭 → 위 [달력 | 할 일 | 하루 기록] 전환. PC: 왼쪽 메뉴 줄.
   if((page.viewportSize()?.width||0)>760)return clickView(page,'diary');
@@ -91,9 +107,14 @@ export const SCREENS=[
   {name:'menu-edit',open:openMenuEdit,ready:'#menuEditModal'},
 ];
 const WIDTHS=[{tag:'pc',width:1280,height:800},{tag:'phone',width:412,height:915}];
+// 폴드 펼침 폭(600~760px: 두 칸 + 손가락 줄 밀기)에서만 따로 보는 화면. 사진 이름 <화면>-fold.
+export const FOLD_SCREENS=[
+  {name:'note-folder',open:openNoteFolder,ready:'#basketView[data-kind="note"]',data:noteFolderData},
+];
+const FOLD={tag:'fold',width:712,height:900};
 
-for(const {tag,width,height} of WIDTHS){
-  for(const screen of SCREENS){
+for(const [{tag,width,height},list] of [...WIDTHS.map(w=>[w,SCREENS]),[FOLD,FOLD_SCREENS]]){
+  for(const screen of list){
     test(`기준 사진 ${screen.name} (${tag} ${width}px)`,async({page})=>{
       test.setTimeout(90000);
       await page.setViewportSize({width,height});
