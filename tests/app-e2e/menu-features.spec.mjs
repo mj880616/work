@@ -27,7 +27,7 @@ for(const width of [1280,760,412]){
     await openHome(page,{features:[],menuLayout:null});await settle(page);
     await expect.poll(async()=>{const p=await placed(page);return [...p.sheet,...p.pc].filter(v=>OP.includes(v)||v==='ledger')}).toEqual([]);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['basket','reading','team','meetings','files','brief','hwp']);
+    expect(p.sheet).toEqual(['basket','reading','team','meetings','files','brief']); // S71-61: HWP 편집은 메뉴가 아님(노트 안)
     expect(p.bar).toEqual(['home','note','calendar','library','photos']);
     expect(page.locator('#mobileMenu [data-menu-tail-line]')).toHaveCount(0);
     // 메뉴 편집 창: 뺀 메뉴는 칸에도 미리보기에도 없다.
@@ -38,8 +38,8 @@ for(const width of [1280,760,412]){
     await expect(modal).toBeVisible();
     const rows=await modal.locator('[data-reorder-id]').evaluateAll(r=>r.map(x=>x.dataset.reorderId));
     expect(rows.filter(v=>OP.includes(v)||v==='ledger')).toEqual([]);
-    await expect(modal.locator('[data-menu-edit-preview]')).not.toContainText('통화');
-    await expect(modal.locator('[data-menu-edit-preview]')).not.toContainText('원장');
+    await expect(modal).not.toContainText('통화');
+    await expect(modal).not.toContainText('원장');
     await page.screenshot({path:`docs/design/screens/s61-41/menu-new-${width}.png`});
     expect(errors).toEqual([]);
   });
@@ -48,9 +48,9 @@ for(const width of [1280,760,412]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await openHome(page,{features:OPERATOR_MENU_FEATURES});await settle(page);
     const p=await placed(page);
-    expect(p.sheet).toEqual(['note','library','files','brief','hwp','photos','outside','reading','calls','telegram','arsenal']);
+    expect(p.sheet).toEqual(['note','library','files','brief','photos','outside','reading','calls','telegram','arsenal']); // S71-61: 저장값의 hwp는 건너뜀
     // 운영자는 메뉴 순서를 저장해 둔 사람(OPERATOR_MENU_LAYOUT)이라 PC 왼쪽 메뉴도 그 저장 순서(하단바 칸 → 위 메뉴 → 아래 칸)다.
-    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','hwp','photos','outside','reading','calls','telegram','arsenal']); // S69-71: '쓰는 법'은 계정 메뉴 안
+    expect(p.pc).toEqual(['home','basket','calendar','meetings','team','note','library','files','brief','photos','outside','reading','calls','telegram','arsenal']); // S69-71: '쓰는 법'은 계정 메뉴 안
     expect(p.bar).toEqual(['home','basket','calendar','meetings','team']);
     await page.screenshot({path:`docs/design/screens/s61-41/menu-operator-${width}.png`});
     expect(errors).toEqual([]);

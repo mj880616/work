@@ -1,8 +1,8 @@
 import {SHEET as AOP_SHEET,pressName,pressNamesAndSave,openFolds} from './helpers/area-org-picker.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// UPD-요약부품통일 A·C: 업데이트 [연결하기]에서 참고 묶음에도 [요약 만들기], 사진·파일 업데이트에는 [요약해서 기록으로].
+// UPD-요약부품통일 C: 사진·파일 업데이트에는 [요약해서 기록으로]. (A: 참고 묶음 [요약 만들기]는 ORG-참고묶음삭제 S71-22에서 [참고 ▾]와 함께 지움 — 아래 A는 그 버튼이 없음을 본다.)
 // ai-assist·Supabase는 모두 가짜. 합성 ID·글만 쓴다.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-24T01:00:00Z';
@@ -37,32 +37,26 @@ async function fixture(page,{note:over={},docs=[],brief=[]}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const box=await locator.boundingBox();await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);}else await locator.click();}
 async function openLink(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
- await tap(page,page.locator(`[data-basket-row="${n}"]`),width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await openBasketNote(page,n,width<761?l=>l.tap():null);
+ 
  const detail=page.locator('[data-basket-detail]');
  await tap(page,detail.getByRole('button',{name:/연결하기|자료로 넣기/}).first(),width);
  return detail;
 }
 async function pick(page,detail,kind,name,width){
  await tap(page,detail.locator(`[data-manual-pick="${kind}"]`),width);
- // S52-01 ③a: 담당조직·사업영역은 공용 고르기 창(여러 개 + [넣기]), 참고 묶음은 그 화면의 고르기 창(누르면 닫힘).
- if(kind!=='reference'){await pressNamesAndSave(page,name);return;}
- const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
- await tap(page,sheet.getByRole('button',{name,exact:true}),width);await expect(sheet).toBeHidden();
+ // S52-01 ③a: 담당조직·사업영역은 공용 고르기 창(여러 개 + [넣기]).
+ await pressNamesAndSave(page,name);
 }
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
-for(const width of [390,1280])test(`A: 참고 묶음 요약 칸에도 [요약 만들기] — 빈 칸은 바로 채우고 [연결]이 저장 ${width}`,async({page})=>{
+// ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): [연결하기]에는 [담당조직 선택 ▾]·[사업영역 꼬리표 달기 ▾]만, [참고 ▾]는 없다.
+for(const width of [390,1280])test(`A: [연결하기]에 [참고 ▾] 없음 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page),detail=await openLink(page,width);
- await pick(page,detail,'reference','철도 안전',width);
- const key=`reference:${b}`,box=detail.locator(`[data-manual-summary="${key}"]`);
- await expect(box).toHaveValue('');
- await tap(page,detail.locator(`[data-manual-ai-run="${key}"]`),width);
- await expect(box).toHaveValue(AI_TEXT);
- expect(f.ai).toEqual([{kind:'link_summary',note_id:n,target_kind:'reference',target_id:b}]);
- expect(f.calls).toEqual([]);expect(await noWideScroll(page)).toBe(true);
- await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);await expect(detail.locator('[data-basket-status]')).toContainText('1곳에 연결했어요.');
- expect(f.calls[0].p_targets).toEqual([{kind:'reference',target_id:b,reason:'직접 연결',origin:'basket',summary:AI_TEXT}]);
+ await expect(detail.locator('[data-manual-pick]')).toHaveCount(2);
+ await expect(detail.locator('[data-manual-pick="reference"]')).toHaveCount(0);
+ await expect(page.locator('#basketLinkChoiceSheet')).toHaveCount(0);
+ expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
 

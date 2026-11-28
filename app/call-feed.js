@@ -29,6 +29,7 @@ import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from 
 import {askConfirm} from './small-notice.js';
 import { chevHtml } from './fold-chevron.mjs';
 import {fitAll} from './auto-grow.js'; // UI-줄입력늘어나기
+import {registerScreenFind, refreshScreenFind, finderOf} from './screen-find.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -61,6 +62,21 @@ const topicOf = r => (r.edited?.title ? String(r.title || '').trim() : callTopic
 const rowOf = id => state.rows.find(r => r.id === id) || state.prows.find(r => r.id === id) || null;
 const personalRows = () => splitPersonal(state.prows).personal;
 const unsureRows = () => splitPersonal(state.prows).unsure;
+// S70-57 UI-검색창하나로: 맨 위 칸 '통화에서 찾기' = 보이는 통화 목록 거르기(제목·상대·핵심내용 글자, 대소문자 무시, 메모리만·서버 검색 없음).
+// 고르기·개수·맨 위 통화 고르기는 거르기 전 목록 그대로이고, 그리기(listHtml)만 걸러 낸 줄을 그린다.
+let findText = '', findQ = '';
+// S70-67 SEARCH-비슷한것찾기: 공용 판정(띄어쓰기 무시·오타·초성·앞부분, 비슷한 말·기간). 날짜로 묶인 목록이라 순서는 날짜 그대로.
+const findHay = r => [topicOf(r), r.title, whoOf(r), r.counterpart, r.summary, ...(Array.isArray(r.points) ? r.points : [])].filter(v => typeof v === 'string');
+const finder = finderOf('calls', () => findText);
+const found = rows => (findQ ? rows.filter(r => finder().hitAt(String(r.occurred_at || '').slice(0, 10), ...findHay(r))) : rows);
+registerScreenFind('calls', {
+  label: '통화에서 찾기',
+  // 목록이 보일 때만: PC는 늘, 폰은 상세를 연 동안·개인 통화함(맨 위 머리 줄을 '‹ 업무 통화' 줄이 대신함, feed.css)은 아님.
+  active: () => window.KPTURouter?.current === 'calls' && (pc.matches || (!state.selected && state.box === 'work')),
+  value: () => (findQ ? findText : ''),
+  marks: '#callsView .feed-call',
+  apply: (raw, {again} = {}) => { findText = String(raw ?? ''); const q = findText.trim().toLowerCase(); if (q === findQ && !again) return; findQ = q; paintList(); },
+});
 
 // ---------- data
 function load() { return (loadP = loadNow()); }
@@ -127,8 +143,9 @@ function paint() {
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
   mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !!state.selected && !view()?.classList.contains('hidden')});
   // UI-칸안스크롤하나로: PC는 화면 스크롤 하나. 상세 칸은 화면에 붙어 따라오고, 다른 통화를 고르면 머리부터 보인다.
-  if (wide && open) { followPane($('#cfDetail'), {reset: followed !== state.selected}); followed = state.selected; }
+  if (wide && open) { followPane($('#cfDetail'), {reset: followed !== state.selected, under: () => $('#cfList > .feed-head')}); followed = state.selected; }
   focusEdit();
+  refreshScreenFind();
 }
 // 줄 안 제목 입력칸·고치기 박스를 다시 그린 뒤에도 쓰던 칸에 초점을 돌려준다. 제목 입력칸은 처음 한 번만 전체 선택.
 function focusEdit() {
@@ -152,9 +169,10 @@ function rowHtml(r, {ask = false} = {}) {
   if (ask) return `<div class="feed-callrow feed-ask" data-cf-item="${esc(r.id)}">${open}${decideHtml(r.id)}</div>`;
   return `<div class="feed-callrow" data-cf-item="${esc(r.id)}">${open}<button type="button" class="feed-hov" data-cf-rowmore="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴">${MORE}</button></div>`;
 }
-const listHtml = (rows, emptyHtml) => {
-  const groups = groupByDay(rows);
-  return groups.length ? groups.map(g => `<div class="feed-day" data-cf-day="${esc(g.day)}">${esc(g.label)}</div>${g.items.map(r => rowHtml(r)).join('')}`).join('') : emptyHtml;
+const listHtml = (rows, none) => {
+  const groups = groupByDay(found(rows));
+  return groups.length ? groups.map(g => `<div class="feed-day" data-cf-day="${esc(g.day)}">${esc(g.label)}</div>${g.items.map(r => rowHtml(r)).join('')}`).join('')
+    : findQ && rows.length ? emptyHtml('맞는 통화 없음') : none;
 };
 function paintListNow() {
   const box = $('#cfList');
@@ -172,7 +190,7 @@ function paintListNow() {
     box.innerHTML = head + editFail + `<div class="feed-rows">${listHtml(personalRows(), emptyHtml('없음', {attrs: 'data-cf-empty="personal"'}))}</div>${status}`;
     return;
   }
-  const ask = unsureRows();
+  const ask = found(unsureRows());
   const askHtml = ask.length ? `<div class="feed-ask-head" data-cf-ask-head>확인할 통화 ${ask.length} <span class="feed-faint">· 정하기 전에는 업무 기록에 쓰이지 않아요</span></div><div class="feed-rows feed-ask-rows">${ask.map(r => rowHtml(r, {ask:true})).join('')}</div>` : '';
   box.innerHTML = head + editFail + askHtml + `<div class="feed-rows">${listHtml(state.rows, emptyHtml('없음', {attrs: 'data-cf-empty="none"'}))}</div>${status}`;
 }

@@ -36,6 +36,7 @@ async function mock(page, state) {
       state.photoCalls.push({id: url.searchParams.get('document_id'), size: url.searchParams.get('size')});
       return route.fulfill({status: 200, contentType: 'image/png', body: PNG});
     }
+    if (path === '/functions/v1/library-files' && /^\{"action":"drive-auto"\}$/.test(req.postData() || '')) return ok({ok: true, added: 0}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
     if (path === '/functions/v1/library-files' && req.method() === 'POST') {
       state.uploads.push((req.postDataBuffer() || Buffer.alloc(0)).toString('utf8'));
       const n = 100 + state.uploads.length;
@@ -109,10 +110,39 @@ for (const width of [390, 1440]) {
     await view.locator('.basket-photo-more-btn').click();
     await expect(view.locator('.basket-photo-more-panel')).toContainText('삭제');
     await expect(view.locator('.basket-photo-more-panel')).toContainText('Drive에서 열기');
+    // STD-메뉴바깥닫기 C8: Esc 한 번 = 맨 위 ⋯ 메뉴만 닫기, 한 번 더 = 크게 보기 닫기.
+    await page.keyboard.press('Escape');
+    await expect(view.locator('.basket-photo-more-panel')).toBeHidden();
+    await expect(view).toBeVisible();
+    await expect(view.locator('.basket-photo-more-btn')).toBeFocused(); // Esc로 닫은 메뉴는 연 단추로 초점을 돌려준다
     await page.keyboard.press('Escape');
     await expect(view).toHaveCount(0);
   });
 }
+
+// 열림 알림(toggle)은 브라우저가 나중 차례로 보내므로, ⋯을 연 바로 그 순간의 Esc가 알림보다 먼저 올 수 있다(CI에서 위 시험이 이 틈에 걸렸다).
+// 그 틈을 일부러 만든다: 같은 차례 안에서 ⋯을 열고 곧바로 Esc를 보낸다. 메뉴만 닫히고 크게 보기는 그대로여야 한다.
+test('photo viewer: Esc right after opening the ⋯ menu closes only the menu', async ({page}) => {
+  const state = makeState();
+  await openDetail(page, state, 390);
+  await page.locator('#mrdPhotos .act-photo-thumb').nth(0).click();
+  const view = page.locator('.basket-photo-view');
+  await expect(view).toBeVisible();
+  const before = await page.evaluate(() => {
+    const more = document.querySelector('.basket-photo-view details.basket-photo-more'), summary = more.querySelector('summary');
+    summary.click(); // 열림 속성은 바로 서지만 toggle 알림은 아직 오지 않았다
+    const opened = more.open;
+    summary.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+    return {opened, openAfterEsc: more.open, viewAfterEsc: !!document.querySelector('.basket-photo-view')};
+  });
+  expect(before).toEqual({opened: true, openAfterEsc: false, viewAfterEsc: true});
+  await expect(view.locator('.basket-photo-more-panel')).toBeHidden();
+  await expect(view).toBeVisible();
+  // 뒤늦게 온 toggle 알림이 메뉴를 다시 열거나 기록 칸을 남기지 않는다: Esc 한 번 더 = 크게 보기 닫기, 상세 창은 그대로.
+  await page.keyboard.press('Escape');
+  await expect(view).toHaveCount(0);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+});
 
 test('business report detail uploads photos directly with the report kind and no AI', async ({page}) => {
   const state = makeState();

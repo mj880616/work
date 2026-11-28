@@ -1,42 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { ANDROID, phonePhotosFixture, openPhotos } from './helpers/phone-photos-fixture.mjs';
-// S47-18 UI-뒤로가기겹규칙 2차(요청함 11/01 12:52 명진 재현): 사진 → [정리] → '원드라이브에만' → 목록 → 사진 크게 보기 → 폰 뒤로 = 목록.
-// 크게 보기에서 뒤로가기 = 아래로 밀어 내리기와 같은 결과(크게 보기만 닫히고 그 아래 목록·스크롤 그대로).
 const ids = page => page.locator('#photosRoot [data-photos-list] [data-photos-open]').evaluateAll(els => els.map(e => e.dataset.photosId));
 const nativeBack = page => page.evaluate(() => window.KPTUNativeBack.handle());
-
-test.describe('폰 앱 412 · 사진 정리 뒤로가기', () => {
-  test.use({ viewport: { width: 412, height: 915 }, userAgent: ANDROID, hasTouch: true, isMobile: true });
-  test('정리 → 원드라이브에만 → 크게 보기 → 폰 뒤로 = 원드라이브에만 칸 그대로', async ({ page }) => {
-    const { state } = await phonePhotosFixture(page, { app: true });
-    await openPhotos(page, 412);
-    await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1', 'ph:2', 'O2', 'O3', 'ph:4']);
-    await page.locator('#photosRoot [data-photos-tidy-chip]').click();
-    const only = page.locator('#photosRoot [data-photos-place="onedrive"]');
-    await expect(only).toBeVisible();
-    // 사진 확인이 다 끝나 칸이 다시 그려지지 않을 때 누른다(확인 중 줄이 사라진 뒤).
-    await expect(page.locator('#photosRoot [data-photos-tidy] .photos-tidy-line[role="status"]')).toHaveCount(0);
-    await expect(only).toContainText(/원드라이브에만 [0-9]+/);
-    await only.click();
-    // S47-19A 뒤: '원드라이브에만'은 아래 [사진] 목록을 바꾸지 않고 그 줄 안에 칸을 펼친다.
-    const pane = page.locator('#photosRoot [data-photos-tidy-pane="place:onedrive"]');
-    const cells = pane.locator('[data-photos-tidy-open]');
-    await expect(cells).toHaveCount(2);
-    const before = await ids(page);
-    await cells.nth(1).tap();
-    const viewer = page.locator('[data-diary-viewer]');
-    await expect(viewer).toBeVisible();
-    expect(await nativeBack(page)).toBe(true);
-    await expect(viewer).toBeHidden();
-    await expect(page.locator('#photosView')).toBeVisible();
-    // 뒤로 = 크게 보기만 닫힘: 펼친 '원드라이브에만' 칸과 아래 목록이 그대로.
-    await expect(only).toHaveAttribute('aria-pressed', 'true');
-    await expect(cells).toHaveCount(2);
-    expect(await ids(page)).toEqual(before);
-    expect(state.errors).toEqual([]);
-  });
-});
-
+// (S71-25 PHOTO-정리삭제: 예전 '사진 → [정리] → 원드라이브에만 → 크게 보기 → 뒤로' 시험은 [정리]와 함께 지웠다. 크게 보기 뒤로 규칙은 아래 시험이 지킨다.)
 // 크게 보기 뒤로가기 = 아래로 밀어 내리기와 같은 결과: 크게 보기만 닫히고 같은 목록·같은 스크롤 위치(1280 PC 브라우저 뒤로 포함).
 for (const width of [412, 1280]) test.describe(`크게 보기 뒤로 ${width}`, () => {
   test.use(width === 412 ? { viewport: { width: 412, height: 500 }, userAgent: ANDROID, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 500 } });

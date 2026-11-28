@@ -20,7 +20,7 @@ for (const width of [412, 1280]) {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await openHome(page, { features: [], menuLayout: null });
-    await expect.poll(async () => (await menuViews(page)).sheet).toEqual(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'hwp']);
+    await expect.poll(async () => (await menuViews(page)).sheet).toEqual(['basket', 'reading', 'team', 'meetings', 'files', 'brief']); // S71-61: HWP 편집은 메뉴가 아님
     const v = await menuViews(page);
     expect([...v.sheet, ...v.pc, ...v.bar]).not.toContain('outside');
     for (const where of ['#appNav', '#mobileMenu']) await expect(page.locator(where)).not.toContainText('읽을 거리');

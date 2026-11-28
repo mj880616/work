@@ -184,28 +184,26 @@ test('PC: a query that looks like HTML is shown as text, never injected; server 
  expect(alerted).toBe(false);expect(errors).toEqual([]);
 });
 
-test('Phone 390: the menu sheet has a search field at the top; it opens a full-screen search with ← and no home field',async({page})=>{
+test('Phone 390: the home date line ends with the one search magnifier (not the menu sheet); tapping it opens the full-screen search field in that first line (S71-07·S71-41)',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  const calls=[];
  await openHome(page,{beforeLoad:()=>routeSearch(page,calls)});
  await expect(page.locator('#homeView input[type="search"]')).toHaveCount(0);
  await expect(page.locator('[data-search-slot]')).toBeHidden();
- await page.locator('#mobileMenuTab').click();
- const entry=page.locator('#mobileMenu .gs-menu-entry');
+ // S70-57(사용자 11/26 "전체 검색은 홈에만"): 입구는 홈 하나. 메뉴 창에는 없다.
+ // S71-41 HOME-머리한줄: 입구는 따로 된 칸 줄이 아니라 날짜 머리줄 끝 돋보기.
+ const entry=page.locator('#homeView [data-journal-find]');
  await expect(entry).toBeVisible();
- // 메뉴 창 메뉴 칸 바로 위(S68-36: 계정 묶음 아래, 타일들보다 위). 창이 올라오는 움직임(.2s)이 끝난 뒤 두 칸의 자리를 한 번에 잰다
- // (움직이는 중에 따로 재면 재는 순간이 달라 위·아래가 뒤집혀 보인다).
- await page.waitForFunction(()=>document.querySelector('#mobileMenu .mobile-menu-panel')?.getAnimations().length===0);
- const {e,t}=await page.evaluate(()=>({
-  e:document.querySelector('#mobileMenu .gs-menu-entry').getBoundingClientRect().y,
-  t:document.querySelector('#mobileMenu nav button').getBoundingClientRect().y,
- }));
- expect(e).toBeLessThan(t);
+ await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
+ await page.locator('#mobileMenuTab').click();
+ await expect(page.locator('#mobileMenu .gs-menu-entry')).toHaveCount(0);
+ await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
  await entry.click();
- await expect(page.locator('#mobileMenu')).toBeHidden();
  await expect(page.locator('#searchView')).toBeVisible();
- const input=page.locator('#searchView .gs-view-input input');
+ // S71-07 SEARCH-누른자리그대로: 화면 안 두 번째 칸 없이, 머리 줄 칸 그대로 입력(S71-41: 돋보기를 누른 그 첫 줄 자리).
+ const input=page.locator('#gsHeadInput');
  await expect(input).toBeFocused();
+ await expect(page.locator('#searchView input')).toHaveCount(0);
  await input.fill('교섭');
  const body=page.locator('#searchView .gs-view-body');
  await expect(body.locator('.gs-chips [data-filter-value]')).toHaveCount(7);
@@ -216,13 +214,17 @@ test('Phone 390: the menu sheet has a search field at the top; it opens a full-s
  // 칩 [업데이트] → 그 종류만 5건.
  await body.locator('.gs-chips [data-filter-value="update"]').click();
  await expect(body.locator('[data-gs-group="update"] .gs-row')).toHaveCount(5);
- // 줄 누르기 → 원본(바구니), 뒤로 가기 → 검색 화면, 왼쪽 위 ← → 이전 화면(홈).
+ // 줄 누르기 → 원본(바구니), 뒤로 가기 → 검색 화면, 또 뒤로 → 홈(머리 줄 칸은 비운 원래 상태).
  await body.locator('.gs-row').filter({hasText:'다섯째 메모'}).click();
  await expect(page.locator('#basketView')).toBeVisible();
  await page.goBack();
  await expect(page.locator('#searchView')).toBeVisible();
- await page.locator('#searchView .gs-back').click();
+ await expect(input).toHaveValue('교섭');
+ await page.goBack();
  await expect(page.locator('#homeView')).toBeVisible();
+ await expect(input).toHaveValue('');
+ await expect(input).not.toBeFocused();
+ await expect(input).toBeHidden();
 });
 
 // LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭 = 작은 메뉴(맨 위 [선택], [열기]). [선택]은 결과 창을 닫고 자료실 화면의 같은 선택 모드로 넘긴다.

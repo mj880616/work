@@ -40,11 +40,11 @@ test('모양 한 곳: 늘 한 줄(nowrap·고정 높이), 단추 테두리·바�
   assert.match(bar, /height:var\(--kptu-selbar-h,36px\)/);
   assert.match(bar, /overflow:hidden/);
   assert.match(bar, /background:var\(--kptu-primary-soft\)/);
-  const btn = css.match(/#appView \.kptu-selbar button\.kptu-sb-act\{[^}]*\}/)[0];
+  const btn = css.match(/:is\(#appView,\.modal\) \.kptu-selbar button\.kptu-sb-act\{[^}]*\}/)[0];
   assert.match(btn, /border:0;/);
   assert.match(btn, /background:transparent/);
   assert.match(btn, /white-space:nowrap/);
-  assert.match(css, /#appView \.kptu-selbar button\.kptu-sb-danger\{color:var\(--kptu-danger\)\}/);
+  assert.match(css, /:is\(#appView,\.modal\) \.kptu-selbar button\.kptu-sb-danger\{color:var\(--kptu-danger\)\}/);
   const all = (css.match(/[^{}]*kptu-s[eb][^{}]*\{[^}]*\}/g) || []).join('\n');
   assert.doesNotMatch(all, /#[0-9a-f]{3,8}\b|rgb\(/i, '하드코딩 색 없음');
   // 화면 CSS는 자리만 — 막대 모양(줄바꿈·바탕·테두리)을 따로 두지 않는다.

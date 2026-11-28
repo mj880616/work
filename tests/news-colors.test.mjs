@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {FIXED_OUTSIDE, FIXED_NEWS, FAMILIES, SHADES, colorVar, outsideColor, outsideBar, newsColor, newsBar, postTag, newsTag, tagLabel, tagStyle, shadeOf, baseKey} from '../app/news-colors.mjs';
-import {rowHtml, dayHtml} from '../app/news-row.mjs';
+import {rowHtml, dayHtml, daysListHtml, leadText} from '../app/news-row.mjs';
 // S51-8 NEWS-전면개편 P4b: News 목록 색·꼬리표는 news-colors.mjs 하나, 값은 theme-tokens.css 토큰(밝은·어두운 화면 둘 다).
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const css = readFileSync(new URL('../app/theme-tokens.css', import.meta.url), 'utf8');
@@ -57,6 +57,30 @@ test('줄 글자: 바깥 글자는 esc, 읽음·안 읽음·모름, 별표, 색 
   assert.doesNotMatch(dayHtml('어제', '', 0, esc), /새 글/);
 });
 
+// S71-27 NEWS-머리한줄: 맨 위 '오늘' 묶음만 머리 없이(새 글 수는 화면 첫 줄), 아래 날짜 묶음 머리는 그대로. 맨 위가 다른 묶음이거나 lead=false면 모두 그대로.
+test('daysListHtml: 맨 위 오늘 묶음 머리만 빼고 그 새 글 수를 돌려준다', () => {
+  const g = [{label: '오늘', rows: '<i>a</i>', unread: 3}, {label: '어제', rows: '<i>b</i>', unread: 1}];
+  const d = daysListHtml(g, esc);
+  assert.equal(d.lead, 3);
+  assert.doesNotMatch(d.html, /오늘 · 새 글/);
+  assert.match(d.html, /^<section class="nw-day nw-day-lead" aria-label="오늘"><div class="nw-card"><i>a<\/i><\/div><\/section>/);
+  assert.match(d.html, /<h3 class="nw-day-head">어제 · 새 글 1<\/h3>/);
+  // 맨 위가 관심 주제(또는 어제)면 아무 머리도 빼지 않는다.
+  const lifted = daysListHtml([{label: '관심 주제', rows: '', unread: 1}, ...g], esc);
+  assert.equal(lifted.lead, null);
+  assert.match(lifted.html, /오늘 · 새 글 3/);
+  assert.equal(daysListHtml([g[1]], esc).lead, null);
+  // 목록 맨 위가 아닌 곳(국제 접기 안쪽 등)은 lead=false — 그대로.
+  const inner = daysListHtml(g, esc, {lead: false});
+  assert.equal(inner.lead, null);
+  assert.match(inner.html, /오늘 · 새 글 3/);
+  assert.deepEqual(daysListHtml(null, esc), {html: '', lead: null});
+  assert.equal(daysListHtml([{label: '오늘', rows: '', unread: 0}], esc).lead, 0);
+  assert.equal(leadText(40), '새 글 40');
+  assert.equal(leadText(0), '');
+  assert.equal(leadText(null), '');
+});
+
 // NEWS-정당색 → NEWS-고유색: 키별 고정 색 표(정당 4곳·금속노조·공공운수노조). 이름 글자·막대 토큰 두 개, 나머지 색은 그대로.
 const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
@@ -102,7 +126,29 @@ test('고정 색 표의 키는 모두 지금 카탈로그에 있다(이름이 �
 // 일부러 표에 없는 키만 아래에 까닭과 함께 적는다. 까닭 없이 키를 여기에 더해 시험을 넘기지 않는다(새 매체는 표·토큰을 더하는 것이 기본).
 // S59-1: 구글 뉴스 키워드 찾기 길(news-google)은 카탈로그에서 없앴다(robots 금지) — 지금은 일부러 뺀 언론 키가 없다.
 // S69 사설·칼럼 피드 키('news-<신문>-opinion')는 그 신문 고유색을 함께 쓴다(baseKey) — 고유색 표에 있는 신문이면 따로 적지 않는다.
-const NO_FIXED_COLOR_NEWS = {'news-segye-opinion': '세계일보는 사설·칼럼만 받는 신문이라 고유색 없이 언론 묶음 돌려쓰기 칸(S69 NEWS-사설칼럼)'};
+const NO_FIXED_COLOR_NEWS = {'news-segye-opinion': '세계일보는 사설·칼럼만 받는 신문이라 고유색 없이 언론 묶음 돌려쓰기 칸(S69 NEWS-사설칼럼)',
+  'news-simonwillison': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-lucumr': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-mitchellh': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-addyosmani': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-harperreed': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-martinfowler': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-arseblog': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-arseblognews': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-spielverlagerung': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-mastermind': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-slownews': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-guardian-opinion': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-noahpinion': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-lpeproject': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-latentspace': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-steipete': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-geeknews': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-analyticsfc': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-opendemocracy': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-phenomenalworld': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+  'news-nlr-sidecar': '개인 블로그·뉴스레터·주제 묶음 매체라 정해진 상징색이 없어 언론 묶음 돌려쓰기 칸(NEWS-수집처늘리기 11/28)',
+};
 const NO_FIXED_COLOR_OUTSIDE = {};
 const missingFixed = (catalog, fixed, skip) => catalog.filter(k => !fixed.includes(baseKey(k)) && !(k in skip));
 
@@ -129,16 +175,18 @@ test('빠진 키를 알려 주는 검사 자체가 동작한다: 가짜 카탈�
 
 // S58-5 새 매체(NEWS-못넣은곳대안): 각자 고유색. S59-1: 길이 있는 6곳만 남고(자기 RSS), 길이 없어 카탈로그에서 뺀 8곳은 표·토큰에서도 뺐다.
 const NEW_NEWS_6 = ['news-worknworld', 'news-newsmin', 'news-redaily', 'news-laborplus', 'news-redian', 'news-mt'];
-const REMOVED_NEWS_8 = ['news-mediatoday', 'news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
+const ADDED_NEWS_2 = ['news-newscham', 'news-mediatoday'];
+// S71-70: news-mediatoday는 분야 목록 쪽으로 다시 넣어 고유색도 되살렸다(아래 ADDED_NEWS_2).
+const REMOVED_NEWS_8 = ['news-busan', 'news-newsone', 'news-edaily', 'news-kookje', 'news-kyeonggi', 'news-kyeongin', 'news-yeongnam'];
 test('새 언론 6곳: 고정 표 뒤쪽(앞 매체 차례 그대로), 막대는 한 색, 글자·막대 토큰이 밝은·어두운 화면에 있다 — 뺀 8곳은 표·토큰에 없다', () => {
   assert.deepEqual([...FIXED_NEWS].slice(0, 3), ['news-labortoday', 'news-beminor', 'news-pressian']);
   assert.deepEqual([...FIXED_NEWS].slice(19, 22), ['news-psi', 'news-itf', 'news-labourstart']);
-  assert.deepEqual([...FIXED_NEWS].slice(22), NEW_NEWS_6);
+  assert.deepEqual([...FIXED_NEWS].slice(22), [...NEW_NEWS_6, ...ADDED_NEWS_2]);
   for (const k of REMOVED_NEWS_8) {
     assert.ok(!FIXED_NEWS.includes(k), k);
     assert.doesNotMatch(css, new RegExp(`--ds-news-id-${k}[:-]`), `${k} 토큰이 남음`);
   }
-  for (const k of NEW_NEWS_6) {
+  for (const k of [...NEW_NEWS_6, ...ADDED_NEWS_2]) {
     assert.equal(newsColor({source_key: k}, []), `var(--ds-news-id-${k})`);
     assert.equal(newsBar({source_key: k}, []), `var(--ds-news-id-${k}-bar)`);
     for (const part of [lightPart, darkPart]) assert.match(tok(part, `ds-news-id-${k}-bar`) || '', /^#[0-9a-f]{6}$/, `${k} 막대는 한 색`);

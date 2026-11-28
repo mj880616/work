@@ -381,9 +381,8 @@ test('전수: 앱 폴더를 맨 위에서 이름으로만 찾는 곳이 없다(�
     if (/'root' in parents/.test(src)) hits.push(rel);
   }
   // app-folders.mjs: 부모 조건·모으기 쿼리. drive-summary/core.mjs: 안쪽 문서 외 예전 맨 위 조건 한 줄(맨 위 사본 폴더는 자리 조건 없이 표식만).
-  // library-files/drive-import.mjs(S69-25b): 앱 폴더를 찾는 곳이 아니라 [드라이브에서 가져오기]에서 고를 '내 드라이브' 맨 위 내 폴더 목록을 읽는 곳.
-  //   앱 폴더는 이름이 아니라 저장한 id·표식으로 빼고(checkFolder·planImport), 이름은 표식 없는 옛 폴더를 빼는 보조로만 쓴다.
-  assert.deepEqual(hits.sort(), ['_shared/app-folders.mjs', 'drive-summary/core.mjs', 'library-files/drive-import.mjs']);
+  // (S70-73: [드라이브에서 가져오기]의 '내 드라이브' 맨 위 폴더 목록(library-files/drive-import.mjs)은 지웠다 — 자동 등록은 자료실 나무만 훑는다.)
+  assert.deepEqual(hits.sort(), ['_shared/app-folders.mjs', 'drive-summary/core.mjs']);
   const summary = readFileSync(join(base, 'drive-summary/core.mjs'), 'utf8');
   assert.match(summary, /kind === 'folder' \? '' :/);
 });
@@ -408,24 +407,28 @@ test('맨 위 앱 폴더를 처음 만들 때 저절로: gatherIntoNewRoot가 �
   assert.equal(await gatherIntoNewRoot({ drive: null, rootId: ROOT }), null);
 });
 
-test('서버가 맨 위 앱 폴더를 새로 만드는 네 곳 모두 만든 바로 뒤 gatherIntoNewRoot를 부른다(그 밖에는 부르지 않음)', () => {
+test('서버가 맨 위 앱 폴더를 새로 만드는 곳 모두 만든 바로 뒤 gatherIntoNewRoot를 부른다(그 밖에는 부르지 않음)', () => {
   const base = fileURLToPath(new URL('../supabase/functions/', import.meta.url));
   const read = f => readFileSync(join(base, f), 'utf8');
-  for (const f of ['workspace-drive/index.ts', 'library-files/index.ts', 'meeting-files/index.ts']) {
+  for (const f of ['workspace-drive/index.ts', 'library-files/index.ts']) {
     const src = read(f);
     assert.match(src, /root_folder_id:d\.id,updated_at:new Date\(\)\.toISOString\(\)\}\);await gatherIntoNewRoot\(\{drive:tokenDrive\(token\),rootId:d\.id\}\);return d\.id/, f);
     assert.match(src, /import \{[^}]*gatherIntoNewRoot[^}]*\} from '\.\.\/_shared\/gather-folders\.mjs'/, f);
   }
-  const mt = read('meeting-transcribe/index.ts');
-  assert.match(mt, /root_folder_id: root, updated_at: new Date\(\)\.toISOString\(\) \}\);\n\s*\/\/ S70-29[^\n]*\n\s*await gatherIntoNewRoot\(\{ drive: [^\n]*rootId: root \}\);/);
-  // 맨 위 앱 폴더(root_folder_id)를 새로 적는 곳은 이 네 곳뿐 — 다른 곳이 생기면 이 시험이 알린다.
+  // S71-02: 회의 두 함수(meeting-files·meeting-transcribe)는 드라이브 자리 규칙 _shared/meeting-drive-place.mjs 한 곳이 맨 위 앱 폴더를 만들고
+  // 바로 뒤 부르는 쪽이 넣은 gather(= gatherIntoNewRoot)를 부른다(시험 tests/security/meeting-drive-place.test.mjs '새 사용자').
+  const place = read('_shared/meeting-drive-place.mjs');
+  assert.match(place, /root = await createFolder\(ctx\.drive, ROOT_FOLDER_NAME, null\);\n\s*await ctx\.db\.save\(\{ root_folder_id: root \}\);\n\s*try \{ await ctx\.gather\?\.\(root\); \}/);
+  assert.match(read('meeting-files/index.ts'), /gather:\(rootId:string\)=>gatherIntoNewRoot\(\{drive,rootId\}\)/);
+  assert.match(read('meeting-transcribe/index.ts'), /gather: \(rootId: string\) => gatherIntoNewRoot\(\{ drive, rootId \}\)/);
+  // 맨 위 앱 폴더(root_folder_id)를 새로 적는 곳은 이 셋뿐 — 다른 곳이 생기면 이 시험이 알린다.
   const writers = [];
-  const walk = d => { for (const n of readdirSync(join(base, d), { withFileTypes: true })) { const p = join(d, n.name); if (n.isDirectory()) walk(p); else if (/\.(ts|mjs)$/.test(n.name) && /upsert\(\{\s*workspace_id:\s*workspaceId,\s*root_folder_id/.test(read(p))) writers.push(p); } };
+  const walk = d => { for (const n of readdirSync(join(base, d), { withFileTypes: true })) { const p = join(d, n.name); if (n.isDirectory()) walk(p); else if (/\.(ts|mjs)$/.test(n.name) && /upsert\(\{\s*workspace_id:\s*workspaceId,\s*root_folder_id|save\(\{\s*root_folder_id/.test(read(p))) writers.push(p); } };
   walk('.');
-  assert.deepEqual(writers.sort(), ['library-files/index.ts', 'meeting-files/index.ts', 'meeting-transcribe/index.ts', 'workspace-drive/index.ts']);
+  assert.deepEqual(writers.sort(), ['_shared/meeting-drive-place.mjs', 'library-files/index.ts', 'workspace-drive/index.ts']);
 });
 
-test('화면: 자료실 위 줄·내 프로필 칸 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 칸은 위치와 [열기 ↗]만', async () => {
+test('화면: 자료실 위 줄·내 프로필 장 모두 [한곳으로 모으기] 버튼이 없고(S70-29), 내 프로필 장은 위치 줄(열기 ↗)과 로그인 계정 줄만', async () => {
   const code = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
   assert.doesNotMatch(code('library-drive-line.js'), /lu-drive-gather|앱 폴더 모으기|gather-folders/);
   const { driveLineHtml } = await import('../app/library-drive-line.js');
@@ -436,10 +439,13 @@ test('화면: 자료실 위 줄·내 프로필 칸 모두 [한곳으로 모으�
   for (const name of ['gatherAppFolders', 'gatherAskText', 'gatherResultText']) assert.equal(mod[name], undefined, name);
   const { driveFoldersHtml, cleanPlan } = mod;
   const p = cleanPlan({ ok: true, root_name: 'WORK ON+', root_url: 'https://drive.google.com/drive/folders/abcdefghij12', count: 3, rename: 2 });
-  assert.match(driveFoldersHtml(p), /앱이 쓰는 드라이브 폴더:.*내 드라이브 › WORK ON\+.*열기 ↗/);
+  // S71-36 PROFILE-설정화면: 공용 설정 줄 '앱이 쓰는 폴더 · 내 드라이브 › 이름 · 열기 ↗'(줄 전체가 드라이브 링크).
+  assert.match(driveFoldersHtml(p), /<a class="sl-row sl-link"[^>]*href="https:\/\/drive\.google\.com\/drive\/folders\/abcdefghij12"[^>]*>.*앱이 쓰는 폴더.*내 드라이브 › WORK ON\+.*열기.*↗/);
+  assert.match(driveFoldersHtml(p, {account: 'a@example.org'}), /로그인 계정.*a@example\.org/);
+  assert.doesNotMatch(driveFoldersHtml(p), /로그인 계정/, '계정을 모르면 그 줄은 없다');
   assert.doesNotMatch(driveFoldersHtml(p), /<button|data-dfp-gather|한곳으로 모으기|모아 둠/, '모을 것이 남아도 버튼 없음');
-  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /class="dfp-dup"[^>]*>같은 이름 있어 그대로 2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
-  assert.doesNotMatch(driveFoldersHtml(p), /dfp-dup/);
+  assert.match(driveFoldersHtml(cleanPlan({ ok: true, root_name: 'WORK ON+', count: 0, rename: 0, rename_dup: 2 })), /data-dfp-dup[^>]*>.*같은 이름 있어 그대로.*>2</, 'S69-42: 같은 이름이 있어 둔 것은 작게 한 마디');
+  assert.doesNotMatch(driveFoldersHtml(p), /data-dfp-dup/);
   assert.equal(cleanPlan({ ok: true, root_name: 'x', root_url: 'https://evil.example/drive/folders/abcdefghij12', count: 0 }).url, null, '드라이브 주소가 아니면 링크를 그리지 않는다');
   assert.equal(cleanPlan(null), null);
   const users = readdirSync(fileURLToPath(new URL('../app/', import.meta.url))).filter(n => /\.(js|mjs)$/.test(n))

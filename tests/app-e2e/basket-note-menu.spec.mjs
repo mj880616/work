@@ -6,7 +6,6 @@ import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 import { answerAsk } from './helpers/small-notice.mjs';
-import {screenFind} from './helpers/screen-find.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 풀기 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -78,13 +77,15 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     const more = rowMore(page, 'n-plain');
     const mb = await more.boundingBox();
-    expect(mb.width).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
+    // 줄 끝 ⋯ 는 눈에 보이는 폭을 줄이되(세로 점, 32px) 누르는 자리(::after)는 손가락 크기(≥44) 그대로다.
+    const hit = await more.evaluate(el => { const a = getComputedStyle(el, '::after'); return { w: el.getBoundingClientRect().width + Math.abs(parseFloat(a.left)||0) + Math.abs(parseFloat(a.right)||0), h: parseFloat(a.height)||el.getBoundingClientRect().height }; });
+    expect(mb.width).toBeGreaterThanOrEqual(28); expect(hit.w).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
     // [복사] sits left of [⋯], both on the right side of the row.
     const rb = await page.locator('[data-note-row="n-plain"]').boundingBox(); expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
     await expect(page.locator('[data-note-row-copy]')).toHaveCount(0);
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '하루 기록으로 보내기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '이 노트를 HWP로', '하루 기록으로 보내기', '삭제']);
     const m = await menu(page).boundingBox();
     expect(m.y).toBeGreaterThanOrEqual(mb.y + mb.height - 1); expect(m.y - (mb.y + mb.height)).toBeLessThanOrEqual(12);
     expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(width);
@@ -94,11 +95,11 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Escape');
     await expect(menu(page)).toBeHidden(); await expect(more).toBeFocused(); await expect(more).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator('[data-note-detail]')).toBeHidden();
-    // Outside press closes it without opening anything.
+    // Outside press closes it without opening anything (STD-메뉴바깥닫기 C8: 다른 노트 줄을 눌러도 메뉴만 닫히고 그 노트는 열리지 않는다).
     await press(page, more, width); await expect(menu(page)).toBeVisible();
-    // NOTE-보기3가지: the head's count is read-aloud only now (the view switch sits in its place); press the search box instead.
-    await (await screenFind(page)).click();
+    await press(page, page.locator('[data-note-row="n-md"]'), width);
     await expect(menu(page)).toBeHidden(); await expect(page.locator('[data-note-detail]')).toBeHidden();
+    await page.waitForTimeout(500); await expect(page.locator('[data-note-detail]')).toBeHidden();
     // A second ⋯ moves the menu; the first one is closed.
     await press(page, more, width); await press(page, rowMore(page, 'n-md'), width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'false');
@@ -157,7 +158,7 @@ for (const width of [390, 1280]) {
     await expect(detail.locator('[data-note-meta]')).toContainText('연결 없음');
     await press(page, detail.locator('[data-note-more]'), width);
     // NOTE-링크원문: 이 노트 본문에는 https 링크가 있어 [원문 가져오기]도 보인다(링크 없는 노트에는 없음 — note-link-import.spec.mjs).
-    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '원문 가져오기', '연결하기', '잊지 말기로 돌리기', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '하루 기록으로 보내기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '원문 가져오기', '연결하기', '잊지 말기로 돌리기', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '이 노트를 HWP로', '하루 기록으로 보내기', '삭제']);
     const mm = await menu(page).boundingBox();
     expect(mm.y).toBeGreaterThanOrEqual(more.y + more.height - 1); expect(mm.x + mm.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: info.outputPath(`note-detail-menu-${width}.png`) });
@@ -250,10 +251,15 @@ test('PC: the row menu opens above the ⋯ when there is no room below, and foll
   const f = await fixture(page, 1280, { more: [['n-old1', '2026-09-03T01:00:00Z'], ['n-old2', '2026-09-02T01:00:00Z'], ['n-old3', '2026-09-01T01:00:00Z']] });
   await page.setViewportSize({ width: 1280, height: 420 });
   const more = rowMore(page, 'n-old3');
-  await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
-  await more.scrollIntoViewIfNeeded();
-  const pre = await more.boundingBox();
-  expect(420 - (pre.y + pre.height)).toBeLessThan(200); // 아래에는 메뉴가 들어갈 자리가 없다(전제)
+  // TEST-옮기기창굴리기안정화: 창 높이를 900→420으로 바꾼 직후에는 손짓 칸(gesture-fill.js, 이 시험은 hasTouch라 켜짐)이 아직 900 기준
+  // 높이(min-height)라 문서가 잠깐 길다(350px 남짓). 칸은 resize 다음 그림 차례(rAF)에 다시 재므로, 그 사이에 맨 아래로 넘기면 옛 긴 문서의
+  // 맨 아래로 가서 마지막 줄 ⋯가 화면 위쪽(CI에서 아래 361px 남음)에 놓여 전제가 깨졌다. 전제(⋯ 아래 자리 없음)가 설 때까지 '맨 아래로 넘기기 →
+  // 자리 재기'를 되풀이한다(시간이 아니라 화면 상태를 기다림. 칸이 끝내 줄지 않으면 여기서 깨진다).
+  await expect.poll(async () => {
+    await page.evaluate(() => window.scrollTo(0, document.scrollingElement.scrollHeight));
+    const pre = await more.boundingBox();
+    return pre && pre.y >= 0 ? 420 - (pre.y + pre.height) : 999;
+  }, { message: '아래에는 메뉴가 들어갈 자리가 없다(전제)' }).toBeLessThan(200);
   await more.click();
   await expect(menu(page)).toBeVisible();
   const mb = await more.boundingBox(), m = await menu(page).boundingBox();

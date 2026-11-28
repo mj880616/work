@@ -281,7 +281,7 @@ import {addTip} from './calendar-tip.js';
   function allEvents(options){
     return [
       ...(options.googleEvents||[]).map(ev=>normalizeGoogle(ev,options.googleState||{})),
-      ...tasks.map(normalizeTask)
+      ...(options.taskFind?tasks.filter(options.taskFind):tasks).map(normalizeTask) // S70-57 맨 위 칸 '일정에서 찾기'(calendar-view.js)
     ].filter(ev=>Number.isFinite(ev.start.getTime())&&Number.isFinite(ev.end.getTime()));
   }
   // MENU-자리나머지: 칸 안 할 일 줄을 우클릭해 연 할 일 메뉴(calendar-tasks.js)는 달력을 다시 그린 뒤 같은 할 일의 새 줄에 붙고, 없어지면 닫힌다(공용 keepMenus).
@@ -297,7 +297,7 @@ import {addTip} from './calendar-tip.js';
     const events=allEvents(options);
     const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
-    tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
+    (options.taskFind?tasks.filter(options.taskFind):tasks).forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
     // 할 일은 폰·PC·폴드 모두 같은 부품(cellTaskButton)으로 칸 안 제목 줄로(S48-6c 폰, S49-6 CAL-PC할일보이기 PC). 날짜 옆 ✓n 표시는 없앴다.
     weeks.forEach(week=>addCellTasks(week,pendingByDate));
 
@@ -639,7 +639,7 @@ import {addTip} from './calendar-tip.js';
   window.addEventListener('resize',scheduleRerender,{passive:true});
   const forceRerender=()=>{if(last&&!document.querySelector('#calendarView')?.classList.contains('hidden')){cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(rerender)}};
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
-  document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
+  document.addEventListener('kptu:google-panel-toggle',forceRerender); // CAL-머리한줄: 구글 캘린더 칸 열고 닫기(calendar-google-panel.js)
 
   window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag,setExpanded,isExpanded:()=>expanded,zoom:()=>zoomMode?zoom:1};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);

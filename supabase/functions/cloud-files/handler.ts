@@ -6,6 +6,7 @@
 //   받는 대로 보내며 크기·해시를 맞춘 뒤에만 원본을 휴지통으로). 쓰기 결과는 같은 요청 안에서 색인에 반영하고 바뀐 줄을 돌려준다.
 //   copy(FILES-통합 2-①: 1개씩, 같은 클라우드는 파일·폴더째, 클라우드 사이는 파일만 across와 같은 길, 원본은 그대로).
 //   untrash(S69-62: 구글 휴지통의 내 파일을 되살리기 trashed:false, confirm:true).
+//   purge(FILES-휴지통영구삭제: 구글 휴지통의 내 파일을 영구 삭제, confirm:true, 1~100개, 줄마다 구글에 휴지통·내 것·내 드라이브·canDelete를 다시 확인한 것만).
 //   같은 이름은 덮어쓰지 않고 번호를 붙인다(H-3: copy·across는 늘, move는 numbered:true일 때). 자동·예약 쓰기는 없다(사람이 누른 요청만).
 // 문(모두 서버에서, 매 요청): ① 로그인(Auth) ② 그 사람이 작업공간 owner(owner 행 정확히 1개)
 //   ③ (구글) 그 작업공간의 Drive 연결(app_drive_connections 그 행)의 갱신 토큰만 ④ (원드라이브) 그 작업공간의 app_onedrive_connections 행.
@@ -15,7 +16,8 @@
 // 새 OAuth 범위 없음: 원드라이브는 이미 받은 Files.ReadWrite(onedrive-photos/graph.ts SCOPE, .All 섞이면 거절), 구글은 연결 때 받은 drive
 //   (drive.file만 받은 연결은 gd_scope_missing → 화면 '[Drive 다시 연결]').
 // 1단계는 내 드라이브만(F6): 구글은 ownedByMe 파일만, 공유 드라이브·'공유 문서함'은 넣지 않는다. 원드라이브는 /me/drive만.
-// 함수에 없는 것(시험이 문자열로 막음): 영구 삭제, 휴지통 비우기, 공유 링크·권한 만들기, 소유자 바꾸기.
+// 함수에 없는 것(시험이 문자열로 막음): 휴지통 비우기, 휴지통 밖 파일의 영구 삭제, 원드라이브 영구 삭제, 공유 링크·권한 만들기, 소유자 바꾸기.
+//   영구 삭제는 purge 한 곳의 구글 DELETE뿐이고 그 앞에서 휴지통에 있는 내 파일인지 구글에 다시 묻는다(시험이 막음).
 // 토큰·임시 받기 주소는 service role로만 읽고 응답·로그에 싣지 않는다. 파일 본문은 저장하지 않는다(중계만).
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { GRAPH, normalizeScopes, safeDownloadUrl, SCOPE as OD_SCOPE, scopeAllowed, validItemId } from "../onedrive-photos/graph.ts";
@@ -191,6 +193,9 @@ export function servedType(raw: string | null): { type: string; inline: boolean 
 // ---- 쓰기 규칙(S48-45) ----
 // 같은 클라우드 안 옮기기·휴지통은 한 번에 200개까지(설계 3절). 클라우드 사이는 1개·200MB까지(F8).
 export const WRITE_MAX = 200;
+// 구글 휴지통 영구 삭제(FILES-휴지통영구삭제)는 한 번에 100개까지(휴지통 목록 한 쪽 크기와 같음). 화면은 100개씩 나눠 부른다.
+export const PURGE_MAX = 100;
+const PURGE_PICK_FIELDS = "id,trashed,ownedByMe,driveId,capabilities(canDelete)";
 export const ACROSS_MAX_BYTES = 200 * 1024 * 1024;
 // 이어 올리기 조각: 원드라이브는 320KiB, 구글은 256KiB의 배수여야 한다(10MiB = 둘 다의 배수).
 export const UPLOAD_CHUNK = 10 * 1024 * 1024;
@@ -794,7 +799,7 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return out;
   }
   // 그 클라우드 휴지통으로(F1). 원드라이브 DELETE /me/drive/items/{id}는 원드라이브 휴지통으로 간다(영구 삭제는 별도 동작이고 쓰지 않음).
-  //   구글은 trashed:true로만(구글 DELETE는 영구 삭제라 쓰지 않음).
+  //   구글은 trashed:true로만(구글 DELETE는 영구 삭제라 여기서는 쓰지 않음 — 영구 삭제는 purge에서 휴지통 확인 뒤에만).
   async function toTrash(source: Source, token: string, id: string) {
     if (source === "od") await cloudWrite("od_trash", token, `${GRAPH}/me/drive/items/${encodeURIComponent(id)}`, "DELETE");
     else await cloudWrite("gd_trash", token, `${DRIVE}/files/${encodeURIComponent(id)}?fields=id,trashed`, "PATCH", { trashed: true });
@@ -1836,6 +1841,30 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
       });
       if (changed.length) await upsertRows("untrash_upsert", changed);
       return json({ ok: true, changed: changed.map(pickRow), removed: [], failed, left });
+    },
+    // FILES-휴지통영구삭제(사용자 결정 2026-11-28 "1 서버에 길을 둬요"): 구글 드라이브 휴지통의 내 파일을 영구 삭제(1~100개, confirm:true).
+    //   화면이 보낸 id를 믿지 않고 줄마다 구글에 다시 묻는다: 지금 휴지통에 있고(trashed) 내 것이며(ownedByMe) 내 드라이브이고(driveId 없음 —
+    //   공유 드라이브 아님) 구글이 내가 지울 수 있다고 하는 것(capabilities.canDelete)만 DELETE /files/{id}. 하나라도 아니면 그 줄만 실패.
+    //   휴지통에 넣지 않은 파일은 이 길로 지울 수 없다(일반 [삭제]는 계속 trashed:true). 원드라이브는 길이 없다(웹 휴지통 안내 그대로).
+    //   기록에는 단계 이름·상태 숫자만 남긴다(파일 이름·id 없음). 휴지통 비우기(emptyTrash)는 두지 않는다 — 한 줄씩 확인한 것만 지운다.
+    async purge({ workspaceId: ws, body: b }) {
+      mustConfirm(b);
+      if (b.source !== "gd") throw new Fail(400, "source_invalid");
+      const ids = idList(b.ids, "gd");
+      if (!ids || ids.length > PURGE_MAX) throw new Fail(400, "ids_invalid");
+      const token = await gdToken(ws);
+      const done: string[] = [];
+      const { failed, left } = await eachLimited(ids, async (id) => {
+        const f = await cloudJson("gd_purge_pick", token, `${DRIVE}/files/${encodeURIComponent(id)}?fields=${PURGE_PICK_FIELDS}`);
+        if (f.id !== id || f.trashed !== true || f.ownedByMe !== true || f.driveId !== undefined) throw new Fail(404, "not_in_trash");
+        const caps = f.capabilities as Record<string, unknown> | undefined;
+        if (caps?.canDelete !== true) throw new Fail(403, "cannot_delete");
+        await cloudWrite("gd_purge", token, `${DRIVE}/files/${encodeURIComponent(id)}`, "DELETE");
+        done.push(id);
+      });
+      // 휴지통 줄은 보통 색인에 없지만(휴지통으로 보낼 때 뺌), 남아 있는 옛 줄이 있으면 함께 뺀다.
+      const removed = done.length ? await deleteTree(ws, "gd", done) : [];
+      return json({ ok: true, changed: [], removed: [...new Set([...done, ...removed])].map((id) => ({ source: "gd", id })), failed, left });
     },
     // 클라우드 사이 옮기기(⑦, F8): 파일 1개, 200MB까지. 구글 문서류(받을 수 없는 것)·폴더는 안 됨.
     //   원본을 받는 대로 새 곳에 조각으로 보내고, 보낸 크기 = 원본 크기 = 새 파일 크기, 해시(원본 색인·새 파일이 주는 것)가 맞을 때만

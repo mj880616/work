@@ -55,7 +55,7 @@
 .ed-doc .ed-photo-cap{font-size:var(--ds-text-meta,12px)}
 .ed-doc .ed-photo:not(.is-place){gap:4px;padding:0;max-width:100%;border:0;background:none}
 .ed-doc .ed-photo-img{display:block;max-width:100%;height:auto;border-radius:var(--ds-radius-control,8px)}
-.ed-doc .ed-photo[data-ed-zoom]{cursor:zoom-in}
+.ed-doc .ed-photo[data-ed-zoom]{cursor:zoom-in;touch-action:pan-x pan-y}
 .ed-doc .ed-photo[data-ed-zoom]:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 .ed-doc .ed-table-wrap,.ed-doc .tableWrapper{margin:.4em 0 .9em;overflow-x:auto}
 .ed-doc table{border-collapse:collapse;min-width:50%}
@@ -268,7 +268,10 @@
 .ed-input .ed-toggle.is-closed>.ed-toggle-body>:not(:first-child){display:none}
 /* NOTE-노션편집 ①(나) 블록 편집: 켜면 글 왼쪽에 손잡이 ⋮⋮ 자리(조금 넓은 왼쪽 여백)만 생기고, 끄면 지금 글쓰기 화면 그대로(테두리·여백 표시 없음). */
 .ed-has-blocks .ed-box{position:relative}
-.ed-blocks-on .ed-input{padding-left:34px}
+.ed-blocks-on:not(.ed-blocks-touch) .ed-input{padding-left:34px}
+/* NOTE-블록꾹눌러잡기(S71-66, P6): 폰은 손잡이·왼쪽 여백이 없고, 꾹 눌러 잡은 블록은 옅은 테두리·그림자로 살짝 들린다(메뉴가 열려 있는 동안). */
+.ed-block-lift{position:absolute;z-index:4;pointer-events:none;border-radius:var(--ds-radius-control,6px);box-shadow:var(--kptu-shadow-float);outline:2px solid var(--kptu-primary-soft)}
+.ed-block-lift[hidden]{display:none}
 .ed-grip{position:absolute;z-index:5;display:inline-flex;align-items:center;justify-content:center;width:22px;height:24px;min-height:0;padding:0;border:0;border-radius:var(--ds-radius-control,6px);background:transparent;color:var(--kptu-muted);cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
 .ed-grip::after{content:"";position:absolute;inset:-10px -6px}
 .ed-grip:hover,.ed-grip[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}

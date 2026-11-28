@@ -3,7 +3,7 @@
 //   [할 일로][일정으로][노트로][이미 함] ×. 출처는 아래 작은 줄 맨 앞 흐린 꼬리표.
 // FORGET-소식바로잡기(요청함 11/09 01:45, 시안 docs/design/mockups/forget-news-fix.html): 모든 줄(가족 빼고) 같은 일곱
 //   [할 일로][일정으로][노트로][조직][사업][이미 함] × — 원래 다섯 + [조직][사업]. 폰·폴드·PC에서 버튼 줄은 한 줄.
-// - 위 오른쪽 [처리 전 ▾] 하나: 처리 전·보냄·이미 함·무시·연결 완료, 아래쪽 출처 거르기.
+// - S71-58 FORGET-처리전만(사용자 결정 2026-11-26): 보기·출처 거르기([처리 전 ▾])는 없다 — 목록은 늘 처리 전(forget-pending-only.spec.mjs).
 // - 각 버튼 동작은 기존 길 그대로(후보 상태 칸·가족 상태 칸·업데이트 보류 칸). 서버는 흉내, 글·이름은 모두 지어낸 것(가족 이름·번호·방 이름 없음).
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
@@ -100,11 +100,6 @@ const line=(page,key)=>page.locator(`#basketView [data-nbx-row="${key}"]`);
 const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 // 버튼 줄이 한 줄인가: 모든 버튼의 세로 범위가 겹친다(가장 아래 버튼의 위가 가장 위 버튼의 아래보다 위). right = 가장 오른쪽 끝.
 const oneLine=gs=>gs.map(g=>{const bs=[...g.children].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect());return {one:Math.max(...bs.map(b=>b.top))<Math.min(...bs.map(b=>b.bottom)),right:Math.max(...bs.map(b=>b.right))};});
-const viewBtn=page=>page.locator('#basketView [data-forget-view-open]');
-async function pickView(page,label){
-  await viewBtn(page).click();
-  await page.locator('#forgetViewMenu').getByRole('menuitemradio',{name:label,exact:true}).click();
-}
 
 for(const width of [390,884,1280])test(`${width}px: 칸 나눔 없이 한 목록(새 것이 위), 같은 줄·같은 버튼 일곱, 출처 꼬리표, 가족만 [조직][사업] 없음`,async({page},info)=>{
   await fixture(page,{width});
@@ -135,23 +130,12 @@ for(const width of [390,884,1280])test(`${width}px: 칸 나눔 없이 한 목록
   await page.screenshot({path:info.outputPath(`forget-one-list-${width}.png`)});
 });
 
-test('[처리 전 ▾]: 보냄·무시·연결 완료로 보기를 바꾸고, 출처로 거른다',async({page})=>{
+// S71-58: 처리한 줄(보냄·이미 함·무시·연결 완료)은 처리 전 목록에 없다.
+test('처리한 줄(보냄 후보·보류 업데이트)은 목록에 없다',async({page})=>{
   await fixture(page,{width:1280});
-  await expect(viewBtn(page)).toHaveText('처리 전 ▾');
-  await pickView(page,'보냄');
-  await expect(viewBtn(page)).toHaveText('보냄 ▾');
-  await expect(list(page).locator('[data-nbx-row]')).toHaveCount(1);
-  await expect(line(page,`c:${cid(5)}`).locator('.nbx-done')).toHaveText(/^할 일로 보냄/);
-  await expect(line(page,`c:${cid(5)}`).locator('[data-nbx-act]')).toHaveCount(0);
-  await pickView(page,'무시');
-  await expect(line(page,`u:${uid(2)}`).locator('.nbx-done')).toHaveText('보류');
-  await pickView(page,'처리 전');
-  await pickView(page,'가족');
-  await expect(viewBtn(page)).toHaveText('처리 전 · 가족 ▾');
-  await expect(list(page).locator('[data-nbx-row]')).toHaveCount(1);
-  await expect(line(page,`f:${famId}`)).toBeVisible();
-  await pickView(page,'모든 출처');
   await expect(list(page).locator('[data-nbx-row]')).toHaveCount(4);
+  await expect(line(page,`c:${cid(5)}`)).toHaveCount(0);
+  await expect(line(page,`u:${uid(2)}`)).toHaveCount(0);
 });
 
 test('버튼 동작은 기존 길 그대로: 후보 [이미 함]·[×], 가족 [×], 업데이트 [×](보류) — 모두 되돌리기',async({page})=>{
@@ -207,6 +191,35 @@ test('통화·텔레그램을 잠그면 소식·텔레그램 요청 줄 대신 �
   await expect(list(page)).not.toContainText('가상 통화 소식');
   await expect(list(page).locator('[data-forget-locked]')).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
   await expect(list(page).locator('[data-forget-src="todo"]').first()).toBeVisible();
+});
+
+// S71-19(명진 11/26 17:14 "통화 텔레그램 2줄 / 이게 구분감이 없어 위에거랑"): 잠김 줄은 바로 위 업데이트 줄의 일부가 아니라 따로 잠근 묶음 —
+// 위와 사이 얇은 선(목록 줄 구분선과 같은 선) + 맨 앞 작은 통화·텔레그램 아이콘 두 개. 업데이트 줄의 단추 줄과 같은 줄이 아니라 그 아래.
+const SHOTS19=process.env.KPTU_SHOTS?'docs/design/screens/s71-19/':'';
+test('390: 잠김 줄은 위 업데이트 줄과 선으로 나뉘고 맨 앞 작은 통화·텔레그램 아이콘, 업데이트 단추 줄 아래 따로',async({page})=>{
+  const news=[newsRow(2,{org_name:'가상 지부'}),newsRow(4,{source:'call',line:'가상 통화 소식'})];
+  // 사진과 같은 자리: 잠긴 텔레그램 요청·소식을 뺀 뒤 바로 위가 업데이트 줄(가족 없음, 챙길 것 없음).
+  await fixture(page,{width:390,news,features:['telegram','calls'],lockFeatures:['calls','telegram'],cands:[cand(1)]});
+  const locked=list(page).locator('[data-forget-locked]');
+  await expect(locked).toHaveText(/^통화·텔레그램 \d+줄 · 잠김 풀기$/);
+  await expect(locked.locator('.locked-line-ic svg')).toHaveCount(2);
+  await expect(list(page).locator('[data-nbx-row]').last()).toHaveAttribute('data-forget-src','update');
+  const got=await locked.evaluate(el=>{
+    const prev=el.previousElementSibling,cs=getComputedStyle(el),probe=document.createElement('i');
+    probe.style.color='var(--ds-line)';el.parentElement.append(probe);const lineColor=getComputedStyle(probe).color;probe.remove();
+    const acts=[...prev.querySelectorAll('.nbx-acts button')].filter(b=>b.getClientRects().length).map(b=>b.getBoundingClientRect());
+    const me=el.getBoundingClientRect(),ic=el.querySelector('.locked-line-ic').getBoundingClientRect();
+    return {prevRow:prev.matches('[data-nbx-row]'),prevSrc:prev.dataset.forgetSrc||'',line:cs.borderTopStyle,width:parseFloat(cs.borderTopWidth),color:cs.borderTopColor,lineColor,
+      actsBottom:Math.max(...acts.map(b=>b.bottom)),top:me.top,icW:ic.width,icH:ic.height};
+  });
+  expect(got.prevRow,'바로 위는 목록 줄').toBe(true);
+  expect(got.prevSrc,'바로 위는 업데이트 줄(사진과 같은 자리)').toBe('update');
+  expect(got.line,'위와 사이 선').toBe('solid');expect(got.width).toBeGreaterThan(0);
+  expect(got.color,'목록 줄 구분선(.nbx-item)과 같은 선 색').toBe(got.lineColor);
+  expect(got.top,'업데이트 단추 줄과 같은 줄이 아니라 그 아래').toBeGreaterThanOrEqual(got.actsBottom);
+  expect(got.icH,'아이콘은 작게(글자보다 작음)').toBeLessThanOrEqual(14);expect(got.icW).toBeLessThanOrEqual(30);
+  expect(await noWide(page)).toBe(true);
+  if(SHOTS19){await locked.scrollIntoViewIfNeeded();await page.screenshot({path:`${SHOTS19}forget-locked-390.png`});}
 });
 
 // S67-25 그 자리 풀기(명진 11/20 "풀 수 있는 방법도 여기에 줘야지"): '잠김' 줄 끝 [풀기] → 화면을 떠나지 않고 작은 PIN 창(잠금 화면과 같은 숫자 판)
@@ -277,12 +290,8 @@ for(const width of [390,884,1280])test(`소식 줄: '소식 · 텔레그램/통�
   // 처리 전 수: 업데이트 1 + 챙길 것 1 + 텔레그램 요청 1 + 가족 1 + 소식 2 = 6 (메뉴 '홈' 표시와 같은 숫자).
   await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','6');
   expect(asked).toEqual([{kind:'journal_memorable',day:'2026-10-06'}]);
-  // 넣은 소식은 '연결 완료' 보기에.
-  await pickView(page,'연결 완료');
-  await expect(line(page,`n:${nid(6)}`).locator('.nbx-done')).toHaveText(/^처리함/);
-  await pickView(page,'처리 전');
-  await pickView(page,'소식');
-  await expect(list(page).locator('[data-nbx-row]')).toHaveCount(2);
+  // 넣은(처리한) 소식은 목록에 없다(S71-58).
+  await expect(line(page,`n:${nid(6)}`)).toHaveCount(0);
   expect(await noWide(page)).toBe(true);
 });
 test('소식 줄 [조직]: 창 맨 위 \'조직 › 가상 지부에 넣기\'로 담당조직 기록(이번 주 조직보고 제안 길), 맞는 조직 없으면 그 줄 없음, ×는 무시·되돌리기',async({page})=>{
@@ -459,7 +468,7 @@ test('PC 1280: 버튼은 마우스 올린 줄·초점 줄에만 전부 보이고
   await a.locator('.nbx-meta').click({button:'right'});
   const menu=page.locator('#forgetRowMenu');
   await expect(menu).toBeVisible();
-  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시','수정해서 할 일로','이미 할 일에 있음','내 일 아님']);
+  await expect(menu.locator('button')).toHaveText(['일정으로','노트로','조직','사업','무시','내 일 아님']);
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   // 텔레그램 줄 ⋯ 메뉴: 기존 셋 없이 접힌 다섯. [무시] = ×와 같은 길(무시로 빼고 되돌리기).
@@ -531,35 +540,22 @@ for(const width of [412,1280])test(`상대 약속 줄: 소식에서 온 상대 �
   await expect(list(page).locator('[data-forget-promise-news]')).toHaveCount(1);
 });
 // S70-20 FORGET-이미한일빼기(명진 11/25 "텔레그램에서 내가 답변을 했다거나 하면 제안 없애든지"): 서버가 내가 이미 답한 텔레그램 요청을
-// '이미 함(저절로)'으로 옮긴 줄(auto_done='replied', 처리한 때 = 옮긴 때)은 처리 전 목록에 없고, '이미 함' 보기에 '답장함' 꼬리표 + [되돌리기].
-// 사람이 다시 [이미 함]을 누른 줄(처리한 때가 다름)은 꼬리표·[되돌리기] 없음. [되돌리기]는 기존 되살리기 길(done → open).
-test('390: 내가 답장한 텔레그램 요청은 처리 전에 없고, 이미 함 보기에 답장함 · [되돌리기]로 처리 전',async({page})=>{
+// '이미 함(저절로)'으로 옮긴 줄(auto_done='replied', 처리한 때 = 옮긴 때)은 처리 전 목록에 없다. S71-58: '이미 함' 보기·[되돌리기] 꼬리표는 없앴다.
+test('390: 내가 답장한 텔레그램 요청은 처리 전에 없다',async({page})=>{
   const at='2026-10-06T07:00:00Z';
   const h=await fixture(page,{cands:[cand(1),cand(2,{summary:'가짜 답한 요청',status:'done',decided_at:at,auto_done:'replied',auto_done_at:at}),
     cand(4,{summary:'가짜 다시 누른 요청',status:'done',decided_at:'2026-10-06T08:00:00Z',auto_done:'replied',auto_done_at:at}),cand(3,{source_kind:'basket',summary:'지어낸 챙길 것'})]});
   await expect(line(page,`c:${cid(1)}`)).toBeVisible();
   await expect(line(page,`c:${cid(2)}`)).toHaveCount(0);
-  await pickView(page,'이미 함');
-  await expect(line(page,`c:${cid(2)}`).locator('.nbx-done')).toContainText('이미 함 · 답장함');
-  await expect(line(page,`c:${cid(4)}`).locator('.nbx-done')).not.toContainText('답장함');
-  await expect(line(page,`c:${cid(4)}`).locator('[data-forget-reopen]')).toHaveCount(0);
-  const back=line(page,`c:${cid(2)}`).getByRole('button',{name:'되돌리기',exact:true});
-  await expect(back).toBeVisible();
+  await expect(line(page,`c:${cid(4)}`)).toHaveCount(0);
+  expect(h.patches).toEqual([]);
   expect(await noWide(page)).toBe(true);
-  await back.click();
-  await expect.poll(()=>h.patches.length).toBe(1);
-  expect(h.patches[0]).toEqual({id:cid(2),from:'done',body:{status:'open',decided_at:null}});
-  await expect(line(page,`c:${cid(2)}`)).toHaveCount(0);
-  await expect(page.locator('#basketView [data-forget-section]')).toContainText('처리 전으로 돌렸어요.');
-  await pickView(page,'처리 전');
-  await expect(line(page,`c:${cid(2)}`)).toBeVisible();
-  await expect(line(page,`c:${cid(2)}`).locator('.nbx-acts [data-nbx-act="task"]')).toBeVisible();
 });
 
 // S70-20b FORGET-기본이미함(명진 11/25 12:39 "모두 추천대로"): 업무 제안은 오늘 것은 한 줄씩, 어제 것은 '어제 들어온 요청 n개' 한 줄 묶음(펼치면 같은 줄),
-// ★(마감·직접 부름)는 맨 위. 하루 지나 서버가 옮긴 줄(auto_done='expired')은 '이미 함 · 지남' + [되돌리기](done → open). 가족 줄은 그대로.
+// ★(마감·직접 부름)는 맨 위. 하루 지나 서버가 옮긴 줄(auto_done='expired')은 목록에 없다(S71-58: 이미 함 보기 없음). 가족 줄은 그대로.
 // 시계는 2026-10-06 10:00 KST(openHome) — 어제 = 10/5(서울).
-for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 묶음, ★는 맨 위, 이미 함 보기 지남 · [되돌리기]`,async({page})=>{
+for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 묶음, ★는 맨 위, 저절로 옮긴 줄은 없음`,async({page})=>{
   const at='2026-10-06T15:13:00Z';
   const h=await fixture(page,{width,cands:[
     cand(1),                                                                                     // 오늘 줄
@@ -587,15 +583,7 @@ for(const width of [390,1280])test(`${width}: 어제 업무 제안은 한 줄 �
   await expect(list(page).locator('[data-forget-src="family"]')).toHaveCount(1);
   await expect(bundle.locator('[data-forget-src="family"]')).toHaveCount(0);
   expect(await noWide(page)).toBe(true);
-  // 이미 함 보기: 저절로 옮긴 줄 '이미 함 · 지남' + [되돌리기] → 처리 전.
-  await pickView(page,'이미 함');
-  await expect(line(page,`c:${cid(7)}`).locator('.nbx-done')).toContainText('이미 함 · 지남');
-  const back=line(page,`c:${cid(7)}`).getByRole('button',{name:'되돌리기',exact:true});
-  await expect(back).toBeVisible();
-  expect(await noWide(page)).toBe(true);
-  await back.click();
-  await expect.poll(()=>h.patches.length).toBe(1);
-  expect(h.patches[0]).toEqual({id:cid(7),from:'done',body:{status:'open',decided_at:null}});
-  await pickView(page,'처리 전');
-  await expect(line(page,`c:${cid(7)}`)).toBeVisible();
+  // 하루 지나 저절로 옮긴 줄은 목록에 없다.
+  await expect(line(page,`c:${cid(7)}`)).toHaveCount(0);
+  expect(h.patches).toEqual([]);
 });

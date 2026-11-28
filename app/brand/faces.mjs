@@ -17,8 +17,8 @@
 
 import {GIROK_WORDS} from './girok-words.mjs';
 
-const ALL_MENU = Object.freeze(['home', 'basket', 'reading', 'calendar', 'note', 'meetings', 'library', 'files', 'brief', 'team', 'hwp', 'photos', 'outside', 'calls', 'telegram', 'arsenal']);
-const ALL_VIEWS = Object.freeze(['home', 'basket', 'reading', 'calendar', 'tasks', 'diary', 'projects', 'library', 'files', 'meetings', 'team', 'hwp', 'profile', 'updates', 'whatsnew', 'help', 'lock', 'feedback', 'signups', 'search', 'reference', 'photos', 'brief', 'calls', 'telegram', 'arsenal', 'outside']);
+const ALL_MENU = Object.freeze(['home', 'basket', 'reading', 'calendar', 'note', 'meetings', 'library', 'files', 'brief', 'team', 'photos', 'outside', 'calls', 'telegram', 'arsenal']); // S71-61: 'hwp'는 메뉴가 아니다(노트 안 화면, views에는 그대로)
+const ALL_VIEWS = Object.freeze(['home', 'basket', 'reading', 'calendar', 'tasks', 'diary', 'projects', 'library', 'files', 'meetings', 'team', 'hwp', 'profile', 'updates', 'whatsnew', 'help', 'lock', 'feedback', 'signups', 'search', 'photos', 'brief', 'calls', 'telegram', 'arsenal', 'outside']);
 // 기록+에서 빠지는 것(계획 '남기는 것 / 빼는 것'): News·브리핑 룸·아스날, 통화·텔레그램(원래 운영자 전용).
 const GIROK_OFF = Object.freeze(['outside', 'brief', 'arsenal', 'calls', 'telegram']);
 

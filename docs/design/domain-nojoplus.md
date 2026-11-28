@@ -2,7 +2,7 @@
 
 > 2026-11-21: 앱이 WORK ON+(`workonplus.com`)로 옮겨, `nojoplus.com`의 앱 자리(`/`·`/work/app/**`)는 이전 안내 한 장이 됐다. 짧은 주소·about·www 301은 그대로. [`domain-workonplus.md`](domain-workonplus.md) 4절.
 
-2026-11-14 명진 결정: 서비스 이름은 '노동조합+'(S61-55), 주소는 `bokdoong.com`('너무 개인적') 대신 `nojoplus.com`. 도메인은 명진이 가비아에서 사고, 같은 Cloudflare 계정에 존을 더하고 네임서버를 바꿨다(활성 대기). 이 문서는 주소 설계와 두 단계 순서·되돌리기다. 운영 반영(Worker 배포·Edge 배포·Supabase Auth 설정)은 커맨드센터가 한다.
+2026-11-14 사용자 결정: 서비스 이름은 '노동조합+'(S61-55), 주소는 `bokdoong.com`('너무 개인적') 대신 `nojoplus.com`. 도메인은 사용자가 가비아에서 사고, 같은 Cloudflare 계정에 존을 더하고 네임서버를 바꿨다(활성 대기). 이 문서는 주소 설계와 두 단계 순서·되돌리기다. 운영 반영(Worker 배포·Edge 배포·Supabase Auth 설정)은 커맨드센터가 한다.
 
 ## 1. 주소 설계
 
@@ -59,7 +59,7 @@
 | 1-1 | 이 PR merge. **merge가 곧 Worker 자동 배포**(`cloudflare/**` 바뀜). 그래서 1-0 확인 뒤에만 merge | 커맨드센터 | 이전 Worker 버전으로 되돌리기(옛 호스트 동작은 바뀌지 않음) |
 | 1-2 | Edge 함수 배포(아래 목록, 한 번에 하나씩, 되돌리기 ref 기록) | 커맨드센터 | 기록한 이전 ref로 같은 workflow 재실행 |
 | 1-3 | Supabase Auth Redirect URLs에 새 주소 줄 추가(Site URL 그대로) | 커맨드센터(대시보드) | 추가한 줄 삭제 |
-| 1-4 | 확인 주소 점검 + 명진 실기기: `nojoplus.com`에서 구글 로그인·캘린더 연결 | 커맨드센터 + 명진 | 위 각각 |
+| 1-4 | 확인 주소 점검 + 사용자 실기기: `nojoplus.com`에서 구글 로그인·캘린더 연결 | 커맨드센터 + 사용자 | 위 각각 |
 | 1-5 | 폰 앱 0.5.9 릴리스(새 주소 링크도 앱 안에) | 커맨드센터 | 옛 판 APK 다시 설치 |
 | 2 | 로그인·폰 앱·바구니 PC가 새 주소로 옮긴 뒤: Worker에서 `bokdoong.com`·desk·work Web2 → `nojoplus.com` 301, Site URL 변경, 원드라이브·Google 돌아갈 화면 기본값 변경, 폰 앱 처음 주소 변경 | 별도 작업 PR + 커맨드센터 | 이전 Worker 버전(301 해제), Site URL 원래 값 |
 

@@ -1,7 +1,7 @@
 // ORG-기록날짜고치기(요청함 11/10, 시안 docs/design/mockups/org-record-day-edit.html, PR 2294): 조직 기록 날짜 수정 칸 하나.
 // - 칸 = [하루|기간|없음] + 달력 + [취소][저장]. 규칙(저장 값·검사)은 record-window-model.mjs(dayDraft·checkDayEdit) 한 곳.
 // - 그리기는 dayFormHtml 하나: 조직보고 표(record-window-view.js, prefix 'rw' — 표 상태 주인이 다시 그림)와
-//   조직 상세 기록 목록(workplace-detail.js, openDayEditor — 이 칸만 스스로 다시 그림)이 같은 모양을 쓴다.
+//   조직 상세 기록 [수정] 칸(workplace-detail.js, mountDayField — 글과 함께 저장)이 같은 모양을 쓴다.
 // - 서버 쓰기는 기존 owner RLS 길(app_suborganization_updates PATCH)로 occurred_at(서울 시각 그대로 날짜만)·end_day·day_none만. 글은 안 바꾼다.
 // - day_none 칸은 DB 적용(20261110180000) 뒤에 생긴다. 그 전 서버는 이 칸 읽기를 400(42703)으로 거절 → 칸 없이 다시 읽고 '없음'만 감춘다.
 // 브라우저 저장소를 쓰지 않는다.
@@ -35,7 +35,8 @@ export const colsOf = (base, state) => [base, ...OPTIONAL_COLS.filter(c => state
 
 // 칸 HTML. d = {mode, day, end_day}, p = data 속성 앞말('rw' → data-rw-mode·data-rw-field·data-rw-cancel·data-rw-save).
 // pick=true(ORG-기록입력날짜: 새 기록의 날짜 고르기) — 바꾸는 즉시 그 값이 되고, 버튼은 오른쪽 [닫기] 하나(data-○-day-close).
-export function dayFormHtml(d, {prefix = 'rw', id = '', noneOn = true, busy = false, invalid = '', pick = false} = {}) {
+// bare=true(RECORD-기록하나로: 기록 [수정] 칸 안의 날짜) — 버튼 없이 종류·달력만(저장·취소는 [수정] 칸의 것).
+export function dayFormHtml(d, {prefix = 'rw', id = '', noneOn = true, busy = false, invalid = '', pick = false, bare = false} = {}) {
   const dis = busy ? ' disabled' : '', inv = f => (invalid === f ? ' aria-invalid="true"' : '');
   const modes = M.DAY_MODES.filter(m => m !== 'none' || noneOn);
   const seg = `<span class="ds-seg rw-seg" role="group" aria-label="날짜 종류">${modes.map(m => `<button type="button" class="ds-seg-btn rw-seg-btn" data-${prefix}-mode="${m}" aria-pressed="${d.mode === m}"${dis}>${MODE_LABEL[m]}</button>`).join('')}</span>`;
@@ -44,7 +45,7 @@ export function dayFormHtml(d, {prefix = 'rw', id = '', noneOn = true, busy = fa
     : `<span class="wl-f-days"><input type="date" data-${prefix}-field="day" aria-label="${d.mode === 'range' ? '시작일' : '날짜'}" value="${esc(d.day || '')}"${inv('day')}${dis}>`
       + (d.mode === 'range' ? `<span aria-hidden="true">~</span><input type="date" data-${prefix}-field="end_day" aria-label="끝나는 날" value="${esc(d.end_day || '')}"${d.day ? ` min="${esc(d.day)}"` : ''}${inv('end_day')}${dis}>` : '') + '</span>';
   return `<div class="wl-form rw-day-form" data-${prefix}-form="${esc(id)}" data-${prefix}-day-form>${seg}<span class="rw-day-row">${days}</span>`
-    + (pick ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-${prefix}-day-close${dis}>닫기</button></span></div>`
+    + (bare ? '</div>' : pick ? `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-${prefix}-day-close${dis}>닫기</button></span></div>`
       : `<span class="row-act wl-btns btn-row"><button type="button" class="row-act wl-btn" data-${prefix}-cancel${dis}>취소</button><button type="button" class="row-act wl-btn is-main" data-${prefix}-save${dis}>저장</button></span></div>`);
 }
 
@@ -107,37 +108,24 @@ export async function patchRecordDay(rt, {id, org, value, cols}) {
   return rows[0];
 }
 
-// 조직 상세처럼 목록이 스스로 다시 그리지 않는 곳: row 안 after 뒤에 칸을 열고, 칸만 다시 그린다.
-// item = 조직 기록 행(id, organization_id, occurred_at, end_day, day_none, created_at). save(value) → Promise(고친 행).
-// done(row|null, focusBack) = 저장(행) 또는 취소(null) 뒤 화면 쪽 정리. 이미 열려 있으면 그 칸에 초점만.
-export function openDayEditor({row, after, item, noneOn = true, save, done = () => {}, say = () => {}}) {
-  const old = row.querySelector('[data-rde-day-form]');
-  if (old) { old.querySelector('[aria-pressed="true"]')?.focus(); return; }
+// RECORD-기록하나로(S71-71, 사용자 결정 2026-11-26 "날짜 수정 - 이건 수정에 넣어 같이 수정할 때 날짜랑 내용 다 수정 가능하게"): 조직 기록 [수정] 칸 안의
+// 날짜 자리. host = 빈 요소, item = 조직 기록 행(id, occurred_at, end_day, day_none, created_at). 칸은 [하루|기간|없음] + 달력(dayFormHtml bare)만 그리고,
+// 저장은 [수정] 칸이 글과 함께 한 번에 한다. check() = record-window-model.mjs checkDayEdit 결과({ok, value(바뀐 날짜 칸만, 안 바뀌면 null), field}).
+export function mountDayField({host, item, noneOn = true, prefix = 'rdf'}) {
   const line = M.recordItem({...item, raw_text: item.raw_text || '-'}) || {day: seoulDateKey(item.occurred_at), end_day: item.end_day || null, none: item.day_none === true, at: item.occurred_at, created_at: item.created_at};
   let d = M.dayDraft(line), busy = false, invalid = '';
-  const box = document.createElement('div');
-  box.className = 'rde-box';
-  (after || row.lastElementChild || row).insertAdjacentElement(after ? 'afterend' : 'beforeend', box);
   const paint = (focus = '') => {
-    box.innerHTML = dayFormHtml(d, {prefix: 'rde', id: item.id, noneOn, busy, invalid});
-    if (focus) box.querySelector(focus)?.focus({preventScroll: true});
+    host.innerHTML = dayFormHtml(d, {prefix, id: item.id, noneOn, busy, invalid, bare: true});
+    if (focus) host.querySelector(focus)?.focus({preventScroll: true});
   };
-  const close = (saved = null) => { box.remove(); done(saved); };
-  box.addEventListener('input', e => { const f = e.target.dataset?.rdeField; if (f) { d = {...d, [f]: e.target.value}; if (invalid === f) { invalid = ''; e.target.removeAttribute('aria-invalid'); } } });
-  box.addEventListener('change', e => { const f = e.target.dataset?.rdeField; if (!f) return; d = {...d, [f]: e.target.value}; if (f === 'day') box.querySelector('[data-rde-field="end_day"]')?.setAttribute('min', e.target.value); });
-  box.addEventListener('keydown', e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); e.stopPropagation(); close(null); } });
-  box.addEventListener('click', async e => {
-    const b = e.target.closest?.('button'); if (!b || b.disabled) return;
-    const x = b.dataset;
-    if (x.rdeMode) { d = withMode(d, x.rdeMode); invalid = ''; paint(`[data-rde-mode="${x.rdeMode}"]`); return; }
-    if ('rdeCancel' in x) { close(null); return; }
-    if (!('rdeSave' in x) || busy) return;
-    const v = M.checkDayEdit(line, d, {noneOn, today: seoulDateKey(Date.now())});
-    if (!v.ok) { invalid = v.field === 'mode' ? 'day' : v.field; say(v.field === 'end_day' ? '끝나는 날은 시작일과 같거나 뒤여야 해요.' : '날짜를 다시 선택해 주세요.', true); paint(`[data-rde-field="${invalid}"]`); return; }
-    if (!v.value) { close(null); return; }
-    busy = true; paint(); say('저장하는 중…');
-    try { const saved = await save(v.value); say('날짜를 바꿨어요.'); close(saved); }
-    catch (err) { busy = false; paint('[data-rde-save]'); say('저장하지 못했어요. 다시 눌러 주세요.', true); console.warn('record day save failed', err?.message || err); }
-  });
-  paint('[aria-pressed="true"]');
+  const field = f => e => { const k = e.target.dataset?.[`${prefix}Field`]; if (!k) return; d = {...d, [k]: e.target.value}; if (invalid === k) { invalid = ''; e.target.removeAttribute('aria-invalid'); } if (f && k === 'day') host.querySelector(`[data-${prefix}-field="end_day"]`)?.setAttribute('min', e.target.value); };
+  host.addEventListener('input', field(false));
+  host.addEventListener('change', field(true));
+  host.addEventListener('click', e => { const b = e.target.closest?.('button'); if (!b || b.disabled) return; const mode = b.dataset[`${prefix}Mode`]; if (!mode) return; d = withMode(d, mode); invalid = ''; paint(`[data-${prefix}-mode="${mode}"]`); });
+  paint();
+  return {
+    check: () => M.checkDayEdit(line, d, {noneOn, today: seoulDateKey(Date.now())}),
+    showInvalid: f => { invalid = f === 'mode' ? 'day' : f; paint(`[data-${prefix}-field="${invalid}"]`); },
+    setBusy: value => { busy = !!value; paint(); },
+  };
 }

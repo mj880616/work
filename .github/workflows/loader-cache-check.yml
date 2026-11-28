@@ -44,3 +44,9 @@ jobs:
         run: node --test scripts/check-personal-data.test.mjs
       - name: Check personal-data shapes in tracked files
         run: node scripts/check-personal-data.mjs
+      # DESIGN-검증하네스 ②: app/*.css(theme-tokens.css 밖)에 손으로 쓴 글자 크기·버튼 높이 px가 새로 늘면 실패.
+      # 기준선(scripts/ci/css-token-baseline.json)은 줄이기만 한다. 판별 규칙은 스크립트 머리 주석.
+      - name: Test CSS token checker
+        run: node --test tests/css-token-check.test.mjs
+      - name: Check CSS font-size/button height px against baseline
+        run: node scripts/ci/css-token-check.mjs

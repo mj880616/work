@@ -86,10 +86,10 @@ for(const width of [390,1280])test(`빠른 입력칸: 한 줄에서 시작해 5�
  const measure=()=>page.evaluate(()=>{const b=document.querySelector('#homeView [data-home-quick]'),i=b.querySelector('[data-quick-input]'),s=b.querySelector('[data-quick-save]').getBoundingClientRect(),r=i.getBoundingClientRect();return {h:r.height,scroll:i.scrollHeight>i.clientHeight,...(s.height?{saveTop:s.top-r.top,saveH:s.height}:{})};});
  for(const [tab,mode] of [['update','basket'],['task','task']]){
   await pickQuickMode(page,tab);await expect(box).toHaveAttribute('data-mode',mode);
-  // UI-PC버튼36 + HOME-모바일정리④(2026-10-22): PC·폰 모두 입력칸 36px(padding 7/6px)에서 시작해 3줄 78px, 5줄 120px.
-  const [one,three,five]=[36,78,120];
-  // [추가]는 폭과 상관없이 36px, 입력칸과 같은 높이·같은 위치.
-  const saveH=36,saveTop=0;
+  // NOTE-입력줄높이(S71-67): PC·폰 모두 입력칸 40px(줄 21px, 위 9·아래 8px)에서 시작해 한 줄마다 21px씩 — 3줄 82px, 5줄 124px.
+  const [one,three,five]=[40,82,124];
+  // [추가]는 폭과 상관없이 입력칸 한 줄과 같은 40px, 같은 위치.
+  const saveH=40,saveTop=0;
   // HOME-입력칸두모양: 폰 홈 [추가]는 글이 있을 때만(빈 칸은 [잊지 말기] 자리).
   await input.fill('');expect(await measure(),mode+' empty').toEqual(width<761?{h:one,scroll:false}:{h:one,scroll:false,saveTop,saveH});
   await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:three,scroll:false,saveTop,saveH});
@@ -112,7 +112,7 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
  await pickQuickMode(page,'update');
  // 보기 바꾸기 칸은 누르는 동안 글자만 진하게(바탕은 연한 알약 그대로), 탭 하이라이트 없음.
  expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({bg:'rgba(0, 0, 0, 0)',fg:await token(page,'--kptu-ink'),tap:'rgba(0, 0, 0, 0)'});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-forget-view-open]')).toBeVisible();
- expect((await pressed('#basketView [data-forget-view-open]')).tap).toBe('rgba(0, 0, 0, 0)'); // S52-20: 정리함 보기는 칩이 아니라 [처리 전 ▾](② 작은 버튼) — 탭 하이라이트만 없음을 본다
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
+ await expect(page.locator('[data-forget-view-open]')).toHaveCount(0); // S71-58 FORGET-처리전만: 정리함 보기 단추([처리 전 ▾])는 없앴다
  expect(errors).toEqual([]);
 });

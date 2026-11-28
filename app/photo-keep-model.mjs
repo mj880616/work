@@ -3,8 +3,82 @@
 //   폰 사진 목록(쪽으로 받음)에 원래 날짜 자리로 섞는다. 칸은 원드라이브 사진이고(작은 그림·크게 보기 = 원드라이브), kept 표시만 더한다.
 // - 지우기 두 갈래 계획: 고른 사진 → 폰 공간만 비우기(원드라이브에 원본이 확인된 폰 사진만) / 완전히 지우기(폰 + 원드라이브, 짝 사본까지).
 import {toItem} from './photos-model.mjs';
-import {backupMap, sizeText, totalBytes} from './photo-tidy-model.mjs';
-import {SAME_MS} from './photo-sources-model.mjs';
+import {SAME_MS, sameMedia} from './photo-sources-model.mjs';
+
+// ---- 폰 원본 지우기 전 원드라이브 사본 짝(S47-16 PHOTO-폰지우기안전장치, S53-2 PHOTO-같은사진오판) ----
+// S71-25 PHOTO-정리삭제: 예전 [정리] 칸 규칙 파일(photo-tidy-model.mjs)에 있던 것 중 지우기 안전장치가 쓰는 것만 여기로 옮겼다(동작 그대로).
+// 크기 글('1.2GB'·'340MB'·'12KB').
+export function sizeText(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)}GB`;
+  if (bytes >= 1e6) return `${bytes < 1e7 ? (bytes / 1e6).toFixed(1).replace(/\.0$/, '') : Math.round(bytes / 1e6)}MB`;
+  return `${Math.max(1, Math.round(bytes / 1e3))}KB`;
+}
+const bytesOf = p => (Number.isFinite(p?.size_bytes) && p.size_bytes > 0 ? p.size_bytes : 0);
+export const totalBytes = list => (list || []).reduce((n, p) => n + bytesOf(p), 0);
+// 두 폰 사진이 내용까지 같은가: 작은 그림 해시가 둘 다 있고 COPY_DIST 이하 + 찍은 시각을 둘 다 알고 SAME_MS 안.
+export const COPY_DIST = 2;
+const HEX_RE = /^[0-9a-f]{16}$/;
+const POP = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+// 두 해시의 다른 비트 수(모양이 틀리면 64 = 아주 다름).
+export function hamming(a, b) {
+  if (!HEX_RE.test(a || '') || !HEX_RE.test(b || '')) return 64;
+  let d = 0;
+  for (let i = 0; i < 16; i++) d += POP[parseInt(a[i], 16) ^ parseInt(b[i], 16)];
+  return d;
+}
+export function sameContent(a, b, hashes) {
+  const ha = hashes?.get?.(a?.id) || '', hb = hashes?.get?.(b?.id) || '';
+  const ta = Date.parse(a?.taken_at || ''), tb = Date.parse(b?.taken_at || '');
+  return HEX_RE.test(ha) && HEX_RE.test(hb) && hamming(ha, hb) <= COPY_DIST && Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= SAME_MS;
+}
+// 폰 사진마다 원드라이브에서 같은 크기(그리고 같은 이름 또는 찍은 시각, 가로세로 — sameMedia)인 사본을 찾는다. 크기를 모르면 짝이 없다(지우지 않음).
+// 지우기 전 서버(onedrive-photos copy-check)가 이 사본이 지금도 있고 크기·종류·가로세로·찍은 시각이 같은지 다시 본다(copyCheckPair). 여기서는 짝만 만든다.
+export const COPY_BATCH = 50, LOG_BATCH = 100;
+export function copyFinder(odItems) {
+  const bySize = new Map();
+  for (const o of odItems || []) if (o && bytesOf(o) > 0 && o.id) (bySize.get(o.size_bytes) || bySize.set(o.size_bytes, []).get(o.size_bytes)).push(o);
+  return p => (p && bytesOf(p) > 0 ? (bySize.get(p.size_bytes) || []).find(o => sameMedia(p, o)) || null : null);
+}
+// 폰 칸 id → 원드라이브 사본(copyFinder). 사본 하나를 폰 사진 여러 장이 가리키면(크기·이름이나 시각이 우연히 같은 다른 사진일 수 있음)
+// 그 폰 사진들이 서로 내용까지 같다고 확인된 때만(sameContent, 같은 사진 여러 번 저장) 짝으로 둔다. 아니면 모두 짝 없음(= 백업 없음, 지우지 않음).
+export function backupMap(phItems, odItems, hashes = null) {
+  const find = copyFinder(odItems), claims = new Map(), out = new Map(), seen = new Set();
+  for (const p of phItems || []) {
+    if (!p?.id || seen.has(p.id)) continue;
+    seen.add(p.id);
+    const o = find(p);
+    if (o) (claims.get(o.id) || claims.set(o.id, []).get(o.id)).push([p, o]);
+  }
+  for (const list of claims.values()) {
+    if (list.length > 1 && !list.every(([p]) => sameContent(p, list[0][0], hashes))) continue;
+    for (const [p, o] of list) out.set(p.id, o);
+  }
+  return out;
+}
+// 답: {pairs:[{item(폰 칸), copy(원드라이브 칸)}], noCopy:[폰 칸]}. phItems = 사본을 함께 가리키는 다른 폰 사진을 보려고 더 넘기는 폰 사진,
+// hashes = 미리보기 해시(같은 사진 여러 번 저장 확인). 모르면 items만 본다.
+export function copyPairs(items, odItems, {phItems = null, hashes = null} = {}) {
+  const map = backupMap([...(items || []), ...(phItems || [])], odItems, hashes), pairs = [], noCopy = [];
+  for (const p of items || []) { const o = p?.phoneId ? map.get(p.id) : null; if (o) pairs.push({item:p, copy:o}); else noCopy.push(p); }
+  return {pairs, noCopy};
+}
+// S56-46 PHOTO-같은사진오판: 서버 copy-check에 보낼 한 짝. 크기만이 아니라 종류·가로세로·찍은 시각도 보내 서버가 원드라이브 사본과 다시 맞춰 본다.
+// 모르는 값(가로세로 없음·찍은 시각 어림)은 보내지 않는다 → 서버가 '확인 못 함'으로 답하고 화면은 지우지 않는다. 사진 이름·내용은 보내지 않는다.
+export function copyCheckPair(item, copyId) {
+  const out = {id:copyId, size:item?.size_bytes, video:item?.video === true};
+  if (Number.isSafeInteger(item?.width) && item.width > 0 && Number.isSafeInteger(item?.height) && item.height > 0) { out.w = item.width; out.h = item.height; }
+  const t = Date.parse(item?.taken_at || '');
+  if (item?.approx !== true && Number.isFinite(t)) out.taken_at = new Date(t).toISOString();
+  return out;
+}
+// 남긴 사진 안내(사본 없음·확인 못 함).
+export function keptText(missing, unsure) {
+  const out = [];
+  if (missing > 0) out.push(`원드라이브에 없음 ${missing}장은 남겼어요`);
+  if (unsure > 0) out.push(`원드라이브 확인 못 한 ${unsure}장은 남겼어요`);
+  return out.join(' · ');
+}
 
 const pad = n => String(n).padStart(2, '0');
 // 이 기기 시간대의 날(폰 사진 칸의 day와 같은 기준).

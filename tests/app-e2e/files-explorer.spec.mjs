@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { start, openFiles, treeGo, enterRow } from './helpers/files-server.mjs';
+import { screenFind } from './helpers/screen-find.mjs';
 // FILES-클라우드탐색기 ④(docs/design/files-explorer.md, 명진 결정 F1~F9 11/02): 메뉴 '파일'(?view=files).
 // 색인 목록 · 폴더 들어가기·위치 줄·위 폴더 · 찾기(이름 + 자료실 글자) · 미리보기(사진·PDF·오피스 → PDF·글) · 갱신(바뀐 줄만) · 폰 첫 화면 나무(S50-33).
 // 서버는 흉내 낸다(시계 2026-10-06 10:00 서울, home-entry.mjs). 파일·폴더 이름은 모두 가짜.
@@ -14,7 +15,7 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   const { errors, server } = await start(page, 412);
   await openFiles(page, 412);
   const tree = root(page).locator('[data-fx-tree]');
-  // 첫 화면: 나무. 탭 줄·위치 줄 제목 없음. 찾기 칸과 출처 단추는 한 줄.
+  // 첫 화면: 나무. 탭 줄·위치 줄 제목 없음.
   await expect(tree).toBeVisible();
   await expect(root(page).locator('[data-fx-tab]')).toHaveCount(0);
   await expect(root(page).locator('.fx-top [data-fx-crumb]')).toBeHidden();
@@ -27,8 +28,10 @@ test('폰 412(S51-12 FOLDER-나무새기준): 첫 화면은 상자 나무 — �
   await expect(tree.locator('[data-fx-shelf="starred"] .ft-num')).toHaveText('1개');
   await expect(tree.locator('[data-fx-box-tog]')).toHaveText(['원드라이브', '구글 드라이브']);
   await expect(root(page).locator('[data-fx-sync]')).toHaveCount(0);
-  const search = await root(page).locator('[data-fx-search]').boundingBox(), chip = await root(page).locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
-  expect(Math.abs((search.y + search.height / 2) - (chip.y + chip.height / 2))).toBeLessThan(4);
+  // S70-57: 화면 안 찾기 칸은 없고 앱 머리 줄 맨 위 칸이 '파일에서 찾기'(폰은 돋보기). 출처 단추는 위 줄 작은 정사각.
+  await expect(root(page).locator('input[type="search"]')).toHaveCount(0);
+  await expect(page.locator('#gsScreenInput')).toHaveAttribute('placeholder', '파일에서 찾기');
+  const chip = await root(page).locator('[data-fx-srcs] [data-fx-src="od"]').boundingBox();
   expect(chip.width).toBeLessThanOrEqual(30);
   expect(server.calls.filter(c => c.what === 'app_cloud_find_in').map(c => c.body.p_shelf).sort()).toEqual(['recent', 'starred']);
   expect(server.calls.find(c => c.what === 'edge' && c.action === 'status').auth).toMatch(/^Bearer /);
@@ -139,7 +142,7 @@ for (const width of [884, 1440]) {
     expect(server.calls.filter(c => c.action === 'sync').at(-1).body).toEqual({ action: 'sync' });
     expect(lists()).toBe(before);
     // 찾기: 이름 + 자료실이 이미 읽은 글자(F7), 두 클라우드 함께, 경로 함께.
-    await root(page).locator('[data-fx-search]').fill('협약');
+    await (await screenFind(page)).fill('협약');
     await expect(rows(page)).toHaveCount(1);
     await expect(row(page, 'gd:gdDoc1').locator('.fx-tag')).toHaveText('자료실 · 글자 맞음');
     await expect(row(page, 'gd:gdDoc1').locator('.fx-path')).toHaveText('구글 드라이브 › 가짜 업무 공간');
@@ -150,7 +153,7 @@ for (const width of [884, 1440]) {
   });
 }
 
-test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는 클라우드 보기 주소를 새 창으로', async ({ page, context }) => {
+test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), 줄 우클릭 [새 창에서 열기]는 클라우드 보기 주소를 새 창으로', async ({ page, context }) => {
   test.setTimeout(60000);
   const { errors, server } = await start(page, 1440);
   await openFiles(page, 1440);
@@ -166,7 +169,10 @@ test('1440: 사진 미리보기는 공용 그림 칸(큰 썸네일), [열기]는
   expect(server.calls.find(c => c.action === 'thumb' && c.body.size === 'small').body).toEqual({ action: 'thumb', source: 'od', id: 'OD!20', size: 'small' });
   await context.route('https://example.org/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>가짜</p>' }));
   const popup = context.waitForEvent('page');
-  await prev.locator('[data-fx-open]').click();
+  // S70-72: PC 넓은 폭 상세 칸에는 동작 줄이 없다 — 상세 칸의 [열기]는 줄 우클릭 [새 창에서 열기]로 옮겼다.
+  await expect(prev.locator('[data-fx-open]')).toHaveCount(0);
+  await row(page, 'od:OD!20').click({ button: 'right' });
+  await page.locator('#rowMenu').getByRole('button', { name: '새 창에서 열기', exact: true }).click();
   await expect.poll(async () => (await popup).url()).toBe('https://example.org/fake-open');
   expect(server.calls.find(c => c.action === 'open-url').body).toEqual({ action: 'open-url', source: 'od', id: 'OD!20' });
   expect(errors).toEqual([]);

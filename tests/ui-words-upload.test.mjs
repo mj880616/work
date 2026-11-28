@@ -30,14 +30,32 @@ test('파일 고르기 단추마다 클립 + 업로드', () => {
   assert.match(read('app/ui-standard.css'), /\.up-clip-btn\[hidden\] \{ display:none; \}/, '숨긴 업로드 단추는 숨은 채(inline-flex가 hidden을 이기지 않게)');
   assert.match(read('app/files.js'), /data-fx-upload hidden>\$\{uploadLabelHtml\(\)\}<\/button>/, '[파일] 위 줄 [업로드]');
   const lib = read('app/library-upload.js');
-  assert.match(lib, /luMenuRow\('data-lu-area="add"',uploadLabelHtml\('파일 업로드'\)\)/, '자료실 빈 곳 메뉴 [파일 업로드]');
-  assert.equal((lib.match(/uploadLabelHtml\('폴더 업로드'\)/g) || []).length, 2, '자료실 [폴더 업로드] 두 메뉴');
+  assert.match(lib, /luMenuRow\('data-lu-area="add"','파일 업로드'\)/, '자료실 빈 곳 메뉴 [파일 업로드](메뉴 줄은 글자만)');
+  assert.match(lib, /const LU_FOLDER_UPLOAD='폴더째 업로드';/, "자료실 폴더 고르기 줄 이름 '폴더째 업로드'(LIB-메뉴정리)");
+  assert.equal((lib.match(/luMenuRow\('data-lu-(top|area)="folder-upload"',LU_FOLDER_UPLOAD\)/g) || []).length, 2, '자료실 [폴더째 업로드] 두 메뉴');
   assert.match(read('app/weekly-discuss-table.js'), /putUploadLabel\(pick, '한글 파일 업로드'\)/, '주간보고 협의 줄 [한글 파일 업로드]');
   assert.match(read('app/weekly-start-choice.js'), /putUploadLabel\(pick, START_TEXT\.pick\)/);
   assert.match(read('app/weekly-start-choice.js'), /pick: '파일 업로드'/, '주간보고 첫 화면 [파일 업로드]');
   assert.match(read('app/journal-hwpx.js'), /putUploadLabel\(button\(c\.final \? '다시 업로드' : '업로드'/, '주간보고 ② [업로드]');
-  assert.match(read('app/report-library-pick.js'), /up-clip-btn" data-report-add="device">\$\{uploadLabelHtml\(DEVICE_LABEL\)\}/, '보고 자료 [기기에서 업로드]');
+  assert.match(read('app/report-library-pick.js'), /class="row-act" data-report-add="device">\$\{esc\(DEVICE_LABEL\)\}/, '보고 자료 + 메뉴 [기기에서 업로드](메뉴 줄은 글자만)');
   assert.match(read('app/report-library-pick-model.mjs'), /DEVICE_LABEL = '기기에서 업로드'/);
   assert.match(read('app/index.html'), /id="hwpLabUpload" class="secondary up-clip-btn"[^>]*><svg class="up-clip"[^]*?<span class="up-clip-t">자료실에 업로드<\/span><\/button>/, 'HWP 편집 [자료실에 업로드]');
   assert.match(read('app/files-tree-menu.mjs'), /upload: '업로드'/, '[파일] 폴더 ⋯·우클릭 [업로드]');
+});
+
+// LIB-메뉴정리(S70-74, 2026-11-26 명진 "여기 메뉴 폴더 업로드 이거뭐야; 왜 또 혼자 튀어"): 클립은 단추에만. 메뉴(⋯·우클릭·+ 작은 메뉴) 줄은
+// 다른 줄과 같게 글자만 — 한 줄만 그림이 붙어 글자가 오른쪽으로 밀리지 않게. 작은 메뉴 부품(createAnchoredMenu)을 쓰는 화면 모두.
+test('메뉴 줄에는 클립을 붙이지 않는다(작은 메뉴를 쓰는 화면 모두)', () => {
+  const files = targets().filter(f => /^app\/.+\.(js|mjs)$/.test(f) && f !== 'app/upload-label.mjs' && !f.startsWith('app/release-notes/'));
+  const hits = [];
+  for (const f of files) {
+    const src = read(f);
+    if (!src.includes('createAnchoredMenu(')) continue;
+    if (/uploadLabelHtml|putUploadLabel|CLIP_SVG/.test(src) && /render\s*:[^\n]*(uploadLabelHtml|CLIP_SVG)/.test(src)) hits.push(f);
+  }
+  assert.deepEqual(hits, [], '메뉴 줄 그리기(render)에 클립 그림이 없어야 한다');
+  const lib = read('app/library-upload.js');
+  assert.doesNotMatch(lib, /uploadLabelHtml|up-clip/, '자료실 ⋯·빈 자리 메뉴 줄은 글자만');
+  assert.doesNotMatch(read('app/hwp-lab.js'), /uploadLabelHtml/, 'HWP 편집 위 한 줄 메뉴 줄은 글자만');
+  assert.doesNotMatch(read('app/report-library-pick.js'), /uploadLabelHtml|up-clip-btn/, '보고 자료 + 메뉴 줄은 글자만');
 });

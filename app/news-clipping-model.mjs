@@ -191,7 +191,7 @@ export const keywordGroupLabel = g => `${g.word} · ${g.more ? `최근 ${g.items
 export function normalizeCatalog(data) {
   const list = Array.isArray(data?.sources) ? data.sources : [];
   return list.filter(s => s && /^news-[a-z0-9-]{1,34}$/.test(String(s.key)) && typeof s.name === 'string')
-    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: s.region === 'foreign' || s.region === 'opinion' ? s.region : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko', on: s.on === true}));
+    .map(s => ({key: s.key, name: s.name.slice(0, 60), region: REGION_KEYS.includes(s.region) ? s.region : 'domestic', lang: typeof s.lang === 'string' ? s.lang : 'ko', on: s.on === true}));
 }
 // 켬 여부: 그 매체 줄이 있으면 줄 값, 없으면 카탈로그 기본 켬(on, S53-6 — 서버 news-feed도 같은 규칙으로 읽는다).
 export function sourceOn(source, row) {
@@ -209,7 +209,9 @@ export function normalizeLimits(data) {
 export const AI_CAP_NOTE = '이번 달 AI 한도에 닿아 요약·제목 번역이 멈춤 · 다음 달 1일 다시';
 export const aiCapped = data => data?.ai?.month_capped === true;
 // S69 NEWS-사설칼럼: 신문 사설·칼럼 피드는 '사설·칼럼' 묶음 하나(서버 카탈로그 region 'opinion').
-export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'opinion', label: '사설·칼럼'}, {key: 'foreign', label: '해외'}]);
+// NEWS-수집처늘리기(사용자 2026-11-28): 주제 묶음 'AI 코딩'(region tech)·'축구'(region football) — 국내·외국어 매체를 함께 담는다.
+export const REGIONS = Object.freeze([{key: 'domestic', label: '국내'}, {key: 'opinion', label: '사설·칼럼'}, {key: 'tech', label: 'AI 코딩'}, {key: 'football', label: '축구'}, {key: 'foreign', label: '해외'}]);
+const REGION_KEYS = Object.freeze(REGIONS.map(r => r.key));
 export function sourceNote(row) {
   if (!row?.enabled) return '';
   // S63-10: 사이트 robots.txt가 막은 매체는 켜도 소용없다고 알린다(서버 수집 결과 코드만 보고 글자를 고른다 — 거르기 규칙은 서버 한 곳).

@@ -12,6 +12,7 @@ import {attachPhotoLongPress, pointAnchor} from './photo-longpress.js';
 import {notify} from './small-notice.js';
 import {slotBox, slotLoading, slotShown, slotFailed, slotPreview} from './img-slot.js';
 import {attachStageSwipe} from './photo-view-swipe.js';
+import {attachPhotoZoom} from './photo-zoom-gesture.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -47,16 +48,29 @@ function showPhotoBox(shown, content, trigger) {
       shareFrom(pointAnchor(box, x, y), {count:1, note, getFiles:() => photoFilesFor(el, nameOf, {alive, note}), native:() => sharePhotoElement(el, nameOf, {alive, note})}, {wide:true});
     }});
   // PHOTO-크게보기밀기(S57-2): 앞뒤 사진이 없으면(노트 사진 한 장) 가로로 밀어도 제자리, 아래로 밀면 닫기. 앞뒤 사진은 openDocumentPhotoView가 hooks를 채운다.
-  const hooks = {at: () => 0, count: () => 1, goTo: () => false};
+  // PHOTO-글속사진확대(S73-13): 사진 안 확대·축소는 [사진] 메뉴 크게 보기와 같은 공용 손동작(photo-zoom-gesture.js) — 두 손가락·두 번 톡·휠·더블클릭·확대 중 끌기.
+  // 확대 중에는 밀기(넘기기·닫기)가 쉰다(hooks.zoomed). 그림이 늦게 뜨면 확대 범위를 다시 맞춘다.
+  const zoom = attachPhotoZoom(stage, {photo: () => stage.querySelector('.diary-photo'), can: () => !!stage.querySelector('.diary-photo img[src]'),
+    onZoom: on => { if (on) box.dataset.photoZoom = ''; else delete box.dataset.photoZoom; }});
+  stage.addEventListener('load', () => { if (zoom.zoomed()) zoom.reclamp(); }, true);
+  const hooks = {at: () => 0, count: () => 1, goTo: () => false, zoomed: () => zoom.zoomed()};
   const offSwipe = attachStageSwipe(stage, hooks, {closeNow: () => { if (current?.box === box) closePhotoView(); }});
-  current = {box, trigger, hooks, offSwipe, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
+  current = {box, trigger, hooks, zoom, offSwipe, layer: window.KPTURouter?.layer?.open('basket-photo', {close: () => { closePhotoView({fromBack: true}); return true; }}) || null};
   box.querySelector('[data-basket-photo-close]').focus();
   return true;
 }
 
 // row: 사진이 붙은 노트(id 필요), file: 그 노트의 첨부 한 개.
-export function openPhotoView({row, file, trigger = null, rt = window.KPTURuntime}) {
+// PHOTO-크게보기넘기기(S71-72): files(선택) = 같은 노트·같은 기록 줄에 붙은 사진 목록(누른 사진 포함, 보이는 순서). 두 장 이상이면
+// 사업 보고 사진 줄과 같은 넘기기(밀기·‹ ›·←→·'1/2')를 openDocumentPhotoView의 nav 그대로 쓴다 — 넘기기 구현은 이 파일에 하나.
+export function openPhotoView({row, file, files = null, trigger = null, rt = window.KPTURuntime}) {
   if (!row?.id || !file || current) return false;
+  const list = Array.isArray(files) ? files.filter(f => f?.drive_file_id) : [];
+  const at = list.findIndex(f => f.drive_file_id === file.drive_file_id);
+  if (list.length > 1 && at >= 0) {
+    const itemOf = i => { const f = list[i], shown = attachmentName(f, '사진'); return {file: {name: shown}, make: () => ({shown, box: photoElement(row, f, 'large', {label: shown, rt})})}; };
+    return openDocumentPhotoView({...itemOf(at), trigger, nav: {count: list.length, index: at, item: itemOf}});
+  }
   const shown = attachmentName(file, '사진');
   return showPhotoBox(shown, photoElement(row, file, 'large', {label: shown, rt}), trigger);
 }
@@ -96,9 +110,11 @@ function documentPhotoBox({file, getUrl, driveHref = '', preview = null}) {
 
 // ACT-사진 3단계: 사업 보고 사진 줄이 쓰는 같은 크게 보기. nav = {count, index, item(i) → {file, getUrl, driveHref}} 이 있으면 좌우 버튼과 ←/→ 키로 넘기고,
 // actions(item) → [{label, href?} | {label, run}] 이 있으면 ⋯ 메뉴(Drive에서 열기·내려받기·지우기)가 생긴다. run()이 true를 주면(지웠다) 크게 보기를 닫는다.
-export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = null, trigger = null, nav = null, actions = null}) {
-  if (!file || typeof getUrl !== 'function' || current) return false;
-  const first = documentPhotoBox({file, getUrl, driveHref, preview});
+// 항목에 make()가 있으면(노트 첨부 사진 — openPhotoView) 그것이 {shown, box}를 만든다. 없으면 getUrl로 자료 사진 칸을 만든다.
+const boxOf = x => (typeof x?.make === 'function' ? x.make() : documentPhotoBox(x));
+export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = null, make = null, trigger = null, nav = null, actions = null}) {
+  if (!file || (typeof getUrl !== 'function' && typeof make !== 'function') || current) return false;
+  const first = boxOf({file, getUrl, driveHref, preview, make});
   if (!showPhotoBox(first.shown, first.box, trigger)) return false;
   if (!nav && !actions) return true;
   const {box} = current, stage = box.querySelector('.basket-photo-stage'), bar = box.querySelector('.basket-photo-bar');
@@ -143,7 +159,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
   };
   const paint = (reuse = null) => {
     item = nav ? nav.item(index) : item;
-    const made = reuse || documentPhotoBox(item);
+    const made = reuse || boxOf(item);
+    current?.zoom?.reset(); // 다른 장으로 넘기면 원래 크기
     stage.querySelectorAll('.diary-photo').forEach(el => el.remove());
     stage.prepend(made.box); nameEl.textContent = made.shown; box.setAttribute('aria-label', made.shown);
     if (nav) { countEl.textContent = `${index + 1}/${nav.count}`; prev.disabled = index <= 0; next.disabled = index >= nav.count - 1; prev.hidden = next.hidden = nav.count <= 1; }
@@ -165,6 +182,8 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', preview = n
   paint(first);
   return true;
 }
+// PHOTO-글속사진확대(S73-13): 글 속 사진에서 시작한 두 손가락 벌리기를 열린 크게 보기가 이어받는다(note-body.js). 열려 있지 않으면 null.
+export const photoViewZoom = () => current?.zoom || null;
 export function closePhotoView({fromBack = false, restore = true} = {}) {
   if (!current) return;
   const {box, trigger, layer, offSwipe} = current;

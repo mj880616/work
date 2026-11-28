@@ -2,8 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
-  const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
+  const NAV_ALIAS={messages:'home',myspace:'home'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   // MTG-프로젝트합치기 ①: 사업영역 관리(옛 ?view=projects)는 화면이 아니라 사업 보고 위의 창이다. go('projects')·옛 주소는 사업 보고를 열고
   // kptu:view-changed의 detail.areas로 창(area-window.js)을 띄운다.
@@ -12,7 +11,8 @@
   // 옛 ?view=outside·?view=now와 go('news')도 같은 화면을 연다(주소는 ?view=news로 고쳐 쓴다). 탭은 화면이 정한다(마지막 탭).
   // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages, go('pages'))은 없앴다 — 노트(정리함의 노트 쪽, ALIAS_SUB)를 연다. 주소는 ?view=basket&pane=note로 고쳐 쓴다.
   // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 화면은 없앴다. 옛 ?view=ledger·go('ledger')는 홈을 연다.
-  const VIEW_ALIAS={ledger:'home','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
+  // ORG-참고묶음삭제(S71-22, 2026-11-26 사용자 "참고 묶음 기능 삭제 안씀"): 참고 묶음 화면은 없앴다. 옛 ?view=reference·go('reference')는 조직 관리를 연다.
+  const VIEW_ALIAS={ledger:'home',reference:'team','hwp-lab':'hwp',reports:'meetings',media:'library',projects:'meetings',news:'outside',now:'outside',journal:'home',pages:'basket'};
   const ALIAS_SUB={pages:'note'};
   // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
   // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
@@ -30,7 +30,8 @@
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
   // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
-  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']}};
+  // S71-36 PROFILE-설정화면: 내 프로필의 장(이름·홈 칸·알림 설정 …)도 한 겹 아래 쪽이다(?view=profile&pane=push). 뒤로가기 = 내 프로필.
+  const SUB_PARAMS={basket:{param:'pane',values:['todo','note']},profile:{param:'pane',values:['name','home','push','backup','drive','mcp','account','status']}};
   // NAV-새로고침제자리: the place inside a screen (an open note, the folder entered, the day picked) is written to the address as
   // the screen's own parameters, so a reload (pull-to-refresh) opens the same place. Each screen lists its keys here and writes them
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
@@ -305,6 +306,10 @@
     const top=topOf(history.state);
     if(top&&!layers.some(layer=>layer.name===top)){
       if(traverseDelta>0&&reopenHere(top))return;
+      // S71-76 NAV-뒤로가기직전화면: Back onto the entry a line was pressed on before openFrom stepped to another screen (kept in
+      // returns) opens that entry's layer again (its owner's reopen — e.g. the phone note folder '저장한 글'), not passed over:
+      // the screen before is the layer the line was on, not the one under it.
+      if(traverseDelta<0&&returns.has(here()?.key)&&reopenHere(top))return;
       if(traverseDelta<0)history.back();else history.forward();
       return;
     }
@@ -485,15 +490,17 @@
     await new Promise(done=>requestAnimationFrame(done));
     return here()?.key!==from&&(w.classList.contains('hidden')||getComputedStyle(w).display==='none');
   }
+  // Every entry a line stepped away from is kept (S71-76: skipStaleLayer reopens its layer on Back); back (a window's reopener) is optional.
   function keepReturn(key,view,back){
-    if(!key||typeof back!=='function')return;
-    returns.delete(key);returns.set(key,{view,back});
+    if(!key)return;
+    returns.delete(key);returns.set(key,{view,back:typeof back==='function'?back:null});
     while(returns.size>50)returns.delete(returns.keys().next().value);
   }
   function returnHere(){
     const key=here()?.key,kept=key&&returns.get(key);
     if(!kept||api.current!==kept.view)return;
     returns.delete(key);
+    if(!kept.back)return;
     // After every popstate listener (a window opened inside the dispatch would be taken by a later listener for one Back closes).
     requestAnimationFrame(()=>{if(here()?.key!==key||api.current!==kept.view)return;try{kept.back()}catch(err){console.error('return reopen',err)}});
   }
@@ -644,15 +651,17 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
+    // S71-61 HWP-노트안으로: HWP 편집(hwp)은 노트 안 화면이라 메뉴 칸이 없다. 그 화면에서는 [노트] 칸이 묶음 머리처럼 켜진다(현재 쪽 표시는 아님).
+    const inNote=noteMode||target==='hwp';
     document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
       const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
-      btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
+      btn.classList.toggle('active',own||(!!btn.dataset.basketKindNav&&inNote)||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
     // UI-모바일메뉴순서: the phone bottom tabs are marked in one place (mobile-tab-selection.mjs): exactly one is current —
     // [메뉴] while its sheet is open, else the tab of this screen ([메뉴] for screens reached through the sheet).
-    window.KPTUMobileTabs?.paint(document,{view:target,noteMode});
+    window.KPTUMobileTabs?.paint(document,{view:target,noteMode:inNote});
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
     document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
       const current=(NAV_ALIAS[view]||view)==='home';

@@ -13,9 +13,9 @@ test('옛 사진 기록 채우기: 파일·메뉴·되돌리기 줄이 없다', 
   assert.doesNotMatch(code, /이전 줄로 되돌리기|line-revert|line_revert|lineRevertItem|markLineRevert|data-basket-link-revert/);
 });
 
-test('남기는 것: 서버 photo-brief 요청 길과 기록 요약 수정은 그대로', () => {
+test('남기는 것: 서버 photo-brief 요청 길과 기록 글 수정(⋯ [수정], RECORD-기록하나로)은 그대로', () => {
   assert.equal(existsSync(new URL('../app/photo-brief-request.js', import.meta.url)), true);
   const links = read('app/basket-link-records.js');
   assert.match(links, /export async function updateLinkSummary|export const updateLinkSummary|updateLinkSummary=/);
-  assert.match(links, /data-basket-link-action="summary">요약 수정</);
+  assert.match(links, /recordMenuHtml\('basket-link-action'/);assert.match(links, /if\(name==='edit'\)\{open\(id\);return;\}/);
 });

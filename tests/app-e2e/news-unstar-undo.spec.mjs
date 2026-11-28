@@ -19,7 +19,7 @@ const R1 = 'c1000000-0000-4000-8000-000000000011', RN1 = 'c1000000-0000-4000-800
 const CATALOG = [{ key: 'kctu', name: '가짜총연맹', group: 'labor', lang: 'ko' }];
 const POST = { id: P1, source_key: 'kctu', kind: 'statement', lang: 'ko', title: '[성명] 가짜 보관 성명', title_ko: null, url: 'https://example.org/s/1', published_at: '2026-10-05T00:30:00Z', fetched_at: '2026-10-05T00:40:00Z', summary_ko: null, key_sentences: [], has_body: false };
 const line = extra => ({ url: '', title: null, site: null, read_at: '2026-10-06T06:00:00Z', body_state: 'ok', body_at: '2026-10-05T05:00:10Z', business_area_id: null, updated_at: '2026-10-05T06:00:00Z', origin: 'direct', news_article_id: null, outside_article_id: null, ...extra });
-// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 보관한 기사 줄 RN1(N1)·RN2(N2).
+// 읽을 거리 줄 셋: 직접 저장했고 같은 주소의 사회운동 글(P1)에 연결된 줄 R1, News에서 저장한 기사 줄 RN1(N1)·RN2(N2).
 const READING = () => [
   line({ id: R1, url: 'https://example.org/s/1', title: '읽을 거리에 넣은 같은 성명', site: 'example.org', saved_at: '2026-10-05T05:00:00Z', outside_article_id: P1 }),
   line({ id: RN1, url: 'https://example.org/n/11', title: '가짜 매체 기사 하나', site: '가짜일보', saved_at: '2026-10-06T00:00:00Z', origin: 'news', news_article_id: N1 }),
@@ -134,6 +134,16 @@ async function goReading(page, width) {
   await expect(page.locator('#readingView')).toBeVisible();
 }
 const T_N1 = '가짜 매체 기사 하나', T_R1 = '읽을 거리에 넣은 같은 성명', T_N2 = '내가 공유로 넣은 가짜 기사';
+// S70-58 READ-두칸보기: 두 칸(600px~)에서는 저장한 글 줄을 누르면 오른쪽 칸에 열린다 — 읽을 거리 글 보기는 글 보기 머리 ⋯ [읽을 거리에서 보기]. 폰은 줄을 누르면 바로.
+// 오른쪽 칸이 방금 누른 글로 바뀐 뒤에 ⋯를 누른다(앞 글 머리 ⋯가 아직 보이는 사이에 누르면 앞 글이 열린다 — S71-03).
+async function toNews(page, width, title) {
+  if (width < 600) return;
+  await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(title);
+  const more = page.locator('#readingView [data-rd-detail] [data-rd-head-more]');
+  await expect(more).toBeVisible();
+  await more.click();
+  await page.locator('#rdRowMenu [data-rd-act="news"]').click();
+}
 const titles = page => rlist(page).locator('.rd-row .rd-nm').allTextContents();
 const savedAt = (s, id) => s.reading.find(r => r.news_article_id === id)?.saved_at ?? null;
 
@@ -205,6 +215,7 @@ for (const width of [412, 884, 1280]) {
     await expect(row(page, T_N1)).toBeVisible();
     // 수집 기사(N1): 같은 상세(지금 News 글 보기), [삭제] 없음. 뒤로 한 번이면 읽을 거리 [전체] 그대로.
     await row(page, T_N1).click();
+    await toNews(page, width, T_N1);
     const det = root(page).locator('[data-now-detail]');
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(det.locator('.nd-title')).toContainText('가짜 매체 기사 하나');
@@ -215,6 +226,7 @@ for (const width of [412, 884, 1280]) {
     // 내가 넣은 기사(N2): 키보드(Enter)로도 열린다.
     await row(page, T_N2).focus();
     await page.keyboard.press('Enter');
+    await toNews(page, width, T_N2);
     await expect(det.locator('.nd-title')).toContainText('내가 공유로 넣은 가짜 기사');
     await expect(det.locator('[data-nd-delete]')).toHaveText('기사 삭제'); // S68-34: 저장해 둔 내 기사는 [삭제](저장한 글에서 빼기)와 겹치지 않게 '기사 삭제'
     if (shots) await page.screenshot({ path: `${shots}/detail-from-reading-${width}.png` });
@@ -233,6 +245,7 @@ for (const width of [412, 884, 1280]) {
     await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
     await row(page, T_N2).click();
+    await toNews(page, width, T_N2);
     await expect(det.locator('[data-nd-delete]')).toHaveText('기사 삭제');
     await det.locator('[data-nd-delete]').click();
     await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('삭제했어요');
@@ -258,7 +271,7 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
   await goReading(page, 412);
   await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
   await expect.poll(() => titles(page)).toEqual([T_N1, T_R1, T_N2]);
-  // 오른쪽으로 밀면 [선택] 칸(공용 줄 밀기). 손가락 밀기는 포인터만 보낸다.
+  // 오른쪽으로 밀면 바로 선택(공용 줄 밀기, S70-64 W3). 손가락 밀기는 포인터만 보낸다.
   await expect(async () => {
     const sent = await row(page, T_N1).evaluate(el => {
       if (!el.isConnected) return false;
@@ -270,15 +283,12 @@ test('읽을 거리 412: News에서 보낸 줄을 골라 [삭제] — 묻지 않
     expect(sent).toBe(true);
   }).toPass({ timeout: 10000 });
   const bar = page.locator('#readingView .row-swipe-pickbar');
-  // S70-60 UI-스와이프메뉴만: 끝까지 밀어도 [선택] 칸만 펼쳐진다 → 칸을 눌러 선택을 시작한다.
-  const pick = page.locator('#readingView [data-row-swipe-key="select"]');
-  await expect(pick).toBeVisible();
-  await pick.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, bubbles: true });
-  await pick.dispatchEvent('click');
+  // S70-64 W3: 오른쪽 밀기 = 바로 그 줄 선택([선택] 칸이 남지 않음).
   await expect(bar).toBeVisible();
+  await expect(page.locator('#readingView [data-row-swipe-key="select"]')).toHaveCount(0);
   await row(page, T_N2).click();
   await expect(bar.locator('.row-swipe-pick-count')).toHaveText('2개 선택됨');
-  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['읽음', '삭제']);
+  await expect(bar.locator('[data-row-pick-act]')).toHaveText(['삭제']); // S70-64b: [전체 선택][삭제] 두 칸
   await bar.locator('[data-row-pick-act="delete"]').click();
   await expect(page.locator('#kptuNotice:not([hidden]) .kptu-notice-text')).toHaveText('2개 삭제했어요');
   await expect(page.locator('.kptu-ask')).toHaveCount(0);
@@ -346,8 +356,9 @@ for (const width of [412, 1280]) {
     await goReading(page, width);
     await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
     await expect(row(page, T_N2)).toBeVisible();
+    if (width >= 600) { await row(page, T_N2).click(); await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(T_N2); }
     await watchOutside(page);
-    await row(page, T_N2).click();
+    if (width >= 600) await toNews(page, width, T_N2); else await row(page, T_N2).click();
     const det = root(page).locator('[data-now-detail]');
     await expect(page.locator('#outsideView')).toBeVisible();
     await expect(det.locator('.nd-title')).toContainText(T_N2);
@@ -361,3 +372,19 @@ for (const width of [412, 1280]) {
     expect(errors).toEqual([]);
   });
 }
+
+// 흔들림 정리(2026-11-27): 저장한 글에 다시 들어오면 목록을 한 번 더 새로 읽어 그린다. 그때 자판 초점이 있던 줄이 새 줄로 바뀌면서
+// 초점이 화면 밖으로 빠져, 바로 누른 Enter가 사라지고 오른쪽 칸에 앞 글이 남았다(위 '보관 줄 → News 글 보기' 시험이 CI에서 10번 흔들림).
+// 다시 그려도 초점은 같은 글 줄에 남아야 한다(주소 칸과 같은 규칙).
+test('저장한 글 1280: 목록을 다시 그려도 자판 초점은 같은 줄 — 바로 누른 Enter가 그 글을 연다', async ({ page }) => {
+  const { errors } = await start(page, 1280);
+  await goReading(page, 1280);
+  await rlist(page).locator('.rd-switch [data-filter-value="all"]').click();
+  await expect(row(page, T_N2)).toBeVisible();
+  await row(page, T_N2).focus();
+  await page.evaluate(() => window.KPTUReading.refresh());
+  await expect(row(page, T_N2)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#readingView [data-rd-detail] .ds-doc-title')).toHaveText(T_N2);
+  expect(errors).toEqual([]);
+});

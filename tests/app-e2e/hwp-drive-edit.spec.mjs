@@ -1,5 +1,5 @@
 import {toggleLibraryCategory} from './helpers/library-categories.mjs';
-import {showBasketRow} from './helpers/basket-more.mjs';
+import {openBasketNote} from './helpers/basket-more.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
@@ -57,7 +57,8 @@ async function fixture(page,width,{open,library,basket,overwrite}={}){
     if(open)return open(route,body);
     return body.document_id?opened(route,HWP,info()):opened(route,HWPX,info({source:'basket',file_name:'안건.hwpx',format:'hwpx',size:HWPX.length,can_overwrite:false}));
   });
-  await page.route(SB+'/functions/v1/library-files',route=>{const body=multipart(route.request());sent.library.push(body);return library?library(route,body):route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
+  await page.route(SB+'/functions/v1/library-files',route=>{if(/^\{"action":"drive-auto"\}$/.test(route.request().postData()||''))return route.fulfill({headers:cors,json:{ok:true,added:0}}); // S70-73: 자료실을 열 때 자동 등록 부탁 — 올리기가 아님
+    const body=multipart(route.request());sent.library.push(body);return library?library(route,body):route.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}})});
   await page.route(SB+'/functions/v1/basket-files',route=>{const body=multipart(route.request());sent.basket.push(body);return basket?basket(route,body):route.fulfill({headers:cors,json:{ok:true,note_id:NOTE,attachments:[...attachments,{drive_file_id:'drive-new',file_name:body.file.file,mime_type:'application/x-hwp',size_bytes:100}]}})});
   return {sent,errors,external};
 }
@@ -149,8 +150,7 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
 for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new HWP attachment of the same note, never overwritten ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await page.evaluate(()=>window.KPTURouter.go('basket'));
-  await showBasketRow(page,NOTE);
-  await press(page,page.locator(`[data-basket-row="${NOTE}"]`),width);
+  await openBasketNote(page,NOTE,l=>press(page,l,width));
   await expect(page.locator('[data-basket-hwp="drive-jpg"]')).toHaveCount(0);
   await press(page,page.getByRole('button',{name:'안건.hwpx 수정'}),width);
   await expect(status(page)).toHaveText('안건.hwpx · 1쪽을 열었어요. HWPX 원본은 새 HWP 파일로만 저장해요. 수정한 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});

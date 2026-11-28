@@ -82,12 +82,12 @@ test('보기 기억 diary_view: 화면 규칙과 DB 검사(마지막 migration)�
   assert.match(sql, /view_prefs ->> 'diary_view' in \('calendar', 'list'\)/);
 });
 
-test('화면 연결: 기기 저장 없음, 보기는 view_prefs로만, 일기 검색은 전체 검색 경계를 넓히지 않음, 텔레그램 밀기 부품 재사용', () => {
+test('화면 연결: 기기 저장 없음, 보기는 view_prefs로만, 일기 검색은 전체 검색 경계를 넓히지 않음, 공용 줄 밀기 부품 재사용(S70-65)', () => {
   const list = read('app/diary-list.js'), diary = read('app/diary.js'), data = read('app/diary-data.js'), model = read('app/diary-list-model.mjs');
   for (const src of [list, model]) assert.doesNotMatch(src, /(local|session)Stor[a]ge|indexed[D]B/); // 단어를 그대로 쓰면 기기 저장 감사가 이 줄을 잡는다
   assert.match(diary, /viewPrefs\.set\('diary_view', next, \{rejectable:true\}\)/);
-  assert.match(list, /from '\.\/tg-day-model\.mjs'/);
-  assert.match(list, /swipeIntent/);
+  assert.match(list, /import \{bindRowSwipe, PICK, EDIT\} from '\.\/row-swipe\.js'/);
+  assert.doesNotMatch(list, /swipeIntent|tg-day-model/); // 따로 만든 밀기는 없다
   assert.doesNotMatch(list, /from '\.\/global-search|rpc\/app_search_records/);
   // 표시 저장은 owner RLS의 내 일기 행 PATCH(updated_at·두 표시 값이 읽은 그대로일 때만), updated_at은 건드리지 않는다.
   const mark = data.slice(data.indexOf('export async function setDiaryMark'), data.indexOf('export async function readDiaryDay'));

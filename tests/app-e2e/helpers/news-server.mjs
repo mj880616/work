@@ -135,7 +135,7 @@ export async function newsServer(page) {
       if (method === 'POST') { const it = server.items.find(i => i.id === body.article_id); Object.assign(it, body, { _marked: true }); delete it.article_id; delete it.workspace_id; return ok([{ article_id: it.id, ...markOf(it) }], 201); }
       const star = u.searchParams.get('starred_at'), hidden = u.searchParams.get('hidden_at');
       const cs = /^cs\.\{"((?:[^"\\]|\\.)*)"\}$/.exec(u.searchParams.get('keywords') || '')?.[1]?.replace(/\\(.)/g, '$1');
-      const rows = server.items.filter(i => marked(i) && (!aid || i.id === aid) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at) && (cs === undefined || (i.keywords || []).includes(cs)) && likeOk(i, u.searchParams.get('app_news_articles.or')));
+      const rows = server.items.filter(i => marked(i) && (!aid || i.id === aid) && (!star || !!i.starred_at) && (hidden !== 'is.null' || !i.hidden_at) && (hidden !== 'not.is.null' || !!i.hidden_at) && (cs === undefined || (i.keywords || []).includes(cs)) && likeOk(i, u.searchParams.get('app_news_articles.or')));
       return ok(rows.map(view));
     }
     if (p === '/rest/v1/app_news_reads') {

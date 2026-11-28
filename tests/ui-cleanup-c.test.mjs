@@ -37,7 +37,8 @@ test('④ 화면 칸 전체의 버튼 기본 모양(#화면 button)이 글 편�
   // NOTE-달력보기(S67-42): 노트 [달력]의 달 넘기기 줄(.rv-cal-head)·날짜 숫자(.rv-table)도 뺀다(모양은 공용 6가지·month-cal.css).
   // NOTE-유튜브보기(S67-04): 글 속 영상 칸(.ed-video)의 ▶도 뺀다(모양은 ed-doc.css 한 곳).
   // S69-82: 노트 보드 생각 지도 상자 안·선택한 상자 막대(.nb-node-bar·.nb-text)도 뺀다(모양은 공용 icon-btn·ds-chip·ui-swatch).
-  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?\) \{/);
+  // S71-59 UI-화면메뉴안으로: PC 틀 보기 탭 줄 끝 화면 단추 자리(.screen-line-slot)의 ⋯도 뺀다(맨 위 줄에 있을 때와 같은 공용 icon-btn).
+  assert.match(read('basket.css'), /#basketView button:not\(\.ed-editor \*(?:, \.ft-btn)?(?:, \.nbx \*)?(?:, \.nb-node-bar \*, \.nb-text \*(?:, \.nbb-bg \*)?)?(?:, \.up-rows \*)?(?:, \.ds-seg-btn)?(?:, \.screen-line-slot \*)?(?:, \.ed-video \*)?(?:, \.rv-cal-head \*, \.rv-table \*)?(?:, \.nxt-q)?(?:, \.fr-edit)?(?:, \.fr-acts \*)?\) \{/);
 });
 
 test('④ 편집 도구줄은 폰·PC 같은 [· ▾] 한 칸(따로 떨어진 [·][▾] 두 칸 없음)', () => {
@@ -85,7 +86,7 @@ test('① 위쪽 빈 띠: 노트 수정·통화·텔레그램 상세, 폰 노트
   assert.match(basket, /@media\(min-width:761px\)\{\s*#appView #basketView button\.note-back\{ display:none; \}\s*#appView #basketView > \[data-note-host\] \[data-note-detail\] > \.basket-detail-head:not\(:has\(> \[data-basket-return\]\)\):has\(> \.note-head-main\[hidden\]\)\{ display:none; \}/);
   assert.match(read('feed.css'), /#appView \.feed-view \.feed-pane > \.feed-detail-head:first-child,\s*#appView \.feed-view \.feed-list > \.feed-head:first-child:has\(> \.back-text\)\{ margin:0 0 12px;/);
   // UI-머리줄겹침: 음수 여백으로 위 머리줄 자리에 끌어올리지 않고, 빈 위 머리줄을 접는다(위에 다른 칸이 있어도 포개지지 않음).
-  for (const f of ['feed.css', 'basket.css', 'ui-standard.css', 'reference-bundles.css']) assert.doesNotMatch(read(f), /margin:calc\(-1 \* \(var\(--kptu-touch-target/, f);
+  for (const f of ['feed.css', 'basket.css', 'ui-standard.css']) assert.doesNotMatch(read(f), /margin:calc\(-1 \* \(var\(--kptu-touch-target/, f);
   assert.match(read('ui-standard.css'), /html:has\(#basketView:not\(\.hidden\) > \[data-basket-detail\]:not\(\[hidden\]\)\) #appView > \.mobile-shell-header\{ display:none; \}/);
   assert.match(read('journal.js'), /function syncDayTitle\(\) \{\s*const box = \$\('\[data-journal-day\]'\); if \(!box\) return;\s*box\.querySelector\('\[data-journal-day-title\]'\)\?\.remove\(\);/);
 });
@@ -108,12 +109,13 @@ test('C2 정리함은 PC에서 다른 화면처럼 본문 칸을 꽉 쓴다(예�
   assert.match(css, /@media\(min-width:761px\)\{\s*#basketView\s*\{\s*max-width:none;/);
 });
 
-test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·PC 모두 ⋯ 메뉴 맨 위, [미분류]를 고른 동안 줄에 미분류를 또 쓰지 않음', () => {
+test('C4 업데이트 줄: 복사 아이콘 없이 ⋯ 하나, [복사]는 폰·PC 모두 ⋯ 메뉴 맨 위, 줄에 미분류를 또 쓰지 않음', () => {
   const js = read('basket.js');
   assert.doesNotMatch(js, /data-basket-row-copy/);
   assert.match(js, /function rowMenuItems\(note,acts=false\)\{\s*return \[\.\.\.\(String\(note\.raw_text\|\|''\)\.trim\(\)\?\[\['copy','복사'\]\]:\[\]\)/);
-  // S52-20 HOME-잊지말기한목록: 업데이트 줄도 한 목록의 공용 줄(notice-box rowHtml)이고 ⋯은 줄 끝 ⑥ 아이콘(늘 보임). [미분류]=처리 전 보기에서는 '미분류'를 쓰지 않는다.
-  assert.match(js, /filter === 'unclassified' && label !== '미분류' \? label : ''/);
+  // S52-20 HOME-잊지말기한목록: 업데이트 줄도 한 목록의 공용 줄(notice-box rowHtml)이고 ⋯은 줄 끝 ⑥ 아이콘(늘 보임).
+  // FORGET-처리전만(S71-58): 목록은 늘 처리 전(미분류)이라 '미분류'는 쓰지 않는다.
+  assert.match(js, /label !== '미분류' \? label : ''/);
   assert.match(js, /tail: `<button type="button" class="icon-btn nbx-more" data-basket-row-more=/);
 });
 

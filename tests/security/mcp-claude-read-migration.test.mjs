@@ -89,8 +89,10 @@ test('excluded forever: no function names diary, basket, work journal, call, tra
   // 원장은 민감도 상한·범위를 함수가 고정한다.
   assert.match(code, /public\.app_ledger_search\(v_q, null, v_org, v_topic, p_from, p_to, 'S2', 'work', false, v_limit\)/);
   for (const m of code.matchAll(/create function (public|private)\.app_mcp_\w+\(([^)]*)\)/g)) assert.doesNotMatch(m[2], /workspace|user/i, m[0]);
-  // app_mcp_ 함수는 이 migration에서만 만든다.
+  // app_mcp_ 함수는 이 migration과 3판 영역 migration(20261127120000_mcp_claude_read_areas, 설계 15절 — 시험은
+  // tests/security/mcp-claude-read-areas-migration.test.mjs)에서만 만든다.
   const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql`
+    && f !== '20261127120000_mcp_claude_read_areas.sql'
     && /function (public|private)\.app_mcp_/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);
 });

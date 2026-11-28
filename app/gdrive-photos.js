@@ -5,6 +5,7 @@
 // - 썸네일은 한 번에 4장까지만 받는다(요청마다 서버가 Drive 열쇠를 새로 받으므로 몰아치지 않게). 화면 밖으로 나간 차례 안 된 요청은 거둔다.
 import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {within, isLoadTimeout} from './load-deadline.js';
+import {myFeatures as featureList} from './my-features.js';
 
 export const GD_FN = '/functions/v1/gdrive-photos';
 export const GD_TIMEOUT_MS = 45000;
@@ -24,6 +25,21 @@ export const gdTrash = (rt, ids) => gdCall(rt, {action:'trash', ids, confirm:tru
 export const gdFolderCreate = (rt, parent, name) => gdCall(rt, {action:'folder-create', parent, name, confirm:true});
 export const gdFolderRename = (rt, id, name) => gdCall(rt, {action:'folder-rename', id, name, confirm:true});
 export const gdFolderTrash = (rt, id) => gdCall(rt, {action:'folder-trash', id, confirm:true});
+// S71-21 사진을 설명 낱말로 찾기(읽기만). 서버가 운영자 기능 photo_content를 다시 본다. 답은 걸린 드라이브 파일 id 목록뿐.
+// 운영자 기능 목록에 photo_content가 없으면 서버에 묻지 않고 null(화면은 지금처럼 이름만).
+export const PHOTO_CONTENT_FEATURE = 'photo_content';
+// S71-62 PHOTO-찾기넓히기: 기능 키가 있으면 content-find(색인 시트 + 드라이브 글자 찾기를 서버가 합침), 없으면 drive-find(드라이브 글자 찾기만).
+// 드라이브 글자 찾기 = 그 사람 드라이브 검색(이름·설명·사진 속 글자)에서 사진 목록에 든 것만. drive=false면(구글 드라이브 출처를 못 씀) 키가 없을 때 null.
+export async function gdContentFind(rt, q, {drive = true} = {}) {
+  const text = String(q || '').slice(0, 50);
+  if ((await featureList(rt)).includes(PHOTO_CONTENT_FEATURE)) return gdCall(rt, {action:'content-find', q:text});
+  return drive ? gdCall(rt, {action:'drive-find', q:text}) : null;
+}
+// S71-62 PHOTO-설명: 저장 자리는 그 사진 드라이브 파일의 '설명' 칸(서버가 목록 안 내 사진인지 본 뒤에만 읽고 씀). 기기 저장 없음.
+export const gdDescGet = (rt, driveId) => gdCall(rt, {action:'desc-get', id:driveId});
+// mode 'set' = 한 장 설명 바꾸기, 'add' = 여러 장 있던 설명 뒤에 더하기. 답 {done:[{id, description}], failed:[{id, why}]}.
+export const gdDescSet = (rt, driveIds, text, mode = 'set') => gdCall(rt, {action:'desc-set', ids:driveIds, text, mode, confirm:true});
+export const gdDescWords = rt => gdCall(rt, {action:'desc-words'});
 // 자료실과 같은 [Drive 다시 연결](public-policy-drive drive-start → Google 동의 화면으로).
 export async function gdReconnect(rt) {
   const d = await rt.api('/functions/v1/public-policy-drive', {method:'POST', body:{action:'drive-start'}, singleFlight:false});

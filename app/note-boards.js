@@ -17,21 +17,23 @@
 //   처음엔 마지막에 연 보드(없으면 가장 최근에 만든 보드), 보드가 하나도 없으면 current = null(판 대신 빈 안내, basket-notes.js paintBoard).
 //   서버 화면 기억에 옛 값 'all'이 남아 있어도 pickBoard가 무시한다. 노트의 옛 metadata.board 값은 지우지 않는다.
 import { viewPrefs } from './view-prefs.js';
-import { treeIconHtml, iconHtml } from './tree-icons.js';
 import { mountSplitResize } from './split-resize.js';
-import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace } from './note-boards-model.mjs';
+import { BOARD_LIMITS, parseBoards, boardsToPrefs, pickBoard, addBoard, renameBoard, removeBoard, boardPlaceOf, onBoard, notesOnBoard, dropPlace, BOARD_BGS, BOARD_BG_NAMES, parseBoardBgs, boardBgOf, withBoardBg, boardBgsToPrefs } from './note-boards-model.mjs';
+import { swatchHtml } from './color-swatch.mjs';
 import { layoutBoard, spreadFrom, topZ, placeFields, validateCardLabel, CARD_LABEL_MAX, clampPos, Z_MAX } from './note-board-model.mjs';
-import { treeRows, noteLineTitle, OUTSIDE, OUTSIDE_NAME } from './note-tree.mjs';
+import { treeRows, noteLineTitle, OUTSIDE } from './note-tree.mjs';
 import { setNoteBoardPlace } from './basket-data.js';
 import { NOTE_DRAG } from './note-board.js';
 import * as pinLock from './feature-lock.js';
-import { noteTreeRowHtml } from './note-tree-row.js';
+import { noteTreeRowHtml, lockedFolderRowHtml } from './note-tree-row.js';
+import { ftBoxHtml } from './folder-tree-ui.mjs';
 import { LONG_MS, SLOP, mountReorder } from './reorder-drag.js';
 import { setDragGhostImage } from './drag-ghost.js'; // S69-27 끄는 모습 보이기
 import { askConfirm, askText } from './small-notice.js';
 import { emptyHtml } from './wait-state.js';
 import { fitChipRows } from './chip-rows.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78)
 import {installDragEdgeScroll} from './drag-edge-scroll.js';
 // UI-끌기가장자리스크롤(S69-15): 이 화면의 HTML 끌기도 끄는 동안 포인터 아래 칸 위·아래 가장자리면 저절로 굴린다(공용 부품 하나, 화면마다 계산 없음).
 installDragEdgeScroll();
@@ -44,10 +46,9 @@ const FOLDER_DRAG = 'application/x-kptu-note-folder';
 const lockedRow = id => pinLock.notesHidden() && pinLock.folderLocked(id);
 const shownFolders = list => pinLock.notesHidden() ? list.filter(f => !pinLock.folderCovered(f.id) || pinLock.folderLocked(f.id)) : list;
 const shownNotes = list => pinLock.notesHidden() ? list.filter(n => !pinLock.noteHidden(n)) : list;
-// 줄을 누르면(또는 [풀기]) 다른 화면의 '잠김' 줄과 같은 그 자리 PIN 창(feature-lock.js data-lock-here 한 곳). 풀리면 kptu:feature-lock-changed로 다시 그린다.
-export const lockedFolderRowHtml = (r, esc, attr) => `<div class="nbb-folder nbb-locked" data-${attr}="${esc(r.id)}" data-lock-here="notes" style="--nx-indent:${r.indent}">${iconHtml('lock', {className:'nbb-caret'})}<span class="nbb-name">${esc(r.name)}</span><span class="nbb-num"><span aria-hidden="true">· </span>잠김</span><button type="button" class="row-act lk-open">풀기</button></div>`;
+// 잠긴 폴더 줄은 공용 노트 나무 줄(note-tree-row.js lockedFolderRowHtml): 누르면 다른 화면의 '잠김' 줄과 같은 그 자리 PIN 창. 풀리면 kptu:feature-lock-changed로 다시 그린다.
 
-export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}, onExport = null}) {
+export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes, folderOf, folders, matches, rerender, toast, refresh, scope, openNoteMenu = () => {}, openFolderMenu = () => {}, moveToFolder = null, focusCard = () => false, centerPoint = () => null, openNote = () => {}, onExport = null, onBg = () => {}}) {
   const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)') : {matches:false};
   let boards = parseBoards(viewPrefs.get('note_boards')), current = pickBoard(viewPrefs.get('note_board'), boards), chosen = false;
   let openSet = new Set(), menu = null, picker = null;
@@ -64,6 +65,28 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     toast('보드는 아직 서버에 저장할 수 없어요(준비 중). 잠시 뒤 다시 해 주세요.'); rerender();
   });
   const saveBoards = () => { viewPrefs.set('note_boards', boardsToPrefs(boards), {rejectable:true}); void viewPrefs.flush?.(); };
+  // S71-50 NOTE-보드배경색: 보드마다 바탕색(서버 view_prefs.note_board_bg, 기기 저장 없음). 적용 전 서버는 쓰기를 거절 → 되돌려 '기본' 바탕 + 한 줄 알림.
+  let bgs = parseBoardBgs(viewPrefs.get('note_board_bg')), bgTouched = false;
+  window.addEventListener('kptu:view-prefs-ready', () => { if (!bgTouched) { bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); onBg(); } });
+  window.addEventListener('kptu:view-prefs-rejected', e => {
+    if (!(e.detail?.paths || []).includes('note_board_bg')) return;
+    bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); onBg();
+    toast('배경색은 아직 서버에 저장할 수 없어요(준비 중). 기본 바탕으로 보여요.');
+  });
+  const bgOf = id => boardBgOf(bgs, id);
+  function setBg(id, bg) {
+    if (!boards.some(b => b.id === id)) return;
+    try { bgs = withBoardBg(bgs, id, bg); } catch (e) { toast(e.message); return; }
+    bgTouched = true; onBg();
+    viewPrefs.set('note_board_bg', boardBgsToPrefs(bgs), {rejectable:true}); void viewPrefs.flush?.();
+  }
+  // 색 고르기 칸(공용 color-swatch.mjs): '기본' + 여덟 가지, 지금 색에 ✓. 메뉴 안 한 묶음(보드 칸 메뉴·빈 판 우클릭 메뉴가 같이 쓴다).
+  const bgSwatchesHtml = id => {
+    const now = bgOf(id);
+    return `<div class="nbb-bg" role="radiogroup" aria-label="배경색"><span class="nbb-bg-label" aria-hidden="true">배경색</span><span class="ui-swatches">${
+      swatchHtml({color:'var(--kptu-surface-subtle)', label:'기본', role:'radio', on:!now, attrs:{'data-nbb-bg':'', title:'기본'}})}${
+      BOARD_BGS.map(c => swatchHtml({color:`var(--ds-board-bg-${c})`, label:BOARD_BG_NAMES[c], role:'radio', on:now === c, attrs:{'data-nbb-bg':c, title:BOARD_BG_NAMES[c]}})).join('')}</span></div>`;
+  };
   function select(id) {
     if (!boards.some(b => b.id === id)) return;
     const next = id;
@@ -76,7 +99,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   // 보드 칸 줄. 고른 보드는 aria-pressed. 이름 붙은 보드 칸은 우클릭·꾹 누르기로 메뉴(보드 칸 자체가 메뉴를 연다, ⋯ 없음).
   function paintBar() {
     const phoneAdd = named() && (!wide.matches || coarse.matches);
-    bar.innerHTML = `${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true" title="우클릭(폰은 꾹 누르기): 이름 바꾸기·삭제">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
+    bar.innerHTML = `${boards.map(b => `<button type="button" class="nbb-chip" data-nbb-board="${esc(b.id)}" aria-pressed="${current === b.id}" aria-haspopup="true">${esc(b.name)}</button>`).join('')}${boards.length < BOARD_LIMITS.count ? '<button type="button" class="nbb-new" data-nbb-new>+ 새 보드</button>' : ''}${phoneAdd ? '<button type="button" class="nbb-new nbb-attach" data-nbb-pick>+ 노트 붙이기</button>' : ''}`;
     // UI-칩줄두줄: 보드 칸 줄도 두 줄 + [더보기 ▾](공용 chip-rows.js). 접히는 것은 고르지 않은 보드 칸뿐, [+ 새 보드]·[+ 노트 붙이기]는 늘 보인다.
     fitChipRows(bar, { key: 'noteboards', keep: el => el.dataset.nbbBoard === undefined || el.getAttribute('aria-pressed') === 'true' });
   }
@@ -96,18 +119,16 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     // 폴더가 하나도 없으면 노트가 바로 한 목록(폴더 없음 묶음도 펼쳐 둔다).
     if (!folders().length) openSet.add(OUTSIDE);
     const rows = treeRows({folders:shownFolders(folders()), notes:shownNotes(all), folderOf, root:null, isOpen:id => openSet.has(id) && !lockedRow(id), matches:m});
+    // NOTE-폴더디자인통일(S70-82): 줄은 [파일]·노트 [폴더] 나무와 같은 공용 줄(note-tree-row.js → folder-tree-ui.mjs), 목록은 [파일] 나무와 같은 둥근 상자 하나.
+    // 이미 붙은 노트도 폴더로는 끌 수 있다(판에는 놓이지 않는다 — dragstart가 판 끌기 형식을 싣지 않음).
+    // NOTE-보드목록음영(S70-79): 줄에 쓰는 법 안내 title은 없다. 이름 칸 title은 전체 이름만(표준 L2, 공용 줄 .ft-name).
     const html = rows.map(r => {
-      if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, esc, 'nbb-locked');
-      if (r.type === 'folder' || r.type === 'outside') {
-        const name = r.type === 'outside' ? OUTSIDE_NAME : r.name;
-        return `<button type="button" class="nbb-folder" data-nbb-folder="${esc(r.id)}" data-reorder-id="f:${esc(r.id)}" aria-expanded="${!!r.open}" style="--nx-indent:${r.indent}">${treeIconHtml(r.type === 'outside' ? 'outside' : 'folder', {row: r, open: !!r.open, className: 'nbb-caret'})}<span class="nbb-name">${esc(name)}</span><span class="nbb-num">${r.count}</span></button>`;
-      }
-      const on = onBoard(r.note, current), title = [...noteLineTitle(r.note)].slice(0, 60).join('');
-      // 이미 붙은 노트도 폴더로는 끌 수 있다(판에는 놓이지 않는다 — dragstart가 판 끌기 형식을 싣지 않음).
-      const drag = on ? !!moveToFolder : true, tip = on ? (moveToFolder ? '보드에 있음 · 누르면 그 자리로 · 폴더 줄에 끌어 놓으면 그 폴더로 옮겨요' : '보드에 있음 · 누르면 그 자리로') : (moveToFolder ? '끌어다 보드에 놓으면 붙어요 · 누르면 노트 열기 · 폴더 줄에 놓으면 그 폴더로 옮겨요' : '끌어다 보드에 놓으면 붙어요 · 누르면 노트 열기');
-      return `<button type="button" class="nbb-note${on ? ' nbb-on' : ''}" data-nbb-note="${esc(r.note.id)}" data-reorder-id="n:${esc(r.note.id)}"${on ? ' data-nbb-on' : ''} draggable="${drag}" style="--nx-indent:${r.indent}" title="${esc(tip)}"><span class="nbb-name">${esc(title)}</span>${on ? '<span class="nbb-dot" aria-hidden="true"></span><span class="a11y-only">보드에 있음</span>' : ''}</button>`;
+      if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, {lockAttr:'nbb-locked'});
+      if (r.type !== 'note') return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true});
+      const on = onBoard(r.note, current);
+      return noteTreeRowHtml(r, {folderAttr:'nbb-folder', noteAttr:'nbb-note', reorder:true, on, draggable:on ? !!moveToFolder : true});
     }).join('');
-    side.innerHTML = `<div class="nbb-side-head" aria-hidden="true">노트 목록</div><div class="nbb-side-list" role="group" aria-label="붙일 노트">${html || emptyHtml('노트 없음')}</div>`;
+    side.innerHTML = ftBoxHtml({head:'노트 목록', body:html || emptyHtml('노트 없음'), label:'붙일 노트', attrs:{'data-nbb-list':''}});
   }
   function paint() { paintBar(); paintSide(); }
 
@@ -232,6 +253,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     const name = boardName(id), on = notesOnBoard(notes.get(), id);
     if (!await askConfirm(trigger || bar, {text:`'${name}' 보드를 삭제할까요?`, note:`붙은 노트 ${on.length}개는 삭제하지 않아요(보드에서만 빠져요).`, ok:'삭제', danger:true})) return;
     boards = removeBoard(boards, id); saveBoards();
+    // S71-50: 지운 보드의 바탕색도 지운다.
+    if (bgOf(id)) { bgs = withBoardBg(bgs, id, null); viewPrefs.set('note_board_bg', boardBgsToPrefs(bgs), {rejectable:true}); void viewPrefs.flush?.(); }
     // 보던 보드를 지우면 남은 보드 중 가장 최근에 만든 보드로(없으면 빈 안내). 남은 보드가 없으면 화면 기억은 그대로 두고 읽을 때 무시한다.
     if (current === id) { current = pickBoard(null, boards); if (current) viewPrefs.set('note_board', current, {rejectable:true}); }
     for (const n of on) localPlace(n.id, id, null);
@@ -250,34 +273,44 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   function openMenu(chip) {
     const id = chip.dataset.nbbBoard; if (!id) return;
     closeMenu();
-    const el = menuEl();
+    const el = menuEl(); el.setAttribute('aria-label', '보드 메뉴');
     // S70-32 ③: 지금 연 보드면 [PDF로 내보내기]·[HTML로 내보내기](보드 전체를 이 기기로 내려받기).
     const items = [['data-nbb-rename', '이름 바꾸기'], ...(onExport && id === current ? [['data-nbb-export="pdf"', 'PDF로 내보내기'], ['data-nbb-export="html"', 'HTML로 내보내기']] : []), ['data-nbb-delete', '보드 삭제', 'basket-menu-danger']];
-    el.innerHTML = items.map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    const html = ([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`;
+    // S71-50: [이름 바꾸기] 아래 [배경색] 한 줄(폰은 보드 칸 꾹 누르기 메뉴, PC는 우클릭). 누르면 같은 자리에 색 칸(폴더 [색 고르기…]와 같은 방식).
+    el.innerHTML = html(items[0]) + html(['data-nbb-bg-open', '배경색']) + items.slice(1).map(html).join('');
     el.hidden = false;
-    const place = () => placeAnchored(el, chip, {maxWidth:200, maxHeight:260});
+    const place = () => placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
     place();
     menu = {id, chip, stop:followAnchor(el, chip, {place, lost:() => closeMenu()})};
+    menu.release = holdMenu(el, {close:reason => closeMenu({focus:reason === 'esc'}), keep:t => !!t && chip.contains(t), back:'note-board-chip-menu'});
     chip.setAttribute('aria-expanded', 'true');
     el.querySelector('button')?.focus({preventScroll:true});
   }
+  function showBgChoice() {
+    const el = menuEl(), chip = menu.chip;
+    el.setAttribute('aria-label', '보드 배경색 선택');
+    el.innerHTML = bgSwatchesHtml(menu.id);
+    placeAnchored(el, chip, {maxWidth:220, maxHeight:window.innerHeight});
+    (el.querySelector('[aria-checked="true"]') || el.querySelector('button'))?.focus({preventScroll:true});
+  }
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
-    const m = menu, el = menuEl(); menu = null; m.stop(); el.hidden = true; clearAnchored(el);
+    const m = menu, el = menuEl(); menu = null; m.stop(); m.released = m.release?.() || null; el.hidden = true; clearAnchored(el);
     m.chip.setAttribute('aria-expanded', 'false'); if (focus) m.chip.focus({preventScroll:true});
     return m;
   }
   bar.parentElement.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const inMenu = b.closest('[data-nbb-menu]');
-    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); return; }
+    if (inMenu && b.hasAttribute('data-nbb-bg-open') && menu) { e.stopPropagation(); showBgChoice(); return; }
+    if (inMenu) { e.stopPropagation(); const m = closeMenu({focus:true}); if (!m) return; void Promise.resolve(m.released).then(() => { if (b.hasAttribute('data-nbb-bg')) setBg(m.id, b.dataset.nbbBg || null); else if (b.hasAttribute('data-nbb-rename')) void rename(m.id, m.chip); else if (b.dataset.nbbExport && m.id === current) onExport(b.dataset.nbbExport); else if (b.hasAttribute('data-nbb-delete')) void remove(m.id, m.chip); }); return; } // 메뉴 겹 뒤로가기 뒤에 실행
     if (!bar.contains(b)) return;
     if (Date.now() < suppress) { e.preventDefault(); return; }
     if (b.dataset.nbbBoard) select(b.dataset.nbbBoard);
     else if (b.hasAttribute('data-nbb-new')) void create(b);
     else if (b.hasAttribute('data-nbb-pick')) openPicker(b);
   });
-  document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.chip.contains(e.target)) closeMenu(); });
   bar.parentElement.addEventListener('keydown', e => {
     if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
     const chip = e.target.closest?.('[data-nbb-board]');
@@ -317,8 +350,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   const folderKey = row => (row.dataset.nbbFolder === OUTSIDE ? null : row.dataset.nbbFolder);
   const sameFolder = (nid, row) => { const n = notes.get().find(x => x.id === nid); return !n || (folderOf(n) ?? null) === folderKey(row); };
   const markDrop = row => {
-    side.querySelectorAll('.nbb-folder.nx-drop').forEach(el => { if (el !== row) el.classList.remove('nx-drop'); });
-    row?.classList.add('nx-drop');
+    side.querySelectorAll('.nx-drop').forEach(el => { if (el !== row) el.classList.remove('nx-drop'); });
+    row?.closest('.ft-row')?.classList.add('nx-drop');
   };
   const dropInto = (nid, row) => { markDrop(null); if (moveToFolder && nid && row && !sameFolder(nid, row)) void moveToFolder(nid, folderKey(row)); };
   const folderDrag = e => !!moveToFolder && [...(e.dataTransfer?.types || [])].includes(FOLDER_DRAG);
@@ -332,7 +365,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
     if (moveToFolder) { e.dataTransfer.setData(FOLDER_DRAG, n.dataset.nbbNote); dragNote = n.dataset.nbbNote; }
     e.dataTransfer.effectAllowed = moveToFolder ? 'copyMove' : 'copy';
     // S69-27 끄는 모습 보이기: 노트 폴더 보기와 같은 반투명 조각(제목 한 줄)이 마우스를 따라온다(공용 drag-ghost.js).
-    setDragGhostImage(e.dataTransfer, n.querySelector('.nbb-name')?.textContent || '');
+    setDragGhostImage(e.dataTransfer, n.querySelector('.ft-name')?.textContent || '', document, e);
   });
   side.addEventListener('dragend', () => { dragNote = ''; markDrop(null); });
   side.addEventListener('dragover', e => {
@@ -352,8 +385,8 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   if (moveToFolder) {
     let lastPointer = '';
     side.addEventListener('pointerdown', e => { lastPointer = e.pointerType || ''; }, true);
-    const rowOf = key => (key ? side.querySelector(`.nbb-folder[data-reorder-id="${CSS.escape(key)}"]`) : null);
-    mountReorder(side, {listSelector:'.nbb-side-list', whole:true, scroller:() => side, ghost:el => el.querySelector('.nbb-name')?.textContent || '',
+    const rowOf = key => (key ? side.querySelector(`.ft-row[data-reorder-id="${CSS.escape(key)}"] [data-nbb-folder]`) : null);
+    mountReorder(side, {listSelector:'[data-nbb-list] .ft-box-body', whole:true, scroller:() => side, ghost:el => el.querySelector('.ft-name')?.textContent || '',
       canDrag:key => lastPointer === 'touch' && key.startsWith('n:'),
       zones:{resolve:(dragKey, overKey) => {
         const row = overKey.startsWith('f:') ? rowOf(overKey) : null;
@@ -377,9 +410,9 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
       const rows = treeRows({folders:shownFolders(folders()), notes:shownNotes(notes.get()), folderOf, root:null, isOpen:id => state.open.has(id) && !lockedRow(id), matches:m});
       // 줄은 잊지 말기 [노트] 창의 노트 고르기(note-pick.js)와 같은 부품(note-tree-row.js).
       list.innerHTML = rows.map(r => {
-        if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, esc, 'nbb-pl');
+        if (r.type === 'folder' && lockedRow(r.id)) return lockedFolderRowHtml(r, {lockAttr:'nbb-pl'});
         const on = r.type === 'note' && onBoard(r.note, current), sel = r.type === 'note' && state.picked.has(r.note.id);
-        return noteTreeRowHtml(r, {esc, folderAttr:'nbb-pf', noteAttr:'nbb-pn', check:true, pressed:on || sel, off:on});
+        return noteTreeRowHtml(r, {folderAttr:'nbb-pf', noteAttr:'nbb-pn', pressed:on || sel, off:on});
       }).join('') || emptyHtml('맞는 노트 없음');
       ok.disabled = !state.picked.size; ok.textContent = state.picked.size ? `붙이기 ${state.picked.size}` : '붙이기';
     };
@@ -407,6 +440,7 @@ export function createNoteBoards({esc, rt, links = null, wide, bar, side, notes,
   return {
     paint, boardView, attach, attachSized, detach, restore, move, relabel, autosize, isSized,
     current:() => current, isNamed:named, name:boardName,
-    reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); },
+    bgOf, setBg, bgSwatchesHtml,
+    reset() { closeMenu(); picker?.close(); openSet = new Set(); chosen = false; boards = parseBoards(viewPrefs.get('note_boards')); current = pickBoard(viewPrefs.get('note_board'), boards); bgs = parseBoardBgs(viewPrefs.get('note_board_bg')); bgTouched = false; },
   };
 }

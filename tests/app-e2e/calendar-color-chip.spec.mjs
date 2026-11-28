@@ -43,7 +43,7 @@ async function boot(page,state){
   const panel=page.locator('#googleCalendarPanel');
   await expect(panel).toBeAttached({timeout:10000});
   await expect(page.locator('#googleCalendarList [data-google-cal]')).toHaveCount(3,{timeout:10000});
-  if(!await panel.evaluate(p=>p.open))await panel.locator('summary').click();
+  if(await panel.evaluate(p=>p.hidden))await page.locator('#googleCalendarHeadBtn').click(); // CAL-머리한줄: 이름 줄 [구글 캘린더 ▾]
   await expect(page.locator('#googleCalendarList')).toBeVisible();
 }
 const newState=()=>({user:{id:'user-1',email:'e2e@example.org',user_metadata:{display_name:'E2E'}},selected:['primary','cal-org'],colors:{},posts:[]});

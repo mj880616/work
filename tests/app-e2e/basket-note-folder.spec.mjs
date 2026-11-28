@@ -91,7 +91,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
     // PC: folders only in the left tree (none on the right). NOTE-최근5개: the tree starts with '최근' (picked first), the right shows
     // the latest changed notes of every folder with '최근 · 3' above and the folder name on the row.
     await expect(page.locator('#noteRows [data-nx-folder]')).toHaveCount(0);
-    await expect(page.locator('[data-nx-tree] > *').first()).toHaveAttribute('data-nx-recent-item', '');
+    await expect(page.locator('[data-nx-tree] .ft-row').first()).toHaveAttribute('data-nx-recent-item', '');
     await expect(page.locator('[data-nx-tree] [data-nx-recent-item]')).toHaveClass(/ft-current/);
     await expect(here(page)).toHaveText('최근 · 3');
     await expect(page.locator('[data-nx-tree] [data-nx-new-top]')).toHaveText('+ 새 폴더');
@@ -117,7 +117,7 @@ for (const width of [390, 1280]) test(`folder tree: old folder by name, 폴더 �
   await showOutside(page, width);
   // Row ⋯: [선택] first, [복사] in the menu, then [폴더로 옮기기] opens the shared folder list; the note gets the folder id and name, nothing else changes.
   await press(page, page.locator('[data-note-row-more="n1"]'), width);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '하루 기록으로 보내기', '삭제']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['선택', '복사', '고정', '폴더로 옮기기', '수정', '공유 링크 만들기', '알림 걸기…', '서식으로 저장', '이 노트를 HWP로', '하루 기록으로 보내기', '삭제']);
   await press(page, page.locator('#noteDocMenu [data-note-folder-move]'), width);
   await expect(picker(page)).toBeVisible();
   await pickInSheet(page, ['회의']);
@@ -371,7 +371,8 @@ test('PC 1280: 폴더 나무 | 노트 경계 끌기·키보드·새로고침 유
 });
 
 // UI-고르기막대(S69-85, 명진 11/25 "두줄로 삐져나오지 않게"): 노트 고르기 막대도 파일·자료실과 같은 공용 막대 — 늘 한 줄(높이 = 목록 줄 하나 이하),
-// 왼쪽 [✕] 'N개 선택됨', 오른쪽 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
+// 테두리 없는 [전체 선택][폴더로 옮기기][삭제](삭제는 맨 끝·글자색만 경고색), 좁으면 아이콘만 → ⋯.
+// S70-64b: [✕]·'N개 선택됨' 글자는 없다(개수는 화면 읽기에만). 맨 왼쪽은 [전체 선택].
 for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 막대 한 줄 ${width}`, async ({ page }) => {
   const { mkdirSync } = await import('node:fs');
   const DIR = 'test-results/ui-audit'; mkdirSync(DIR, { recursive: true });
@@ -387,18 +388,20 @@ for (const width of [390, 768, 1280]) test(`UI-고르기막대: 노트 선택 �
     const mids = kids.map(x => { const r = x.getBoundingClientRect(); return r.top + r.height / 2; });
     const buttons = kids.filter(x => x.matches('button'));
     return { height: b.height, spread: Math.max(...mids) - Math.min(...mids), outside: kids.filter(x => x.getBoundingClientRect().right > b.right + 1).length,
-      first: buttons[0]?.getAttribute('aria-label'), last: buttons.at(-1)?.matches('[data-nx-sel-delete]'),
+      first: (buttons[0]?.querySelector('.kptu-act-tx')?.textContent || buttons[0]?.getAttribute('aria-label') || '').trim(), close: !!el.querySelector('.kptu-sb-close'), last: buttons.at(-1)?.matches('[data-nx-sel-delete]'),
       danger: getComputedStyle(el.querySelector('[data-nx-sel-delete]')).color, ink: getComputedStyle(el.querySelector('[data-nx-sel-all]')).color,
       borders: buttons.map(x => getComputedStyle(x).borderTopWidth) };
   });
   expect(m.height, '한 줄 높이').toBeLessThanOrEqual(40);
   expect(m.spread, '칸이 모두 한 줄').toBeLessThanOrEqual(2);
   expect(m.outside).toBe(0);
-  expect(m.first).toBe('선택 끝내기');
+  expect(m.first).toBe('전체 선택');
+  expect(m.close, '✕ 없음').toBe(false);
   expect(m.last, '삭제는 맨 끝').toBe(true);
   expect(m.danger, '삭제만 경고색').not.toBe(m.ink);
   expect(m.borders.every(w => w === '0px')).toBe(true);
-  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨');
+  await expect(page.locator('[data-nx-select-count]')).toHaveText('1개 선택됨'); // 화면 읽기용(눈에는 안 보임)
+  await expect(page.locator('[data-nx-select-count]')).toHaveClass(/kptu-sb-sr/);
   await page.screenshot({ path: `${DIR}/s69-85-notes-${width}.png` });
   process.stdout.write(`::notice title=select-bar notes ${width}::${JSON.stringify(m)}\n`);
   await page.keyboard.press('Escape');

@@ -63,7 +63,10 @@ async function measure(locator){
  await expect(locator).toBeVisible();
  return locator.evaluate(el=>{
   const r=el.getBoundingClientRect(),x=r.left+r.width/2,hit=y=>document.elementFromPoint(x,y)?.closest('button')===el;
-  return {height:r.height,top:r.top,font:getComputedStyle(el).fontSize,touch:Math.max(parseFloat(getComputedStyle(el,'::after').height)||0,parseFloat(getComputedStyle(el,'::after').minHeight)||0),above:hit(r.top-3),below:hit(r.bottom+3)};
+  const touch=Math.max(parseFloat(getComputedStyle(el,'::after').height)||0,parseFloat(getComputedStyle(el,'::after').minHeight)||0);
+  // 칠한 끝 바깥에서 누르는 범위 안쪽(3px, 40px 단추처럼 범위가 위아래 2px뿐이면 1.5px)을 눌러 본다.
+  const d=Math.min(3,Math.max(1,(touch-r.height)/2-0.5));
+  return {height:r.height,top:r.top,font:getComputedStyle(el).fontSize,touch,above:hit(r.top-d),below:hit(r.bottom+d)};
  });
 }
 // 글자 크기는 바꾸지 않는다(업무일지 [저장]은 원래 12px): 높이·누르는 범위만 본다.
@@ -78,30 +81,30 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'library');{const b=await page.locator('#newDocumentBtn').boundingBox();expect([b.width,b.height],'#newDocumentBtn').toEqual([32,32]);}/* LIB-위쪽한줄(11/09): 자료실 [+]는 위 줄 작은 아이콘 32px */
  await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
  await open(page,'home');await pcButton(page.locator('#homeView [data-journal-save]'),'업무일지 저장');
- // 홈: 입력칸·[크게]·[📎 첨부]·[추가]가 한 줄에서 같은 높이.
+ // 홈: 입력칸·[추가]가 한 줄에서 같은 높이 — NOTE-입력줄높이(S71-67): 빠른 입력 줄은 40px(--ds-quick-row-height), 클립·[크게]는 칸 안(칸 안쪽 높이).
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
- const hi=await measure(home.locator('[data-quick-input]')),hs=await pcButton(home.locator('[data-quick-save]'),'홈 추가'),hc=await pcButton(home.getByRole('button',{name:'파일 첨부',exact:true}),'홈 첨부');
+ const hi=await measure(home.locator('[data-quick-input]')),hs=await pcButton(home.locator('[data-quick-save]'),'홈 추가',40),hc=await measure(home.getByRole('button',{name:'파일 첨부',exact:true}));
  const hb=await measure(home.locator('[data-quick-big]'));
- for(const m of [hi,hb])expect(m.height).toBe(36);for(const m of [hi,hb,hc])expect(Math.abs(m.top-hs.top)).toBeLessThanOrEqual(0.5);
+ expect(hi.height).toBe(40);for(const m of [hb,hc]){expect(m.height).toBe(38);expect(m.touch).toBeGreaterThanOrEqual(44);}expect(Math.abs(hi.top-hs.top)).toBeLessThanOrEqual(0.5);for(const m of [hb,hc])expect(Math.abs(m.top-hs.top-1)).toBeLessThanOrEqual(0.5);
  // 할 일: 입력칸·칸 안 [+]·[추가].
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
- const ti=await measure(tq.locator('[data-quick-input]')),ts=await pcButton(tq.locator('[data-quick-save]'),'할 일 추가'),td=await measure(tq.locator('[data-quick-detail]'));
- expect(ti.height).toBe(36);expect(td.height).toBe(36);expect(td.touch).toBeGreaterThanOrEqual(44);expect(Math.abs(ti.top-ts.top)).toBeLessThanOrEqual(0.5);
- // 바구니: [추가]·[📎 첨부] 36px(여러 줄 업데이트 칸 높이는 그대로). 노트(BASKET-노트입력창): [+ 노트] 대신 같은 입력칸의 [추가] 36px, 검색칸 36px.
+ const ti=await measure(tq.locator('[data-quick-input]')),ts=await pcButton(tq.locator('[data-quick-save]'),'할 일 추가',40),td=await measure(tq.locator('[data-quick-detail]'));
+ expect(ti.height).toBe(40);expect(td.height).toBe(38);expect(td.touch).toBeGreaterThanOrEqual(44);expect(Math.abs(ti.top-ts.top)).toBeLessThanOrEqual(0.5);
+ // 잊지 말기·노트: 입력 줄 [추가] 40px(NOTE-입력줄높이), 클립은 칸 안. 노트 찾기 칸 36px.
  await open(page,'basket');const bq=page.locator('#basketView [data-basket-list] [data-home-quick]');
- await pcButton(bq.locator('[data-quick-save]'),'정리함 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'정리함 첨부');
+ await pcButton(bq.locator('[data-quick-save]'),'정리함 추가',40);expect((await measure(bq.getByRole('button',{name:'파일 첨부',exact:true}))).touch).toBeGreaterThanOrEqual(44);
  await chooseBasketKind(page,'note');
- const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure((await screenFind(page)));
+ const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가',40),ns=await measure((await screenFind(page)));
  expect(ns.height).toBe(36); // S70-54 UI-검색창하나로: 노트 찾기는 상단 줄 칸이 겸한다(높이 36 그대로)
- // 입력 줄 버튼은 모두 36px. 창(모달) 버튼은 공용 기준(46px) 그대로.
- expect(nb.height).toBe(36);
+ // 입력 줄 버튼은 40px(입력칸과 같은 높이). 창(모달) 버튼은 그대로.
+ expect(nb.height).toBe(40);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
  expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px */
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
+test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 입력칸과 같은 40px(NOTE-입력줄높이)',async({page})=>{
  await boot(page,390);
  // MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작은 [+](32px)라 둥근 [+] 묶음에서 뺀다.
  await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);
@@ -113,13 +116,13 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
   expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
  await open(page,'home');await openQuickBox(page);/* UI-폰하단고정: 접힌 입력칸을 눌러 펼친다 */const home=page.locator('#homeView [data-home-quick]');
  await home.locator('[data-quick-input]').fill('글');/* HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 */
- expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(36);/* HOME-모바일정리④ */
+ expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(40);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(40);/* NOTE-입력줄높이(S71-67) */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
- expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(36);
+ expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(40);
 });
 
-test('중간 폭 900: 목록 머리 채운 버튼은 36px(UI-버튼전수조사), 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
+test('중간 폭 900: 목록 머리 채운 버튼은 36px(UI-버튼전수조사), 빠른 입력 [추가]는 40px(NOTE-입력줄높이)',async({page})=>{
  await boot(page,900);
  await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(32);/* MTG-프로젝트합치기 ①: [+ 사업영역]은 사업영역 관리 창 머리줄의 작고 낮은 버튼(32px) */
- await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(36);
+ await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(40);
 });
