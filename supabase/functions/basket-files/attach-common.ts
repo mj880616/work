@@ -32,8 +32,10 @@ export function validateFiles(files: FormDataEntryValue[]): File[] {
   return files as File[];
 }
 
-// 첨부 폴더: 노트(kind=note)는 바구니 안 '노트 첨부', 보드 사진(place=board)은 '보드 사진'(못 쓰면 '노트 첨부'), 그 밖(업데이트 등)은 바구니 폴더.
-// 폴더는 저장된 행의 종류로만 정한다(요청의 폴더 id는 읽지 않는다). 공유된 폴더는 올리기 전에 거절된다(ensurePrivate*).
+// 첨부 폴더: 노트(kind=note)는 맨 위 앱 폴더 안 '노트 첨부'(NOTE-첨부폴더, 사용자 결정 2026-11-28 — 맨 위 앱 폴더를 모르거나 못 쓰거나
+// 그 '노트 첨부'가 공유돼 있으면 예전 자리인 바구니 안 '노트 첨부'), 보드 사진(place=board)은 '보드 사진'(못 쓰면 위 '노트 첨부'),
+// 그 밖(업데이트 등)은 바구니 폴더. 폴더는 저장된 행의 종류로만 정한다(요청의 폴더 id는 읽지 않는다).
+// 공유된 폴더에는 올리지 않는다: 새 자리가 공유돼 있으면 쓰지 않고, 예전 자리가 공유돼 있으면 올리기 전에 거절된다(ensurePrivate*).
 export async function attachmentFolder(
   drive: ReturnType<typeof createDriveUpload>,
   workspaceId: string,
@@ -45,7 +47,8 @@ export async function attachmentFolder(
   const board = noteKind === "note" && place === "board"
     ? await drive.boardPhotoFolder(workspaceId, token)
     : null;
-  return board ?? (noteKind === "note"
-    ? await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token)
-    : root);
+  if (board) return board;
+  if (noteKind !== "note") return root;
+  return (await drive.noteFilesFolder(workspaceId, token)) ??
+    await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token);
 }

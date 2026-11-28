@@ -3,7 +3,7 @@ import { WorkspaceDriveError, workspaceDriveToken } from "./workspace-drive-toke
 // S69-22: 바구니 폴더는 내 드라이브 맨 위 또는 맨 위 앱 폴더(root_folder_id) 바로 아래 어디에 있어도 같은 폴더(옮긴 뒤 새로 안 만듦).
 import { APP_FOLDER_MARK, basketFolderClause, createParentFor, isBasketFolder, renameIfOld, topParentsClause } from "./app-folders.mjs";
 // S69-41: 새 바구니 폴더 이름('WORK ON+ 바구니'). 찾기·확인은 표식 또는 알려진 이름(옛·새)이라 [한곳으로 모으기]가 이름을 바꿔도 같은 폴더.
-import { BOARD_PHOTO_FOLDER_NAME, FOLDER_NAMES } from "./brand-folders.mjs";
+import { BOARD_PHOTO_FOLDER_NAME, FOLDER_NAMES, NOTE_FILES_FOLDER_NAME } from "./brand-folders.mjs";
 
 export type UploadAdmin = Pick<SupabaseClient, "auth" | "from">;
 export type UploadLog = (code: string) => void;
@@ -349,15 +349,17 @@ export function createDriveUpload(
     }
     return verify(created);
   }
-  // S71-49 NOTE-보드사진: the folder "보드 사진" directly inside the stored top app folder (app_drive_settings.root_folder_id —
+  // A named folder directly inside the stored top app folder (app_drive_settings.root_folder_id — e.g. 'WORK ON+';
   // read here with the server key for this workspace only, never taken from the request). Found or created with the same private
   // check as every child folder (ensurePrivateChildFolder). Returns null when the top app folder is not known yet, is gone, trashed or
   // not the caller's own folder, or the child folder cannot be used privately (shared / permissions unreadable): the caller then keeps
   // the earlier place ("노트 첨부" in the basket). The top app folder itself is never created here (app-folders.mjs rule).
-  // existingOnly (OCR of a board photo): only find; null when it is not there.
-  async function boardPhotoFolder(
+  // existingOnly (OCR): only find; null when it is not there.
+  // Used by S71-49 NOTE-보드사진 ("보드 사진") and NOTE-첨부폴더 ("노트 첨부", 사용자 결정 2026-11-28).
+  async function appRootChildFolder(
     workspaceId: string,
     token: string,
+    name: string,
     options: { existingOnly?: boolean } = {},
   ): Promise<string | null> {
     const { data, error } = await admin.from("app_drive_settings")
@@ -380,12 +382,25 @@ export function createDriveUpload(
       f.ownedByMe !== true || f.trashed !== false
     ) return null;
     try {
-      return await ensurePrivateChildFolder(root, BOARD_PHOTO_FOLDER_NAME, token, options);
+      return await ensurePrivateChildFolder(root, name, token, options);
     } catch (e) {
       if (e instanceof UploadError && e.status === 409) return null;
       throw e;
     }
   }
+  // S71-49 NOTE-보드사진: "보드 사진" directly inside the top app folder (appRootChildFolder).
+  const boardPhotoFolder = (
+    workspaceId: string,
+    token: string,
+    options: { existingOnly?: boolean } = {},
+  ) => appRootChildFolder(workspaceId, token, BOARD_PHOTO_FOLDER_NAME, options);
+  // NOTE-첨부폴더: a note's (kind=note) files go to "노트 첨부" directly inside the top app folder (appRootChildFolder).
+  // null → the caller keeps the earlier place, "노트 첨부" inside the basket folder.
+  const noteFilesFolder = (
+    workspaceId: string,
+    token: string,
+    options: { existingOnly?: boolean } = {},
+  ) => appRootChildFolder(workspaceId, token, NOTE_FILES_FOLDER_NAME, options);
   // MCP-Claude쓰기 ③(설계 docs/design/mcp-claude-write.md 11.2 나): 붙일 Drive 파일이 '내 드라이브의 내 소유 보통 파일'인지만 읽는다.
   // 원본은 읽기만 한다(이름·위치·권한·내용을 바꾸는 요청 없음). 공유 드라이브·남의 파일·공유받은 파일·폴더·Google 문서 원본은 거절.
   async function ownedFileInfo(
@@ -459,6 +474,7 @@ export function createDriveUpload(
     ensurePrivateRootFolder,
     ensurePrivateChildFolder,
     boardPhotoFolder,
+    noteFilesFolder,
     upload,
     discardUploadedFile,
     ownedFileInfo,

@@ -102,6 +102,20 @@ S69-98 NOTE-에버노트 ④(노트 사진 글자 읽기): OCR(`ocr-read`·`ocr-
 사진의 부모가 최상위 폴더이면(업데이트에서 옮겨 온 노트) 예전처럼 최상위에서 읽는다. 그 밖의 곳에 있는 사진은 기존 비공개 부모 검사가 거절한다.
 DB·JWT 정책(verify_jwt=false 유지, 코드 인증) 변경 없음.
 
+## 노트 첨부 새 자리(NOTE-첨부폴더) — 배포 대기
+
+사용자 결정(2026-11-28): 노트(`kind=note`)에 붙이는 새 파일은 **맨 위 앱 폴더**(`app_drive_settings.root_folder_id`, 새 사용자 이름 'WORK ON+',
+서버가 그 작업공간 것만 읽음) 바로 아래 **노트 첨부** 폴더에 올린다. 찾기·만들기는 `_shared/drive-upload.ts`의 `noteFilesFolder`
+(보드 사진 `boardPhotoFolder`와 같은 도우미 `appRootChildFolder` — 새 상태 저장소·새 DB 칸 없음)이고, 비공개 검사는 `ensurePrivateChildFolder` 그대로다.
+새 자리를 쓸 수 없으면(맨 위 앱 폴더를 모름·없음·휴지통·내 것 아님, 새 '노트 첨부'가 공유됨·공유 상태를 못 읽음) 예전 자리(바구니 안 **노트 첨부**)에 올리고,
+예전 자리도 공유돼 있으면 올리기 전에 409로 거절한다. 맨 위 앱 폴더는 여기서 만들지 않는다. 폴더는 저장된 행의 `kind`로만 정하고 요청 값은 읽지 않는다.
+Claude 첨부(`mcp-attach`)도 같은 `attachmentFolder`를 쓴다. 자료실 목록(`app_documents`)에는 넣지 않는다.
+이미 예전 자리에 있는 파일은 옮기지 않는다(옮기기는 화면 단추 없이 CC가 따로 — PR 댓글). 파일 id가 그대로라 어느 자리에 있든
+열기·사진 보기(`photo`, 폴더를 보지 않음)는 같고, OCR은 새 자리 → 예전 자리 → 보드 사진 → 바구니 맨 위 순서로 찾기만 한다.
+`note-delete`·사진 정리(`photo-prune`)는 예전처럼 바구니 맨 위 바로 아래 파일만 다루므로 두 자리의 노트 첨부를 지우지 않는다.
+검사: `tests/security/basket-files-note-top-folder.test.mjs`, `basket-ocr.test.mjs` 'note photo in the top app folder …',
+`basket-photo.test.mjs`·`basket-note-delete.test.mjs`·`basket-photo-prune.test.mjs`의 '노트 첨부' 두 자리 시험. DB·JWT 정책 변경 없음.
+
 ## 메모 삭제(note-delete) — 배포 대기
 
 `POST ?action=note-delete`, JSON `{action:"note-delete",note_id,note_updated_at}`(정확히 이 3개 키, 4096 bytes까지).

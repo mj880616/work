@@ -160,3 +160,13 @@ test('the photo view never writes: no Drive mutation, no admin note access, no D
   assert.deepEqual(Object.keys(token.body).sort(),['action','code','ok']);
   assert.equal(token.headers.get('cache-control'),'no-store');
 });
+
+// NOTE-첨부폴더(2026-11-28): 노트 첨부가 맨 위 앱 폴더 안 '노트 첨부'(새 자리)에 있든 바구니 안 '노트 첨부'(옛 자리)에 있든
+// 사진 보기는 같다 — 폴더가 아니라 '그 노트의 첨부 목록에 있는 내 파일'인지로만 정한다(옮겨도 파일 id가 같아 연결이 안 깨짐).
+test('note photo view works the same in the new and the old "노트 첨부" place',async()=>{
+  for(const parent of ['top-note-files-folder','note-files-folder']){
+    const files={p1:{id:'p1',mimeType:'image/jpeg',ownedByMe:true,trashed:false,size:'3',parents:[parent],thumbnailLink:'https://lh3.googleusercontent.com/drive-storage/synthetic=s220'}};
+    const r=await run({files});
+    assert.equal(r.status,200,parent);assert.deepEqual([...r.body],[...JPEG],parent);
+  }
+});

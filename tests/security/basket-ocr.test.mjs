@@ -134,3 +134,22 @@ test('board photo: OCR reads a note photo inside "보드 사진" of the top app 
  // No top app folder known: the board folder is not looked up; a photo elsewhere is still refused.
  const lost=ocrHarness({noteKind:true,sourceMetadata:{parents:['boardpics']}});assert.equal((await lost.request()).status,409);assert.equal(lost.calls.writes.length,0);assert.equal(lost.calls.boardLookups,undefined);
 });
+
+// NOTE-첨부폴더(사용자 결정 2026-11-28): 새 노트 첨부는 맨 위 앱 폴더 안 '노트 첨부'에 있다. OCR은 그 폴더를 먼저 찾기만 하고(만들지 않음),
+// 임시 문서도 그 폴더에 둔다. 옛 자리(바구니 안 '노트 첨부')·보드 사진·바구니 맨 위에 있는 사진은 예전처럼 읽는다. 공유된 새 폴더는 쓰지 않는다.
+test('note photo in the top app folder "노트 첨부": OCR reads it there, never creates a folder; old-place photos still read',async()=>{
+ const h=ocrHarness({noteKind:true,appRoot:true,topNotes:'private',sourceMetadata:{parents:['topnotes']}}),got=await(await h.request()).json();
+ assert.equal(got.ok,true);assert.equal(got.cleanup_state,'deleted');assert.equal(h.note.attachments[0].ocr.text,'인식 글');assert.equal(h.calls.topLookups,1);
+ assert.equal(h.calls.drive.some(c=>c.method==='POST'&&c.url.pathname==='/drive/v3/files'),false,'no folder is created');
+ // 옛 자리(바구니 안 '노트 첨부') 사진: 새 폴더가 있어도 거기서 읽는다.
+ const old=ocrHarness({noteKind:true,appRoot:true,topNotes:'private'}),o=await(await old.request()).json();
+ assert.equal(o.ok,true);assert.equal(old.note.attachments[0].ocr.text,'인식 글');
+ // 새 폴더가 아직 없음(맨 위 앱 폴더는 앎): 옛 자리에서 읽는다, 폴더를 만들지 않는다.
+ const none=ocrHarness({noteKind:true,appRoot:true}),n=await(await none.request()).json();assert.equal(n.ok,true);assert.equal(none.calls.topLookups,1);
+ // 공유된 새 폴더 안 사진: 그 폴더를 쓰지 않으므로 비공개 부모 검사로 거절, 아무것도 쓰지 않는다.
+ const shared=ocrHarness({noteKind:true,appRoot:true,topNotes:'shared',sourceMetadata:{parents:['topnotes']}}),r=await shared.request();
+ assert.equal(r.status,409);assert.equal(shared.calls.writes.length,0);
+ assert.equal(shared.calls.drive.some(c=>c.url.pathname.includes('/upload/')||c.method==='DELETE'),false);
+ // 업데이트(바구니) 사진은 새 폴더를 찾지도 않는다.
+ const b=ocrHarness({appRoot:true,topNotes:'private'});assert.equal((await(await b.request()).json()).ok,true);assert.equal(b.calls.topLookups,undefined);
+});

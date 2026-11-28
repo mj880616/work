@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 // 실제 handler + 공용 Drive 코드, Supabase SDK 경계와 Google Drive HTTP만 흉내. id·이름은 지어낸 것.
 const WS = '10000000-0000-4000-8000-000000000001';
 const NOTE = '20000000-0000-4000-8000-000000000001';
-const ROOT = 'basket-root', CHILD = 'note-files-folder', APP_ROOT = 'app-root-folder', BOARD = 'board-photo-folder', OTHER_FOLDER = 'other-workspace-folder';
+const ROOT = 'basket-root', CHILD = 'note-files-folder', TOP_NOTE = 'top-note-files-folder', APP_ROOT = 'app-root-folder', BOARD = 'board-photo-folder', OTHER_FOLDER = 'other-workspace-folder';
 const FOLDER = 'application/vnd.google-apps.folder';
 const owner = [{type: 'user', role: 'owner'}];
 
@@ -38,7 +38,7 @@ function harness({kind = 'note', child = 'none', note = true, attachments = [], 
       return json({files: found.map(f => meta(f, fields))});
     }
     if (u.pathname === '/drive/v3/files' && method === 'POST') {
-      const body = JSON.parse(init.body); const id = body.name === '노트 첨부' ? CHILD : body.name === '보드 사진' ? BOARD : 'made-' + (++n);
+      const body = JSON.parse(init.body); const id = body.name === '노트 첨부' ? (body.parents?.[0] === APP_ROOT ? TOP_NOTE : CHILD) : body.name === '보드 사진' ? BOARD : 'made-' + (++n);
       calls.created.push(body);
       files.set(id, {id, name: body.name, mimeType: body.mimeType, ownedByMe: true, trashed: false, parents: body.parents, permissions: owner});
       return json({id});
@@ -130,17 +130,17 @@ test('맨 위 앱 폴더를 모르거나 못 쓰면(없음·휴지통·내 것 �
   }
 });
 
-test('"보드 사진" 폴더가 공유돼 있으면 거기 올리지 않고 "노트 첨부"에, 권한은 건드리지 않는다', async () => {
+test('"보드 사진" 폴더가 공유돼 있으면 거기 올리지 않고 "노트 첨부"(NOTE-첨부폴더: 맨 위 앱 폴더 안)에, 권한은 건드리지 않는다', async () => {
   const h = harness({board: 'shared', child: 'private'});
   assert.equal((await send(h, {note_id: NOTE, place: 'board'})).status, 200);
-  assert.deepEqual(h.calls.uploads.map(u => u.parents), [[CHILD]]);
-  assert.deepEqual(h.calls.created, []);
+  assert.deepEqual(h.calls.uploads.map(u => u.parents), [[TOP_NOTE]]);
+  assert.deepEqual(h.calls.created, [{name: '노트 첨부', mimeType: FOLDER, parents: [APP_ROOT]}]);
 });
 
-test('place가 없으면 지금처럼 "노트 첨부", 업데이트(basket)·일기는 place=board여도 바구니 맨 위, 모르는 place는 400', async () => {
+test('place가 없으면 "노트 첨부"(NOTE-첨부폴더: 맨 위 앱 폴더 안), 업데이트(basket)·일기는 place=board여도 바구니 맨 위, 모르는 place는 400', async () => {
   const plain = harness({board: 'private', child: 'private'});
   assert.equal((await send(plain, {note_id: NOTE})).status, 200);
-  assert.deepEqual(plain.calls.uploads.map(u => u.parents), [[CHILD]]);
+  assert.deepEqual(plain.calls.uploads.map(u => u.parents), [[TOP_NOTE]]);
   for (const kind of ['basket', 'diary']) {
     const h = harness({kind, board: 'private'});
     assert.equal((await send(h, {note_id: NOTE, place: 'board'})).status, 200, kind);

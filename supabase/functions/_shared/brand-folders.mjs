@@ -50,6 +50,11 @@ export const FOLDER_NAMES = Object.freeze({
 // (_shared/drive-upload.ts boardPhotoFolder). 앱 이름이 붙지 않는 이름이라 브랜드가 바뀌어도 그대로다.
 export const BOARD_PHOTO_FOLDER_NAME = '보드 사진';
 
+// NOTE-첨부폴더(사용자 결정 2026-11-28 "Work on + 폴더 … 안에 노트 첨부 폴더를 만들고 거기다 모아"): 노트에 붙인 파일이 들어가는 폴더 이름.
+// 맨 위 앱 폴더(root_folder_id) 바로 아래에 서버가 찾거나 만든다(_shared/drive-upload.ts noteFilesFolder). 맨 위 앱 폴더를 모르거나 못 쓰면
+// 예전 자리(바구니 폴더 안 같은 이름 폴더). 앱 이름이 붙지 않는 이름이라 브랜드가 바뀌어도 그대로다.
+export const NOTE_FILES_FOLDER_NAME = '노트 첨부';
+
 /** 이 종류 폴더로 알아볼 이름 전부(옛 이름들 + 지금 이름). 표식 없는 옛 폴더 찾기·이름 거절에 쓴다. */
 export const knownFolderNames = kind => Object.freeze([...FOLDER_NAMES[kind].olds, FOLDER_NAMES[kind].now]);
 

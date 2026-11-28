@@ -213,3 +213,12 @@ test('JSON POST without the note-delete query still goes to OCR (old shape kept)
   assert.equal(r.status,400);assert.equal(r.body.code,'OCR_REQUEST_INVALID');assert.equal(Object.hasOwn(r.body,'action'),false);
   assert.equal(r.calls.drive.length,0);assert.equal(r.state.notes.length,1);
 });
+
+// NOTE-첨부폴더(2026-11-28): 노트 첨부는 바구니 맨 위 밖('노트 첨부' 새 자리·옛 자리)에 있다. note-delete는 두 자리 모두에서
+// 예전과 같게 파일을 건드리지 않고(바구니 맨 위 바로 아래 파일만 휴지통) 노트는 지운다.
+test('attachments in the new or the old "노트 첨부" folder are kept in Drive and the note is still deleted',async()=>{
+  const r=await run({files:[file('a1',{parents:['top-note-files-folder']}),file('a2',{parents:['note-files-folder']})]});
+  assert.equal(r.status,200);
+  assert.deepEqual(r.body,{action:'note-delete',note_id:NOTE,attachments_total:2,trashed:0,failed:2,unknown:0,ok:true,note_deleted:true});
+  assert.deepEqual(patches(r.calls),[]);assert.equal(r.state.notes.length,0);
+});

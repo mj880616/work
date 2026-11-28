@@ -173,3 +173,13 @@ test('photo-orphans fails closed: no list when Drive or a table cannot be read; 
     const r=await run({files:[file('x')]},body);assert.equal(r.status,400);assert.equal(r.calls.drive.length,0);
   }
 });
+
+// NOTE-첨부폴더(2026-11-28): 사진 정리는 바구니 맨 위 바로 아래 사진만 본다 — 노트 첨부(새 자리 맨 위 앱 폴더 안 '노트 첨부',
+// 옛 자리 바구니 안 '노트 첨부')의 사진은 지우지도 목록에 넣지도 않는다(예전과 같음).
+test('photos in the new or the old "노트 첨부" folder are never pruned nor listed as orphans',async()=>{
+  const files=[file('top',{parents:['top-note-files-folder']}),file('old',{parents:['note-files-folder']})];
+  const r=await prune(['top','old'],{files});
+  assert.equal(r.status,200);assert.deepEqual([r.body.trashed,r.body.failed],[0,2]);assert.deepEqual(patches(r.calls),[]);
+  const o=await orphans({files});
+  assert.equal(o.status,200);assert.equal(JSON.stringify(o.body).includes('"top"')||JSON.stringify(o.body).includes('"old"'),false);
+});
