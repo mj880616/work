@@ -19,7 +19,8 @@ for(const width of [390,1280]){
   await page.route(SB+'/rest/v1/app_notes?**',r=>{
    const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET')return r.fulfill({status:500,json:{}});
    // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸은 가족 '잊지 말기' 노트(metadata->>family_list) 하나만 따로 읽는다 — 정리함 목록 읽기가 아니라 세지 않는다(빈 답).
-   if(q.get('metadata->>family_list'))return r.fulfill({json:[]});
+   // FORGET-업무노트: 그 아래 '업무 · 기억할 것' 칸도 업무 노트(metadata->>work_list) 하나만 따로 읽는다 — 같은 까닭으로 세지 않는다.
+   if(q.get('metadata->>family_list')||q.get('metadata->>work_list'))return r.fulfill({json:[]});
    reads.push(q.get('kind'));if(q.get('metadata'))return r.fulfill({json:[]});
    const kind=q.get('kind');return r.fulfill({json:rows.filter(n=>!kind||'eq.'+n.kind===kind).slice(Number(q.get('offset')||0))});
   });

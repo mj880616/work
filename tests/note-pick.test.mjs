@@ -59,7 +59,12 @@ test('가족 노트 경계: 저장 함수가 읽은 행을 다시 보고, PATCH�
   // 고르기 창 읽기도 가족 줄은 가족 노트만(서버 조건).
   assert.match(src('note-pick.js'), /\$\{family \? '&ai_export_allowed=is\.false' : ''\}/);
   // 새 가족 노트·잊지 말기 노트는 늘 AI 재료에서 뺀다.
-  assert.match(fam, /createNoteDoc\(\{title: where === 'list' \? LIST_TITLE : [^\n]*ai_export_allowed: false,/);
+  // FORGET-업무노트: 줄 모으는 노트를 kind로 나눴다 — 가족 갈래(family)만 AI 제외로 만들고, 그 노트에 더할 때는 가족 노트 확인(familyOnly)을 그대로 건다.
+  assert.match(fam, /createNoteDoc\(\{title: where === 'list' \? spec\.title : [^\n]*\.\.\.\(family \? \{ai_export_allowed: false\} : \{\}\),/);
+  assert.match(fam, /familyOnly: family\}\); return \{noteId: list\.id/);
+  assert.match(fam, /if \(family && row\.ai_export_allowed !== false\) throw/);
+  assert.match(fam, /aiExcluded: family\}, rt\);/);
+  assert.match(src('family-note-send.mjs'), /family: Object\.freeze\(\{kind: 'family', listKey: LIST_KEY, pastKey: PAST_KEY, [^\n]*aiExcluded: true\}\)/);
   // 옛 작은 '노트로 보내기' 창은 없앴다(같은 노트 창 하나).
   assert.doesNotMatch(fam, /familyNoteSend|data-fs-/);
 });
