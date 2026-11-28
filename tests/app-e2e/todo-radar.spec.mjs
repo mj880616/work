@@ -69,20 +69,14 @@ for(const width of [412,884,1440])test(`home: the first open of the day asks onc
  // (운영자 기능 telegram이 있으면 업무일지 '기억할 만한 일' 읽기도 ai-assist를 부르므로 챙길 것 찾기만 센다.)
  const radarCalls=()=>f.calls.ai.filter(c=>c.kind==='todo_radar');
  await expect.poll(()=>radarCalls().length).toBe(1);expect(radarCalls()[0]).toEqual({kind:'todo_radar',mode:'auto'});
- // ② S52-20 → S53-13: 입력 칸 머리 줄 '잊지 말기' 칩 + 빨간 숫자(요청 1 + 챙길 것 2 + 미분류 업데이트 0 = 3). 요청 줄·'챙길 것 n · 정리 안 된 것 n' 줄은 없다.
- const line=page.locator('#homeView [data-home-summary]');
- await expect(line).toBeVisible();
- await expect(line.locator('[data-home-forget-open]')).toHaveClass(/(^|\s)ds-chip(\s|$)/);
- await expect(line.locator('[data-home-forget-open]')).toHaveText('잊지 말기3');
- await expect(line.locator('[data-nbx-row],.nbx-foot')).toHaveCount(0);
- // 날짜 밑 옛 요약 줄·[하루] 카드 안 띠 줄은 없다(칩은 입력 칸 머리 줄).
- expect(await line.evaluate(el=>!!el.closest('.home-quick-head')&&!el.closest('[data-journal-day]'))).toBe(true);
- await expect(page.locator('#homeView .home-summary-open,#homeView .home-summary-rest')).toHaveCount(0);
+ // ② 처리 안 한 수(요청 1 + 챙길 것 2 + 미분류 업데이트 0 = 3)는 메뉴 '홈' 표시로 보인다. QUICK-입력정리(2026-11-28): 홈 칩·띠 줄은 없다.
+ await expect(page.locator('#appView')).toHaveAttribute('data-home-asks','3');
+ await expect(page.locator('#homeView [data-home-summary],#homeView [data-home-forget-open],#homeView .home-summary-open,#homeView .home-summary-rest')).toHaveCount(0);
  expect(await noWideScroll(page)).toBe(true);
  // 옛 챙길 것 상자는 홈 어디에도 없다.
  await expect(page.locator('#homeView [data-journal-radar],#homeView [data-home-card="radar"],#homeView [data-radar-row]')).toHaveCount(0);
  await page.screenshot({path:info.outputPath(`home-summary-${width}.png`)});
- await tap(page,line.locator('[data-home-forget-open]'),width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  // 정리함: 텔레그램 요청과 챙길 것이 한 목록의 같은 줄.
  await expect(inbox(page).locator('[data-forget-src="todo"]')).toHaveCount(2);
@@ -99,10 +93,9 @@ test('home: a candidate table that is not applied counts as 0; nothing else brea
  const f=await fixture(page,{tables:false});
  await expect(page.locator('#homeView [data-journal-schedule]')).toBeVisible();
  await page.waitForTimeout(300);
- const line=page.locator('#homeView [data-home-summary]');
- // A table that is not applied counts as 0 (inbox-count.js), so the line shows no number instead of failing.
- await expect(line.locator('[data-home-forget-open]')).toHaveText('잊지 말기');
- await expect(line.locator('[data-nbx-badge]')).toHaveCount(0);
+ await page.waitForLoadState('networkidle');
+ // A table that is not applied counts as 0 (inbox-count.js), so the menu home mark shows nothing instead of failing.
+ await expect(page.locator('#appView')).not.toHaveAttribute('data-home-asks',/.*/);
  expect(f.errors).toEqual([]);
 });
 

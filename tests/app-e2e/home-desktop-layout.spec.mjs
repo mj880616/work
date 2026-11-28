@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome, openQuickBox } from './helpers/home-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 = 업무일지. PC 1440·폴드 884(PC 틀)·폰 412에서
 // 앱을 열면 오늘 업무일지, 위에서부터 날짜 줄 → 요약 한 줄 → 업데이트 입력줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료(JOURNAL-그밖의기록삭제).
 // PC(≥1200)는 그날 일정·할 일이 좌우, 폰은 위아래이고 입력줄은 하단 탭 위 고정. 시계 2026-10-06(화) 10:00 KST(openHome).
@@ -25,30 +25,21 @@ for (const [width, mode] of [[1440, 'pc'], [884, 'fold'], [412, 'phone']]) {
     await expect(today).toHaveClass(/ds-today/);
     await expect(page.locator('#homeView [data-journal-days] [data-journal-date]')).toHaveCount(7);
     await expect(page.locator('#homeView [data-journal-today]')).toHaveText('이번 주');
-    // 순서: 날짜 줄 → (PC) 입력줄 → [하루] 카드 맨 위 '나한테 온 요청' 자리(S52-09) → 두 칸 → 오늘 한 일 → 재료.
+    // 순서: 날짜 줄 → [하루] 카드(두 칸) → 오늘 한 일 → 재료. QUICK-입력정리(2026-11-28): 입력 막대·잊지 말기 칩은 없다.
+    await expect(page.locator('#homeView .home-quick,#homeView [data-home-summary]')).toHaveCount(0);
     const head = await box(page, '#homeView .journal-head');
-    const summary = await box(page, '#homeView [data-home-summary]');
-    const quick = await box(page, '#homeView .home-quick[data-home-quick]');
     // 폴드 두 단에서는 일정 칸(section)이 display:contents라 상자가 없어, 그 안 머리·목록 묶음을 잰다.
     const sched = await box(page, mode === 'fold' ? '#homeView .journal-schedule-body' : '#homeView [data-journal-schedule]');
     const day = await box(page, '#homeView [data-journal-day]');
     const tasks = await box(page, '#homeView [data-journal-tasks]');
     const done = await box(page, '#homeView [data-journal-done-day]');
     const mats = await box(page, '#homeView [data-journal-materials]');
-    expect(summary.y).toBeGreaterThanOrEqual(head.bottom - 1);
+    expect(day.y).toBeGreaterThanOrEqual(head.bottom - 1);
     if (phone) {
-      // 폰: 입력줄은 화면 아래(하단 탭 위)에 붙고, 그날 일정 위에 할 일.
-      const tabs = await box(page, '.mobile-tabs');
-      expect(Math.abs(quick.bottom - tabs.y)).toBeLessThanOrEqual(2);
-      expect(await page.locator('#homeView .home-quick[data-home-quick]').evaluate(el => getComputedStyle(el).position)).toBe('fixed');
-      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안).
-      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
+      // 폰: 그날 일정 위에 할 일.
       expect(tasks.y).toBeGreaterThanOrEqual(sched.bottom - 1);
       expect(Math.abs(tasks.x - sched.x)).toBeLessThanOrEqual(1);
     } else if (mode === 'fold') {
-      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안), 그 아래 바로 [하루] 카드(입력줄은 카드 밖 전체 폭 그대로).
-      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
-      expect(day.y).toBeGreaterThanOrEqual(quick.bottom - 1);
       // 폴드 펼침: 두 단(5:5). 왼쪽은 일정 위·할 일 아래(같은 x), 오른쪽 오늘 한 일은 일정과 같은 줄에서 시작, 재료는 오늘 한 일 아래. 다가오는 일은 두 단 폭 전체.
       const dday = await box(page, '#homeView [data-journal-dday]');
       expect(dday.y).toBeGreaterThanOrEqual(day.y - 1); expect(dday.bottom).toBeLessThanOrEqual(sched.y + 1);
@@ -58,9 +49,6 @@ for (const [width, mode] of [[1440, 'pc'], [884, 'fold'], [412, 'phone']]) {
       expect(Math.abs(sched.w - done.w)).toBeLessThanOrEqual(40);
       expect(mats.y).toBeGreaterThanOrEqual(done.bottom - 1); expect(Math.abs(mats.x - done.x)).toBeLessThanOrEqual(1);
     } else {
-      // S53-13: '잊지 말기'는 입력줄 머리 줄 칩(입력줄 안), 그 아래 바로 [하루] 카드.
-      expect(summary.y).toBeGreaterThanOrEqual(quick.y - 1); expect(summary.bottom).toBeLessThanOrEqual(quick.bottom + 1);
-      expect(sched.y).toBeGreaterThanOrEqual(quick.bottom - 1);
       // PC: 좌우 두 칸, 같은 줄에서 시작.
       expect(Math.abs(tasks.y - sched.y)).toBeLessThanOrEqual(2);
       expect(tasks.x).toBeGreaterThanOrEqual(sched.right - 1);
@@ -102,26 +90,6 @@ for (const width of [1440, 412]) test(`the [일정] menu has no 업무일지 lin
   }
 });
 
-test('the update input saves an update from the home', async ({page}) => {
-  await page.setViewportSize({width: 1440, height: 900});
-  const posts = [];
-  await openHome(page, {beforeLoad: () => page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', route => {
-    const req = route.request();
-    if (req.method() !== 'POST') return route.fallback();
-    const body = req.postDataJSON(); posts.push(body);
-    return route.fulfill({status: 201, json: [{id: 'n-home-1', workspace_id: 'w', kind: 'basket', raw_text: body.raw_text, created_at: '2026-10-06T01:00:00Z', updated_at: '2026-10-06T01:00:00Z', attachments: []}]});
-  })});
-  const quick = page.locator('#homeView .home-quick[data-home-quick]');
-  await expect(quick).toBeVisible();
-  await expect(quick.locator('[data-quick-mode="update"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(quick.locator('[data-quick-mode]')).toHaveText(['잊지 말기', '할 일']);
-  await quick.locator('[data-quick-input]').fill('홈에서 쓴 업데이트');
-  await quick.locator('[data-quick-save]').click();
-  await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0]).toMatchObject({workspace_id: 'w', raw_text: '홈에서 쓴 업데이트'});
-  await expect(quick.locator('[data-quick-input]')).toHaveValue('');
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
-});
 
 test('old addresses, reload and back all land on the new home (day kept in the address)', async ({page}) => {
   await page.setViewportSize({width: 1440, height: 900});
@@ -130,7 +98,7 @@ test('old addresses, reload and back all land on the new home (day kept in the a
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
   await expect.poll(() => new URL(page.url()).searchParams.get('day')).toBe('2026-10-07');
   // 새로고침해도 그 날.
-  await page.reload();await openQuickBox(page);
+  await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout: 20000});
   await expect(page.locator('#homeView [data-journal-title]')).toHaveText('10월 7일 수요일');
   // 다른 화면으로 갔다가 뒤로 가기 → 보던 날 그대로.

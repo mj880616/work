@@ -10,7 +10,7 @@ for(const width of [390,1280])for(const view of ['home','tasks','team']){
     const {requests}=await openHome(page,{query:`?view=${view}`});
     await expect(page.locator(`#${view}View`)).toBeVisible();
     if(view==='home'){
-      await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView .home-quick[data-home-quick]'));
+      await page.waitForFunction(()=>!!window.KPTUJournal&&!!document.querySelector('#homeView [data-journal-day]'));
       // HOME-업무일지홈: 홈 = 업무일지. 옛 홈 '이번 주 업데이트'·'연결 안 된 할 일' 칸은 없고, 할 일은 홈 할 일 칸에 있다.
       // (업무일지는 그날 주간보고 재료로 조직 기록을 읽는다 — 옛 홈의 '조직 기록을 읽지 않음' 조건은 이 화면에 해당하지 않는다.)
       await expect(page.locator('[data-home-card],[data-home-unlinked]')).toHaveCount(0);

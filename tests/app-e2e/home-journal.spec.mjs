@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 업무일지 화면이 홈이다. PC 1440·폴드 884·폰 412에서
 // ① 앱을 열면 새 홈(오늘 업무일지) ② 입력줄로 업데이트 저장 ③ [일정] 아래·폰 전환 줄에 업무일지 없음 ④ 옛 주소(?view=journal·?view=home)
 // ⑤ 뒤로 가기·새로고침 제자리 ⑥ 마지막 수집 시각·AI 사용량은 내 프로필 ⑦ '사업 보고 후속' 칸 없음 ⑧ 할 일 줄 기한은 작은 진회색, 연결된 사업 보고 이름은 흐린 글씨.
@@ -37,7 +37,7 @@ async function boot(page, width, height, {query = ''} = {}) {
 }
 
 for (const [width, height] of WIDTHS) {
-  test(`${width}: 앱을 열면 오늘 업무일지가 홈, 입력줄로 업데이트 저장, [일정]에 업무일지 없음, 사업 보고 후속 칸 없음`, async ({ page }) => {
+  test(`${width}: 앱을 열면 오늘 업무일지가 홈, 입력 막대 없음, [일정]에 업무일지 없음, 사업 보고 후속 칸 없음`, async ({ page }) => {
     const f = await boot(page, width, height);
     // ① 새 홈 = 업무일지, 오늘.
     await expect(page.locator('#homeView')).toBeVisible();
@@ -48,8 +48,9 @@ for (const [width, height] of WIDTHS) {
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-current', 'date');
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-pressed', 'true');
     await expect(root(page).locator('[data-journal-mode="day"]')).toHaveAttribute('aria-pressed', 'true');
-    // 순서: 날짜 줄 → 입력줄 → [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료.
-    const order = await page.evaluate(() => ['[data-journal-days]', '[data-home-quick]', '[data-home-summary]', '[data-journal-top-cols]', '[data-journal-done-day]', '[data-journal-materials]']
+    // 순서: 날짜 줄 → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료. QUICK-입력정리(2026-11-28): 입력 막대·잊지 말기 칩은 없다.
+    await expect(page.locator('#homeView [data-home-quick],#homeView [data-home-summary]')).toHaveCount(0);
+    const order = await page.evaluate(() => ['[data-journal-days]', '[data-journal-top-cols]', '[data-journal-done-day]', '[data-journal-materials]']
       .map(sel => { const all = [...document.querySelectorAll('#journalRoot *')]; return all.indexOf(document.querySelector('#journalRoot ' + sel)); }));
     expect(order.every(i => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
@@ -83,22 +84,6 @@ for (const [width, height] of WIDTHS) {
       await page.locator('.mobile-tabs [data-view="home"]').click();
       await expect(page.locator('#homeView')).toBeVisible();
       await expect(page.locator('.mobile-tabs [data-view="home"]')).toHaveAttribute('aria-current', 'page');
-      // UI-폰하단고정: 다른 화면에 다녀오면 폰 빠른 입력은 한 줄로 접혀 있다 — 칸을 눌러 펼친다.
-      await openQuickBox(page);
-    }
-    // ② 업데이트 입력줄([업데이트 ▾ | 할 일])로 저장 → 정리함 미분류(app_notes POST 한 번).
-    const quick = page.locator('#homeView [data-home-quick]');
-    await expect(quick.locator('.home-quick-modes button[data-quick-mode]')).toHaveText(['잊지 말기', '할 일']);
-    await pickQuickMode(page,'update');
-    await quick.locator('[data-quick-input]').fill('합성 홈 업데이트');
-    await quick.locator('[data-quick-save]').click();
-    await expect.poll(() => f.notes.length).toBe(1);
-    expect(f.notes[0]).toMatchObject({workspace_id: 'w', raw_text: '합성 홈 업데이트'});
-    await expect(quick.locator('[data-quick-input]')).toHaveValue('');
-    if (width <= 760) {
-      // 폰: 입력줄은 하단 탭 바로 위에 붙는다.
-      const q = await quick.boundingBox(), tabs = await page.locator('.mobile-tabs').boundingBox();
-      expect(q.y + q.height).toBeLessThanOrEqual(tabs.y + 1);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(f.errors).toEqual([]);
