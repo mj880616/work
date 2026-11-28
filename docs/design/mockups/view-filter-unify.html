@@ -1,9 +1,9 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>보기·거르기 통일 시안</title>
 <style>
-:root{--bg:#f3f0ea;--surface:#fffdf8;--ink:#2a2a23;--muted:#6e6c60;--line:#dcd8cc;--track:#e8e4da;--on:#fffdf8;--on-shadow:0 1px 2px rgb(0 0 0/12%);--sel-bg:#e4ecf3;--sel-line:#5b7a96;--g:#3d6b4f;--l:#9a4b3c;--h:32px;--t:13px}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1c19;--surface:#262521;--ink:#ebe9e1;--muted:#b1aea2;--line:#45433c;--track:#34322d;--on:#4a4740;--on-shadow:none;--sel-bg:#2c3a47;--sel-line:#8fb0cc;--g:#8cc4a0;--l:#e29a8a}}
-:root[data-theme="dark"]{--bg:#1d1c19;--surface:#262521;--ink:#ebe9e1;--muted:#b1aea2;--line:#45433c;--track:#34322d;--on:#4a4740;--on-shadow:none;--sel-bg:#2c3a47;--sel-line:#8fb0cc;--g:#8cc4a0;--l:#e29a8a}
+:root{--pick-bg:#e6e4df;--pick-ink:#2a2a23;--bg:#f3f0ea;--surface:#fffdf8;--ink:#2a2a23;--muted:#6e6c60;--line:#dcd8cc;--track:#e8e4da;--on:#fffdf8;--on-shadow:0 1px 2px rgb(0 0 0/12%);--sel-bg:#e4ecf3;--sel-line:#5b7a96;--g:#3d6b4f;--l:#9a4b3c;--h:32px;--t:13px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pick-bg:#3a3935;--pick-ink:#ebe9e1;--bg:#1d1c19;--surface:#262521;--ink:#ebe9e1;--muted:#b1aea2;--line:#45433c;--track:#34322d;--on:#4a4740;--on-shadow:none;--sel-bg:#2c3a47;--sel-line:#8fb0cc;--g:#8cc4a0;--l:#e29a8a}}
+:root[data-theme="dark"]{--pick-bg:#3a3935;--pick-ink:#ebe9e1;--bg:#1d1c19;--surface:#262521;--ink:#ebe9e1;--muted:#b1aea2;--line:#45433c;--track:#34322d;--on:#4a4740;--on-shadow:none;--sel-bg:#2c3a47;--sel-line:#8fb0cc;--g:#8cc4a0;--l:#e29a8a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif}
 main{max-width:1180px;margin:0 auto;padding:16px}
 h1{font-size:18px;margin:4px 0 8px}h2{font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}h3{font-size:12px;color:var(--muted);font-weight:500;margin:6px 0 4px}
@@ -24,12 +24,15 @@ img{display:block;max-width:100%;height:auto;border:1px solid var(--line);border
 .sp{flex:1}.muted{color:var(--muted);font-size:12px;white-space:nowrap}
 .ico{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
 /* ⑤ 탭과 ▾ 상자: 같은 높이(--h 32px)·글자(--t 13px)·바탕(--track) */
-.seg{display:inline-flex;align-items:center;gap:2px;height:var(--h);padding:0 3px;border-radius:999px;background:var(--track);flex:none}
-.seg-btn{height:calc(var(--h) - 6px);padding:0 10px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:500 var(--t)/1 inherit;white-space:nowrap;cursor:pointer}
-.seg-btn[aria-pressed="true"]{background:var(--on);box-shadow:var(--on-shadow);color:var(--ink);font-weight:600}
-.pick{display:inline-flex;align-items:center;gap:4px;height:var(--h);padding:0 10px 0 12px;border:0;border-radius:999px;background:var(--track);color:var(--ink);font:500 var(--t)/1 inherit;white-space:nowrap;flex:none;cursor:pointer}
-.pick .pk-n{color:var(--muted)}.pick.set{background:var(--sel-bg);color:var(--sel-line)}.pick.set .pk-n{color:var(--sel-line)}
-.chev{width:10px;height:6px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;color:var(--muted);margin-left:2px}
+/* 확정(2026-11-28): ⑤ 탭 = 1번 각진 묶음 칸 — 붙은 네모 칸, 바깥 얇은 선, 칸 사이 선, 고른 칸만 바탕색 + 굵게 */
+.seg{display:inline-flex;align-items:stretch;height:var(--h);padding:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;flex:none}
+.seg-btn{height:auto;padding:0 10px;border:0;border-left:1px solid var(--line);border-radius:0;background:transparent;color:var(--muted);font:500 var(--t)/1 inherit;white-space:nowrap;cursor:pointer}.seg-btn:first-child{border-left:0}
+.seg-btn[aria-pressed="true"]{background:var(--pick-bg);color:var(--pick-ink);font-weight:600}
+/* 확정: ▾ 거르기 = 가번 연한 바탕 상자 — 선 없이 바탕색(사용자가 고름, 기본 차분한 회색), 모서리 6, 높이·글자 탭과 같음 */
+.pick{display:inline-flex;align-items:center;gap:4px;height:var(--h);padding:0 10px 0 12px;border:0;border-radius:6px;background:var(--pick-bg);color:var(--pick-ink);font:500 var(--t)/1 inherit;white-space:nowrap;flex:none;cursor:pointer}
+.pick .pk-n{color:var(--pick-ink);opacity:.72}.pick.set{font-weight:600;box-shadow:inset 0 0 0 1px var(--pick-ink)}.pick.set .pk-n{opacity:.85}
+.chev{width:10px;height:6px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;color:var(--pick-ink);opacity:.7;margin-left:2px}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.sw{width:32px;height:32px;border-radius:6px;border:1px solid var(--line);cursor:pointer;position:relative;padding:0}.sw[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}.sw small{position:absolute;left:0;right:0;bottom:-16px;font-size:10px;color:var(--muted);white-space:nowrap}
 /* ④ 칩: 테두리 알약 28px(지금 공용 ds-chip 그대로) */
 .chip{height:28px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:500 12px/1 inherit;white-space:nowrap;flex:none;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--sel-bg);border-color:var(--sel-line);color:var(--sel-line)}
@@ -38,11 +41,28 @@ img{display:block;max-width:100%;height:auto;border:1px solid var(--line);border
 </style></head><body><main>
 <h1>보기·거르기 통일 — A안(뜻으로 나누기) 메인 메뉴 시안</h1>
 <div class="rules"><ol>
-<li><b>⑤ 탭</b> = 같은 자료를 다르게 보는 방식(고정 2~6칸). 예: 목록/달력, 폴더/목록/보드, 글/밑줄/메모, 전체/안 읽음.</li>
-<li><b>▾ 고르기 상자</b> = 내가 만들어 늘어나는 것(폴더·분류·태그·매체·사업영역 등)으로 거르기. 글자는 <b>이름: 지금 고른 것</b>, 여러 개면 상자 안 체크 목록. 탭과 같은 높이 32·글자 13·바탕.</li>
+<li><b>⑤ 탭</b>(모양 확정: <b>1번 각진 묶음 칸</b>) = 같은 자료를 다르게 보는 방식(고정 2~6칸). 예: 목록/달력, 폴더/목록/보드, 글/밑줄/메모, 전체/안 읽음.</li>
+<li><b>▾ 고르기 상자</b>(모양 확정: <b>가번 연한 바탕 상자</b>) = 내가 만들어 늘어나는 것(폴더·분류·태그·매체·사업영역 등)으로 거르기. 글자는 <b>이름: 지금 고른 것</b>, 여러 개면 상자 안 체크 목록. 탭과 같은 높이 32·글자 13, 바탕색은 탭의 고른 칸과 같은 색(아래 바탕색 고르기).</li>
 <li><b>④ 칩</b> = 고정 몇 개(≤4) 켜고 끄는 상태 거르기만(★·요청·안 본 것·게시 중). 하나만 고르는 고정 칩 줄은 ⑤ 탭으로.</li>
 </ol></div>
 <div class="sum"><span>바뀌는 화면 11개</span><span>그대로 11개</span><span>두 번 눌러야 하게 되는 곳 4곳(노트 태그·보드, 읽을 거리 묶음, 텔레그램 폴더)</span><span>한 번으로 줄어드는 곳 4곳(자료실 묶기, 사진 보기·거르기, 사업 보고 보기)</span></div>
+<section class="card" id="bgpick"><h2>바탕색 고르기(예시) <span class="badge same">시안만 — 설정 코드 없음</span></h2>
+<p class="now">내 프로필에서 메뉴 색 고르기처럼 고른다. 고른 색은 ▾ 상자 바탕과 탭의 고른 칸에 함께 쓰이고, 글자 색은 바탕 밝기에 맞춰 저절로 바뀐다. 실제 앱에서는 서버에 저장한다(한 기기에만 남지 않음). 이 시안에서는 눌러 보기만 되고 저장하지 않는다.</p>
+<div class="swatches" role="group" aria-label="바탕색">
+
+</div>
+<div style="height:14px"></div>
+<div class="frame pc"><div class="hrow"><span class="seg" role="group"><button type="button" class="seg-btn" aria-pressed="true">폴더</button><button type="button" class="seg-btn">목록</button><button type="button" class="seg-btn">보드</button></span><span class="pick"><span class="pk-n">태그:</span>전체<svg class="chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4"/></svg></span><span class="pick set"><span class="pk-n">종류:</span>회의<svg class="chev" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4"/></svg></span><span class="chip" aria-pressed="true">★</span></div></div>
+<p class="now" id="bgnow">지금 고른 색: 기본 회색</p>
+<script>
+(function(){var C=[['기본 회색','#e6e4df'],['모래','#ece3d2'],['베이지','#e9dccb'],['살구','#f0dccf'],['장미','#ecd7da'],['연보라','#e2dcea'],['라벤더','#dcdff0'],['하늘','#d8e4ee'],['청회색','#d5dde3'],['민트','#d6e8e0'],['쑥','#dde5d0'],['올리브','#e3e2c8'],['짙은 회색','#5b5a55'],['남색','#3b4a63'],['숲','#3e5a48']];
+var box=document.querySelector('#bgpick .swatches'),now=document.getElementById('bgnow'),root=document.documentElement;
+function ink(h){var r=parseInt(h.substr(1,2),16)/255,g=parseInt(h.substr(3,2),16)/255,b=parseInt(h.substr(5,2),16)/255;function L(c){return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)}var y=.2126*L(r)+.7152*L(g)+.0722*L(b);return (y+.05)/.0625>1.05/(y+.05)?'#2a2a23':'#f5f3ec'}
+C.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='sw';b.style.background=c[1];b.title=c[0];b.setAttribute('aria-label',c[0]);if(!i)b.setAttribute('aria-pressed','true');var t=document.createElement('small');t.textContent=i?'':'기본';b.append(t);
+b.onclick=function(){box.querySelectorAll('.sw').forEach(function(x){x.removeAttribute('aria-pressed')});b.setAttribute('aria-pressed','true');if(i){root.style.setProperty('--pick-bg',c[1]);root.style.setProperty('--pick-ink',ink(c[1]))}else{root.style.removeProperty('--pick-bg');root.style.removeProperty('--pick-ink')}now.textContent='지금 고른 색: '+c[0]+' — 아래 모든 A안 모형에 바로 적용됨';};box.append(b)})})();
+</script>
+</section>
+
 <div class="legend"><span class="seg" role="group"><button type="button" class="seg-btn" aria-pressed="true">⑤ 탭</button><button type="button" class="seg-btn">보기</button></span> <button type="button" class="pick" aria-haspopup="listbox"><span class="pk-n">▾ 상자:</span> 전체<svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button> <button type="button" class="pick set" aria-haspopup="listbox"><span class="pk-n">고른 상태:</span> 가상A<svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button> <button type="button" class="chip">④ 칩</button> <button type="button" class="chip" aria-pressed="true">켜짐</button></div>
 <section class="card"><h2>홈 <span class="badge same">그대로</span></h2>
 <p class="now"><b>지금</b> ⑤ [하루|주간 보고] · ⑤ 입력 종류 [잊지 말기|▾|할 일]</p>
