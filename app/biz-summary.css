@@ -32,8 +32,6 @@
 .biz-sum-table td[data-bp-cell]:focus-visible{outline:2px solid var(--kptu-accent);outline-offset:-2px}
 .cell-edit{position:relative;display:grid}
 .cell-edit-acts{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px}
-.cell-edit-cancel{border:0;background:none;padding:0 2px;font:inherit;font-size:var(--ds-text-meta);color:var(--kptu-muted);cursor:pointer}
-.cell-edit .mini{min-height:var(--ds-compact-height);font-size:var(--ds-text-meta)}
 .cell-edit textarea,.cell-edit input{width:100%;box-sizing:border-box;min-width:0;font:inherit;font-size:var(--ds-text-row);resize:none}
 .biz-rec-n{display:inline-flex;align-items:center;gap:2px;margin:2px 8px 0 0}
 .biz-rec-list{margin:2px 0 0;padding-left:6px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:12px}

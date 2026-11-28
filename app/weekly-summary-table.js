@@ -271,7 +271,7 @@ function editBox(kind,value,label,max=kind==='owner'?60:2000){
   const v=state?.editing?.value??value;
   const input=kind==='owner'?`<input type="text" maxlength="${max}" value="${esc(v)}" data-bp-field aria-label="${esc(label)}">`
     :`<textarea data-autogrow rows="2" maxlength="${max}" data-bp-field aria-label="${esc(label)}">${esc(v)}</textarea>`;
-  return `<div class="cell-edit"><span class="cell-edit-acts"><button type="button" class="cell-edit-cancel" data-bp-edit-cancel>취소</button><button type="button" class="mini" data-bp-edit-save>저장</button></span>${input}</div>`;
+  return `<div class="cell-edit"><span class="cell-edit-acts"><button type="button" class="row-act" data-bp-edit-cancel>취소</button><button type="button" class="mini primary" data-bp-edit-save>저장</button></span>${input}</div>`;
 }
 function progressCell(ref,row,items,records){
   if(state.now)return nowProgressCell(ref,row,items,records);
