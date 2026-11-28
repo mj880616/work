@@ -1,6 +1,6 @@
 // BRIEF-품질올리기('더 깊게', 운영자 기능 brief_plus, 설계 docs/design/brief-room.md 6-2절):
-// ① 새 칸이 든 브리핑: 요지 띠 아래 '짜임' 한 줄, 항목 옆 근거 위치, '쟁점'(번호·이유 줄)·'문서 안 불일치·확인 필요'(두 값과 위치)는 펼침,
-//    '배경 지식 · 확인 필요'는 접힘. 새 칸 줄은 [수정] 메뉴가 없다(고치는 칸이 아님).
+// ① 새 칸이 든 브리핑: 요지 띠 아래 '짜임' 한 줄, 항목 옆 근거 위치. '쟁점'·'문서 안 불일치·확인 필요'·'배경 지식 · 확인 필요'는
+//    접힌 채 제목 아래 한 문장(첫 줄)이 늘 보이고, 누르면 세부(번호·이유 줄, 두 값과 위치)가 펴진다. 새 칸 줄은 [수정] 메뉴가 없다(고치는 칸이 아님).
 // ② 새 칸이 없는 브리핑은 지금 그대로(새 칸 없음).
 // ③ 브리핑 룸 ⋯ [쟁점 관점…]은 서버 기능 답에 brief_plus가 있을 때만 → 글 저장 = 서버 화면 기억 view_prefs.brief_lens. 없는 계정은 메뉴 줄 없음.
 // 자료 이름·문장은 모두 가짜. 서버는 흉내(표 읽기는 owner RLS REST).
@@ -48,24 +48,35 @@ async function open(page, { plus = true } = {}) {
 }
 const body = page => page.locator('#briefView [data-br-detail] [data-br-zone]');
 
-test('새 칸이 든 브리핑: 짜임·근거 위치·쟁점·문서 안 불일치(펼침)·배경 지식(접힘), 새 칸 줄은 [수정] 없음', async ({ page }) => {
+test('새 칸이 든 브리핑: 짜임·근거 위치·쟁점·문서 안 불일치·배경 지식(한 문장 늘 보임 + 세부 접기), 새 칸 줄은 [수정] 없음', async ({ page }) => {
   await open(page);
   await page.locator('#briefView .br-row', { hasText: '가상 공공기관 운영법' }).click();
   const b = body(page);
   await expect(b.locator('.br-gist .br-core')).toHaveText('짜임 본문 개정 조문과 부칙 2개 조, 핵심은 제3조의2 평가위원회 설치');
   await expect(b.locator('.br-it', { hasText: '위원회는 9명 이내' }).locator('.br-art')).toHaveText('제3조의2 제2항');
   const issues = b.locator('details[data-br-sec="issues"]');
-  await expect(issues).toHaveAttribute('open', '');
+  await expect(issues).not.toHaveAttribute('open', '');
   await expect(issues.locator('summary h3')).toHaveText('쟁점 2');
+  const issueLead = issues.locator('summary .br-lead');
+  await expect(issueLead).toBeVisible();
+  await expect(issueLead).toHaveText(await issues.locator('ol > li').first().locator('.br-tx').textContent());
+  await expect(issues.locator('ol > li').first()).toBeHidden();
+  await issues.locator('summary').click();
+  await expect(issues).toHaveAttribute('open', '');
+  await expect(issueLead).toBeHidden();
   await expect(issues.locator('ol > li')).toHaveCount(2);
   await expect(issues.locator('li').first().locator('.br-why')).toHaveText('제3조의2는 위원 수만 정함');
   const mm = b.locator('details[data-br-sec="mismatches"]');
+  await expect(mm).not.toHaveAttribute('open', '');
+  await expect(mm.locator('summary .br-lead')).toHaveText('시행일: 공포 후 6개월이 경과한 날(주요 내용 나) ↔ 공포 후 1년이 경과한 날(부칙 제1조)');
+  await mm.locator('summary').click();
   await expect(mm).toHaveAttribute('open', '');
   await expect(mm.locator('li .br-tx')).toHaveText('시행일: 공포 후 6개월이 경과한 날(주요 내용 나) ↔ 공포 후 1년이 경과한 날(부칙 제1조)');
   await expect(mm.locator('li .br-why')).toHaveText('부칙 기준 1년으로 보이나 확인 필요');
   const bg = b.locator('details[data-br-sec="background"]');
   await expect(bg).not.toHaveAttribute('open', '');
   await expect(bg.locator('summary h3')).toHaveText('배경 지식 · 확인 필요 1');
+  await expect(bg.locator('summary .br-lead')).toBeVisible();
   // 새 칸 줄은 고치는 칸이 아니라 우클릭 메뉴에 [수정]이 없다(요약 줄에는 있다).
   await mm.locator('li .br-tx').click({ button: 'right' });
   const menu = page.locator('#rowMenu');

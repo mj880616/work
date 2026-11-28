@@ -322,13 +322,15 @@ function plusNode(text,{ref='',sub='',tag='',key}){
 }
 function plusParts(plus){
   const out=[];if(!plus)return out;
-  const sec=(key,title,nodes,open)=>{if(!nodes.length)return;
+  // 칸마다 '한 문장(첫 줄)'은 접힌 채로도 제목 아래 늘 보이고, 세부(전체 목록·이유)는 눌러서 편다.
+  const sec=(key,title,nodes,lead)=>{if(!nodes.length)return;
     const s=el('details','br-sec br-sec-plus');s.dataset.brKey=key;s.dataset.brSec=key;
     const sum=el('summary'),h=el('h3',null,title);h.append(el('small',null,` ${nodes.length}`));sum.append(h);
-    const list=el(key==='issues'?'ol':'ul','br-items');list.append(...nodes);s.append(sum,list);s.open=open;out.push(s)};
-  sec('issues',PLUS_TITLES.issues,plus.issues.map((it,i)=>plusNode(it.text,{ref:it.ref,sub:it.why,key:`p:issues:${i}`})),true);
-  sec('mismatches',PLUS_TITLES.mismatches,plus.mismatches.map((mm,i)=>plusNode(mismatchLine(mm),{sub:mm.note,key:`p:mismatches:${i}`})),true);
-  sec('background',`${PLUS_TITLES.background} · ${CHECK_TAG}`,plus.background.map((it,i)=>plusNode(it.text,{key:`p:background:${i}`})),false);
+    if(lead)sum.append(el('span','br-lead',lead));
+    const list=el(key==='issues'?'ol':'ul','br-items');list.append(...nodes);s.append(sum,list);s.open=false;out.push(s)};
+  sec('issues',PLUS_TITLES.issues,plus.issues.map((it,i)=>plusNode(it.text,{ref:it.ref,sub:it.why,key:`p:issues:${i}`})),plus.issues[0]?.text);
+  sec('mismatches',PLUS_TITLES.mismatches,plus.mismatches.map((mm,i)=>plusNode(mismatchLine(mm),{sub:mm.note,key:`p:mismatches:${i}`})),plus.mismatches[0]&&mismatchLine(plus.mismatches[0]));
+  sec('background',`${PLUS_TITLES.background} · ${CHECK_TAG}`,plus.background.map((it,i)=>plusNode(it.text,{key:`p:background:${i}`})),plus.background[0]?.text);
   return out;
 }
 // 원문 인용 한 줄: 원문 그대로(누르면 원문 그 자리) + 발언자 · 쪽 · 소제목.

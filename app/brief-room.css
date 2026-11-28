@@ -64,6 +64,8 @@
 #briefView .br-art{margin-left:4px;color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 #briefView .br-check{background:var(--kptu-warning-soft,var(--kptu-surface-soft));color:var(--kptu-ink)}
 #briefView .br-why{display:block;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#briefView .br-sec-plus>summary .br-lead{display:block;margin:0 0 2px;color:var(--kptu-ink);overflow-wrap:anywhere}
+#briefView .br-sec-plus[open]>summary .br-lead{display:none}
 #briefView .br-gist .br-core{color:var(--kptu-muted)}
 #briefView .br-core-k{color:var(--kptu-ink);font-weight:600}
 #briefView ol.br-items{padding-left:1.4em;list-style:decimal}
@@ -110,7 +112,7 @@
    본문 글 선택·밑줄은 공용(text-select-bar.js 줄, news-mark-rows.css .hl-mark) — 여기서 모양을 정하지 않는다. */
 #briefView .br-head .txs,#briefView .br-head .br-archive{flex:none}
 #briefView .br-doc+.txs{margin-left:auto}
-#briefView .br-body .br-gist,#briefView .br-body .br-items,#briefView .br-body .br-q,#briefView .br-body .br-sec h3{font-size:calc(var(--ds-text-row) * var(--txs,1))}
+#briefView .br-body .br-gist,#briefView .br-body .br-lead,#briefView .br-body .br-items,#briefView .br-body .br-q,#briefView .br-body .br-sec h3{font-size:calc(var(--ds-text-row) * var(--txs,1))}
 #briefView .br-body .br-ours,#briefView .br-body .br-ref,#briefView .br-body .br-art,#briefView .br-body .br-why,#briefView .br-body .br-pg,#briefView .br-body .br-sec h3 small{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
 #briefView .br-rows .br-row .fx-name{font-size:calc(13px * var(--txs,1))}
 #briefView .br-rows .br-st{font-size:calc(var(--ds-text-meta) * var(--txs,1))}
