@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {nextSort, ariaSort, arrowOf, naturalCompare, headCellHtml, sortValue, parseSortValue, sortOptions, cleanSort, firstDir} from '../app/head-sort.mjs';
+import {nextSort, ariaSort, arrowOf, sortMarkSvg, naturalCompare, headCellHtml, sortValue, parseSortValue, sortOptions, cleanSort, firstDir} from '../app/head-sort.mjs';
 import {sortRows, SORTS, SORT_KEYS, SORT_DESC_FIRST} from '../app/files-model.mjs';
 // UI-머리눌러정렬(명진 11/24 15:47): 머리 칸 누르기 = 그 칸 정렬, 다시 누르면 반대. 공용 규칙과 [파일] 정렬 계산.
 
@@ -16,14 +16,19 @@ test('누르면 그 칸(처음 방향), 같은 칸을 다시 누르면 반대 �
   assert.equal(firstDir('size', ['size']), 'desc'); assert.equal(firstDir('size', SORT_DESC_FIRST), 'asc');
 });
 
-test('머리 칸: 지금 기준 칸만 ▲/▼·aria-sort, 나머지는 none. 손잡이는 버튼 밖', () => {
+test('머리 칸: 지금 기준 칸만 선 꺾쇠 그림(SVG)·aria-sort, 나머지는 none. 손잡이는 버튼 밖', () => {
   const cur = {key: 'size', dir: 'desc'};
   assert.equal(ariaSort(cur, 'size'), 'descending'); assert.equal(ariaSort({key: 'size', dir: 'asc'}, 'size'), 'ascending');
   assert.equal(ariaSort(cur, 'name'), 'none'); assert.equal(ariaSort(null, 'name'), 'none');
   assert.equal(arrowOf('desc'), '▼'); assert.equal(arrowOf('asc'), '▲');
   const on = headCellHtml({key: 'size', label: '크기', cur, extra: '<i data-col-grip="size"></i>'});
   assert.match(on, /role="columnheader" aria-sort="descending"/);
-  assert.match(on, /<button type="button" class="row-act hs-btn" data-head-sort="size"[^>]*>크기<i class="hs-arrow" aria-hidden="true">▼<\/i><\/button><i data-col-grip="size"><\/i><\/span>$/);
+  assert.match(on, /<button type="button" class="row-act hs-btn" data-head-sort="size"[^>]*>크기<i class="hs-arrow" aria-hidden="true"><svg class="hs-mark" data-sort-mark="desc"[^>]*>.*<\/svg><\/i><\/button><i data-col-grip="size"><\/i><\/span>$/);
+  // LIST-정렬꺾쇠(사용자 결정 11/28 시안 A): 머리 칸에는 글자 기호 ▼▲를 쓰지 않는다. 내림 ⌄(가운데가 아래)·오름 ⌃(가운데가 위), 선 1.4·currentColor.
+  assert.doesNotMatch(on, /[▼▲]/);
+  assert.match(sortMarkSvg('desc'), /d="M2 3\.5 5 6\.5 8 3\.5"/); assert.match(sortMarkSvg('asc'), /d="M2 6\.5 5 3\.5 8 6\.5"/);
+  assert.match(sortMarkSvg('asc'), /stroke="currentColor" stroke-width="1\.4"/); assert.match(sortMarkSvg('asc'), /fill="none"/);
+  assert.match(headCellHtml({key: 'size', label: '크기', cur: {key: 'size', dir: 'asc'}}), /data-sort-mark="asc"/);
   const off = headCellHtml({key: 'name', label: '이름', cur});
   assert.match(off, /aria-sort="none"/); assert.match(off, /<i class="hs-arrow" aria-hidden="true"><\/i>/);
   assert.doesNotMatch(headCellHtml({key: 'x', label: '<b>', cur}), /<b>/, '글자는 이스케이프');

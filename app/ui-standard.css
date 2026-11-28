@@ -2105,3 +2105,14 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
 .forget-locked{margin:0;padding:.5em var(--ds-row-pad-x)}
+
+/* LIST-정렬꺾쇠(사용자 결정 2026-11-28 시안 A, docs/design/approved/list-sort-chevron.md): 머리 줄 있는 모든 목록(노트 [목록]·[폴더] 오른쪽, [파일], 브리핑 룸 등)의 머리 칸 정렬 표시 — 공용 한 곳.
+   머리 칸(head-sort.mjs headCellHtml) = 칸 이름 + 지금 정렬 중이면 오른쪽에 작은 선 꺾쇠 그림(내림 ⌄ · 오름 ⌃, 선 1.4, currentColor). 글자 기호(▼▲)는 쓰지 않는다.
+   꺾쇠는 칸 이름과 글자 높이 세로 가운데(inline-flex + align-items:center), 간격 --ds-sort-mark-gap. 정렬 중인 칸 이름만 진한 글자, 나머지 칸 이름은 흐린 글자.
+   화면 CSS(.nl-head·.fx-head)는 칸 배치(오른쪽 맞춤·여백)만 정한다 — 같은 범위 안에서 색을 덮지 않게 [role=columnheader] 범위로 한 단계 높인다. */
+[role="columnheader"].hs-cell > .hs-btn { display:inline-flex; align-items:center; gap:var(--ds-sort-mark-gap); max-width:100%; font-size:inherit; white-space:nowrap; overflow:hidden; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); }
+[role="columnheader"].hs-cell > .hs-btn:is(:hover,:focus-visible) { color:var(--kptu-ink); }
+[role="columnheader"].hs-cell.hs-on > .hs-btn { color:var(--kptu-ink); font-weight:var(--ds-weight-strong); }
+.hs-arrow { display:inline-flex; flex:none; align-items:center; font-style:normal; line-height:0; }
+.hs-arrow:empty { display:none; }
+.hs-arrow > .hs-mark { display:block; width:var(--ds-sort-mark-size); height:var(--ds-sort-mark-size); overflow:visible; }
