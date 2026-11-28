@@ -139,6 +139,7 @@ const seoulParts = iso => {
   catch { return null; }
 };
 const hm = iso => { const p = seoulParts(iso); return p ? `${p.hour}:${p.minute}` : ''; };
+const md = iso => { const p = seoulParts(iso); return p ? `${p.month}/${p.day}` : ''; };
 const mdhm = iso => { const p = seoulParts(iso); return p ? `${p.month}/${p.day} ${p.hour}:${p.minute}` : ''; };
 
 // The hidden sandboxed editor (same engine and frame as the HWP editor): hwp-engine.js createEngine (상집 논의 요청 문서와 같이 씀).
@@ -230,7 +231,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let opened = false;
   const TABS = Object.freeze([['file', '파일'], ['suggest', '기록 제안'], ['review', '환류'], ['memory', '기억']]);
   const EMPTY_TAB = Object.freeze({file:'확인할 것이 없어요.', suggest:'붙일 기록이 없어요.', review:'확정하면 이번 주 환류 보고가 여기에 나와요.', memory:'확정하면 다음 주에도 쓸 일정을 여기서 선택해요.'});
-  const tabBar = el('div', 'weekly-confirm-tabs ds-seg'); tabBar.setAttribute('role', 'tablist'); tabBar.setAttribute('aria-label', '확정 칸 보기'); // 공용 ⑤ 보기 바꾸기 모양 tabBar.dataset.weeklyConfirmTabs = '';
+  const tabBar = el('div', 'weekly-confirm-tabs ds-seg ds-seg-sm'); tabBar.setAttribute('role', 'tablist'); tabBar.setAttribute('aria-label', '확정 칸 보기'); tabBar.dataset.weeklyConfirmTabs = ''; // 공용 ⑤ 보기 바꾸기 모양
   const panes = {}, tabBtn = {}, tabEmpty = {};
   for (const [key, label] of TABS) {
     const b = el('button', 'ds-seg-btn weekly-confirm-tab'); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.weeklyConfirmTab = key; b.id = `weeklyConfirmTab-${key}`;
@@ -479,10 +480,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 확정 칸 머리 한 줄(WEEKLY-화면정돈 ③ 시안 '나'): '이번 주 확정 전' / '이번 주 확정 · 10/31 21:05 · 다시 누르면 새 판'.
   function paintConfirm() {
     const week = getWeek(), d = week.row?.draft ?? null, c = (state && state.start === week.start ? state.store?.confirmed : null) ?? d?.confirmed ?? null;
-    // 막대 맨 앞 짧은 한 마디(WEEKLY-화면정돈 ②): '확정 전' / '11/28 15:02 확정'(다시 누르면 새 판 — 글자 대신 설명으로).
-    confirmState.textContent = c?.at ? `${mdhm(c.at)} 확정` : '확정 전';
-    confirmState.title = c?.at ? '다시 누르면 새 판으로 확정해요' : '';
-    confirmBtn.disabled = !!state?.confirming;
+    // 막대 맨 앞 짧은 한 마디(WEEKLY-화면정돈 ②, WEEKLY-막대한줄): '확정 전' / '11/28 확정' — 막대가 한 줄에 들도록 날짜만.
+    // 시각과 '다시 누르면 새 판'은 설명(title)으로.
+    confirmState.textContent = c?.at ? `${md(c.at)} 확정` : '확정 전';
+    confirmState.title = c?.at ? `${mdhm(c.at)} 확정 · 다시 누르면 새 판으로 확정해요` : '';
+    // 확정하는 중: 꺼짐(흐리게)으로 하면 채운 바탕 위 글자가 묻혀 읽기 어렵다(WEEKLY-막대한줄) — 색은 그대로, 글자로 알리고(aria-busy 는 doConfirm)
+    // 누름은 click 길에서 막는다(state.confirming).
+    confirmBtn.textContent = state?.confirming ? '확정하는 중…' : '확정하고 받기';
     paintFinal(c);
     paintTabs();
   }
@@ -1995,7 +1999,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const onClick = event => {
     const b = event.target.closest('button');
     if (!b || !event.currentTarget.contains(b) || b.disabled) return;
-    if (b.matches('[data-hwpx-confirm]')) { void doConfirm(b); return; }
+    if (b.matches('[data-hwpx-confirm]')) { if (!state?.confirming) void doConfirm(b); return; }
     if (b.matches('[data-hwpx-build]')) { void doBuild(); return; }
     if (b.matches('[data-hwpx-hwp]')) { void doHwp(); return; }
     if (b.matches('[data-hwpx-copy]')) { void Promise.resolve(onCopy?.()).then(ok => { if (ok) flashDone(confirmBtn); }); return; }

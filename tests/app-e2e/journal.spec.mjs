@@ -1452,7 +1452,8 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  const saved=f.sent.library[0];
  expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwp']);
  expect([...saved.file.bytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveAttribute('title',/^\d+\/\d+ \d+:\d+ 확정 · 다시 누르면 새 판/); // WEEKLY-막대한줄: 시각은 설명으로
  await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
  await expect.poll(()=>!!row().draft.feedback).toBe(true);
  // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 명진 결정 ②).
@@ -2082,7 +2083,7 @@ for(const width of [390,1280])test(`[주간 정리] 한글(.hwp)로 못 바꾸�
  expect(f.sent.library[0].file.file).toBe('주간보고_20261012_가상담당.hwpx');
  await expect(st).toContainText('자료실에 "개인 확정본" 분류로 저장했어요');
  await expect(st).toContainText('한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(변환기를 불러오지 못함).');
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ 확정$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -3756,6 +3757,80 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  await expect(cancel).toHaveClass(/\brow-act\b/); // [취소] = 공용 글자 단추(③)
  expect(st[0].bg).toBe('rgba(0, 0, 0, 0)');expect(st[1].bg).not.toBe('rgba(0, 0, 0, 0)');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+// WEEKLY-막대한줄(2026-11-28 사용자 신고 — 폰 412·큰 글자에서 막대가 두 줄, [확정하고 받기] 글자가 채운 바탕에 묻힘):
+// 막대는 어느 폭·큰 글자에서도 한 줄(줄바꿈 대신 탭 칸만 옆으로 밀기, 탭은 공용 ⑤ 작은 판), [확정하고 받기]는 작은 채운 버튼이고 모든 테마·바쁨(흐리게 하지 않음)에서 글자 대비 4.5:1 이상.
+// 큰 글자는 화면 확대 1.3배(글자·칸이 함께 커짐 — 시스템 글꼴 크기 1.3배보다 넉넉한 최악 흉내)로 본다.
+const BAR_THEMES=['olive','navy','ink','lavender','teal','sky','mint','coral','lemon','red'];
+async function barLine(page){
+ return page.evaluate(()=>{
+  const bar=document.querySelector('#journalRoot [data-weekly-confirm-bar]');
+  const kids=[...bar.children].filter(e=>e.getClientRects().length);
+  // 한 줄 = 막대 안 요소들의 보이는 위·아래가 같은 줄(보기 바꾸기의 누르는 범위 여백은 빼고 보이는 바탕 기준).
+  const vis=e=>{const r=e.getBoundingClientRect(),c=getComputedStyle(e);const pt=parseFloat(c.paddingTop)||0,pb=parseFloat(c.paddingBottom)||0;
+   return e.classList.contains('ds-seg')?{top:r.top+pt,bottom:r.bottom-pb}:{top:r.top,bottom:r.bottom};};
+  const boxes=kids.map(vis),mids=boxes.map(b=>(b.top+b.bottom)/2);
+  const br=bar.getBoundingClientRect(),tallest=Math.max(...boxes.map(b=>b.bottom-b.top));
+  return {n:kids.length,spread:Math.max(...mids)-Math.min(...mids),barH:br.height,tallest,
+   overflow:bar.scrollWidth-bar.clientWidth,pageOverflow:document.documentElement.scrollWidth-innerWidth};
+ });
+}
+const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
+async function confirmContrast(page){
+ // 글자색·채움을 그 단추의 불투명도로 막대 바탕 위에 섞은 실제 보이는 색으로 대비를 잰다.
+ const c=await page.evaluate(()=>{
+  const b=document.querySelector('#journalRoot [data-hwpx-confirm]');
+  const rgb=s=>{const m=s.match(/[\d.]+/g).map(Number);return {c:m.slice(0,3),a:m.length>3?m[3]:1};};
+  let n=b.parentElement,under=null;while(n&&!under){const bg=rgb(getComputedStyle(n).backgroundColor);if(bg.a>0)under=bg.c;n=n.parentElement;}
+  let op=1;for(let e=b;e;e=e.parentElement)op*=Number(getComputedStyle(e).opacity);
+  const cs=getComputedStyle(b);return {fg:rgb(cs.color),bg:rgb(cs.backgroundColor),under:under||[255,255,255],op};
+ });
+ const mix=(top,a,base)=>top.map((v,i)=>v*a+base[i]*(1-a));
+ const fill=mix(c.bg.c,c.bg.a*c.op,c.under),ink=mix(mix(c.fg.c,c.fg.a,c.bg.c),c.op,c.under);
+ const [l1,l2]=[lum(fill),lum(ink)].sort((a,b)=>b-a);
+ return {ratio:(l1+0.05)/(l2+0.05),filled:c.bg.a>0};
+}
+for(const [width,zoom] of [[360,1],[412,1],[412,1.3],[884,1],[1280,1]])test(`WEEKLY-막대한줄: 확정 막대 한 줄·[확정하고 받기] 글자 대비(테마 10개·바쁨) ${width}${zoom>1?' 큰 글자':''}`,async({page})=>{
+ await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ if(zoom>1)await page.evaluate(z=>{document.documentElement.style.zoom=String(z);},zoom);
+ const box=hwpx(page),bar=box.locator('[data-weekly-confirm-bar]'),tabs=box.locator('[data-weekly-confirm-tab]'),btn=bar.locator('[data-hwpx-confirm]');
+ await expect(btn).toBeVisible();
+ // 모양 파일 붙은 순서 두 가지: 홈을 처음 연 때(journal.css → ui-standard.css)와 다른 메뉴를 먼저 연 때(ui-standard.css 가 먼저 있어 journal.css 가 뒤에 붙음).
+ for(const order of ['home-first','other-first']){
+ if(order==='other-first'){await page.evaluate(()=>{const j=[...document.querySelectorAll('link[rel="stylesheet"]')].find(l=>/\/journal\.css(\?|$)/.test(l.href));document.head.append(j);});await expect.poll(()=>page.evaluate(()=>[...document.styleSheets].some(s=>/\/journal\.css(\?|$)/.test(s.href||'')))).toBe(true);}
+ const line=await barLine(page);
+ expect(line.n).toBe(4); // 확정 시각 · 탭 · [확정하고 받기] · ⋯
+ expect(line.spread).toBeLessThanOrEqual(2);
+ expect(line.barH).toBeLessThanOrEqual(line.tallest+2);
+ expect(line.overflow).toBeLessThanOrEqual(1);expect(line.pageOverflow).toBeLessThanOrEqual(1);
+ // 탭 이름은 줄이지 않는다(넘치면 탭 칸만 옆으로 밀기).
+ await expect(tabs.locator('.weekly-confirm-tab-name')).toHaveText(['파일','기록 제안','환류','기억']);
+ // [확정하고 받기] = 작은 채운 버튼(주간 보고 화면 작은 버튼 높이 --ds-compact-height 이하), 글자는 한 줄. 막대 탭(작은 판)은 --ds-compact-height-sm.
+ const tok=v=>page.evaluate(v=>{const e=document.createElement('span');e.style.height=`var(${v})`;e.style.display='block';document.querySelector('#journalRoot').append(e);const r=parseFloat(getComputedStyle(e).height);e.remove();return r;},v);
+ const [cmp,sm]=[await tok('--ds-compact-height'),await tok('--ds-compact-height-sm')];
+ const bs=await btn.evaluate(e=>({h:e.getBoundingClientRect().height/(parseFloat(getComputedStyle(document.documentElement).zoom)||1),ws:getComputedStyle(e).whiteSpace}));
+ expect(bs.h).toBeLessThanOrEqual(cmp+0.5);expect(bs.ws).toBe('nowrap');
+ const segH=await tabs.nth(0).evaluate(e=>parseFloat(getComputedStyle(e.parentElement).height)-parseFloat(getComputedStyle(e.parentElement).paddingTop)*2);
+ expect(Math.abs(segH-sm)).toBeLessThanOrEqual(0.5);
+ for(const theme of BAR_THEMES){
+  await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);
+  const on=await confirmContrast(page);
+  expect(on.filled,`${order} ${theme} 채움`).toBe(true);expect(on.ratio,`${order} ${theme} 대비`).toBeGreaterThanOrEqual(4.5);
+  await btn.evaluate(e=>{e.setAttribute('aria-busy','true');e.textContent='확정하는 중…';}); // 바쁨(확정하는 중) 모양 — paintConfirm 과 같은 표시
+  const busy=await confirmContrast(page);
+  await btn.evaluate(e=>{e.removeAttribute('aria-busy');e.textContent='확정하고 받기';});
+  expect(busy.ratio,`${order} ${theme} 바쁨 대비`).toBeGreaterThanOrEqual(4.5);
+ }
+ await page.evaluate(()=>{delete document.documentElement.dataset.theme;});
+ }
+ // 탭 누르기·펼침·Esc 그대로.
+ await tabs.nth(1).click();
+ await expect(tabs.nth(1)).toHaveAttribute('aria-selected','true');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(1);
+ expect((await barLine(page)).spread).toBeLessThanOrEqual(2);
+ await page.keyboard.press('Escape');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});

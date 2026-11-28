@@ -279,7 +279,9 @@
 #appView #homeView :is(.journal-hwpx,.journal-weekly) :is(button.mini:not(.journal-hwpx-grip),button.primary,button.secondary){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin-top:0; margin-bottom:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
 #appView #homeView :is(.journal-hwpx,.journal-weekly) :is(button.mini:not(.journal-hwpx-grip),button.primary,button.secondary)::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-#appView #homeView .journal-hwpx button.mini{ color:var(--kptu-ink); }
+/* WEEKLY-막대한줄: 글자색 ink 는 채우지 않은 작은 버튼에만. 채운 버튼(.mini.primary — [확정하고 받기]·[저장])까지 덮으면 ui-standard.css 의 채운 글자색과
+   선택자 무게가 같아 모양 파일을 붙인 순서로 승패가 갈린다(다른 메뉴를 먼저 열면 이 파일이 뒤에 붙어 채운 바탕에 어두운 글자). */
+#appView #homeView .journal-hwpx button.mini:not(.primary){ color:var(--kptu-ink); }
 #appView #homeView .journal-hwpx button:disabled{ opacity:.45; cursor:not-allowed; }
 #appView #homeView .journal-hwpx-target{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-compact-text); }
 #appView #homeView .journal-hwpx-plans > summary{ cursor:pointer; font-size:var(--ds-text-row); color:var(--kptu-muted); }
@@ -714,9 +716,14 @@
    주간 정리 본문 안에서 아래에 붙고(sticky), 폰 아래 메뉴 막대·키보드 위에 선다. 새 크기 값 없음(--ds-* 만). */
 #appView #homeView .weekly-flow-confirm-slot{ min-width:0; position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + var(--kptu-keyboard-inset,0px)); z-index:5; }
 #appView #homeView .weekly-flow-confirm-slot > .journal-hwpx{ gap:4px; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float,none); }
-#appView #homeView .weekly-confirm-bar{ display:flex; align-items:center; gap:6px; min-width:0; flex-wrap:wrap; }
-#appView #homeView .weekly-confirm-bar .weekly-confirm-tabs{ flex:1 1 auto; min-width:0; }
-#appView #homeView .weekly-confirm-bar .weekly-flow-confirm{ padding:0; border:0; }
+/* WEEKLY-막대한줄(2026-11-28 사용자 신고 '하단바 모습이 결정과 다름'): 막대는 어느 폭·큰 글자에서도 한 줄 — 줄바꿈하지 않는다(전에는 flex-wrap 이라
+   폰 412에서 [확정하고 받기]가 다음 줄로 떨어졌다). 모자라면 줄어드는 순서: 확정 시각은 짧은 꼴('11/27 확정', 시각은 title) → 탭 칸 여백·알약 높이는 작게(이 막대 안만)
+   → 그래도 모자라면 탭 칸만 옆으로 밀기(공용 ⑤ .ds-seg 의 overflow-x). 탭 이름은 줄이지 않는다. 확정 시각·[확정하고 받기]·⋯ 는 줄지 않는다. */
+#appView #homeView .weekly-confirm-bar{ display:flex; align-items:center; gap:4px; min-width:0; flex-wrap:nowrap; }
+#appView #homeView .weekly-confirm-bar > *{ flex:none; }
+#appView #homeView .weekly-confirm-bar > .weekly-confirm-tabs{ flex:0 1 auto; min-width:0; }
+#appView #homeView .weekly-confirm-bar > .weekly-flow-confirm{ margin-left:auto; padding:0; border:0; }
+/* 막대 안 보기 바꾸기는 공용 ⑤의 작은 판(.ds-seg-sm, ui-standard.css — 모양은 그 한 곳)을 쓴다(journal-hwpx.js). */
 #appView #homeView .weekly-confirm-panes{ max-height:50vh; overflow:auto; }
 #appView #homeView .journal-hwpx:not(.is-open) > .weekly-confirm-panes{ display:none; }
 #appView #homeView .weekly-confirm-head{ display:flex; align-items:center; gap:6px; min-width:0; flex:none; }
