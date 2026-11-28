@@ -20,7 +20,7 @@ const rects = page => page.evaluate(() => {
     tasks: r('[data-journal-tasks]'), done: r('[data-journal-done-day]'), fill: r('[data-journal-fill]'), mats: r('[data-journal-materials]'),
     right: r('.journal-day-right'), rightDisplay: getComputedStyle(document.querySelector('#journalRoot .journal-day-right')).display,
     dayDisplay: getComputedStyle(document.querySelector('#journalRoot [data-journal-day]')).display,
-    quick: (() => { const e = document.querySelector('#homeView .home-quick[data-home-quick]'); const b = e.getBoundingClientRect(); return { y: b.y, bottom: b.bottom, position: getComputedStyle(e).position }; })(),
+    quick: document.querySelectorAll('#homeView .home-quick').length, // QUICK-입력정리: 홈 입력 막대 없음
   };
 });
 const ready = async (page, width, height) => {
@@ -62,8 +62,7 @@ for (const [width, height] of FOLD) {
     const scrolls = await page.evaluate(() => ['.journal-day-right', '.journal-schedule-body', '[data-journal-tasks]'].map(sel => { const e = document.querySelector('#journalRoot ' + sel); const o = getComputedStyle(e).overflowY; return { sel, o, inner: e.scrollHeight > e.clientHeight + 1 && o !== 'visible' }; }));
     for (const s of scrolls) expect(s.inner, s.sel).toBe(false);
     // 입력 줄은 카드 밖. 761px부터(PC 틀)는 날짜 줄 아래 전체 폭에 있고 카드는 그 아래, 600~760(폰 틀)은 지금처럼 하단 탭 위 고정.
-    if (width >= 761) { expect(m.quick.position).not.toBe('fixed'); expect(m.day.y).toBeGreaterThanOrEqual(m.quick.bottom - 1); }
-    else expect(m.quick.position).toBe('fixed');
+    expect(m.quick).toBe(0);
     // 키보드·읽기 순서는 그대로(일정 → 할 일 → 오늘 한 일 → 재료).
     const order = await page.evaluate(() => ['[data-journal-schedule]', '[data-journal-tasks]', '[data-journal-done-day]', '[data-journal-fill]', '[data-journal-materials]'].map(s => document.querySelector('#journalRoot ' + s)).map((e, i, all) => i === 0 || !!(all[i - 1].compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING)));
     expect(order.every(Boolean)).toBe(true);
@@ -89,7 +88,7 @@ for (const [width, height] of [...SINGLE, ...PC]) {
       expect(Math.abs(m.done.x - m.sched.x)).toBeLessThanOrEqual(1);
       expect(m.done.y).toBeGreaterThanOrEqual(m.tasks.bottom - 1);
       expect(m.mats.y).toBeGreaterThanOrEqual(m.done.bottom - 1);
-      if (width === 412) expect(m.quick.position).toBe('fixed'); // 폰 입력 줄은 하단 탭 위 고정(지금처럼)
+      expect(m.quick).toBe(0); // QUICK-입력정리: 홈 입력 막대 없음
     } else {
       // PC: [일정 | 할 일] 좌우 같은 줄, 오늘 한 일·재료는 그 아래 전체 폭.
       expect(Math.abs(m.tasks.y - m.sched.y)).toBeLessThanOrEqual(2);

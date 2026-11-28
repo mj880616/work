@@ -51,7 +51,7 @@ async function fixture(page,{features=['calls','telegram','family'],notes=NOTES(
       return r.fulfill({json:[]});
     });
   }});
-  await expect(page.locator('#homeView [data-home-summary]')).toBeVisible();
+  await expect(page.locator('#homeView [data-journal-day]')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();
   return {patches,reads,notes,notePosts,notePatches,folderPosts};
