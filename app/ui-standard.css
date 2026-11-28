@@ -2110,7 +2110,7 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
    머리 칸(head-sort.mjs headCellHtml) = 칸 이름 + 지금 정렬 중이면 오른쪽에 작은 선 꺾쇠 그림(내림 ⌄ · 오름 ⌃, 선 1.4, currentColor). 글자 기호(▼▲)는 쓰지 않는다.
    꺾쇠는 칸 이름과 글자 높이 세로 가운데(inline-flex + align-items:center), 간격 --ds-sort-mark-gap. 정렬 중인 칸 이름만 진한 글자, 나머지 칸 이름은 흐린 글자.
    화면 CSS(.nl-head·.fx-head)는 칸 배치(오른쪽 맞춤·여백)만 정한다. 화면 공용 버튼 모양(맨 위 #basketView 버튼 규칙들)은 .hs-btn을 빼서 덮지 않는다(구조로, 덮어쓰기 아님). */
-[role="columnheader"].hs-cell > .hs-btn { display:inline-flex; align-items:center; gap:var(--ds-sort-mark-gap); max-width:100%; font-size:inherit; white-space:nowrap; overflow:hidden; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); }
+[role="columnheader"].hs-cell > .hs-btn { display:inline-flex; align-items:center; gap:var(--ds-sort-mark-gap); max-width:100%; font-size:inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--kptu-muted); font-weight:var(--ds-weight-regular,400); }
 [role="columnheader"].hs-cell > .hs-btn:is(:hover,:focus-visible) { color:var(--kptu-ink); }
 [role="columnheader"].hs-cell.hs-on > .hs-btn { color:var(--kptu-ink); font-weight:var(--ds-weight-strong); }
 .hs-arrow { display:inline-flex; flex:none; align-items:center; font-style:normal; line-height:0; }
