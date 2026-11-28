@@ -153,11 +153,29 @@ async function projects(){
   await module('./project-system-v3.js','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
+// BRIEF-추가빠르게: 자료실 화면 프로그램(조직 자료·사업영역 목록·자료실 모듈) 받기·실행은 한 번만 — 화면 불러오기(library)와 자료 등록 창(uploadWindow)이 같이 쓴다.
+let libraryCodeFlight=null;
+function libraryCode(){
+  return libraryCodeFlight||=(async()=>{
+    await team('library');
+    await module('./project-catalog.js');
+    await import('./library-upload.js');
+    return true
+  })().catch(err=>{libraryCodeFlight=null;throw err});
+}
 async function library(){
-  await team('library');
-  await module('./project-catalog.js');
+  await libraryCode();
   await module('./library-upload.js','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
+}
+// BRIEF-추가빠르게(사용자 신고 11/28 '[+] 누른 뒤 창이 5초 넘게 늦게 뜸'): 다른 화면(브리핑 룸·담당조직·사업 보고)이 자료 등록 창만 열 때는
+// 자료실 화면 전체(자료 목록·메모·브리핑 요지·보기 설정 읽기까지)를 기다리지 않고, 그 창을 열 수 있을 때(폴더·분류·받는 폴더)까지만 기다린다.
+// 자료실 화면 불러오기(load('library'))는 같은 모듈·같은 약속으로 뒤에서 이어진다(두 번 받거나 읽지 않음). 창을 열 수 있으면 true.
+function uploadWindow(){
+  if(window.KPTUFeatureLock?.locked?.('library'))return Promise.resolve(false);
+  background(load('library'));
+  if(loaded.has('library'))return Promise.resolve(true);
+  return Promise.all([prepare('library'),libraryCode()]).then(()=>window.__KPTU_LIBRARY_UPLOAD_WINDOW_READY__).then(ok=>!!ok);
 }
 async function meetings(){
   await projectCatalog();
@@ -321,7 +339,7 @@ function warm(){
 // PERF-첫로딩 P5-c: 화면 안에서 뒤늦게 부르는 묶음(예: 홈의 [주간 정리] 묶음)도 같은 받기 도구로 사슬을 한꺼번에 받아만 둔다.
 // 부르는 쪽은 /*static-chain*/ 목록(뿌리만, 빌드가 사슬을 채움)을 넘긴다. 받기만 하고 실행은 부르는 쪽 import() 그대로.
 function preload(paths){for(const path of paths||[])hint('modulepreload',path)}
-window.KPTUViewLoader={load,loadAll,prepare,normalize,warm,preload,style,isLoaded:view=>loaded.has(normalize(view))};
+window.KPTUViewLoader={load,loadAll,prepare,normalize,warm,preload,style,uploadWindow,isLoaded:view=>loaded.has(normalize(view))};
 // S67-41: 공용 부품(part-styles.js)이 이 도구를 기다리고 있으면 알려 준다.
 window.dispatchEvent(new Event('kptu:view-loader-installed'));
 })();

@@ -61,6 +61,7 @@ import {createLibraryFolder,putDocumentInFolder} from './library-folder-data.js'
 import {registerScreenFind,refreshScreenFind,finderOf,toolsBox} from './screen-find.js';
 import {bindRowSwipe,PICK,EDIT,DELETE} from './row-swipe.js';
 import {stepTextSize} from './text-size-model.mjs';
+import {openUploadWindow} from './upload-window-open.js';
 
 const rt=()=>window.KPTURuntime;
 const ws=()=>rt()?.context?.read?.()?.workspace?.id||'';
@@ -246,7 +247,7 @@ tools.innerHTML='<button type="button" class="icon-btn br-tool br-top-more" data
 const addButton=()=>tools.querySelector('[data-br-top-add]');
 // [+] 작은 메뉴: 자료실에서 선택(공용 고르기 창 — 다시 올리지 않고 연결만) · 파일 업로드(자료실 등록 창, '브리핑 요청함' 폴더). 메뉴 줄 글자는 클립 없이(ui-words 업로드).
 const ADD_ITEMS=Object.freeze([{act:'lib',label:'자료실에서 선택'},{act:'file',label:'파일 업로드'}]);
-const addMenu=createAnchoredMenu({id:'brAddMenu',className:'topline-add-menu br-add-menu',label:'자료 넣기',historyKey:'kptuBriefAddMenu',key:()=>'add',boxWidth:180,
+const addMenu=createAnchoredMenu({id:'brAddMenu',className:'topline-add-menu br-add-menu',label:'자료 넣기',historyKey:'kptuBriefAddMenu',key:()=>'add',boxWidth:180,onOpen:()=>warmAdd(),
   render:()=>ADD_ITEMS.map(i=>`<button type="button" class="row-act" data-br-add-act="${i.act}"${i.act==='lib'?' aria-haspopup="dialog"':''}>${i.label}</button>`).join(''),
   onAction:button=>{const a=button.dataset.brAddAct,at=addButton();if(a==='lib'&&at)void openLibraryPick(at);else if(a==='file')void add()}});
 // [⋯] 화면 메뉴: 정렬(폰 — 머리 칸이 없는 한 칸 목록, 표준 H1의 정렬 고르기) · 글자 크기 [−][+](보기 머리 줄에 있을 때는 그쪽 하나만) · 쓰는 법.
@@ -680,13 +681,18 @@ async function start(id,button){
   draw();
 }
 
+// BRIEF-추가빠르게(사용자 11/28): 누르자마자 등록 창 자리를 보이고(공용 upload-window-open.js), 자료실 화면 전체가 아니라 창에 필요한 것만 기다린다.
+// '브리핑 요청함' 폴더 찾기(없으면 만들기)는 창을 기다리는 동안 같이 한다. 같은 파일이 이미 있으면 [있는 자료 쓰기] → 새로 올리지 않고 그 자료를
+// [자료실에서 선택]과 같은 길(putPicked)로 이 화면에 넣는다. 나머지 파일만 창에 남는다.
 async function add(files=null){
-  try{
-    const id=await ensureFolder();
-    await window.KPTUViewLoader?.load?.('library');
-    const ok=await window.KPTULibrary?.startUploadInFolder?.(id,files);
-    if(!ok)toast('자료 등록 창을 열지 못했어요',true);
-  }catch{toast('자료 넣기를 열지 못했어요',true)}
+  const folder=ensureFolder().catch(()=>null);
+  await openUploadWindow(async lib=>{const id=await folder;return !!id&&!!(await lib?.startUploadInFolder?.(id,files,{useExisting:ids=>putPicked(ids)}))},
+    {onFail:()=>toast('자료 등록 창을 열지 못했어요 · 잠시 뒤 다시',true)});
+}
+// [+]를 누르면(작은 메뉴가 열릴 때) 고르기 창이 기다릴 내 자료실 자료 읽기를 미리 시작한다. 등록 창 프로그램은 받아만 두고(들어올 때 preload)
+// 실행은 [파일 업로드]를 누를 때 — 여기서 실행하면 그 일이 폰에서 [자료실에서 선택] 창 여는 손을 붙잡는다(측정, PR 표).
+function warmAdd(){
+  if(!libDocsFlight||Date.now()-libDocsFlight.at>LIB_FRESH_MS)libDocsFlight={at:Date.now(),rows:readLibDocs()};
 }
 
 function bind(){
@@ -804,7 +810,7 @@ function onRowContextMenu(e){
 // S67-41: 찾기 칸 아래 [최근]·[폴더] 두 보기. [폴더]는 처음 누를 때 자료실 폴더·폴더에 든 자료 줄을 읽고(같은 owner RLS 읽기),
 // 자료실 나무와 같은 순서(folderSiblings)로 폴더에 들어가며 고른다. 줄마다 형식 꼬리표·이름 한 줄·올린 날짜. 폰은 아래에서 올라오는 판, PC·폴드는 단추 아래 창.
 const LIB_PICK_CAP=2000,LIB_ITEM_CAP=5000;
-let siblingsOf=null,libPicker=null,libDocs=[],libFolders=null,libItems=new Map(),libFolder=null,libFolderLoad=null,libFolderFailed=false;
+let siblingsOf=null,libPicker=null,libDocs=[],libDocsReady=false,libDocsFlight=null,libFolders=null,libItems=new Map(),libFolder=null,libFolderLoad=null,libFolderFailed=false;
 function loadLibraryFolders(){
   return libFolderLoad||=Promise.all([
     readLibraryFolders(api,ws()),
@@ -816,15 +822,19 @@ function loadLibraryFolders(){
     libItems=new Map((Array.isArray(items)?items:[]).map(r=>[r.document_id,r.folder_id]));
   }).catch(()=>{libFolderLoad=null;libFolders=null;libFolderFailed=true;toast('자료실 폴더를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true)});
 }
+// 내 자료실 자료(최근 순) 읽기 — [+]를 누를 때 미리 시작하고(warmAdd), 고르기 창은 그 읽기를 기다리지 않고 바로 연다.
+// 미리 읽은 목록은 30초 안에 연 창에만 쓴다(그보다 오래되면 다시 읽음). 못 읽으면 null.
+const LIB_FRESH_MS=30000;
+function readLibDocs(){
+  return api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws())}&select=id,title,file_name,mime_type,created_at&order=created_at.desc&limit=${LIB_PICK_CAP}`)
+    .then(rows=>Array.isArray(rows)?rows:[],()=>null);
+}
+// BRIEF-추가빠르게(사용자 11/28): 누르자마자 창을 연다. 자료가 오기 전에는 목록 자리에 기다림 표시(공용 고르기 창 waiting)만 두고, 오면 그 자리에 채운다.
 async function openLibraryPick(anchor){
   if(state.busy||anchor.disabled)return;
   if(libPicker?.isOpen){void libPicker.close(false,true);return}
-  anchor.disabled=true;
-  try{
-    const rows=await api(`/rest/v1/app_documents?workspace_id=eq.${enc(ws())}&select=id,title,file_name,mime_type,created_at&order=created_at.desc&limit=${LIB_PICK_CAP}`);
-    libDocs=Array.isArray(rows)?rows:[];
-  }catch{toast('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true);return}
-  finally{anchor.disabled=false}
+  const flight=libDocsFlight&&Date.now()-libDocsFlight.at<=LIB_FRESH_MS?libDocsFlight.rows:readLibDocs();libDocsFlight=null;
+  libDocs=[];libDocsReady=false;
   if(!anchor.isConnected)return;
   libPicker??=createMovePicker({esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),id:'brLibPicker',label:'자료실에서 선택',findLabel:'자료 이름 찾기',foot:false,currentTag:'이미 있음',folderIcons:false});
   const inRoom=new Set(roomRows().map(r=>r.doc.id));
@@ -832,12 +842,17 @@ async function openLibraryPick(anchor){
   anchor.setAttribute('aria-expanded','true');
   libPicker.open({anchor,place:wide()?'below':'side',history:!wide(),multi:true,width:340,sections:PICK_SECTIONS,views:PICK_VIEWS,view:'recent',
     doneLabel:n=>n?`넣기 ${n}개`:'넣을 자료를 선택해 주세요',
-    rows:(query,view)=>view==='folder'&&!libFolders&&!query.trim()?{recent:[],all:[],total:libDocs.length,waiting:!libFolderFailed}
+    rows:(query,view)=>!libDocsReady?{recent:[],all:[],total:0,waiting:true}:view==='folder'&&!libFolders&&!query.trim()?{recent:[],all:[],total:libDocs.length,waiting:!libFolderFailed}
       :libraryPickRows({docs:libDocs,inRoom,query,view,folder:libFolder,folders:libFolders||[],itemFolder:libItems,siblings:siblingsOf?(all,parentId)=>siblingsOf(all,{free:true,parentId}):null}),
     onView:view=>{if(view==='folder'&&!libFolders){libFolderFailed=false;void loadLibraryFolders().then(()=>libPicker?.refresh?.())}},
     onNav:id=>{libFolder=id||null},
     onPickMany:ids=>putPicked(ids),
     onClosed:()=>{if(anchor.isConnected)anchor.setAttribute('aria-expanded','false')}});
+  const picker=libPicker;
+  const rows=await flight;
+  if(rows){libDocs=rows;libDocsReady=true;if(picker.isOpen)picker.refresh();return}
+  if(picker.isOpen)void picker.close(false,true);
+  toast('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.',true);
 }
 // 고른 자료를 '브리핑 요청함' 폴더에 연결만 한다(파일 다시 올리기 없음). 이미 그 폴더면 건너뜀, 다른 폴더면 옮기지 않고 목록에만.
 const ITEMS='/rest/v1/app_library_folder_items';
@@ -912,5 +927,6 @@ async function takeAsked(){
 // 맨 위 브리핑 저절로 열기(autoOpen)·만드는 중 다시 보기 예약(schedule)은 이 화면이 지금 화면일 때만이라, 처음 보이는 그 자리(라우터 진입, 그리기 전)에서 한 번 부른다.
 const firstDraw=refresh();
 let firstShown=false;
-window.KPTURouter?.on?.('brief',()=>{if(!firstShown){firstShown=true;autoOpen();schedule();void firstDraw.then(takeAsked,takeAsked);return}void refresh().then(takeAsked)});
+// BRIEF-추가빠르게: 처음 들어올 때 [+] 두 길이 쓰는 자료실 프로그램 사슬을 받아만 둔다(실행·자료 읽기 없음 — 앱 쉬는 틈 미리 받기와 같은 주소).
+window.KPTURouter?.on?.('brief',()=>{if(!firstShown){firstShown=true;window.KPTUViewLoader?.preload?.(/*static-chain*/['./library-upload.js']);autoOpen();schedule();void firstDraw.then(takeAsked,takeAsked);return}void refresh().then(takeAsked)});
 window.__KPTU_BRIEF_READY__=firstDraw.then(takeAsked);

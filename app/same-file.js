@@ -4,9 +4,9 @@
 //     자료실·사업 보고 회의자료·사진·조직 기록 파일(app_documents.file_name·file_size), 정리함·노트·업데이트 첨부(app_notes.attachments의 file_name·size_bytes),
 //     할 일 첨부(app_task_attachments.file_name·size_bytes). 휴지통 노트는 DB 정책이 이미 숨긴다. 일정 첨부는 Web2 표가 없어(구글 캘린더에만 있음) 찾는 대상이 아니다.
 // - 묻기: 같은 것이 있는 파일만 모아 작은 확인창 하나(small-notice.js askActions) — '이미 있는 자료예요' + 위치 줄 + [그래도 올리기] [올리지 않기]
-//     (그 자리가 있는 자료를 붙일 수 있으면 useExisting을 주어 [있는 것 쓰기]도). 같은 것이 없는 파일은 묻지 않고 그대로 올린다.
+//     (그 자리가 있는 자료를 붙일 수 있으면 useExisting을 주어 [올리지 않기] 자리가 [있는 자료 쓰기]). 같은 것이 없는 파일은 묻지 않고 그대로 올린다.
 // - 찾기가 안 되면(로그인 없음·표 없음·인터넷·4초 넘음) 묻지 않고 그대로 올린다. 넣기를 막지 않는다. 기기에 아무것도 저장하지 않는다.
-import {sameTargets, inList, noteContains, noteHas, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer} from './same-file-model.mjs';
+import {sameTargets, inList, noteContains, noteHas, docHit, noteHits, taskHit, matchFiles, askLines, splitByAnswer, canUseExisting, firstHits} from './same-file-model.mjs';
 import {askActions} from './small-notice.js';
 
 export const SAME_WAIT_MS = 4000;
@@ -63,27 +63,31 @@ export async function findSameFiles(files, {rt = globalThis.window?.KPTURuntime,
 }
 
 // 넣기 전에 한 번: 같은 것이 있으면 묻고, 올릴 파일만 돌려준다.
-// 돌려줌 {files: 올릴 파일, used: [{file, hit}](있는 것 쓰기), skipped: [File]}. 같은 것이 없거나 찾지 못하면 files = 받은 그대로.
-// useExisting: 그 자리가 있는 자료를 붙일 수 있을 때만 준다(없으면 [있는 것 쓰기] 버튼이 없다). 부른 곳이 used를 받아 붙인다.
+// 돌려줌 {files: 올릴 파일, used: [{file, hit}](있는 자료 쓰기), skipped: [File], skippedHits: [올리지 않은 파일마다 찾은 첫 곳]}. 같은 것이 없거나 찾지 못하면 files = 받은 그대로.
+// useExisting: 그 자리가 있는 자료를 붙일 수 있을 때만 준다(없으면 [있는 자료 쓰기] 버튼이 없다). 부른 곳이 used를 받아 붙인다.
 // still(file): 뒤에서 찾는 곳(넣기를 먼저 하는 곳)만 준다. 찾는 사이 그 파일이 이미 저장·올림·빼기로 대기에서 나갔으면 false —
 //   찾기가 늦게 끝나 방금 올린 자기 파일을 '이미 있는 자료'로 묻지 않게, 묻기 직전에 아직 대기인 파일만 남긴다.
 export async function screenSameFiles(files, {anchor = null, rt = globalThis.window?.KPTURuntime, useExisting = false, find = findSameFiles, ask = askActions, still = null} = {}) {
   const list = Array.from(files || []);
   const found = list.length ? await find(list, {rt}) : new Map();
   if (typeof still === 'function') for (const file of [...found.keys()]) if (!still(file)) found.delete(file);
-  if (!found.size) return {files: list, used: [], skipped: []};
+  if (!found.size) return {files: list, used: [], skipped: [], skippedHits: []};
   const lines = askLines(found);
-  const actions = [
-    {value: 'skip', label: '올리지 않기', kind: 'row-act'},
-    {value: 'upload', label: '그래도 업로드', kind: useExisting ? 'secondary' : 'primary'},
-    ...(useExisting ? [{value: 'use', label: '있는 것 쓰기', kind: 'primary'}] : []),
-  ];
+  // BRIEF-추가빠르게(사용자 11/28 "'올리지 않기' 누르면 그 겹치는 파일을 자동 선택"): 그 자리가 있는 자료를 붙일 수 있으면(useExisting)
+  // [올리지 않기] 자리에 [있는 자료 쓰기] — 새로 올리지 않고 있는 자료를 고른 것으로 넘긴다. 자료실 자료가 하나도 없으면(노트·할 일 첨부뿐) 지금처럼.
+  const use = useExisting && canUseExisting(found);
+  const notDoc = use ? [...found.values()].filter(list => !list.some(h => h.kind === 'document')).length : 0;
+  const actions = use
+    ? [{value: 'use', label: '있는 자료 쓰기', kind: 'primary'}, {value: 'upload', label: '그래도 업로드', kind: 'secondary'}]
+    : [{value: 'skip', label: '올리지 않기', kind: 'row-act'}, {value: 'upload', label: '그래도 업로드', kind: 'primary'}];
   const rest = list.length - found.size;
+  const note = [rest > 0 ? `나머지 ${rest}개는 바로 올려요` : '', notDoc ? `자료실에 없는 ${notDoc}개는 올리지 않아요` : ''].filter(Boolean).join(' · ');
   const answer = await ask(anchor, {
     text: found.size > 1 ? `이미 있는 자료예요 · ${found.size}개` : '이미 있는 자료예요',
-    lines, note: rest > 0 ? `나머지 ${rest}개는 바로 올려요` : '', actions, className: 'same-file-ask',
+    lines, note, actions, className: 'same-file-ask',
   });
-  return splitByAnswer(list, found, answer);
+  const out = splitByAnswer(list, found, answer);
+  return {...out, skippedHits: firstHits(out.skipped, found)};
 }
 
 // 넣는 곳에 붙이는 짧은 길: 고른 파일을 거른 뒤 take(올릴 파일)를 부른다. 올릴 것이 하나도 없으면 부르지 않는다.

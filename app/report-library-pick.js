@@ -42,10 +42,11 @@ export function openAddMenu(anchor, {device, library}) {
   ensureMenu().open(anchor);
 }
 
-// 고르기 창의 모양(library-upload.css)은 자료실 묶음과 같이 온다(올리기 길과 같은 불러오기).
+// 고르기 창의 모양(library-upload.css 등 자료실 모양 파일)만 붙인다. BRIEF-추가빠르게: 전에는 자료실 화면 전체(프로그램 실행·자료 목록 읽기)를
+// 기다려 창이 늦게 떴다(브리핑 룸 [+]와 같은 원인) — 모양 파일만 받으면 된다(view-loader prepare: 모양 붙이기 + 프로그램은 받아만 둠).
 async function ensureLibraryLook() {
   const loader = window.KPTUViewLoader;
-  if (loader?.load && !loader.isLoaded?.('library')) await loader.load('library');
+  if (loader?.prepare && !loader.isLoaded?.('library')) await loader.prepare('library');
 }
 
 // [자료실에서 선택]: 내 자료실 자료(최근 순, 이름 찾기)를 여러 개 고른다. 이 보고에 이미 있거나 이미 고른 것은 '이미 있음',
@@ -57,13 +58,11 @@ export async function pickFromLibrary(anchor, {column = 'meeting_id', targetId =
   if (picker?.isOpen) { void picker.close(false, true); return; }
   const workspace = ws();
   if (!workspace || typeof rt()?.api !== 'function') { notify('로그인 세션을 확인하지 못했어요.', {error: true}); return; }
+  // BRIEF-추가빠르게: 자료 읽기는 창을 연 뒤 그 자리에 채운다(창은 모양 파일만 기다린다 — 받아 둔 작은 파일).
+  const read = rt().api(`/rest/v1/app_documents?workspace_id=eq.${enc(workspace)}&select=id,title,file_name,mime_type,meeting_id,organization_id,created_at&order=created_at.desc&limit=${PICK_CAP}`).then(rows => (Array.isArray(rows) ? rows : []), () => null);
   anchor.disabled = true;
-  let docs = [];
-  try {
-    await ensureLibraryLook();
-    const rows = await rt().api(`/rest/v1/app_documents?workspace_id=eq.${enc(workspace)}&select=id,title,file_name,mime_type,meeting_id,organization_id,created_at&order=created_at.desc&limit=${PICK_CAP}`);
-    docs = Array.isArray(rows) ? rows : [];
-  } catch { notify('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.', {error: true}); return; }
+  let docs = [], ready = false;
+  try { await ensureLibraryLook(); } catch {}
   finally { anchor.disabled = false; }
   if (!anchor.isConnected || ws() !== workspace) return;
   picker ??= createMovePicker({esc, id: 'reportLibPicker', label: PICK_LABEL, findLabel: '자료 이름 찾기', foot: false, currentTag: HERE_TAG, folderIcons: false});
@@ -71,9 +70,14 @@ export async function pickFromLibrary(anchor, {column = 'meeting_id', targetId =
   picker.open({anchor, place: 'below', history: !wide(), multi: true, sections: PICK_SECTIONS,
     doneLabel: n => (n ? `넣기 ${n}개` : '넣을 자료를 선택해 주세요'),
     keepOpen: t => !!menu && !!t?.closest?.('#reportAddMenu'),
-    rows: query => reportPickRows({docs, column, targetId: targetId || meetingId, chosen, query}),
+    rows: query => (ready ? reportPickRows({docs, column, targetId: targetId || meetingId, chosen, query}) : {recent: [], all: [], total: 0, waiting: true}),
     onPickMany: ids => { if (ws() !== workspace) return; const set = new Set(ids); onPick?.(docs.filter(d => set.has(d.id))); },
     onClosed: () => { if (anchor.isConnected) anchor.setAttribute('aria-expanded', 'false'); }});
+  const open = picker, rows = await read;
+  if (ws() !== workspace) return;
+  if (rows) { docs = rows; ready = true; if (open.isOpen) open.refresh(); return; }
+  if (open.isOpen) void open.close(false, true);
+  notify('자료실 자료를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.', {error: true});
 }
 
 // 고른 자료를 그 사업 보고(또는 담당조직)에 붙인다. target = {column, id, project_id?}. 결과 한 줄은 작은 알림(quiet면 잘못됐을 때만).

@@ -507,10 +507,11 @@ async function mrdAddFiles(files){
   if(photos.length)void mrdAddPhotos(photos);
   if(photos.length&&!others.length)return;
   const st=document.querySelector('#mrdStatus'),fail=message=>{st.textContent=message;st.className='status error'};
-  if(!(await mrdEnsureLibrary(fail)))return;
-  if(mrdCurrent?.id!==m.id)return;
+  // BRIEF-추가빠르게: 누르자마자 창 자리를 보이고 자료실 화면 전체가 아니라 창에 필요한 것만 기다린다(공용 upload-window-open.js).
   st.textContent='';st.className='status';
-  if(!window.KPTULibrary?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||word('사업 보고')}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others))fail('자료 업로드를 열지 못했어요. 잠시 후 다시 눌러 주세요.');
+  const {openUploadWindow}=await import('./upload-window-open.js');
+  await openUploadWindow(lib=>mrdCurrent?.id===m.id&&!!lib?.startUploadForMeeting?.({id:m.id,name:`${mrdMeetingName(m)||m.title||word('사업 보고')}${m.round_no?` ${m.round_no}차`:''}`,project_id:m.project_id||''},others),
+    {onFail:()=>{if(mrdCurrent?.id===m.id)fail('자료 업로드를 열지 못했어요. 잠시 후 다시 눌러 주세요.')}});
 }
 // HOTFIX-회의첨부칸 ②(S48-53): PC에서 보기·고치기 면 어디에 파일을 놓아도 이 사업 보고에 붙는다(예전에는 보기 면에서만).
 // 사진은 사진 줄로 바로, 나머지는 [+]와 같은 자료실 올리기 창(library-files, meeting_id)으로. 결과 파일(놓은 자리가 결과 칸이거나 이름이 결과)은

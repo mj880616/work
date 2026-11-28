@@ -77,16 +77,20 @@ export function askLines(found) {
   return [...found.values()].map(list => list.length > 1 ? `${list[0].line} 외 ${list.length - 1}곳` : list[0].line);
 }
 
-// 답에 따라 나눈다. answer: 'skip'(올리지 않기) · 'use'(있는 것 쓰기) · 그 밖('upload' 그래도 올리기, 또는 고르지 않고 닫음).
+// 답에 따라 나눈다. answer: 'skip'(올리지 않기) · 'use'(있는 자료 쓰기 — 자료실 자료(document)가 있으면 그것, 노트·할 일 첨부뿐이면 올리지 않음) · 그 밖('upload' 그래도 올리기, 또는 고르지 않고 닫음).
 // 고르지 않고 닫으면(Esc·바깥 누르기·뒤로가기) 고른 파일을 말없이 빼지 않고 그대로 올린다 — 알림은 알리기만, 빼는 것은 직접 고를 때만.
 // 돌려줌: {files: 올릴 파일(같은 것이 없던 것 + 그래도 올리기), used: [{file, hit}], skipped: [File]}. 차례는 처음 고른 차례 그대로.
+// BRIEF-추가빠르게: [있는 자료 쓰기]는 겹친 파일 중 하나라도 자료실 자료(app_documents)가 있을 때만 — 그 자리에 넣을 수 있는 것은 자료 행뿐이다.
+export const canUseExisting = found => [...(found?.values?.() || [])].some(list => list.some(h => h.kind === 'document'));
+// 올리지 않은 파일마다 찾은 첫 곳(자료실 자료가 있으면 그것) — 부른 곳이 '그 자료로 가는 길'을 보일 때.
+export const firstHits = (files, found) => (files || []).map(f => { const list = found?.get?.(f) || []; return list.find(h => h.kind === 'document') || list[0]; }).filter(Boolean);
 export function splitByAnswer(files, found, answer) {
   const out = {files: [], used: [], skipped: []};
   for (const f of files || []) {
     const list = found.get(f);
     if (!list) out.files.push(f);
     else if (answer === 'skip') out.skipped.push(f);
-    else if (answer === 'use') out.used.push({file: f, hit: list[0]});
+    else if (answer === 'use') { const hit = list.find(h => h.kind === 'document'); if (hit) out.used.push({file: f, hit}); else out.skipped.push(f); }
     else out.files.push(f);
   }
   return out;

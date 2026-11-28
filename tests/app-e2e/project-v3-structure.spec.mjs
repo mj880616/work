@@ -81,8 +81,9 @@ test('project screen and library share one canonical project catalog', async () 
   const project=read('app/project-system-v3.js');
   const library=read('app/library-upload.js');
   const team=read('app/team.js');
-  const projectsBlock=views.slice(views.indexOf('async function projects()'),views.indexOf('async function library()'));
-  const libraryBlock=views.slice(views.indexOf('async function library()'),views.indexOf('async function meetings()'));
+  // BRIEF-추가빠르게: 자료실 프로그램 받기·실행 순서는 화면 불러오기(library)와 자료 등록 창(uploadWindow)이 같이 쓰는 libraryCode() 한 곳에 있다.
+  const projectsBlock=views.slice(views.indexOf('async function projects()'),views.indexOf('let libraryCodeFlight'));
+  const libraryBlock=views.slice(views.indexOf('function libraryCode()'),views.indexOf('async function meetings()'));
   for(const block of [projectsBlock,libraryBlock])expect(block.indexOf("module('./project-catalog.js')")).toBeGreaterThan(-1);
   expect(projectsBlock.indexOf('project-catalog.js')).toBeLessThan(projectsBlock.indexOf('project-system-v3.js'));
   expect(libraryBlock.indexOf('project-catalog.js')).toBeLessThan(libraryBlock.indexOf('library-upload.js'));
