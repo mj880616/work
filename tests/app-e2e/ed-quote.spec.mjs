@@ -31,6 +31,8 @@ const choose = (page, selector, text, endText = text, endSelector = selector) =>
   const [a, ai] = find(selector, text, false), [b, bi] = find(endSelector, endText, true);
   const range = document.createRange(); range.setStart(a, ai); range.setEnd(b, bi);
   const s = getSelection(); s.removeAllRanges(); s.addRange(range);
+  // A key let go makes the editor read the browser's selection right away (ed-editor.js syncSelection), as after Shift+arrows.
+  document.querySelector('.ed-box .ProseMirror').dispatchEvent(new KeyboardEvent('keyup', {bubbles: true}));
 }, [selector, text, endText, endSelector]);
 
 test.describe('PC 1280', () => {
@@ -60,7 +62,7 @@ test.describe('PC 1280', () => {
     await expect(box.locator('blockquote.ed-quote')).toHaveText(chosen);
     // 글쓰기 자리는 인용 아래 빈 줄: 바로 쓰면 그 줄에 들어간다.
     await page.keyboard.type('코멘트');
-    expect((await shape(page))[3]).toEqual({paragraph: ['코멘트']});
+    await expect.poll(async () => (await shape(page))[3]).toEqual({paragraph: ['코멘트']});
     await page.keyboard.press('Control+z');
     await expect.poll(() => shape(page)).toEqual([{paragraph: ['첫 문단 그대로']}, {paragraph: ['이 문장에 대한 생각을 씁니다']},
       {blockquote: [{paragraph: [chosen]}]}, {paragraph: []}, {paragraph: ['마지막 문단']}]);
@@ -71,7 +73,7 @@ test.describe('PC 1280', () => {
 
   test('Q1 여러 줄·여러 블록을 고르면 글자만 줄을 지켜 한 인용 블록에, 고른 글이 끝난 블록 아래에', async ({page}) => {
     const box = await open(page, docOf([P('하나 둘'), {type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: '소제목 셋'}]}, P('넷 다섯'), P('여섯')]));
-    await box.click();
+    await box.focus(); // 누르기 없이 초점만(누르기의 늦은 커서 놓기가 고른 글을 덮지 않게)
     await choose(page, 'p', '둘', '넷', 'p:nth-of-type(2)');
     await expect(quoteButton(page)).toBeVisible();
     await quoteButton(page).click();
@@ -84,7 +86,7 @@ test.describe('PC 1280', () => {
 
   test('Q1 PC 우클릭: 고른 글 위 우클릭 메뉴에 [인용](누른 자리), Esc는 메뉴만 닫고 고른 글은 그대로', async ({page}) => {
     const box = await open(page, docOf([P('우클릭으로 인용할 문장'), P('')]));
-    await box.click();
+    await box.focus(); // 누르기 없이 초점만(누르기의 늦은 커서 놓기가 고른 글을 덮지 않게)
     await choose(page, 'p', '인용할 문장');
     await expect(quoteButton(page)).toBeVisible();
     await page.keyboard.press('Escape');
@@ -105,7 +107,7 @@ test.describe('PC 1280', () => {
     const cell = text => ({type: 'table_cell', content: [P(text)]});
     const table = {type: 'table', content: [{type: 'table_row', content: [cell('가 칸 글'), cell('나 칸')]}, {type: 'table_row', content: [cell('다 칸'), cell('라 칸')]}]};
     const box = await open(page, docOf([P('표 위'), table, P('표 아래')]));
-    await box.click();
+    await box.focus(); // 누르기 없이 초점만(누르기의 늦은 커서 놓기가 고른 글을 덮지 않게)
     await choose(page, 'td', '칸 글');
     await expect(quoteButton(page)).toBeVisible();
     const at = await page.evaluate(() => { const b = getSelection().getRangeAt(0).getBoundingClientRect(); return {x: b.left + 6, y: b.top + b.height / 2}; });
@@ -125,7 +127,7 @@ test.describe('PC 1280', () => {
 
   test('Q1 코드 블록 안에서 고르면 코드 블록 바로 아래, 줄바꿈은 줄마다 한 줄', async ({page}) => {
     const box = await open(page, docOf([{type: 'code_block', content: [{type: 'text', text: 'let a = 1;\nlet b = 2;'}]}, P('끝')]));
-    await box.click();
+    await box.focus(); // 누르기 없이 초점만(누르기의 늦은 커서 놓기가 고른 글을 덮지 않게)
     await choose(page, 'pre', 'a = 1', 'b = 2');
     await quoteButton(page).click();
     expect(await shape(page)).toEqual([{code_block: ['let a = 1;\nlet b = 2;']}, {blockquote: [{paragraph: ['a = 1;']}, {paragraph: ['let b = 2']}]}, {paragraph: []}, {paragraph: ['끝']}]);
@@ -133,7 +135,7 @@ test.describe('PC 1280', () => {
 
   test('Q1 빈칸만 고르면 메뉴가 없다, 고른 글을 풀면 메뉴가 닫힌다', async ({page}) => {
     const box = await open(page, docOf([P('가   나')]));
-    await box.click();
+    await box.focus(); // 누르기 없이 초점만(누르기의 늦은 커서 놓기가 고른 글을 덮지 않게)
     await choose(page, 'p', '   ');
     await page.keyboard.press('Shift+ArrowLeft'); await page.keyboard.press('Shift+ArrowRight');
     await expect(menu(page)).toBeHidden();
@@ -149,7 +151,7 @@ test.describe('폰 412', () => {
 
   test('Q1 길게 눌러 고른 글 → 아래 [인용] 누르기 → 글쓰기 자리 그대로(자판 열린 채)', async ({page}) => {
     const box = await open(page, docOf([P('폰에서 고른 문장 하나'), P('다음 문단')]));
-    await box.locator('p').first().tap();
+    await box.focus();
     await choose(page, 'p', '고른 문장');
     await expect(quoteButton(page)).toBeVisible();
     // 폰 기본 잘라내기·복사 줄(고른 글 위)과 겹치지 않게 고른 글 아래, 손잡이 자리를 비우고.
@@ -158,9 +160,9 @@ test.describe('폰 412', () => {
     expect(m.height).toBeLessThanOrEqual(40);
     await quoteButton(page).tap();
     await expect(box).toBeFocused();
-    expect(await shape(page)).toEqual([{paragraph: ['폰에서 고른 문장 하나']}, {blockquote: [{paragraph: ['고른 문장']}]}, {paragraph: []}, {paragraph: ['다음 문단']}]);
+    await expect.poll(() => shape(page)).toEqual([{paragraph: ['폰에서 고른 문장 하나']}, {blockquote: [{paragraph: ['고른 문장']}]}, {paragraph: []}, {paragraph: ['다음 문단']}]);
     await page.keyboard.insertText('폰 코멘트');
-    expect((await shape(page))[2]).toEqual({paragraph: ['폰 코멘트']});
+    await expect.poll(async () => (await shape(page))[2]).toEqual({paragraph: ['폰 코멘트']});
     // 폰은 길게 누르기 메뉴를 가로채지 않는다(우클릭 [인용]은 PC만).
     await choose(page, 'p', '다음');
     const hijacked = await page.evaluate(() => { const p = [...document.querySelectorAll('.ed-box p')].find(x => x.textContent === '다음 문단'); const e = new PointerEvent('contextmenu', {bubbles: true, cancelable: true, pointerType: 'touch'}); p.dispatchEvent(e); return e.defaultPrevented; });

@@ -30,7 +30,7 @@ const chooseText=(page,word)=>page.evaluate(word=>{
  for(const p of document.querySelectorAll('[data-note-detail] [data-note-body-field] .ProseMirror p')){
   const n=[...p.childNodes].find(c=>c.nodeType===3&&c.data.includes(word));if(!n)continue;
   const i=n.data.indexOf(word),range=document.createRange();range.setStart(n,i);range.setEnd(n,i+word.length);
-  const s=getSelection();s.removeAllRanges();s.addRange(range);return true;
+  const s=getSelection();s.removeAllRanges();s.addRange(range);p.closest('.ProseMirror').dispatchEvent(new KeyboardEvent('keyup',{bubbles:true}));return true;
  }
  throw new Error('없음 '+word);
 },word);
@@ -44,7 +44,7 @@ for(const width of [1280,412]){
   if(width<761)await row.tap();else await row.click();
   await noteMenuAction(page,'data-note-edit',{width});
   const field=noteField(page);await expect(field).toBeVisible();
-  await field.locator('p').first().click();
+  await field.focus();
   await chooseText(page,'코멘트를 단다');
   const quote=page.locator('[data-note-detail] .ed-qmenu').getByRole('menuitem',{name:'고른 글 인용'});
   await expect(quote).toBeVisible();
