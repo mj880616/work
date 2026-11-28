@@ -517,7 +517,7 @@ function rowChanged(item, kind, on) {
   else if (!hit) load().catch(() => {});
   paint();
 }
-bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null),
+bindNowRows(root?.querySelector('[data-nc-list]'), {row: '[data-nc-item]', itemOf: el => (el.dataset.ncItem ? {type: 'news', id: el.dataset.ncItem} : null), rate: true, // HOME-읽을거리평가
   enabled: () => state.mode === 'list',
   isSaved: item => !!itemById(item.id)?.starred_at,
   canDelete: item => canDeleteNews(itemById(item.id)),

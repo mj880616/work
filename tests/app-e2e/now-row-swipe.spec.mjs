@@ -53,7 +53,8 @@ test('Now 뉴스 412: 왼쪽 끝까지 밀어도 칸만 열림(S70-60), [숨기�
 
   // UI-스와이프메뉴만(S70-60): 끝까지 밀어도 숨기지 않고 [수정][저장][숨기기] 칸만 펼쳐진다.
   await swipe(item(page, 'c1'), -320);
-  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveText(['수정', '저장', '숨기기']);
+  // HOME-읽을거리평가(W4): 맨 왼쪽 평가 칸(그림만 — 글자 없음 [좋아요]·[별로예요]) + [수정][저장][숨기기].
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveText(['', '', '수정', '저장', '숨기기']);
   await page.waitForTimeout(500);
   await expect(item(page, 'c1')).toHaveCount(1);
   expect(server.calls.filter(c => c.what === 'app_news_marks' && c.method !== 'GET')).toHaveLength(0);
@@ -89,11 +90,12 @@ test('Now 뉴스 412: 왼쪽으로 조금 밀면 칸 [보관][숨기기](줄 높
   const { errors, server } = await start(page, 412);
   await openNews(page, 412);
   await expect(item(page, 'c1')).toBeVisible();
-  // 왼쪽 조금: 오른쪽 끝에 칸 세 개 [수정][저장][숨기기](S70-62), 맨 오른쪽이 [숨기기], 칸 높이 = 줄 높이.
+  // 왼쪽 조금: 오른쪽 끝에 칸 세 개 [수정][저장][숨기기](S70-62) + 그 왼쪽 평가 칸 하나(W4), 맨 오른쪽이 [숨기기], 칸 높이 = 줄 높이.
   await swipe(item(page, 'c1'), -50);
-  const cells = page.locator('#newsRoot [data-row-swipe-act="end"]');
+  const cells = page.locator('#newsRoot [data-row-swipe-act="end"]:not(.row-swipe-half)');
   await expect(cells).toHaveCount(3);
   await expect(cells).toHaveText(['수정', '저장', '숨기기']);
+  await expect(page.locator('#newsRoot .row-swipe-ends > :first-child [data-row-swipe-key="like"]')).toHaveAttribute('aria-label', '좋아요');
   const rowBox = await item(page, 'c1').boundingBox(), cellBox = await cells.nth(2).boundingBox();
   expect(Math.abs(cellBox.height - rowBox.height)).toBeLessThan(2);
   expect(cellBox.x + cellBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 2);
@@ -166,7 +168,7 @@ test('Now 뉴스 412: 실제 손가락처럼(포인터 + 터치 함께) 글 줄 
   // 글 줄 위 왼쪽 조금: 칸만 열리고 탭은 그대로.
   await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000));
   await both(item(page, 'k1'), -60);
-  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]')).toHaveCount(3);
+  await expect(page.locator('#newsRoot [data-row-swipe-act="end"]:not(.row-swipe-half)')).toHaveCount(3);
   await expect(page.locator('#outsideRoot [data-os-tab="media"]')).toHaveAttribute('aria-selected', 'true');
   // 줄 밖(탭 줄)에서 밀면 탭이 넘어간다.
   const tabs = page.locator('#outsideRoot [data-os-tabs]');

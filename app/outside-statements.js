@@ -1028,7 +1028,7 @@ function rowChanged(item, kind, on) {
   paintList();
 }
 for (const sel of ['[data-os-list]', '[data-nw-all]']) {
-  bindNowRows(root?.querySelector(sel), {row: '[data-nw-key]', itemOf: itemOfRow,
+  bindNowRows(root?.querySelector(sel), {row: '[data-nw-key]', itemOf: itemOfRow, rate: true, // HOME-읽을거리평가: 밀기·⋯ [좋아요]·[별로예요]
     isSaved: item => (item.type === 'news' ? !!(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id))?.starred_at : markOf(item.id).starred),
     canDelete: item => item.type === 'news' && canDeleteNews(state.news.find(x => x.id === item.id) || findNews().find(x => x.id === item.id)), changed: rowChanged,
     canEdit: item => item.type === 'news', onEdit: item => editRow(item)});
