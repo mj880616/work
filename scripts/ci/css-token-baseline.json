@@ -110,7 +110,7 @@
       "buttonHeight": 0
     },
     "app/journal.css": {
-      "fontSize": 12,
+      "fontSize": 1,
       "buttonHeight": 2
     },
     "app/library-upload.css": {
