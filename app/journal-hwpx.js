@@ -222,25 +222,27 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const topMenu = rowMore(doc, {label:'일시·이름·바탕 수정', data:{hwpxTopMore:''}, items:[{text:'이름 수정', data:{hwpxTopMe:''}}, {text:'일시 수정', data:{hwpxTopDate:''}}, {text:'바탕 바꾸기(기기 파일)', data:{hwpxPick:''}}, {text:'처음부터', data:{hwpxRestart:''}, danger:true}]});
   // 1. 요청사항 › 1) 위 한 줄: 바탕(지난주 확정본)에서 가져온 요청 줄 안내. [주간 정리]가 그 자리에 붙인다. 바탕을 연 판에서만 보인다.
   const reqNote = el('p', 'journal-muted journal-hwpx-requests-note'); reqNote.dataset.hwpxRequests = ''; reqNote.hidden = true;
-  // WEEKLY-화면정돈 ③(명진 11/28 시안 '나', docs/design/approved/weekly-tidy.md): 확정 칸 = 머리 '이번 주 확정 · 시각' + 짧은 탭
-  //   [파일][비울 줄 N][AI 초안][환류][기억] + 한 번에 한 탭 내용 + 맨 아래 [확정하고 한글 파일 받기]. 탭마다 마디는 한 번 만들어 두고(그리는 곳은
-  //   지금처럼 각 paint 함수 하나), 바탕을 연 뒤에만 채워지는 것(opened)은 renderEdit 가 각 탭 칸에 넣는다. 고른 탭은 기기 메모리만(주가 바뀌면 잊음).
+  // WEEKLY-화면정돈 ②(명진 11/28 09:09~09:23 결정, docs/design/approved/weekly-tidy.md ② 절 — 앞 '나'의 오른쪽 칸·탭 5개를 대신함):
+  //   확정은 화면 아래 고정 막대 한 줄 = [확정 시각] [탭: 파일 · 기록 제안(N) · 환류 · 기억] [확정하고 받기] [⋯]. 탭을 누르면 막대 위로 그 탭만 펼치고,
+  //   다시 누르거나 바깥을 누르거나 Esc면 접는다. 처음엔 접힘. AI 초안 탭은 없앴다(초안 소식은 파일 탭 맨 위 한 줄, 학습 시험 결과는 환류 탭).
+  //   '비울 줄'(더는 투쟁 중이 아닌 사업장 줄)과 '줄을 찾지 못한 이번 주 기록'은 기록 제안 탭. 탭마다 마디는 한 번 만들어 두고(그리는 곳은 각 paint 함수 하나),
+  //   바탕을 연 뒤에만 채워지는 것(opened)은 renderEdit 가 각 탭 칸에 넣는다. 펼친 탭은 기기 메모리만(주가 바뀌면 접힘).
   let opened = false;
-  const TABS = Object.freeze([['file', '파일'], ['blank', '비울 줄'], ['ai', 'AI 초안'], ['review', '환류'], ['memory', '기억']]);
-  const EMPTY_TAB = Object.freeze({file:'확인할 것이 없어요.', blank:'비울 줄이 없어요.', ai:'AI 초안 소식이 없어요.', review:'확정하면 이번 주 환류 보고가 여기에 나와요.', memory:'확정하면 다음 주에도 쓸 일정을 여기서 선택해요.'});
+  const TABS = Object.freeze([['file', '파일'], ['suggest', '기록 제안'], ['review', '환류'], ['memory', '기억']]);
+  const EMPTY_TAB = Object.freeze({file:'확인할 것이 없어요.', suggest:'붙일 기록이 없어요.', review:'확정하면 이번 주 환류 보고가 여기에 나와요.', memory:'확정하면 다음 주에도 쓸 일정을 여기서 선택해요.'});
   const tabBar = el('div', 'weekly-confirm-tabs ds-seg'); tabBar.setAttribute('role', 'tablist'); tabBar.setAttribute('aria-label', '확정 칸 보기'); // 공용 ⑤ 보기 바꾸기 모양 tabBar.dataset.weeklyConfirmTabs = '';
   const panes = {}, tabBtn = {}, tabEmpty = {};
   for (const [key, label] of TABS) {
     const b = el('button', 'ds-seg-btn weekly-confirm-tab'); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.weeklyConfirmTab = key; b.id = `weeklyConfirmTab-${key}`;
     b.append(el('span', 'weekly-confirm-tab-name', label), el('span', 'weekly-confirm-tab-count'));
-    b.addEventListener('click', () => { pickedTab = key; paintTabs(); });
+    b.addEventListener('click', () => { pickedTab = pickedTab === key ? '' : key; paintTabs(); });
     tabBtn[key] = b; tabBar.append(b);
     const pane = el('div', 'weekly-confirm-pane'); pane.setAttribute('role', 'tabpanel'); pane.dataset.weeklyConfirmPane = key; pane.setAttribute('aria-labelledby', b.id);
     tabEmpty[key] = el('p', 'journal-muted weekly-confirm-empty', EMPTY_TAB[key]); tabEmpty[key].dataset.weeklyConfirmEmpty = key;
     panes[key] = pane;
   }
   // 바탕을 연 뒤 renderEdit 가 채우는 칸(탭마다 하나). 파일 탭은 확정 파일 두 줄·양식 자리 고르기 아래에 이 칸.
-  const fileParts = el('div', 'weekly-confirm-parts'), blankParts = el('div', 'weekly-confirm-parts'), aiParts = el('div', 'weekly-confirm-parts'),
+  const fileParts = el('div', 'weekly-confirm-parts'), suggestParts = el('div', 'weekly-confirm-parts'),
     reviewParts = el('div', 'weekly-confirm-parts'), memoryParts = el('div', 'weekly-confirm-parts');
   let pickedTab = '';
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
@@ -248,7 +250,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const draftLine = el('span', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.setAttribute('aria-live', 'polite');
   // 사업장 빼기 뒤 "○○을 뺐어요 [되돌리기]" 한 줄(위쪽, 다음 바꿈까지).
   const undoLine = el('p', 'journal-hwpx-undo'); undoLine.dataset.hwpxUndo = ''; undoLine.hidden = true; undoLine.setAttribute('role', 'status'); undoLine.setAttribute('aria-live', 'polite');
-  const confirmBtn = button('확정하고 한글 파일 받기', 'hwpxConfirm', 'mini primary');
+  const confirmBtn = button('확정하고 받기', 'hwpxConfirm', 'mini primary'); confirmBtn.setAttribute('aria-label', '확정하고 한글 파일 받기');
   const confirmState = el('span', 'weekly-flow-confirm-state'); confirmState.dataset.hwpxConfirmState = '';
   // WEEKLY-주간정리다듬기 ④(시안 docs/design/mockups/weekly-tidy.html ③): 버튼 아래에 늘어놓던 [초안 다시 쓰기]·주간보고 기억·규칙·환류는 ⋯ 안으로.
   // WEEKLY-기본HWP(명진 11/13 'a'): 받는 파일 기본은 .hwp — [확정 없이 파일만 받기]도 .hwp, .hwpx는 [.hwpx로 받기]로만.
@@ -277,31 +279,43 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   finalLine.addEventListener('dragleave', () => finalLine.classList.remove('is-over'));
   finalLine.addEventListener('drop', e => { finalLine.classList.remove('is-over'); const f = e.dataTransfer?.files?.[0]; if (!f || finalBusy) return; e.preventDefault(); void upFinal(f); });
   panes.file.append(finalLine, placeLine, undoLine, fileParts, tabEmpty.file);
-  panes.blank.append(blankParts, tabEmpty.blank); panes.ai.append(aiParts, tabEmpty.ai);
+  panes.suggest.append(suggestParts, tabEmpty.suggest);
   panes.review.append(reviewParts, tabEmpty.review); panes.memory.append(memoryParts, tabEmpty.memory);
   body.append(...TABS.map(([key]) => panes[key]));
   host.classList.add('weekly-confirm');
-  host.replaceChildren(confirmHead, tabBar, body, status, confirmRow, fileInput, finalInput);
+  // 막대 한 줄: 확정 시각 · 탭 · [확정하고 받기] · ⋯. 펼친 탭 칸(body)은 막대 위.
+  const bar = el('div', 'weekly-confirm-bar'); bar.dataset.weeklyConfirmBar = '';
+  confirmHead.replaceChildren(confirmState);
+  bar.append(confirmHead, tabBar, confirmRow, more);
+  host.replaceChildren(body, status, bar, fileInput, finalInput);
+  // 바깥 누르기·Esc = 펼친 탭 접기(막대·탭 칸 안, 떠 있는 메뉴·확인 창 안은 그대로).
+  doc.addEventListener('pointerdown', e => {
+    if (!pickedTab || !host.isConnected) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || host.contains(t) || t.closest('#rowMenu,.kptu-ask,.kptu-notice,[role="dialog"],.row-more-menu')) return;
+    pickedTab = ''; paintTabs();
+  }, true);
+  host.addEventListener('keydown', e => { if (e.key === 'Escape' && pickedTab && !e.target.closest?.('input,textarea,select')) { e.preventDefault(); pickedTab = ''; paintTabs(); tabBtn[TABS[0][0]]?.focus(); } });
   // 탭마다 '할 일' 수(숫자) — 지금 그려진 칸에서 센다. 파일: 겹친 칸·자리 못 찾은 줄·본문과 일정표 다름·붙일 줄·양식 자리 고르기,
   // 비울 줄: 지울지 묻는 사업장 줄, 환류: 답할 규칙 후보, 기억: 다음 주에도 쓸지 묻는 일정. AI 초안은 소식만(숫자 없음).
   const shown = n => !!n && !n.hidden && !n.closest('[hidden]:not(.weekly-confirm-pane)');
   const countIn = (root, sel) => [...root.querySelectorAll(sel)].filter(shown).length;
   function tabCounts() {
     return {
-      file:countIn(fileParts, '[data-hwpx-conflict-row],[data-hwpx-keep-row],[data-hwpx-mismatch-item],[data-hwpx-unmatched] li:not(.journal-hwpx-gone-row)') + countIn(placeLine, '[data-hwpx-place-row]'),
-      blank:countIn(blankParts, '[data-hwpx-stage-fix-row]'),
-      ai:0,
+      file:countIn(fileParts, '[data-hwpx-conflict-row],[data-hwpx-keep-row],[data-hwpx-mismatch-item]') + countIn(placeLine, '[data-hwpx-place-row]'),
+      suggest:countIn(suggestParts, '[data-hwpx-unmatched] li:not(.journal-hwpx-gone-row),[data-hwpx-stage-fix-row]'),
       review:countIn(reviewParts, '[data-learn-candidate]'),
       memory:countIn(memoryParts, '[data-hwpx-remember-item]'),
     };
   }
-  // 고른 탭(기기 메모리)이 없으면 할 일이 남은 첫 탭, 없으면 '파일'. 탭 칸에 보일 것이 없으면 한 줄('…없어요').
+  // 펼친 탭(기기 메모리)만 막대 위에 보인다(없으면 모두 접힘). 탭 칸에 보일 것이 없으면 한 줄('…없어요').
   function paintTabs() {
     const counts = tabCounts();
-    const on = pickedTab || TABS.find(([key]) => counts[key] > 0)?.[0] || 'file';
+    const on = pickedTab;
+    host.classList.toggle('is-open', !!on);
     for (const [key, label] of TABS) {
       const b = tabBtn[key], n = counts[key];
-      b.setAttribute('aria-selected', String(key === on)); b.tabIndex = key === on ? 0 : -1;
+      b.setAttribute('aria-selected', String(key === on)); b.setAttribute('aria-expanded', String(key === on)); b.tabIndex = key === (on || TABS[0][0]) ? 0 : -1;
       b.querySelector('.weekly-confirm-tab-count').textContent = n > 0 ? String(n) : '';
       b.setAttribute('aria-label', n > 0 ? `${label} — 할 일 ${n}개` : label);
       panes[key].hidden = key !== on;
@@ -374,7 +388,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     run++; sourceRun++; state = null; weekDraft = null; flight = null; engine?.close(); engine = null; paintDraft(); undoLine.hidden = true;
     groupsKey = ''; groupsAsked = ''; // S67-31: 다시 연 판의 2. 1) 묶음이 옛 판과 같아도 다시 그리게 알린다
     schedEdit = null; schedNote = null; schedAi = false; clearTimeout(schedNoteTimer);
-    opened = false; pickedTab = ''; for (const part of [fileParts, blankParts, aiParts, reviewParts, memoryParts]) part.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
+    opened = false; pickedTab = ''; for (const part of [fileParts, suggestParts, reviewParts, memoryParts]) part.replaceChildren(); say(message); topEdit = null; paintTop(); paintConfirm(); renderRequestNote(); paintPlace();
   }
   // WEEKLY-내양식자유변형 핫픽스 ①(11/15 ★급★): 바탕(자료실 개인·팀 확정본) 있는지 주마다 한 번 본다. 없으면 [주간 보고]는 백지 + 올리기 한 줄
   // (journal.js) — 바탕이 없는 새 가입자에게 코드에 박힌 다른 팀 양식(항목 이름·표 칸)을 보이지 않는다. 못 읽으면 'unknown'(지금처럼 그림).
@@ -465,7 +479,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   // 확정 칸 머리 한 줄(WEEKLY-화면정돈 ③ 시안 '나'): '이번 주 확정 전' / '이번 주 확정 · 10/31 21:05 · 다시 누르면 새 판'.
   function paintConfirm() {
     const week = getWeek(), d = week.row?.draft ?? null, c = (state && state.start === week.start ? state.store?.confirmed : null) ?? d?.confirmed ?? null;
-    confirmState.textContent = c?.at ? `이번 주 확정 · ${mdhm(c.at)} · 다시 누르면 새 판` : '이번 주 확정 전';
+    // 막대 맨 앞 짧은 한 마디(WEEKLY-화면정돈 ②): '확정 전' / '11/28 15:02 확정'(다시 누르면 새 판 — 글자 대신 설명으로).
+    confirmState.textContent = c?.at ? `${mdhm(c.at)} 확정` : '확정 전';
+    confirmState.title = c?.at ? '다시 누르면 새 판으로 확정해요' : '';
     confirmBtn.disabled = !!state?.confirming;
     paintFinal(c);
     paintTabs();
@@ -914,7 +930,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (key !== groupsKey) { groupsKey = key; onFlow(); }
   }
   function renderEdit() {
-    const s = state, parts = [], blank = [];
+    const s = state, parts = [], suggest = [];
     opened = true;
     queueMicrotask(tellGroups);
     if (s.store?.conflicts.length) parts.push(conflictBox(s));
@@ -944,27 +960,27 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
         li.append(el('span', 'journal-weekly-label', `${f.org}: `), doc.createTextNode(f.stage ? `지금 단계는 ‘${f.stage}’이에요. ` : ''));
         const clear = button('줄 비우기', 'hwpxStageClear'); clear.dataset.hwpxIndex = String(f.index); li.append(clear); list.append(li);
       }
-      fix.append(list); blank.push(fix);
+      fix.append(list); suggest.push(fix);
     }
-    const ai = el('p', 'journal-muted'); ai.dataset.hwpxAiDraft = ''; ai.setAttribute('role', 'status'); ai.setAttribute('aria-live', 'polite');
+    const ai = el('p', 'journal-muted'); ai.dataset.hwpxAiDraft = ''; ai.setAttribute('role', 'status'); ai.setAttribute('aria-live', 'polite'); parts.unshift(ai); // 초안 소식 = 파일 탭 맨 위 한 줄
     const loading = el('div', 'journal-muted'); loading.innerHTML = waitHtml({rows: 1}); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
     // 본문·일정표 다름(⑤)은 늘 보인다. 일정 칸 고치기는 [주간 정리] 5. 주요 일정 표 줄 자리(S52-31).
     const diff = el('details', 'journal-hwpx-plans'); diff.dataset.hwpxMismatch = ''; diff.hidden = true; diff.open = true;
     diff.append(el('summary', ''), el('ul', 'journal-hwpx-material'));
     // S48-33(요청함 11/01 23:43 '뺀 것 목록 두지 않기'): '기억으로 뺀 일정 n개 [이번 주만 넣기]' 접힘은 없앴다(기억 칸·draft 값은 그대로).
     parts.push(diff);
-    // WEEKLY-화면정돈 ③: 탭 안은 한 문장 요약 + 세부 접기 — 줄을 찾지 못한 기록도 접힌 한 덩이(요약 한 줄은 늘 보임).
+    // WEEKLY-화면정돈 ②: '줄을 찾지 못한 이번 주 기록'·'붙일 기록'은 이름을 '기록 제안'으로 바꿔 기록 제안 탭(한 문장 요약 + 세부).
     const rest = el('details', 'journal-hwpx-plans'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true; rest.open = true;
-    rest.append(el('summary', '', '줄을 찾지 못한 이번 주 기록 — 이름이 바탕 칸과 달라요. 붙일 칸을 선택해 주세요.'), el('ul', 'journal-hwpx-material'));
-    parts.push(rest);
+    rest.append(el('summary', '', '기록 제안 — 이름이 달라 자동으로 못 붙인 이번 주 기록이에요. 넣을 줄을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
+    suggest.unshift(rest);
     // 환류학습 6·4: [학습 시험] 결과(저장하지 않음)와 [확정] 뒤 이번 주 환류 보고 한 장.
     const learn = el('div', 'journal-hwpx-learn'); learn.dataset.hwpxLearn = ''; learn.hidden = true;
     const review = el('div', 'journal-hwpx-learn'); review.dataset.hwpxReview = ''; review.hidden = true;
     const remember = el('div', 'journal-hwpx-remember'); remember.dataset.hwpxRemember = ''; remember.hidden = true;
     // 탭마다 제 칸에(WEEKLY-화면정돈 ③): 파일 = 겹친 칸·남은 칸·예정·확인 한 줄들·일정표 다름·못 찾은 줄, 비울 줄 = 지울까요 목록,
     // AI 초안 = 초안 소식·학습 시험, 환류 = 환류 보고, 기억 = 다음 주에도 쓸 일정.
-    fileParts.replaceChildren(...parts); blankParts.replaceChildren(...blank); aiParts.replaceChildren(ai, learn);
-    reviewParts.replaceChildren(review); memoryParts.replaceChildren(remember);
+    fileParts.replaceChildren(...parts); suggestParts.replaceChildren(...suggest);
+    reviewParts.replaceChildren(review, learn); memoryParts.replaceChildren(remember);
     renderRemember();
     renderMaterial();
     renderRequestNote();
@@ -1498,7 +1514,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     return Array.isArray(rows) && rows[0] ? rows[0] : null;
   }
   async function learnTest(s, trigger) {
-    const t = s.learn = {status:'running', note:'이번 주 개인 확정본과 견줄 준비를 해요.'}; showTab('ai'); paintLearn(); // 누른 결과는 AI 초안 탭에
+    const t = s.learn = {status:'running', note:'이번 주 개인 확정본과 견줄 준비를 해요.'}; showTab('review'); paintLearn(); // 누른 결과는 환류 탭에(AI 초안 탭은 없앰)
     trigger.disabled = true;
     try {
       const doc_ = await thisWeekPersonal(s).catch(() => undefined);
@@ -1984,7 +2000,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     if (b.matches('[data-hwpx-hwp]')) { void doHwp(); return; }
     if (b.matches('[data-hwpx-copy]')) { void Promise.resolve(onCopy?.()).then(ok => { if (ok) flashDone(confirmBtn); }); return; }
     // ⋯ [초안 다시 쓰기]: 바탕을 열고(처음이면) 사람이 손대지 않은 칸만 다시 쓴다. 쓰는 중이면 한 줄 알림.
-    if (b.matches('[data-hwpx-ai-again]')) { void ensure().then(s => { if (!s) return; if (s.ai?.status === 'running' || s.ai?.status === 'wait') { say('초안을 쓰는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; } showTab('ai'); void aiDraft(s, true); }); return; }
+    if (b.matches('[data-hwpx-ai-again]')) { void ensure().then(s => { if (!s) return; if (s.ai?.status === 'running' || s.ai?.status === 'wait') { say('초안을 쓰는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return; } showTab('file'); void aiDraft(s, true); }); return; }
     if (b.matches('[data-hwpx-learn-show]')) { onLearn(); return; }
     if (b.matches('[data-hwpx-learn-test]')) { void ensure().then(s => { if (s) void learnTest(s, b); }); return; }
     if (b.matches('[data-hwpx-pick]')) { fileInput.click(); return; }
