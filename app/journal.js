@@ -9,8 +9,8 @@ import {HEAD_MARK_HTML} from './head-mark.mjs'; // S67-64 UI-윗줄한줄: 폰 �
 // (2026-10-22 사용자 결정): the top row has no copy button on either side any more.
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
-// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥761) each line also has [수정][삭제], shown while
-// the pointer is over the line or focus is inside it (journal.css); the phone keeps pressing the line.
+// ([되돌리기], the app's existing undo notice). Each line also ends in one small ⋯ (shared row-more: 수정·삭제), the same on the
+// phone and the PC and always shown (WEEKLY-화면정돈 ⑤, 2026-11-28).
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
 // JOURNAL-주간보고허브 1단계: four more groups (프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지). A group with nothing on
@@ -294,13 +294,12 @@ function renderList() {
     button.disabled = saving || !!edit;
     button.textContent = text;
     button.setAttribute('aria-label', `${text} (눌러서 수정)`);
-    // PC: [수정][삭제] beside the line (hidden on the phone; shown on hover or keyboard focus — journal.css).
-    const actions = document.createElement('span');
-    // DESIGN-단추정리 ①: 줄마다 붙는 [수정][삭제]는 공용 줄 끝 동작 자리(.row-acts)의 ③ 글자 버튼(row-act) — 테두리 없음, 줄 오른쪽 끝.
-    actions.className = 'journal-line-actions row-acts';
-    actions.innerHTML = `<button type="button" class="row-act" data-journal-edit-open="${index}" aria-label="${index + 1}번째 줄 수정">수정</button><button type="button" class="row-act is-danger journal-delete" data-journal-line-delete="${index}" aria-label="${index + 1}번째 줄 삭제">삭제</button>`;
-    actions.querySelectorAll('button').forEach(b => { b.disabled = saving || !!edit; });
-    item.append(button, actions);
+    // WEEKLY-화면정돈 ⑤(명진 11/28 '오늘 한 일 ㅇㅋ'): 줄마다 [수정][삭제] 글자 단추 대신 줄 끝 ⋯ 하나(공용 rowMore — 안에 수정·삭제).
+    // 폰·PC 같은 자리, 마우스를 올릴 때만 보이던 방식 없이 늘 보인다. 누르기 처리(data-journal-edit-open·data-journal-line-delete)는 그대로.
+    const off = saving || !!edit;
+    item.append(button, rowMore(document, {label:`${index + 1}번째 줄 수정·삭제`, data:{journalLineMore:String(index)}, items:[
+      {text:'수정', data:{journalEditOpen:String(index)}, aria:`${index + 1}번째 줄 수정`, disabled:off},
+      {text:'삭제', data:{journalLineDelete:String(index)}, aria:`${index + 1}번째 줄 삭제`, danger:true, disabled:off}]}));
     return item;
   }));
   list.hidden = !items.length;

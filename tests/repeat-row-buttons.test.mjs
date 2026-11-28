@@ -52,8 +52,9 @@ test('공용 줄 끝 동작 자리(.row-acts): 오른쪽 끝·줄바꿈 없음·
 
 test('조사표 반복 줄(#3·#4·#7–#13)은 테두리 단추 없이 글자 단추·⋯·줄 누르기', () => {
   const src = f => readFileSync(`app/${f}`, 'utf8');
-  assert.match(src('journal.js'), /actions\.className = 'journal-line-actions row-acts'/);
-  assert.match(src('journal.js'), /class="row-act" data-journal-edit-open=[^>]*>수정<\/button><button type="button" class="row-act is-danger journal-delete"/);
+  // 업무일지 줄은 WEEKLY-화면정돈 ⑤로 줄 끝 ⋯ 하나(공용 rowMore) — 수정·삭제 글자 단추는 줄에 없다.
+  assert.match(src('journal.js'), /rowMore\(document, \{label:`\$\{index \+ 1\}번째 줄 수정·삭제`/);
+  assert.doesNotMatch(src('journal.js'), /journal-line-actions/);
   const ps = src('project-system-v3.js');
   assert.match(ps, /<span class="row-acts"><button type="button" class="row-act" data-ps3-edit-milestone=/);
   assert.match(ps, /class="row-act is-now ps3-prow-restore" data-ps3-restore=/);

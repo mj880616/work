@@ -90,7 +90,7 @@ export function paintHandLines(slot, {part, model, start, rt = window.KPTURuntim
     const input = lineField(doc, {value: ui.draft.text ?? '', maxLength: HAND_NOTE_MAX}); input.dataset.journalHandField = 'text'; // UI-줄입력늘어나기
     input.setAttribute('aria-label', ui.editing === 'new' ? '메모 줄 추가' : '메모 줄 수정'); input.disabled = busy; input.autocomplete = 'off';
     if (ui.invalid === 'text') input.setAttribute('aria-invalid', 'true');
-    const cancel = btn('취소', 'journalHandCancel'), ok = btn('저장', 'journalHandSave', 'mini primary'); cancel.disabled = ok.disabled = busy;
+    const cancel = btn('취소', 'journalHandCancel', 'row-act'), ok = btn('저장', 'journalHandSave', 'mini primary'); cancel.disabled = ok.disabled = busy;
     f.append(input, ' ', cancel, ok); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return f;
   }

@@ -3,8 +3,6 @@ import {sendSignal, setMark} from './now-marks.js';
 import {deleteMine, dropSaved, DELETE_LABEL, DELETE_BOTH_LABEL, SAVE_LABEL, SAVED_LABEL, SAVED_ARIA} from './now-row-acts.js';
 import {readMarkOf, readMemoNote, readBody, readArticleCols, readSentences, readSavedDetail} from './feed-shared.js';
 import {createMemoThread} from './memo-thread.js';
-import {memosOf} from './memo-model.mjs';
-import {memosNow, onMemos} from './memo-store.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {plainText} from './news-clipping-model.mjs';
 import {textSizeHtml, textSize} from './text-size.js';
@@ -282,15 +280,13 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     const busy = cur.busy ? ' disabled' : '';
     const one = (attrs, label) => `<button type="button" class="ds-chip" ${attrs}${busy}>${esc(label)}</button>`;
     const btn = (act, on, label, onLabel) => one(`data-nd-act="${act}" aria-pressed="${!!on}"`, on ? onLabel : label);
-    // S69-94 NOTE-메모통일: 메모는 글 아래 메모 칸(memo-thread.js, 노트와 같은 부품). 이 칩은 그 칸으로 내려가 쓰기 칸에 초점(메모 수).
-    const n = memosOf(memosNow(), cur.item.type, cur.item.id).length;
-    const memo = one('data-nd-memo-go', n ? `메모 ${n}` : '메모');
+    // READ-메모칩삭제(사용자 요청 11/28): 메모는 글 아래 메모 칸(memo-thread.js)에서 바로 쓴다. 칸 머리에 '메모 n'이 있어 아래 줄에 [메모] 칩을 두지 않는다.
     // S67-11 NEWS-보관빼기: 내가 넣은 기사(공유·손으로 넣은 것, head.mine)는 [삭제] — 내 목록 어디에도 안 보이게(공용 기사 행은 그대로), 5초 [되돌리기].
     // S68-34: 저장해 둔 글이면 저장 해제와 겹치지 않게 기사 자체 삭제는 '기사 삭제'.
     const del = cur.item.type === 'news' && cur.head?.mine ? one('data-nd-delete', m.star ? DELETE_BOTH_LABEL : DELETE_LABEL) : '';
     const star = m.star ? one(`data-nd-act="star" aria-pressed="true" aria-label="${SAVED_ARIA}" title="${SAVED_ARIA}"`, SAVED_LABEL) : btn('star', false, SAVE_LABEL, SAVED_LABEL);
     const dismiss = cur.from === 'saved' ? '' : btn('dismiss', m.dismiss, '관심 없음', '관심 없음 ✓');
-    return `${star}${memo}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}`;
+    return `${star}${dismiss}${del}${cur.note ? `<span class="nd-faint" role="status">${esc(cur.note)}</span>` : ''}`;
   }
   // S69-94: 예전에 [메모]로 남긴 메모(노트 한 장, metadata.news_item_id|outside_post_id)는 지우지 않고 메모 칸 위에 한 줄로 보인다(고치기는 그 노트에서).
   function oldMemoHtml() {
@@ -299,9 +295,8 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (window.KPTUFeatureLock?.noteHidden?.(cur.memo)) return `<p class="nd-memo-text" data-nd-memo-locked data-lock-here="notes"><span class="nd-memo-label">노트 메모</span>잠김 <button type="button" class="row-act lk-open">풀기</button></p>`;
     return cur.memo.raw_text ? `<p class="nd-memo-text" data-nd-memo-text><span class="nd-memo-label">노트 메모</span>${esc(cur.memo.raw_text)} <button type="button" class="row-act" data-nd-oldmemo-open>노트에서 보기</button></p>` : '';
   }
-  // 글 아래 메모 칸(이 칸의 그리기 주인은 memo-thread.js). 메모를 남기거나 지우면 아래 줄의 [메모 n]과 [메모] 탭(껍데기)을 맞춘다.
-  const memoThread = createMemoThread({onChange: () => { if (!cur) return; signal(cur.item, 'memo'); onChanged?.(cur.item, 'memo', true); paintActs(); }});
-  onMemos(() => { if (cur && box?.isConnected) { const a = part('[data-nd-acts]'); if (a) a.innerHTML = actsHtml(); } });
+  // 글 아래 메모 칸(이 칸의 그리기 주인은 memo-thread.js, 메모 목록이 바뀌면 칸이 스스로 다시 그린다). 메모를 남기거나 지우면 [메모] 탭(껍데기)만 맞춘다 — 아래 줄은 메모와 무관해 다시 그리지 않는다.
+  const memoThread = createMemoThread({onChange: () => { if (!cur) return; signal(cur.item, 'memo'); onChanged?.(cur.item, 'memo', true); }});
   const attachMemos = () => { if (cur) memoThread.attach(part('[data-nd-memos]'), {type: cur.item.type, id: cur.item.id, title: cur.head?.title || ''}); };
   const part = sel => box?.querySelector(`[data-nd="${CSS.escape(itemKey(cur.item))}"] ${sel}`);
   function paintAi() {
@@ -991,7 +986,6 @@ export function createNowDetail({box, topics = () => [], onClose, onChanged, onS
     if (b.matches('[data-nd-refetch-hand]')) { void refetchBody(true); return; }
     if (b.matches('[data-nd-body-retry]')) { bodies.delete(itemKey(cur.item)); paintBody(); loadBody(cur.item, seq); return; }
     if (b.matches('[data-nd-retry]')) { cur.failed = ''; cur.unread = ''; paintAi(); load(cur.item); return; }
-    if (b.matches('[data-nd-memo-go]')) { const t = part('[data-nd-memos] [data-cm-text]'); part('[data-nd-memos]')?.scrollIntoView({block: 'nearest', behavior: 'smooth'}); t?.focus({preventScroll: true}); return; }
     if (b.matches('[data-nd-oldmemo-open]')) { if (cur?.memo?.id) { requestNoteDocOpen(cur.memo.id); void openOnScreen('basket'); } return; }
     if (b.matches('[data-nd-delete]')) { removeCur(); return; }
     if (b.matches('[data-nd-act]')) { toggle(b.dataset.ndAct); return; }

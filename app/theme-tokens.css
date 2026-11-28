@@ -114,6 +114,10 @@
   --ds-split-list:1fr;--ds-split-detail:2fr;--ds-split-list-min:240px;
   /* UI-칸폭조절(2026-10-22): 경계선을 끌어 바꿀 때 오른쪽 상세 칸의 최소 폭(왼쪽은 --ds-split-list-min). split-resize.js가 읽는다. */
   --ds-split-detail-min:360px;
+  /* FIX-노트폴드목록(2026-11-28): 칸 머리가 있는 목록 표(노트 [목록]·[폴더], [파일])의 제목·이름 칸 최소 폭. 다른 칸(저장한 넓은 폭 포함)이 먼저 줄고,
+     남는 폭은 제목 칸이 받는다. 폴드 펼침 두 칸(오른쪽 목록 약 480px)에서도 제목이 한 글자로 줄지 않게.
+     표 폭의 35%(그리드 칸 안에서 쓰면 표 폭 기준)와 120px 중 큰 값 — 넓은 표에서는 제목이 늘 표의 1/3 남짓은 갖는다. */
+  --ds-col-title-min:max(120px, 35%);
   /* MTG-3칸폭끌기(2026-10-26): 3단 화면(사업 보고)의 칸 폭 — 왼쪽 두 칸의 최소 폭과 기본 비율 1 : 1 : 4(= 1/6 : 1/6 : 2/3). split-resize.js가 끌어서 바꾼 값을 fr로 덮어쓴다. */
   --ds-split-col-min:150px;--ds-split-col-b-min:112px;--ds-split-col-a:1.3fr;--ds-split-col-b:.8fr;--ds-split-col-c:5.9fr; /* S52-34 UI-전체정리(사업 보고): 회의 이름·차수 날짜가 "가상 회…"·"1…"로 잘리지 않게 기본 폭·최소 폭을 넓힘(결과 칸은 여전히 왼쪽 두 칸의 2.6배 이상). S56-36: 차수 칸 최소 112px = '46차 11.10'이 한 줄로 다 보이는 폭(1280에서 기본 비율이면 100px라 '4.. 11...'로 잘렸다, 줄 오른쪽 여백 8px과 함께). 1024~1279px은 meeting-ui.css에서 96px(줄임표) 그대로 */
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
