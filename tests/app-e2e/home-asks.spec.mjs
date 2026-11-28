@@ -22,7 +22,8 @@ async function fixture(page,{width,cands=[cand(1),cand(2),cand(3,'update')],prom
       ledgerAsked.push(Object.fromEntries(new URL(r.request().url()).searchParams));return r.fulfill({json:promises});
     });
   }});
-  await expect(page.locator('#homeView [data-home-summary]')).toBeVisible();
+  // QUICK-입력정리(2026-11-28): 홈의 잊지 말기 칩은 입력 막대째 지웠다. 숫자는 메뉴 '홈' 표시로만 보인다 — 홈 화면이 그려지면 시작한다.
+  await expect(page.locator('#homeView [data-journal-day]')).toBeVisible();
   return {ledgerAsked};
 }
 const mark=page=>page.evaluate(()=>{
@@ -36,7 +37,7 @@ const warning=page=>page.evaluate(()=>{const p=document.createElement('p');p.sty
 
 test('phone (fold folded): a small dot on the bottom bar home, no number',async({page})=>{
   await fixture(page,{width:390});
-  await expect(page.locator('#homeView [data-home-summary] [data-nbx-badge]')).toHaveText('2');
+  await expect.poll(async()=>(await mark(page)).attr).toBe('2');
   await page.evaluate(()=>window.KPTURouter.go('calendar'));
   const m=await mark(page);
   expect(m).toMatchObject({attr:'2',content:'""',w:'6px',redBadge:0,overflow:false});
@@ -44,8 +45,8 @@ test('phone (fold folded): a small dot on the bottom bar home, no number',async(
 });
 for(const width of [900,1280])test(`${width}px: a faint number beside the menu home`,async({page})=>{
   await fixture(page,{width});
-  // 숫자는 홈 칩이 다 센 뒤에 붙는다(서버 읽기 여러 개). 그 숫자가 보인 다음 잰다 — 첫 그림 직후 재면 아직 셈 전이라 간헐로 비어 있었다.
-  await expect(page.locator('#homeView [data-home-summary] [data-nbx-badge]')).toHaveText('2');
+  // 숫자는 다 센 뒤에 붙는다(서버 읽기 여러 개). 그 숫자가 붙은 다음 잰다 — 첫 그림 직후 재면 아직 셈 전이라 간헐로 비어 있었다.
+  await expect.poll(async()=>(await mark(page)).attr).toBe('2');
   await page.evaluate(()=>window.KPTURouter.go('calendar'));
   const m=await mark(page);
   expect(m).toMatchObject({attr:'2',content:'"2"',redBadge:0,overflow:false});
@@ -55,7 +56,8 @@ for(const width of [900,1280])test(`${width}px: a faint number beside the menu h
 });
 for(const width of [390,1280])test(`${width}px: nothing to handle → no mark`,async({page})=>{
   await fixture(page,{width,cands:[cand(3,'update')]});
-  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toHaveText('잊지 말기');
+  await page.waitForLoadState('networkidle'); // 셈 읽기가 다 끝난 뒤(흉내 낸 서버라 금방)
+  await expect(page.locator('#homeView [data-home-quick],#homeView [data-home-summary]')).toHaveCount(0);
   const m=await mark(page);
   expect(m.attr).toBeNull();expect(['none','normal']).toContain(m.content);
 });
@@ -71,7 +73,7 @@ test('handling a request in the 정리함 updates the mark without a new count r
 // LEDGER-화면에서빼기(2026-11-25 명진 결정): 원장 약속이 있어도 홈에 '내일 약속 n ›'(원장으로) 줄을 붙이지 않고 원장을 읽지도 않는다.
 test('tomorrow promises are never shown on home (ledger has no screen)',async({page})=>{
   const {ledgerAsked}=await fixture(page,{width:390,promises:[{id:'p1'},{id:'p2'}]});
-  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await expect(page.locator('#homeView [data-home-summary-promises]')).toHaveCount(0);
   await expect(page.locator('#homeView')).not.toContainText('내일 약속');
   await expect(page.locator('#homeView')).not.toContainText('새로 기록된 약속');
@@ -79,7 +81,7 @@ test('tomorrow promises are never shown on home (ledger has no screen)',async({p
 });
 test('no tomorrow promise → nothing appended',async({page})=>{
   await fixture(page,{width:1280});
-  await expect(page.locator('#homeView [data-home-summary] [data-home-forget-open]')).toBeVisible();
+  await expect.poll(async()=>(await mark(page)).attr).toBe('2');
   await expect(page.locator('#homeView [data-home-summary-promises]')).toHaveCount(0);
-  await expect(page.locator('#homeView [data-home-summary]')).not.toContainText('내일 약속');
+  await expect(page.locator('#homeView')).not.toContainText('내일 약속');
 });
