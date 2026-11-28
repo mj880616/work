@@ -1156,7 +1156,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  // WEEKLY-화면정돈 ④: 확정 칸은 5. 주요 일정 안이 아니라 본문 옆 칸(폰은 본문 아래).
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter="calendar"] [data-weekly-flow-confirm]')).toHaveCount(0);
  const confirmRow=page.locator('#journalRoot [data-journal-weekly] > [data-weekly-flow-confirm]');
- await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 한글 파일 받기');
+ await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 받기'); // WEEKLY-화면정돈 ② 막대 한 줄(읽기 이름은 '확정하고 한글 파일 받기')
+ await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveAccessibleName('확정하고 한글 파일 받기');
  await confirmRow.locator('details.row-more summary').focus();await page.keyboard.press('Enter');
  const copy=confirmRow.locator('[data-hwpx-copy]');
  await expect(copy).toBeVisible();await expect(copy).toHaveText('글로 복사');await expect(copy).toHaveAccessibleName('주간 보고 초안 글로 복사');
@@ -1400,6 +1401,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await a1.locator('[data-flow-input]').fill('- 가-1 목요일 기록(수정됨)');await a1.locator('[data-flow-input]').press('Enter');
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록(수정됨)']);
  // 짝 없는 기록(남의 줄 가-2)은 바탕을 연 뒤 확정 줄 아래 '줄을 찾지 못한 이번 주 기록'에서 칸을 골라 붙인다.
+ await confirmTab(page,'suggest'); // WEEKLY-화면정돈 ②: 확정 막대 [기록 제안] 탭
  const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
  await expect(rest.locator('select option').first()).toHaveText('줄 선택');
  await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
@@ -1732,6 +1734,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 
  await input.fill('없는 이름');await input.press('Enter');
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('없는 이름');
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 수정했어요.');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -1740,6 +1743,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  await openJournal(page,390);await openWeekly(page);
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('전혀 다른 사람');
  await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -2455,6 +2459,7 @@ for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>row()?.draft?.confirmed?.document_id).toBe('doc-new');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(fin).toBeVisible();
  await expect(fin).toContainText('① WORK ON+가 만든 파일');
  await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('② 내가 수정한 최종본 한글에서 수정한 파일을 끌어 놓거나');
@@ -3372,6 +3377,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 
  ]);
  // 확정 줄 아래 한 줄: 양식에 자리가 없는 사업영역만, 칸 고르기(내 양식 줄만 — 남의 칸 없음).
  const place=page.locator('#journalRoot [data-hwpx-place]');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(place.locator('[data-hwpx-place-row]')).toHaveCount(1);
  await expect(place).toContainText('사업영역 나: 양식에 자리가 없어 표 끝 새 줄로 넣었어요.');
  await expect(place.locator('select option')).toHaveText(['칸 선택','가상 묶음 › 사업영역 가','가상 묶음 › 가상 빈 자리','표 끝 새 줄로 두기']);
@@ -5132,7 +5138,7 @@ for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`[주간 �
  await expect(again).toHaveText('초안 다시 쓰기');
  await expect(page.locator('#journalRoot').getByRole('button',{name:/AI 초안 다시 쓰기/})).toHaveCount(0);
  await m.locator('summary').click();
- await confirmTab(page,'ai'); // WEEKLY-화면정돈 ③: 안내 줄은 확정 칸 [AI 초안] 탭
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 안내 줄은 확정 막대 [파일] 탭 맨 위(AI 초안 탭은 없앰)
  await note.scrollIntoViewIfNeeded();
  if(process.env.KPTU_SHOTS==='1'){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${label}-weekly-draft-again-button.png`})}
 });
