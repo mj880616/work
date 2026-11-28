@@ -57,6 +57,13 @@ async function center(row) {
   const b = await row.boundingBox();
   return { x: b.x + b.width / 2, y: b.y + b.height / 2, right: b.x + b.width };
 }
+// 굴리지 않고 지금 자리의 줄 가운데(칸이 열린 채 누를 때 — 굴리면 열린 칸이 규칙대로 닫혀 '누르면 닫기만'을 볼 수 없다).
+// 위 폴더 상자 줄 수(S70-83 '전체' 줄 등)에 따라 줄 자리가 바뀌어도 화면 안에 보이는 줄이면 그대로 누른다.
+async function here(row) {
+  await expect(row).toBeInViewport();
+  const b = await row.boundingBox();
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2, right: b.x + b.width };
+}
 // 시험은 시계를 멈춰 두므로(home-entry) 다음 손동작 전에 1초 흐르게 한다 — 실제처럼 '앞 줄 밀기보다 뒤에 시작한 손동작'(claimedSince).
 const tick = async page => { await page.clock.setFixedTime(await page.evaluate(() => Date.now() + 1000)); };
 const cells = list => list.locator('[data-row-swipe-act="end"]');
@@ -78,7 +85,7 @@ test('저장한 글 412 실제 손가락: 조금·끝까지·빠르게 왼쪽 �
   await expect(rowOf(list, 3)).toHaveCSS('transform', /matrix\(1, 0, 0, 1, -128, 0\)/);
   await expect(detail(page)).toHaveCount(0);
   // ② 칸이 열린 채 다른 줄을 누르면 닫기만 한다(그 줄이 열리지 않는다).
-  p = await center(rowOf(list, 5));
+  p = await here(rowOf(list, 5));
   await finger(page, cdp, [[p.x, p.y]]);
   await expect(cells(list)).toHaveCount(0);
   await expect(detail(page)).toHaveCount(0);

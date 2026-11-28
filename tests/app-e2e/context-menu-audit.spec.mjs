@@ -221,7 +221,7 @@ const SPOTS = {
   // S71-29 FORGET-머리한줄: 화면 안 머리 줄(.forget-head)은 없다 — 최신화는 맨 위 줄 단추 상자라 지킬 빈 곳이 남지 않는다(목록은 전수 조사가 본다).
   // S70-40b ④: PC 틀은 목록 머리 줄 제목이 없다(위 줄에 화면 이름). S71-26: ＋가 맨 위 줄로 가 목록 머리 줄(.rd-head)도 없다 — 목록 첫 줄(보기 탭) 오른쪽 빈 곳.
   // S70-28: 그 우클릭 메뉴에 '글 추가'(＋는 맨 위 줄 단추 상자 — data-screen-tools-for로 찾는다).
-  '저장한 글': [{ name: '저장한 글 첫 줄', sel: '#readingView [data-rd-list]', want: 'app', labels: ['글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['글 추가'] }],
+  '저장한 글': [{ name: '저장한 글 첫 줄', sel: '#readingView [data-rd-list]', want: 'app', labels: ['새 폴더', '글 추가'], at: 300 }, { name: '저장한 글 빈 곳', sel: '#readingView .wait-empty', want: 'app', labels: ['새 폴더', '글 추가'] }],
   '조직 관리': [
     { name: '조직 카드', sel: '#teamView article.so-card', want: 'app' },
     { name: '조직 기록 줄', sel: '#teamView .wd-log-row', want: 'app' },
@@ -349,5 +349,5 @@ test('S70-28 A 1280: 저장한 글 빈 곳 우클릭 [글 추가] = 맨 위 줄 
   await page.evaluate(() => { window.__ctxBy = []; });
   await page.keyboard.press('Shift+F10');
   await expect(page.locator('#rowMenu')).toBeVisible();
-  expect(await page.evaluate(MENU_LABELS)).toEqual(['글 추가']);
+  expect(await page.evaluate(MENU_LABELS)).toEqual(['새 폴더', '글 추가']);
 });
