@@ -36,6 +36,8 @@ const ALLOWED=new Set([
  'tests/app-e2e/forget-note-small.spec.mjs',
  // FORGET-원문열기·뒤로가기(#2283): 잊지 말기 줄 원문 열기·뒤로가기 화면 시험(가족 표는 빈 목록 흉내만).
  'tests/app-e2e/forget-source-back.spec.mjs',
+ // FORGET-업무노트(#3306): 잊지 말기 [업무 노트에 추가] 화면 시험(가족 표는 빈 목록 흉내만).
+ 'tests/app-e2e/forget-work-note.spec.mjs',
  // S62-12 NEWS-모두에게열기 ① DB: 뉴스방 함수 둘(DEFINER)이 가족 방을 거절하려고 방 표(source_ref 앞머리)가 있는지만 본다(내용 칸은 읽지 않음). DB 시험 하나.
  'supabase/migrations/20261115100000_news_for_all.sql','tests/auth-handoff/news-for-all-db.test.mjs',
 ]);
