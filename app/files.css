@@ -50,11 +50,7 @@
 .fx-head span { position:relative; min-width:0; white-space:nowrap; }
 /* 첫 칸(아이콘 자리)은 비우고 이름 머리는 이름 칸 위에(S51-33: 이름 칸 금이 이름 칸 너비만 바꾸게). */
 .fx-head span:nth-last-child(2) { text-align:right; }
-/* UI-머리눌러정렬: 머리 칸 = 누르는 버튼(공용 head-sort.mjs, 모양은 공용 row-act). 여기는 배치만 — 지금 기준 칸만 진하게 + 작은 ▲/▼. 너비 손잡이는 버튼 밖. */
-.hs-btn { display:inline-flex; align-items:center; gap:2px; max-width:100%; font-size:inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.hs-on > .hs-btn { color:var(--kptu-ink); font-weight:600; }
-.hs-arrow { font-style:normal; font-size:8px; line-height:1; }
-.hs-arrow:empty { display:none; }
+/* UI-머리눌러정렬: 머리 칸 = 누르는 버튼(공용 head-sort.mjs). 글자색·정렬 꺾쇠는 공용 ui-standard.css 'LIST-정렬꺾쇠'. 여기는 배치만. 너비 손잡이는 버튼 밖. */
 /* 오른쪽 맞춤 칸(크기)은 글자를 너비 손잡이(칸 오른쪽 금, 안쪽 12px)에서 비켜 둔다 — 글자 누르기 = 정렬, 금 끌기 = 너비. */
 .fx-head span:nth-last-child(2) > .hs-btn { margin-right:12px; }
 .fx-row { width:100%; min-height:28px; padding:0 8px; border:0; border-bottom:.5px solid var(--kptu-border); background:none; color:var(--kptu-ink); font:inherit; font-size:12.5px; text-align:left; cursor:pointer; }

@@ -181,7 +181,7 @@ test('D4 조직 1280: 조직을 끄는 중 Esc를 누르면 놓아도 옮겨지�
 });
 
 // ---------- H. 머리 줄이 있는 목록(UI-머리눌러정렬, 명진 11/24 15:47) ----------
-// H1: 머리 칸(이름·바뀐 날·크기·종류)을 누르면 그 칸 오름차순 → 다시 누르면 내림차순. 지금 칸에 ▲/▼·aria-sort, Enter·Space로도.
+// H1: 머리 칸(이름·바뀐 날·크기·종류)을 누르면 그 칸 오름차순 → 다시 누르면 내림차순. 지금 칸에 선 꺾쇠 그림(SVG)·aria-sort, Enter·Space로도.
 // 폴더는 늘 위. 너비 손잡이를 눌러도 정렬되지 않는다. 정렬 고르기(오른쪽 위)와 같은 값. 서버(view_prefs.files_sort)에 기억해 다시 열어도 그대로.
 // 폰(600 미만)은 머리 줄이 없는 두 줄 목록이라(예전 결정) 같은 값을 정렬 고르기로 바꾼다.
 // 새 머리 줄 목록이 생기면 HEAD_SCREENS에 한 줄 더한다(전수 조사: docs/design/standard-interactions.md 9절).
@@ -222,12 +222,12 @@ for (const [name, open] of HEAD_SCREENS) test(`H1 ${name} PC 1280: 머리 칸 �
     await s.head(key).click();
     await expect.poll(s.names).toEqual(s.order[key]);
     await expect(cell).toHaveAttribute('aria-sort', 'ascending');
-    await expect(s.head(key)).toContainText('▲');
+    await expect(s.head(key).locator('svg[data-sort-mark="asc"]')).toHaveCount(1);
     await expect(s.select).toHaveValue(key + ':asc');
     await s.head(key).click();
     await expect.poll(s.names).toEqual(flip(s.order[key]));
     await expect(cell).toHaveAttribute('aria-sort', 'descending');
-    await expect(s.head(key)).toContainText('▼');
+    await expect(s.head(key).locator('svg[data-sort-mark="desc"]')).toHaveCount(1);
     await expect(s.select).toHaveValue(key + ':desc');
     await expect(page.locator('#filesRoot [data-fx-list] .fx-head [aria-sort="none"]')).toHaveCount(3);
   }

@@ -180,7 +180,7 @@ test('PC 1280: 머리 칸 두 번 누르기 = 오름·내림, aria-sort, 새로 
   const saved = () => s.server.value?.note_list_sort ?? null;
   // 처음 = 수정일 내림(지금 순서), 서버 값 없음.
   await expect(sortCell(page, 'changed')).toHaveAttribute('aria-sort', 'descending');
-  await expect(sortBtn(page, 'changed')).toContainText('▼');
+  await expect(sortBtn(page, 'changed').locator('svg[data-sort-mark="desc"]')).toHaveCount(1);
   expect((await ids(page)).slice(0, 3)).toEqual(['n1', 'n2', 'n3']);
   expect(saved()).toBeNull();
   // 제목: 처음 누르면 오름(가짜 노트 1, 2, … 30 — 숫자 자연 정렬), 다시 누르면 내림.
@@ -191,7 +191,7 @@ test('PC 1280: 머리 칸 두 번 누르기 = 오름·내림, aria-sort, 새로 
   expect((await ids(page)).at(-1)).toBe('n30');
   await sortBtn(page, 'title').click();
   await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'descending');
-  await expect(sortBtn(page, 'title')).toContainText('▼');
+  await expect(sortBtn(page, 'title').locator('svg[data-sort-mark="desc"]')).toHaveCount(1);
   await expect.poll(async () => (await ids(page))[0]).toBe('n30');
   await expect.poll(saved).toEqual({ key: 'title', dir: 'desc' });
   // 태그 칸은 정렬 칸이 아니다(누를 단추 없음).
@@ -564,4 +564,69 @@ test('PC: 보일 칸 진입 단추는 ⋯가 아니라 눈 아이콘이고 누�
   await expect(menu.locator('[data-nl-col-toggle]')).toHaveCount(8);
   await expect(menu.locator('[data-nl-cols-reset]')).toHaveText('기본으로');
   expect(s.errors).toEqual([]);
+});
+
+// LIST-정렬꺾쇠(사용자 결정 11/28 PC 노트 [목록] 캡처 "아래 세모가 좀 삐뚤어져 있고 조악해" → 시안 A 'a 좋다', docs/design/approved/list-sort-chevron.md):
+// 정렬 표시 = 칸 이름 오른쪽 작은 선 꺾쇠 SVG(내림 ⌄·오름 ⌃), 칸 이름과 세로 가운데, 정렬 칸만 진한 글자. 칸 사이 너비 금은 평소 안 보이고 머리 줄에 올리거나 키보드 초점일 때만.
+for (const width of [1280, 884]) test(`LIST-정렬꺾쇠 노트 ${width}: 꺾쇠 SVG·세로 가운데·방향 바뀜·정렬 칸만 진함, 금은 올릴 때·초점 때만`, async ({ page }) => {
+  const { expectSortMark, gripOpacities } = await import('./helpers/sort-mark.mjs');
+  const s = await fixture(page, width);
+  await expectSortMark(head(page), { key: 'changed', dir: 'desc', why: '처음' });
+  await sortBtn(page, 'title').click();
+  await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'ascending');
+  await expectSortMark(head(page), { key: 'title', dir: 'asc', why: '제목 오름' });
+  await sortBtn(page, 'title').click();
+  await expect(sortCell(page, 'title')).toHaveAttribute('aria-sort', 'descending');
+  await expectSortMark(head(page), { key: 'title', dir: 'desc', why: '제목 내림' });
+  // 금: 마우스를 목록 줄 위로 → 안 보임, 머리 줄 위로 → 보임. 자리·폭은 그대로.
+  const before = await head(page).locator('.col-grip').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().left)));
+  const row = await rowsBox(page).locator('.nl-cols').nth(5).boundingBox();
+  await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 0));
+  const hb = await head(page).boundingBox();
+  await page.mouse.move(hb.x + hb.width / 3, hb.y + hb.height / 2);
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 1));
+  expect(await head(page).locator('.col-grip').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().left)))).toEqual(before);
+  // 키보드: 정렬 단추에서 Tab → 금에 초점 → 금이 보이고 → 화살표로 폭 조절 그대로.
+  await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 0));
+  await sortBtn(page, 'folder').focus();
+  await page.keyboard.press('Tab');
+  await expect(head(page).locator('[data-col-grip="folder"]')).toBeFocused();
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 1));
+  const w0 = (await headCell(page, 'folder').boundingBox()).width;
+  await page.keyboard.press('ArrowRight'); await settle(page);
+  expect((await headCell(page, 'folder').boundingBox()).width).toBeGreaterThan(w0 + 4);
+  // 초점이 머리 줄 밖으로 나가면 다시 안 보임.
+  await page.locator('#basketView [data-note-view="list"]').focus();
+  await expect.poll(() => gripOpacities(head(page))).toEqual(before.map(() => 0));
+  expect(s.errors).toEqual([]);
+});
+
+test('LIST-정렬꺾쇠 노트 큰 글자(화면 130%): 꺾쇠가 칸 이름과 세로 가운데', async ({ page }) => {
+  const { expectSortMark } = await import('./helpers/sort-mark.mjs');
+  const s = await fixture(page, 1280);
+  await page.evaluate(() => { document.documentElement.style.zoom = '1.3'; });
+  await settle(page);
+  await expectSortMark(head(page), { key: 'changed', dir: 'desc', why: '큰 글자' });
+  expect(s.errors).toEqual([]);
+});
+
+test('LIST-정렬꺾쇠 노트 폰 412: 머리 줄 없음(아래 작은 줄), ▼▲ 글자 기호도 없음', async ({ page }) => {
+  const s = await fixture(page, 412);
+  await expect(head(page)).toBeHidden();
+  expect(await rowsBox(page).evaluate(el => /[▼▲]/.test(el.innerText))).toBe(false);
+  expect(s.errors).toEqual([]);
+});
+
+test.describe('LIST-정렬꺾쇠 노트 터치 폴드 884', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('터치 화면은 금이 지금처럼 늘 보임', async ({ page }) => {
+    const { gripOpacities } = await import('./helpers/sort-mark.mjs');
+    const s = await fixture(page, 884);
+    const ops = await gripOpacities(head(page));
+    expect(ops.length).toBeGreaterThan(0);
+    expect(ops.every(v => v === 1)).toBe(true);
+    expect(s.errors).toEqual([]);
+  });
 });

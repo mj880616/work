@@ -3,7 +3,9 @@ import { colDevice, colsFor, withCol, isDoubleTap } from './col-widths-model.mjs
 // S49-4 FILES-칸폭(요청함 11/03 10:39 '이런 간격은 전부') → S51-33 UI-칸너비끌기(요청함 11/06 22:33): 표 머리 칸 경계를 끌어 칸 너비를 바꾸는 공용 부품.
 // 두 칸 경계 부품(split-resize.js)과 짝이다. 머리줄 있는 모든 표가 이 하나를 쓴다(파일 목록·큰 파일·찾기 결과·두 칸, 담당조직 전체 표·현황 표).
 // - 화면은 칸마다 CSS 변수 하나(예: --fx-w-name)로 너비를 받고, 이 부품은 그 변수만 px로 바꾼다. 줄 모양·그리드는 각 화면 CSS가 가진다.
-// - 머리 칸 안에 gripHtml(칸, 이름, dir)을 두면 그 칸 가장자리에 가는 세로 금(손잡이)이 늘 보인다. 보이는 금은 2px, 잡는 범위는 손가락 크기(24px).
+// - 머리 칸 안에 gripHtml(칸, 이름, dir)을 두면 그 칸 가장자리에 가는 세로 금(손잡이)이 선다. 보이는 금은 2px, 잡는 범위는 손가락 크기(24px).
+//   LIST-정렬꺾쇠(사용자 결정 11/28 시안 A): 마우스 화면에서는 금이 평소에 안 보이고 머리 줄에 마우스를 올리거나·키보드 초점이 머리 줄에 있거나·끄는 중일 때만 보인다.
+//   숨김은 보이기 정도(opacity)만 바꿔 자리·폭·잡는 범위·키보드 조절은 그대로다. 터치 화면(hover 없음)은 지금처럼 늘 보인다. 글 줄 폭 손잡이(line-width.js)는 그대로.
 //   dir=1(기본): 칸 오른쪽 금 — 끌면 그 칸(금의 왼쪽 칸)이 넓어지거나 좁아진다. dir=-1: 칸 왼쪽 금(옛 모양, 왼쪽으로 끌면 넓어짐).
 // - 칸 사이에 틈(grid column-gap)이 있는 표는 머리에 --col-gap(틈 크기)을 두면 금이 칸 가장자리가 아니라 틈 한가운데에 선다 — 오른쪽 맞춤 칸의 글자·▲▼와 겹치지 않게(NOTE-목록머리겹침).
 // - 끄는 동안 금 자리에서 표 아래까지 세로 안내선. 금 두 번 누르기(손가락·마우스) = 그 칸 글자 길이에 맞춤.
@@ -25,7 +27,9 @@ function ensureStyle() {
 .col-grip.is-dragging::before{width:3px;margin-left:-1.5px;background:var(--kptu-primary-ink,var(--kptu-primary))}
 .col-grip:focus-visible::before{background:var(--kptu-info);width:3px;margin-left:-1.5px}
 .col-guide{position:fixed;width:2px;margin-left:-1px;background:var(--kptu-primary-ink,var(--kptu-primary));opacity:.6;pointer-events:none;z-index:60}
-html.col-resizing,html.col-resizing *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}`;
+html.col-resizing,html.col-resizing *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}
+@media (hover:hover) and (pointer:fine){.col-grip[data-col-grip]::before{opacity:0;transition:opacity .12s,background-color .12s,width .12s}
+:hover>*>.col-grip[data-col-grip]::before,:has(:focus-visible)>*>.col-grip[data-col-grip]::before,.col-grip[data-col-grip]:is(:focus-visible,.is-dragging)::before,html.col-resizing .col-grip[data-col-grip]::before{opacity:1}}`;
   document.head.append(style);
 }
 // NOTE-글폭(S61-21): 글 줄 폭 손잡이(line-width.js)도 같은 금 모양을 쓴다.

@@ -2,7 +2,7 @@
 // 머리 줄이 있는 목록의 공용 부품 하나 — 정렬 규칙(누르면 그 칸, 다시 누르면 반대) + 머리 칸 그리기 + 정렬 고르기(select) 값.
 // 상태 주인은 화면의 정렬 값 하나({key, dir})다. 머리 칸과 정렬 고르기는 둘 다 그 값을 그리기만 하고, 바꿀 때는 nextSort·parseSortValue로 같은 값을 만든다.
 // 기억은 화면이 서버 보기 설정(view_prefs)에 둔다(기기 저장 없음). 이 파일은 DOM 전역을 건드리지 않는다(bindHeadSort만 받은 요소에 듣기를 단다).
-// 모양: 버튼은 6가지 중 '줄 안 동작'(row-act, app/ui-standard.css) — 화면 CSS는 배치(.hs-btn)만.
+// 모양: 버튼은 6가지 중 '줄 안 동작'(row-act, app/ui-standard.css). 머리 칸 글자색·꺾쇠 모양·간격은 ui-standard.css 'LIST-정렬꺾쇠' 한 곳 — 화면 CSS는 배치만.
 // 키보드: 머리 칸은 진짜 버튼 요소라 Enter·Space가 그대로 누르기다. 칸 너비 손잡이(col-resize.js gripHtml)는 버튼 밖 형제라 끌어도 정렬되지 않는다.
 export const ASC = 'asc', DESC = 'desc';
 export const DIRS = Object.freeze([ASC, DESC]);
@@ -15,18 +15,23 @@ export function nextSort(cur, key, {descFirst = []} = {}) {
   return {key, dir: firstDir(key, descFirst)};
 }
 export const ariaSort = (cur, key) => !cur || cur.key !== key ? 'none' : cur.dir === DESC ? 'descending' : 'ascending';
+// 글자 칸(정렬 고르기 select의 보기·메뉴 글)에 쓰는 방향 글자. 머리 칸에는 쓰지 않는다(아래 sortMarkSvg).
 export const arrowOf = dir => dir === DESC ? '▼' : '▲';
+// LIST-정렬꺾쇠(사용자 결정 11/28 시안 A): 머리 칸 정렬 표시 = 작은 선 꺾쇠 그림(내림 ⌄ · 오름 ⌃). 글자 기호(▼▲)는 글꼴마다 굵기·기준선이 달라 처져 보였다.
+// 두 방향 모두 상자(10×10) 한가운데(y=5)를 중심으로 그려, 칸 이름과 세로 가운데가 같다. 크기·간격은 ui-standard.css(--ds-sort-mark-*)가 정한다.
+const MARK_PATH = {desc: 'M2 3.5 5 6.5 8 3.5', asc: 'M2 6.5 5 3.5 8 6.5'};
+export const sortMarkSvg = dir => `<svg class="hs-mark" data-sort-mark="${validDir(dir)}" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="${MARK_PATH[validDir(dir)]}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 // 한국어·숫자 자연 정렬(가짜 2 < 가짜 10). 이름 비교는 모두 이것 하나를 쓴다.
 const COLLATOR = new Intl.Collator('ko', {numeric: true, sensitivity: 'base'});
 export const naturalCompare = (a, b) => COLLATOR.compare(String(a ?? ''), String(b ?? ''));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
 /**
- * 머리 칸 하나. role=columnheader + aria-sort, 안에 누르는 버튼(글자 + 지금 기준이면 ▲/▼). extra = 버튼 밖에 붙일 것(칸 너비 손잡이).
+ * 머리 칸 하나. role=columnheader + aria-sort, 안에 누르는 버튼(글자 + 지금 기준이면 선 꺾쇠 그림 sortMarkSvg). extra = 버튼 밖에 붙일 것(칸 너비 손잡이).
  * @param {{key:string,label:string,cur?:{key:string,dir:string}|null,extra?:string,sortable?:boolean}} o
  */
 export function headCellHtml({key, label, cur = null, extra = '', sortable = true}) {
   if (!sortable) return `<span role="columnheader">${esc(label)}${extra}</span>`;
-  const on = !!cur && cur.key === key, arrow = on ? arrowOf(cur.dir) : '';
+  const on = !!cur && cur.key === key, arrow = on ? sortMarkSvg(cur.dir) : '';
   const how = on ? (cur.dir === DESC ? '내림차순' : '오름차순') : '';
   return `<span role="columnheader" aria-sort="${ariaSort(cur, key)}" class="hs-cell${on ? ' hs-on' : ''}">`
     + `<button type="button" class="row-act hs-btn" data-head-sort="${esc(key)}" title="${esc(label)} 기준 정렬${how ? ` (지금 ${how})` : ''}">${esc(label)}<i class="hs-arrow" aria-hidden="true">${arrow}</i></button>${extra}</span>`;

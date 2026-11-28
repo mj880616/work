@@ -154,3 +154,25 @@ for (const width of [1100, 1400, 1750]) test(`PC ${width}: [파일] 큰 파일 �
   await check('좁힘');
   expect(errors).toEqual([]);
 });
+
+// LIST-정렬꺾쇠(사용자 결정 2026-11-28 시안 A, docs/design/approved/list-sort-chevron.md): 노트 목록과 같은 공용 머리 칸 — [파일] 표도 꺾쇠 SVG·세로 가운데·정렬 칸만 진함,
+// 칸 사이 금은 평소 안 보이고 머리 줄에 올릴 때만(자리·폭 그대로).
+for (const width of [1280, 884]) test(`LIST-정렬꺾쇠 [파일] ${width}: 머리 칸 꺾쇠·방향·정렬 칸만 진함, 금은 올릴 때만`, async ({ page }) => {
+  test.setTimeout(90000);
+  const { expectSortMark, gripOpacities } = await import('./helpers/sort-mark.mjs');
+  await installViewPrefsServer(page);
+  const { errors } = await start(page, width);
+  await openBig(page, width);
+  await expectSortMark(head(page), { key: 'size', dir: 'desc', why: '큰 파일 처음' });
+  await head(page).locator('[data-head-sort="name"]').click();
+  await expect(head(page).locator('[data-head-sort="name"]').locator('xpath=..')).toHaveAttribute('aria-sort', 'ascending');
+  await expectSortMark(head(page), { key: 'name', dir: 'asc', why: '이름 오름' });
+  const n = await head(page).locator('.col-grip').count();
+  const row = await root(page).locator('[data-fx-list] .fx-row').nth(2).boundingBox();
+  await page.mouse.move(row.x + row.width / 2, row.y + row.height / 2);
+  await expect.poll(() => gripOpacities(head(page))).toEqual(Array(n).fill(0));
+  const hb = await head(page).boundingBox();
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await expect.poll(() => gripOpacities(head(page))).toEqual(Array(n).fill(1));
+  expect(errors).toEqual([]);
+});
