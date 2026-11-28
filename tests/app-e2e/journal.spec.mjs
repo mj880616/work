@@ -1434,7 +1434,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  expect(report.requests).toEqual([{day:'10.14.(수)',items:[{what:'10:00 / 가상 노동조합 결의대회 / 가상 광장',who:['가상 임원 갑','가상 임원 을']}]}]);
  expect(report.calendar[1]).toEqual({day:'10.13.(화)',items:[{what:'10:30 / 가상 노동조합 다음 주 점검 회의 / 가상 회의실',who:['가상 담당']}]});
  expect(f.sent.library).toHaveLength(0);
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveText('이번 주 확정 전');
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toHaveText('확정 전');
  // 환류 정리(weekly_review)는 확정 전에는 부르지 않는다(확정 전 '30건·6시간' 정리는 다음 단계 ⑤ — 서버가 picks 를 읽게 된 뒤).
  expect(f.sent.other.filter(x=>x.kind==='weekly_review')).toEqual([]);
  // [확정하고 한글 파일 받기]: 한 번 묻고 자료실 개인본 새 자료 + 내려받기. 이 화면의 채운 버튼은 이것 하나.
