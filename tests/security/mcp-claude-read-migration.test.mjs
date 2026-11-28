@@ -94,6 +94,8 @@ test('excluded forever: no function names diary, basket, work journal, call, tra
   // 시험은 tests/security/mcp-claude-write-migration.test.mjs·tests/auth-handoff/mcp-claude-write-db.test.mjs)에서만 만든다.
   const others = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && f !== `${version}_${name}.sql`
     && f !== '20261127120000_mcp_claude_read_areas.sql' && f !== '20261128100000_mcp_claude_write.sql'
+    // ③ 첨부(20261128120000_mcp_claude_attach, 설계 11절 — 시험은 tests/security/mcp-claude-attach-migration.test.mjs·DB 시험 ③ 절).
+    && f !== '20261128120000_mcp_claude_attach.sql'
     && /function (public|private)\.app_mcp_/.test(readFileSync(`supabase/migrations/${f}`, 'utf8')));
   assert.deepEqual(others, []);
 });
