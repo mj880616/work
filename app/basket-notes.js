@@ -607,20 +607,24 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       // S68-38c 글 상자 → S69-82 생각 지도 상자(그 보드에만 있는 짧은 글·가지, 서버 표 app_note_board_texts — 노트 목록·검색·폴더·태그와 무관).
       onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
       onTextRemove:id => { void boardLinks.removeText(id); },
-      // S70-03 고른 것 한 번에 지우기(Delete·Backspace·우클릭 [삭제]): 상자(아래 가지째)·선·카드(보드에서 빼기). 되돌리기 함수를 돌려준다(못 하면 null).
-      onRemoveItems:async ({texts:textIds = [], links:linkIds = [], cards = []}) => {
+      // S70-03 고른 것 한 번에 지우기(Delete·Backspace·우클릭 [삭제]): 상자(아래 가지째)·선·카드(보드에서 빼기).
+      // 화면이 바뀌는 그 자리에서 {undo, saved}를 바로 돌려준다(못 하면 null) — 서버 답을 기다렸다가 되돌리기를 올리면 그사이 누른 Ctrl+Z가 버려진다(이슈 3313).
+      // undo는 서버 지우기가 끝난 뒤 되살린다. saved = 서버 지우기 성공 여부(실패면 이미 다시 불러왔으니 알림·되돌리기를 거둔다).
+      onRemoveItems:({texts:textIds = [], links:linkIds = [], cards = []}) => {
         if (pick.active) return null;
         const boardId = boards.current(), noteIds = cards.map(c => c.id);
         const asked = boardLinks.removeMany({textIds, linkIds, noteIds, boardId}); // 화면은 여기서 바로 바뀐다(카드 선도 함께)
+        if (!asked) return null;
         if (noteIds.length) boards.detach(noteIds);
-        const snap = await asked; if (!snap) return null;
-        return async () => {
+        const {snap, saved} = asked;
+        return {saved, undo:async () => {
+          if (!(await saved)) return {silent:true};
           if (boards.current() !== boardId) return {status:'stale'};
           const back = boards.restore(boardId, cards.map(c => [c.id, c.place]));
           const onBoard = nid => !!boards.boardView()?.notes.some(n => n.id === nid);
           const ok = await boardLinks.restore(snap, onBoard);
           return back && ok ? true : {status:'failed', message:'일부는 되돌리지 못했어요.'};
-        };
+        }};
       },
       // S70-77 상자 [노트로 만들기]: 상자 글(첫 줄 = 제목, 나머지 = 본문)로 새 노트 → 상자 자리에 그 노트 카드 → 상자에 붙은 선은 카드로 옮겨 붙이고
       // (가지였으면 위 상자 → 카드 선 하나) → 상자 지우기. 모두 owner 길 그대로(노트 만들기·보드 자리·선 고치기·상자 지우기), 새 표·권한 없음.
@@ -638,7 +642,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
         const touching = boardLinks.forBoard(boardId).filter(l => !l.pending && (l.from_text === id || l.to_text === id));
         await Promise.all(touching.map(l => boardLinks.update(l.id, l.from_text === id ? {from_note:row.id, from_text:null} : {to_note:row.id, to_text:null})));
         if (parent) await boardLinks.add({board_id:boardId, from_text:parent, to_note:row.id, shape:'line'});
-        await boardLinks.removeMany({textIds:[id], boardId});
+        await boardLinks.removeMany({textIds:[id], boardId})?.saved;
         showToast('노트로 만들었어요.');
       },
       canText:() => boardLinks.checkTexts(), mapReady:() => boardLinks.mindmapReady(), canMap:() => boardLinks.checkMindmap(), frameReady:() => boardLinks.frameReady(),

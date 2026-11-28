@@ -303,21 +303,22 @@ export function createBoardLinks({rt = window.KPTURuntime, scope = () => null, o
       } catch { if (owner === scope()) await failed('상자를 바꾸지 못했어요. 다시 불러올게요.'); }
     },
     // S70-03 여러 개 한 번에 지우기(고른 것 Delete·Backspace·우클릭 [삭제]): 상자는 아래 가지째, 선은 그 선, noteIds = 보드에서 빼는 카드의 선.
-    // 화면은 한 번에 바꾸고 서버에는 뿌리 상자·남은 선만 보낸다(아래 가지·붙은 선은 서버 cascade). 지운 줄을 돌려준다(되돌리기용) — 못 하면 null.
-    async removeMany({textIds = [], linkIds = [], noteIds = [], boardId = null} = {}) {
+    // 화면은 한 번에 바꾸고 서버에는 뿌리 상자·남은 선만 보낸다(아래 가지·붙은 선은 서버 cascade).
+    // 화면을 바꾼 그 자리에서 {snap: 지운 줄(되돌리기용), saved: Promise<서버 지우기 성공?>}을 돌려준다 — 못 하면(준비 전) null, 화면 그대로.
+    removeMany({textIds = [], linkIds = [], noteIds = [], boardId = null} = {}) {
       const tIds = [...new Set(textIds)].filter(id => texts.some(t => t.id === id && !t.pending));
       if (tIds.length && textBlocked()) return null;
       const gone = new Set(); for (const id of tIds) for (const g of branchOf(id)) gone.add(g);
       const goneTexts = texts.filter(t => gone.has(t.id)), notes = new Set(noteIds), want = new Set(linkIds);
       const goneLinks = links.filter(l => !l.pending && (want.has(l.id) || [...gone].some(g => touches(l, g)) || (boardId && l.board_id === boardId && (notes.has(l.from_note) || notes.has(l.to_note)))));
-      if (!goneTexts.length && !goneLinks.length) return {texts:[], links:[]};
+      if (!goneTexts.length && !goneLinks.length) return {snap:{texts:[], links:[]}, saved:Promise.resolve(true)};
       texts = texts.filter(t => !gone.has(t.id)); links = links.filter(l => !goneLinks.includes(l)); onChange();
       const roots = goneTexts.filter(t => !(t.parent_id && gone.has(t.parent_id))).map(t => t.id);
       const loose = goneLinks.filter(l => ![...gone].some(g => touches(l, g)));
       const owner = scope();
-      try { await Promise.all([...roots.map(id => deleteBoardTexts({id}, rt)), ...loose.map(l => deleteBoardLinks({id:l.id}, rt))]); }
-      catch { if (owner === scope()) await failed('삭제하지 못했어요. 다시 불러올게요.'); return null; }
-      return {texts:goneTexts, links:goneLinks};
+      const saved = Promise.all([...roots.map(id => deleteBoardTexts({id}, rt)), ...loose.map(l => deleteBoardLinks({id:l.id}, rt))])
+        .then(() => true, async () => { if (owner === scope()) await failed('삭제하지 못했어요. 다시 불러올게요.'); return false; });
+      return {snap:{texts:goneTexts, links:goneLinks}, saved};
     },
     // 되돌리기: 지운 상자를 위(뿌리)부터 다시 만들고(새 id), 선은 새 id로 이어 다시 긋는다. 끝이 없어진 선은 건너뛴다. 다 되면 true.
     async restore({texts:rows = [], links:lrows = []} = {}, alive = () => true) {
