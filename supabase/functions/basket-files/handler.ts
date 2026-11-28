@@ -2,6 +2,9 @@ import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler, NOTE_FILES_FOLDER} from "./ocr.ts";
+import { attachmentFolder, MAX_ATTACHMENTS, validateFiles } from "./attach-common.ts";
+import { createMcpAttachHandler } from "./mcp-attach.ts";
+import type { McpAttachEnv } from "./mcp-attach.ts";
 import { createNoteDeleteHandler } from "./note-delete.ts";
 import { createPhotoHandler } from "./photo.ts";
 import { createPhotoPruneHandler } from "./photo-prune.ts";
@@ -25,40 +28,16 @@ type Attachment = {
   size_bytes: number;
 };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_FILE = 100 * 1024 * 1024;
-const MAX_ATTACHMENTS = 20;
 // NOTE-파일붙이기: files attached to a note (kind=note) go into this folder inside the private "Web2 바구니" root, not into
 // 자료실 (the library list reads app_documents only, so these files never show there). The folder is chosen here from the
 // stored row's kind, never from the request. A shared folder is refused before any upload (ensurePrivateChildFolder).
+// The size/name checks and the folder choice live in attach-common.ts so the Claude attach path (mcp-attach.ts) uses the same ones.
 export {NOTE_FILES_FOLDER};
 const characters = (text: string) => [...text].length;
-function validateFiles(files: FormDataEntryValue[]): File[] {
-  if (!files.length || files.some((f) => !(f instanceof File))) {
-    throw new UploadError(400, "file_missing", "validate");
-  }
-  if (files.length > MAX_ATTACHMENTS) {
-    throw new UploadError(400, "too_many_attachments", "validate");
-  }
-  for (const f of files as File[]) {
-    if (f.size <= 0) throw new UploadError(400, "file_empty", "validate");
-    if (f.size > MAX_FILE) {
-      throw new UploadError(413, "file_too_large", "validate");
-    }
-    if (
-      characters(f.name) < 1 || characters(f.name) > 255 ||
-      !/^[^/\s]{1,127}\/[^/\s]{1,127}$/.test(
-        f.type || "application/octet-stream",
-      )
-    ) {
-      throw new UploadError(400, "file_metadata_invalid", "validate");
-    }
-  }
-  return files as File[];
-}
 
 export function createBasketHandler(
   admin: UploadAdmin,
-  options: { fetch?: typeof fetch; log?: UploadLog; userClient?:(authorization:string)=>OcrUser } = {},
+  options: { fetch?: typeof fetch; log?: UploadLog; userClient?:(authorization:string)=>OcrUser; env?: McpAttachEnv } = {},
 ) {
   const log = options.log ?? ((code: string) => console.error(code));
   const drive = createDriveUpload(admin, { ...options, log });
@@ -66,6 +45,7 @@ export function createBasketHandler(
   const noteDelete = createNoteDeleteHandler(admin, { ...options, log });
   const photo = createPhotoHandler(admin, { ...options, log });
   const photoPrune = createPhotoPruneHandler(admin, { ...options, log });
+  const mcpAttach = createMcpAttachHandler(admin, { fetch: options.fetch, log, env: options.env });
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     let token = "";
@@ -76,6 +56,9 @@ export function createBasketHandler(
     let workspaceId = "";
     let saveFailureConfirmed = false;
     try {
+      // MCP-Claude쓰기 ③: the only path that takes a delegated (Claude) key. It does its own checks (delegated key only →
+      // Auth userinfo → DB gate with the same key) before any service-key or Drive request; every other action below still refuses it.
+      if (new URL(req.url).searchParams.get("action") === "mcp-attach") return await mcpAttach(req);
       // Same Web2 authentication path as library-files: JWT verified by Supabase Auth, not decoded locally.
       const match = (req.headers.get("Authorization") || "").match(
         /^Bearer\s+(\S+)$/i,
@@ -186,19 +169,10 @@ export function createBasketHandler(
       stage = "drive_token";
       token = await drive.driveToken(member.workspace_id);
       stage = "drive_folder";
-      const root = await drive.ensurePrivateRootFolder(
-        member.workspace_id,
-        token,
-      );
       // The update CAS below (updated_at + attachments) refuses the save if the row changed kind after this read.
       // A board photo (place=board on a note) goes to "보드 사진" inside the top app folder; when that folder cannot be used
       // (top app folder not known yet, gone, or not private) it stays in "노트 첨부" as before.
-      const board = noteKind === "note" && place === "board"
-        ? await drive.boardPhotoFolder(member.workspace_id, token)
-        : null;
-      const folder = board ?? (noteKind === "note"
-        ? await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token)
-        : root);
+      const folder = await attachmentFolder(drive, member.workspace_id, token, noteKind, place as string | null);
       const attachments = [...previous];
       for (const file of files) {
         stage = "drive_upload";

@@ -1,5 +1,5 @@
 // BIZ-주간칸밀림: 사업 보고 위 '이번 주 주간보고' 칸이 표가 그려지기 전에 차지하는 표 모양 자리.
-// 진짜 표와 같은 머리글·같은 제목 글자·같은 칸 폭을 써서 글꼴이 달라도(줄바꿈이 달라도) 높이가 따라간다. 줄 높이는 칸마다 [쓰기] 누름 자리(50px)와 같다.
+// 진짜 표와 같은 머리글·같은 제목 글자·같은 칸 폭을 써서 글꼴이 달라도(줄바꿈이 달라도) 높이가 따라간다. 줄 높이는 진짜 표 한 줄(29px, meeting-ui.css)과 같다(WEEKLY-화면정돈 ②: 칸 [쓰기] 단추가 없어짐).
 // 쓰는 곳은 weekly-summary-table.js drawPaper 하나 — 사업영역이 있다고 확인된 칸에만 그린다(BIZ-빈표잠깐보임다시: index.html에는 표 모양을 두지 않음, tests/biz-week-skeleton.test.mjs가 검사).
 import {word} from './brand/brand.mjs';
 export const SKELETON_ROWS = 4;
