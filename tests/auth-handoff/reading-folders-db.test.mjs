@@ -1,6 +1,7 @@
 // Fresh local PostgreSQL only. No Supabase or production credentials. All data synthetic.
 // S70-83 READ-저장한글폴더 DB(20261126123000_reading_folders):
-// - 새 표 app_reading_folders: owner만(RLS·정책 1개). 화면은 id·작업공간·이름·순서 넣기 / 이름·순서 고치기 / 지우기만. 작업공간은 못 고친다.
+// - 새 표 app_reading_folders: owner만(RLS·정책 1개). 화면은 id·작업공간·상위·이름·순서 넣기 / 상위·이름·순서 고치기 / 지우기만. 작업공간은 못 고친다.
+// - 폴더 안 폴더(2026-11-28 사용자 결정): 상위는 같은 작업공간 폴더만, 자기 자신·자기 아래로 못 옮김(트리거), 지우면 안의 폴더는 한 단 위로(노트 폴더 규칙).
 //   service_role·anon 권한 없음. 남의 작업공간 폴더는 못 보고 못 넣고 못 고치고 못 지운다.
 // - app_reading_items.folder_id(새 칸): 같은 작업공간 폴더만 가리킨다(남의 폴더 id를 알아도 거절). 폴더를 지우면 글은 남고 칸만 비운다.
 //   화면은 이 칸만 칸 단위로 고친다(넣기 칸·다른 칸 권한 그대로).
@@ -57,18 +58,25 @@ test('READ-저장한글폴더 DB: owner-only saved-post folders and a same-works
   const before=(await pool.query(F.snapshot)).rows;
   const pre=await checks(F.precheck);
 
-  await t.test('files: 5 pair files, summary 3 lines, no definer/anon/rtw/function; expanded workflow full flow; rollback is SQL Editor only',()=>{
+  await t.test('files: 5 pair files, summary 3 lines, no definer/anon/rtw; only the two private invoker tree functions; expanded workflow full flow; rollback is SQL Editor only',()=>{
    const lines=F.summary.trim().split('\n');assert.equal(lines.length,3);
    ['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    for(const sql of [F.migration,F.rollback]){
     const code=sql.replace(/--.*$/gm,'');
-    assert.doesNotMatch(code,/security definer|\bto (anon|public)\b|disable row level|rtw_|create extension|create (or replace )?function|update public|insert into public/i);
+    assert.doesNotMatch(code,/security definer|\bto (anon|public)\b|disable row level|rtw_|create extension|create or replace|insert into public|grant execute/i);
     assert.match(code,/^begin;/);assert.match(code,/commit;\s*$/);
    }
    const code=F.migration.replace(/--.*$/gm,'');
+   assert.deepEqual([...code.matchAll(/create function ([a-z_.]+)\(/g)].map(m=>m[1]),['private.app_reading_folder_tree_guard','private.app_reading_folder_lift']);
+   assert.equal([...code.matchAll(/security invoker/g)].length,2);
+   for(const fn of ['app_reading_folder_tree_guard','app_reading_folder_lift'])assert.match(code,new RegExp(`revoke all on function private\\.${fn}\\(\\) from public, anon, authenticated, service_role;`));
+   assert.deepEqual([...code.matchAll(/create trigger \w+\s+before [a-z ,_]+ on (public\.\w+)/g)].map(m=>m[1]),['public.app_reading_folders','public.app_reading_folders']);
+   assert.match(code,/update public\.app_reading_folders set parent_id = old\.parent_id\s+where parent_id = old\.id;/);
+   assert.equal([...code.matchAll(/update public\./g)].length,1,'함수 본문이 고치는 표는 폴더 표 하나(저장한 글 표는 안 고침)');
+   assert.match(F.rollback,/drop function private\.app_reading_folder_tree_guard\(\);\ndrop function private\.app_reading_folder_lift\(\);/);
    assert.match(code,/revoke all on table public\.app_reading_folders from public, anon, authenticated, service_role;/);
-   assert.match(code,/grant insert \(id, workspace_id, name, sort_order\) on table public\.app_reading_folders to authenticated;/);
-   assert.match(code,/grant update \(name, sort_order\) on table public\.app_reading_folders to authenticated;/);
+   assert.match(code,/grant insert \(id, workspace_id, parent_id, name, sort_order\) on table public\.app_reading_folders to authenticated;/);
+   assert.match(code,/grant update \(parent_id, name, sort_order\) on table public\.app_reading_folders to authenticated;/);
    assert.match(code,/grant update \(folder_id\) on table public\.app_reading_items to authenticated;/);
    assert.doesNotMatch(code,/to service_role/);
    assert.match(F.migration,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\nvalues \('20261126123000', 'reading_folders'/);
@@ -84,6 +92,7 @@ test('READ-저장한글폴더 DB: owner-only saved-post folders and a same-works
    for(const change of [
     `create table public.app_reading_folders(id uuid)`,
     `alter table public.app_reading_items add column folder_id uuid`,
+    `create function private.app_reading_folder_lift() returns trigger language plpgsql as $f$begin return old; end$f$`,
     `delete from supabase_migrations.schema_migrations where version='20261122100000'`,
     `alter table public.app_reading_items disable row level security`,
    ]){
@@ -152,6 +161,45 @@ test('READ-저장한글폴더 DB: owner-only saved-post folders and a same-works
    // 지운 폴더 되돌리기(같은 id로 다시 만들기)는 owner면 된다.
    await as('authenticated',OWNER,c=>c.query(`insert into public.app_reading_folders(id,workspace_id,name,sort_order) values ($1,$2,'교섭 기사',2048)`,[FA,WS_A]));
    assert.equal(await put(OWNER,A1,FA),1);
+  });
+
+  await t.test('nested folders: same-workspace parent only, no self or own-descendant parent, delete lifts the folders inside one level; posts keep',async()=>{
+   const C1='31000000-0000-4000-8000-0000000000c1',C2='31000000-0000-4000-8000-0000000000c2',C3='31000000-0000-4000-8000-0000000000c3';
+   const mk=(sub,ws,id,parent,name)=>as('authenticated',sub,c=>c.query(`insert into public.app_reading_folders(id,workspace_id,parent_id,name,sort_order) values ($1,$2,$3,$4,1024)`,[id,ws,parent,name]));
+   const parentOf=async id=>(await pool.query('select parent_id from public.app_reading_folders where id=$1',[id])).rows[0]?.parent_id??null;
+   const move=(sub,id,parent)=>as('authenticated',sub,async c=>(await c.query('update public.app_reading_folders set parent_id=$2 where id=$1',[id,parent])).rowCount);
+   // FA(맨 위) › C1 › C2, 그리고 C3(맨 위).
+   await mk(OWNER,WS_A,C1,FA,'하위 폴더');await mk(OWNER,WS_A,C2,C1,'하위의 하위');await mk(OWNER,WS_A,C3,null,'다른 폴더');
+   assert.equal(await parentOf(C2),C1);
+   // 자기 자신·자기 아래 폴더를 상위로 두기 거절.
+   await assert.rejects(move(OWNER,FA,FA),{code:'23514'});
+   await assert.rejects(move(OWNER,FA,C2),{code:'23514',message:/READING_FOLDER_CYCLE/});
+   await assert.rejects(move(OWNER,C1,C2),{code:'23514',message:/READING_FOLDER_CYCLE/});
+   // 남의 폴더를 상위로(id를 알아도) 거절, 남이 내 폴더 아래에 만들기 거절, 남이 내 폴더 옮기기 0줄.
+   await assert.rejects(move(OWNER,C3,FB),{code:'23514',message:/READING_FOLDER_SCOPE/});
+   await assert.rejects(mk(STRANGER,WS_B,'31000000-0000-4000-8000-0000000000b2',FA,'끼어들기'),{code:'23514',message:/READING_FOLDER_SCOPE/});
+   await assert.rejects(mk(OWNER,WS_A,'31000000-0000-4000-8000-0000000000c4',FB,'남의 아래'),{code:'23514',message:/READING_FOLDER_SCOPE/});
+   assert.equal(await move(STRANGER,C1,null),0);
+   // RLS를 넘는 서버 사용자로도 남의 작업공간 폴더를 상위로 두지 못한다(트리거 SCOPE — 그 뒤에 같은 작업공간 외래 키가 한 번 더 막는다).
+   await assert.rejects(pool.query(`insert into public.app_reading_folders(workspace_id,parent_id,name) values ($1,$2,'키 시험')`,[WS_B,FA]),{code:'23514'});
+   // 옮기기: C2를 맨 위 C3 아래로, 다시 C1 아래로.
+   assert.equal(await move(OWNER,C2,C3),1);assert.equal(await parentOf(C2),C3);
+   assert.equal(await move(OWNER,C2,C1),1);
+   // 글을 C1에 넣고 C1을 지우면: 안의 폴더 C2는 한 단 위(FA)로, 글은 지우지 않고 칸만 비움(화면은 그 전에 한 단 위로 옮긴다).
+   assert.equal(await as('authenticated',OWNER,async c=>(await c.query('update public.app_reading_items set folder_id=$2 where id=$1',[A1,C1])).rowCount),1);
+   assert.equal(await as('authenticated',OWNER,async c=>(await c.query('delete from public.app_reading_folders where id=$1',[C1])).rowCount),1);
+   assert.equal(await parentOf(C2),FA);
+   assert.deepEqual((await pool.query('select folder_id,title from public.app_reading_items where id=$1',[A1])).rows[0],{folder_id:null,title:'예시 글 A'});
+   // 맨 위 폴더 FA를 지우면 C2는 맨 위로.
+   const back=await as('authenticated',OWNER,async c=>(await c.query('select name,sort_order from public.app_reading_folders where id=$1',[FA])).rows[0]);
+   assert.equal(await as('authenticated',OWNER,async c=>(await c.query('delete from public.app_reading_folders where id=$1',[FA])).rowCount),1);
+   assert.equal(await parentOf(C2),null);
+   // [되돌리기]: 같은 id·같은 상위로 다시 만들고 안의 폴더를 다시 그 아래로(owner 권한만으로).
+   await mk(OWNER,WS_A,FA,null,back.name);
+   assert.equal(await move(OWNER,C2,FA),1);assert.equal(await parentOf(C2),FA);
+   // 정리(아래부터): 다음 되돌리기 시험은 폴더 하나(FA)만 있는 상태에서 시작.
+   for(const id of [C2,C3])await as('authenticated',OWNER,c=>c.query('delete from public.app_reading_folders where id=$1',[id]));
+   assert.equal((await pool.query('select count(*)::int n from public.app_reading_folders where workspace_id=$1',[WS_A])).rows[0].n,1);
   });
 
   await t.test('rollback (SQL Editor) stops while folders exist, then drops the column and table and restores the snapshot',async()=>{

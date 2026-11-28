@@ -1,10 +1,11 @@
 -- SELECT only. Aggregates and hashes; no title, address or id. Run before dry-run/apply (also the dry-run before/after comparison).
--- 적용 전 기대: prerequisite recorded 예 / new migration absent 예 / new table absent 예 / folder column absent 예 / workspace column present 예 /
+-- 적용 전 기대: prerequisite recorded 예 / new migration absent 예 / new table absent 예 / new functions absent 예 / folder column absent 예 / workspace column present 예 /
 --   RLS on reading items 예 / owner check function 예. 그 밖의 해시는 사후 확인과 같은 값이어야 한다(기록만: 저장한 글 표의 기존 칸·제약·정책·표 권한·트리거는 바뀌지 않는다).
 -- 이 값이 다르면 적용하지 않고 멈춘다(권한·정책을 넓히지 않는다).
 -- expect: prerequisite recorded = 예
 -- expect: new migration absent = 예
 -- expect: new table absent = 예
+-- expect: new functions absent = 예
 -- expect: folder column absent = 예
 -- expect: workspace column present = 예
 -- expect: RLS on reading items = 예
@@ -17,6 +18,7 @@
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261122100000' and name='reading_items')=1 then '예' else '아니오' end as value
 union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261126123000') then '예' else '아니오' end
 union all select 'new table absent',case when to_regclass('public.app_reading_folders') is null then '예' else '아니오' end
+union all select 'new functions absent',case when to_regprocedure('private.app_reading_folder_tree_guard()') is null and to_regprocedure('private.app_reading_folder_lift()') is null then '예' else '아니오' end
 union all select 'folder column absent',case when not exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_reading_items') and attname='folder_id' and not attisdropped) then '예' else '아니오' end
 union all select 'workspace column present',case when exists(select 1 from pg_attribute where attrelid=to_regclass('public.app_reading_items') and attname='workspace_id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) then '예' else '아니오' end
 union all select 'RLS on reading items',case when exists(select 1 from pg_class where oid=to_regclass('public.app_reading_items') and relrowsecurity) then '예' else '아니오' end
