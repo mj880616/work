@@ -51,6 +51,9 @@ const PATHS = Object.freeze({
   edit: `<path d="M10.6 2.6l2.8 2.8-7.6 7.6H3v-2.8z" ${S}/><path d="M9.2 4l2.8 2.8" ${S}/>`,
   rename: `<path d="M2.4 14h11.2" ${S}/><path d="M9.8 2.6l2.4 2.4-5.8 5.8H4V8.4z" ${S}/>`,
   task: `<path d="M5.6 4h8M5.6 8h8M5.6 12h5.4" ${S}/><path d="M2.4 4h.1M2.4 8h.1M2.4 12h.1" ${S}/>`,
+  // HOME-읽을거리평가: 좋아요·별로예요(테두리 없는 선 그림, 누른 상태는 부르는 쪽 CSS가 채운다).
+  'thumb-up': `<path d="M5.2 7.2h-2.6v6.6h2.6z" ${S}/><path d="M5.2 7.2l2.5-5c1.2 0 2 .9 1.7 2.1L9 6.6h3.5c.9 0 1.5.8 1.3 1.6l-1.1 4.6c-.1.6-.7 1-1.3 1H5.2z" ${S}/>`,
+  'thumb-down': `<g transform="matrix(1 0 0 -1 0 16)"><path d="M5.2 7.2h-2.6v6.6h2.6z" ${S}/><path d="M5.2 7.2l2.5-5c1.2 0 2 .9 1.7 2.1L9 6.6h3.5c.9 0 1.5.8 1.3 1.6l-1.1 4.6c-.1.6-.7 1-1.3 1H5.2z" ${S}/></g>`,
   more: '<circle cx="3.4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.6" cy="8" r="1.3" fill="currentColor"/>',
 });
 export const ICON_NAMES = Object.freeze(Object.keys(PATHS));

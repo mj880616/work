@@ -188,6 +188,33 @@ export async function writeSaved(item, on, savedAt = null) {
   return res;
 }
 
+// ---------- 👍·👎 평가(HOME-읽을거리평가, 사용자 2026-11-28 07:04) ----------
+// 사람별 표 app_read_ratings(owner RLS): 작업공간·공용 글 하나에 평가 하나(1 좋아요, -1 별로예요). 글 제목·본문은 다시 저장하지 않는다.
+// 표는 고치기 권한이 없다 — 바꾸기 = 지우고 넣기, 취소 = 지우기(시각은 서버가 정함). 서버 ai-assist(home_day_picks)가 최근 평가를 읽어 추천에 쓴다.
+const RATE = '/rest/v1/app_read_ratings';
+// 내 최근 평가 → [{type, id(공용 글 id), rating}].
+export async function readRatings(limit = 500) {
+  const w = workspaceOf();
+  if (!w) return [];
+  const rows = await rt().api(`${RATE}?workspace_id=eq.${q(w)}&select=news_article_id,outside_article_id,rating&order=rated_at.desc&limit=${limit}`, {singleFlight: false});
+  const one = r => (hasId(r?.news_article_id) ? {type: 'news', id: r.news_article_id} : hasId(r?.outside_article_id) ? {type: 'outside', id: r.outside_article_id} : null);
+  return (Array.isArray(rows) ? rows : []).map(r => { const a = one(r); return a && (r.rating === 1 || r.rating === -1) ? {...a, rating: r.rating} : null; }).filter(Boolean);
+}
+// 평가 쓰기. value: 1 | -1 | 0(취소). 돌려줌: 공용 글 id.
+export async function writeRating(item, value) {
+  const w = workspaceOf(), col = LINK[item?.type];
+  if (!w || !col || !hasId(item.id) || ![1, -1, 0].includes(value)) throw new Error('rate');
+  const id = await articleIdOf(item.type, item.id);
+  const drop = () => rt().api(`${RATE}?workspace_id=eq.${q(w)}&${col}=eq.${q(id)}`, {method: 'DELETE', prefer: 'return=minimal', singleFlight: false});
+  const put = () => rt().api(RATE, {method: 'POST', body: {workspace_id: w, [col]: id, rating: value}, prefer: 'return=minimal', singleFlight: false});
+  await drop();
+  if (value) {
+    try { await put(); }
+    catch (e) { if (e?.status !== 409) throw e; await drop(); await put(); } // 그사이 다른 기기가 넣었다 → 한 번 더 지우고 넣기
+  }
+  return id;
+}
+
 // ---------- 둘 다 ----------
 // 내 표시 하나: 뉴스 {star, dismiss}, 사회운동 {star, dismiss, has}. star = 보관(읽을 거리 줄이 있음).
 export async function readMarkOf(item) {
