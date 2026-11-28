@@ -11,6 +11,9 @@
 // - S51-30 [이미 함](markDone): 창 없이 처음 고르는 폴더(위와 같음)의 '잊지 말기' 노트에 체크된 줄('☑ 내용 (통화 11/5)') 하나를 더한다.
 //   되돌리기(undoDone)는 그 노트에서 그 줄 하나만 뺀다(읽은 판일 때만). 할 일·일정은 만들지 않는다.
 // - 저장이 끝나야 onSent가 불린다(부른 쪽이 그 제안의 상태를 바꿈). 닫으면 아무것도 쓰지 않는다. 기기 저장 없음.
+// - FORGET-업무노트(2026-11-28 사용자 결정): 같은 길을 업무 노트(family-note-send.mjs LISTS.work, 일반 노트)에도 쓴다. kind = 'family' | 'work'.
+//   [가족 노트에]·[업무 노트에](addLineHere): 고르기 창 없이 그 노트 맨 아래 한 줄. 업무 노트가 아직 없을 때만 폴더를 한 번 고른다.
+//   가족 쪽 확인(AI 제외 노트에만 쓰기)은 family일 때만이고, 업무 노트는 AI 설정을 바꾸지 않는다.
 // 이 파일은 잊지 말기 표를 부르지 않는다(tests/security/family-notes-isolation.test.mjs).
 import {readNoteFolders, createNoteFolder} from './note-folders-data.js';
 import {openNoteFolderPicker} from './note-folder-pick.js';
@@ -20,17 +23,18 @@ export {appendToNote};
 import {toPlain} from './ed-text.mjs';
 import {cleanDoc} from './ed-schema.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
-import {PAST_KEY, PAST_TITLE, pastLine, putLine, takeLine} from './family-remind-model.mjs';
-import {FAMILY_FOLDER, LIST_KEY, LIST_TITLE, appendDoc, appendLines, defaultFolder, dropLine, folderIdOf, listNoteIn, newNoteTitle, nextTopOrder} from './family-note-send.mjs';
+import {pastLine, putLine, takeLine} from './family-remind-model.mjs';
+import {FAMILY_FOLDER, LIST_TITLE, REMIND_CHANGED, appendDoc, appendLines, defaultFolder, dropLine, folderIdOf, listLine, listNoteIn, listSpec, newNoteTitle, nextTopOrder} from './family-note-send.mjs';
+export {listLine};
 
 const enc = encodeURIComponent;
 
 const wsOf = rt => rt.context?.read?.()?.workspace?.id || '';
-// '잊지 말기' 노트들(고친 때 최근 순). 휴지통 노트는 서버 정책이 빼고 준다.
-export async function readListNotes(rt) {
+// '잊지 말기' 노트들(고친 때 최근 순, kind 'work'면 업무 노트들). 휴지통 노트는 서버 정책이 빼고 준다.
+export async function readListNotes(rt, kind = 'family') {
   const ws = wsOf(rt);
   if (!ws) return [];
-  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${LIST_KEY}=eq.true&select=id,title,raw_text,updated_at,ai_export_allowed,metadata&order=updated_at.desc&limit=20`, {singleFlight: false});
+  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${listSpec(kind).listKey}=eq.true&select=id,title,raw_text,updated_at,ai_export_allowed,metadata&order=updated_at.desc&limit=20`, {singleFlight: false});
   return Array.isArray(rows) ? rows : [];
 }
 // 홈 머리 줄 [노트 열기 ›]: 가장 최근 '잊지 말기' 노트, 없으면 노트 목록.
@@ -44,36 +48,59 @@ export async function openListNote(rt) {
 
 // 줄 하나를 노트로. 반환 {noteId, folderName}. 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음).
 // doc(FORGET-노트고르기): 노트 창에서 고친 글(저장된 모양) — 있으면 line 대신 그 글을 더한다. title: 새 노트 제목(비우면 줄 내용 앞 40자).
-export async function sendLine(rt, {line, doc = null, title = '', body, where, folder, create, lists, folders = []}) {
+export async function sendLine(rt, {line, doc = null, title = '', body, where, folder, create, lists, folders = [], kind = 'family'}) {
+  const spec = listSpec(kind), family = spec.kind === 'family';
   let target = folder || null;
-  if (!target && create) {
+  if (!target && create && family) {
     const folders = await readNoteFolders(rt);
     target = folders.ready ? (folders.folders.find(f => !f.parent_id && f.name === FAMILY_FOLDER)
       || await createNoteFolder({name: FAMILY_FOLDER, parent_id: null, sort_order: nextTopOrder(folders.folders)}, rt)) : null;
   }
   const folderRef = target ? {id: target.id, name: target.name} : undefined;
   if (where === 'list') {
-    const list = listNoteIn(lists, target?.id || null, target && !folders.some(f => f.id === target.id) ? [...folders, target] : folders);
-    if (list) { await appendToNote(rt, list.id, doc ? {doc} : {lines: [line]}); return {noteId: list.id, folderName: target?.name || ''}; }
+    const list = listNoteIn(lists, target?.id || null, target && !folders.some(f => f.id === target.id) ? [...folders, target] : folders, spec.kind);
+    if (list) { await appendToNote(rt, list.id, {...(doc ? {doc} : {lines: [line]}), familyOnly: family}); return {noteId: list.id, folderName: target?.name || ''}; }
   }
   const made = doc ? appendDoc(null, doc) : appendLines(null, [line]);
   if (!made) throw new Error('더할 내용을 써 주세요.');
-  const saved = await createNoteDoc({title: where === 'list' ? LIST_TITLE : String(title || '').trim() || newNoteTitle(body), raw_text: toPlain(made), doc: made, ai_export_allowed: false,
-    folder: folderRef, family_list: where === 'list'}, rt);
+  const saved = await createNoteDoc({title: where === 'list' ? spec.title : String(title || '').trim() || newNoteTitle(body), raw_text: toPlain(made), doc: made, ...(family ? {ai_export_allowed: false} : {}),
+    folder: folderRef, ...(family ? {family_list: where === 'list'} : {work_list: where === 'list'})}, rt);
   return {noteId: saved?.id || '', folderName: target?.name || ''};
 }
 
-// S51-30 [이미 함]: 창 없이 '잊지 말기' 노트에 체크된 줄 하나. 반환 {noteId, folderName}. 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음).
-export async function markDone(rt, {line, body}) {
-  const [folders, lists] = await Promise.all([readNoteFolders(rt).catch(() => ({ready: false, folders: []})), readListNotes(rt).catch(() => [])]);
-  const list = folders.ready ? folders.folders : [];
-  const pick = defaultFolder(lists, list, folders.ready);
-  return sendLine(rt, {line, body, where: 'list', folder: pick.folder, create: pick.create, lists, folders: list});
+// 창 없이 줄 모으는 노트(kind) 맨 아래에 줄 하나. 반환 {noteId, folderName, line}, 폴더 고르기를 닫으면 null(아무것도 안 씀).
+// 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음). pick(folders) → 폴더 | null(폴더 밖) | undefined(닫음): 업무 노트가 아직 없을 때 한 번만 부른다.
+export async function addLine(rt, {kind = 'family', line, body = '', pick = null}) {
+  if (!line) throw new Error('더할 내용을 써 주세요.');
+  const [folders, lists] = await Promise.all([readNoteFolders(rt).catch(() => ({ready: false, folders: []})), readListNotes(rt, kind).catch(() => [])]);
+  const all = folders.ready ? folders.folders : [];
+  const start = defaultFolder(lists, all, folders.ready, kind);
+  let {folder, create} = start;
+  if (start.pick) {
+    const chosen = pick ? await pick(all) : null;
+    if (chosen === undefined) return null;
+    folder = chosen || null; create = false;
+  }
+  const sent = await sendLine(rt, {line, body, where: 'list', folder, create, lists, folders: all, kind});
+  window.dispatchEvent(new CustomEvent(REMIND_CHANGED));
+  return {...sent, line};
 }
-// [이미 함] 되돌리기: 더한 줄 하나만 뺀다. 줄이 이미 없으면 아무것도 쓰지 않는다.
+// FORGET-업무노트 [업무 노트에]·[가족 노트에]: addLine + 업무 노트가 아직 없으면 누른 버튼 옆 폴더 고르기 창 한 번('업무 노트를 둘 폴더').
+export function addLineHere(rt, {kind, line, body = '', anchor = null}) {
+  return addLine(rt, {kind, line, body, pick: folders => new Promise(resolve => {
+    openNoteFolderPicker({anchor, folders, choose: true, current: null, title: `${listSpec(kind).title}를 둘 폴더`,
+      onPick: f => resolve(f || null), onClosed: () => queueMicrotask(() => resolve(undefined))});
+  })});
+}
+// S51-30 [이미 함]: 창 없이 '잊지 말기' 노트에 체크된 줄 하나. 반환 {noteId, folderName}. 실패하면 던진다(부른 쪽은 상태를 바꾸지 않음).
+export const markDone = (rt, {line, body}) => addLine(rt, {kind: 'family', line, body});
+// [이미 함]·[가족 노트에]·[업무 노트에] 되돌리기: 더한 줄 하나만 뺀다. 줄이 이미 없으면 아무것도 쓰지 않는다.
 export async function undoDone(rt, {noteId, line}) {
   const ws = wsOf(rt);
   if (!noteId || !ws) return;
+  try { await dropOne(rt, ws, noteId, line); } finally { window.dispatchEvent(new CustomEvent(REMIND_CHANGED)); }
+}
+async function dropOne(rt, ws, noteId, line) {
   for (let tries = 0; tries < 2; tries++) {
     const rows = await rt.api(`/rest/v1/app_notes?id=eq.${enc(noteId)}&workspace_id=eq.${enc(ws)}&kind=eq.note&select=id,title,doc,raw_text,updated_at`, {singleFlight: false});
     const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
@@ -90,27 +117,29 @@ export async function undoDone(rt, {noteId, line}) {
 }
 
 // ── FAMILY-기억알림(시안 docs/design/mockups/family-note-remind.html): 홈 '가족 · 기억할 것' 칸과 [과거 기록으로] ──
-// 기준 노트: 가장 최근에 고친 '잊지 말기' 노트 하나(홈 [노트 열기 ›]·openListNote와 같은 노트). 줄과 본 기록(metadata.remind)을 함께 읽는다.
-export async function readRemindNote(rt) {
+// 기준 노트: 가장 최근에 고친 '잊지 말기' 노트 하나(홈 [노트 열기 ›]·openListNote와 같은 노트, kind 'work'면 업무 노트). 줄과 본 기록(metadata.remind)을 함께 읽는다.
+export async function readRemindNote(rt, kind = 'family') {
   const ws = wsOf(rt);
   if (!ws) return null;
-  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${LIST_KEY}=eq.true&select=id,title,doc,raw_text,updated_at,ai_export_allowed,metadata&order=updated_at.desc&limit=1`, {singleFlight: false});
+  const rows = await rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${listSpec(kind).listKey}=eq.true&select=id,title,doc,raw_text,updated_at,ai_export_allowed,metadata&order=updated_at.desc&limit=1`, {singleFlight: false});
   return Array.isArray(rows) && rows[0]?.id ? rows[0] : null;
 }
-// 가족 노트(AI 제외) 하나를 읽고 change(doc) → {doc, ...} | null 로 고쳐 저장한다. 읽은 판(updated_at)일 때만, AI 제외 노트에만(saveNoteDoc aiExcluded).
+// 줄 모으는 노트 하나를 읽고 change(doc) → {doc, ...} | null 로 고쳐 저장한다. 읽은 판(updated_at)일 때만.
+// family: AI 제외 노트에만(saveNoteDoc aiExcluded). work: 일반 노트 그대로(AI 설정을 건드리지 않음).
 // 그사이 바뀌었으면 한 번 다시 읽어 다시 한다. 반환은 change의 결과(null이면 아무것도 안 씀).
-async function rewriteFamilyNote(rt, noteId, change) {
+async function rewriteListNote(rt, noteId, change, kind = 'family') {
+  const family = listSpec(kind).kind === 'family';
   const ws = wsOf(rt);
   if (!noteId || !ws) return null;
   for (let tries = 0; tries < 2; tries++) {
     const rows = await rt.api(`/rest/v1/app_notes?id=eq.${enc(noteId)}&workspace_id=eq.${enc(ws)}&kind=eq.note&select=id,title,doc,raw_text,updated_at,ai_export_allowed`, {singleFlight: false});
     const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
     if (!row?.updated_at) throw new Error('노트를 찾지 못했어요.');
-    if (row.ai_export_allowed !== false) throw Object.assign(new Error('가족 노트가 아니에요.'), {code: 'not_family_note'});
+    if (family && row.ai_export_allowed !== false) throw Object.assign(new Error('가족 노트가 아니에요.'), {code: 'not_family_note'});
     const out = change(cleanDoc(row.doc) || plainToDocKeep(row.raw_text || ''));
     if (!out?.doc) return null;
     try {
-      await saveNoteDoc(noteId, {title: String(row.title || '').trim() || LIST_TITLE, raw_text: toPlain(out.doc), doc: out.doc, version: row.updated_at, aiExcluded: true}, rt);
+      await saveNoteDoc(noteId, {title: String(row.title || '').trim() || listSpec(kind).title, raw_text: toPlain(out.doc), doc: out.doc, version: row.updated_at, aiExcluded: family}, rt);
       return out;
     } catch (error) {
       if (error?.code !== 'note_changed' || tries) throw error;
@@ -118,42 +147,44 @@ async function rewriteFamilyNote(rt, noteId, change) {
   }
   return null;
 }
-// [과거 기록으로]: 그 줄을 '잊지 말기' 노트에서 빼고, 같은 폴더의 '과거 기록' 노트(metadata.family_past, AI 제외) 끝에 옮긴 날짜를 앞에 붙여 더한다.
+// [과거 기록으로]: 그 줄을 '잊지 말기' 노트에서 빼고, 같은 폴더의 '과거 기록' 노트(metadata.family_past, AI 제외 — 업무 노트면 metadata.work_past, 일반 노트) 끝에 옮긴 날짜를 앞에 붙여 더한다.
 // '과거 기록' 노트가 없으면 처음 한 번 그 폴더에 만든다. 지우지 않는다. 더하기가 실패하면 뺀 줄을 제자리에 돌려놓고 던진다.
-// 반환(되돌리기 재료) {noteId, pastId, index, node, line, folderName}.
-export async function moveToPast(rt, {noteId, text, today}) {
-  const ws = wsOf(rt);
+// 반환(되돌리기 재료) {noteId, pastId, index, node, line, folderName, kind}.
+export async function moveToPast(rt, {noteId, text, today, kind = 'family'}) {
+  const ws = wsOf(rt), spec = listSpec(kind), family = spec.kind === 'family';
   const [folders, lists, pasts] = await Promise.all([
     readNoteFolders(rt).catch(() => ({ready: false, folders: []})),
     rt.api(`/rest/v1/app_notes?id=eq.${enc(noteId)}&workspace_id=eq.${enc(ws)}&kind=eq.note&select=id,metadata`, {singleFlight: false}),
-    rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${PAST_KEY}=eq.true&ai_export_allowed=is.false&select=id,title,updated_at,metadata&order=updated_at.desc&limit=20`, {singleFlight: false})]);
+    rt.api(`/rest/v1/app_notes?workspace_id=eq.${enc(ws)}&kind=eq.note&metadata->>${spec.pastKey}=eq.true${family ? '&ai_export_allowed=is.false' : ''}&select=id,title,updated_at,metadata&order=updated_at.desc&limit=20`, {singleFlight: false})]);
   const list = Array.isArray(lists) && lists.length === 1 ? lists[0] : null;
   if (!list) throw new Error('노트를 찾지 못했어요.');
   const all = folders.ready ? folders.folders : [];
   const folderId = folderIdOf(list, all);
   const folder = all.find(f => f.id === folderId) || null;
   const past = (Array.isArray(pasts) ? pasts : []).find(p => folderIdOf(p, all) === (folder?.id || null)) || null;
-  const took = await rewriteFamilyNote(rt, noteId, doc => takeLine(doc, text));
+  const took = await rewriteListNote(rt, noteId, doc => takeLine(doc, text), spec.kind);
   if (!took) throw Object.assign(new Error('그 줄을 노트에서 찾지 못했어요.'), {code: 'line_missing'});
   const line = pastLine(String(text).trim(), today);
   let pastId = past?.id || '';
   try {
-    if (past) await appendToNote(rt, past.id, {lines: [line]});
+    if (past) await appendToNote(rt, past.id, {lines: [line], familyOnly: family});
     else {
       const made = appendLines(null, [line]);
-      const saved = await createNoteDoc({title: PAST_TITLE, raw_text: toPlain(made), doc: made, ai_export_allowed: false, folder: folder ? {id: folder.id, name: folder.name} : undefined, family_past: true}, rt);
+      const saved = await createNoteDoc({title: spec.pastTitle, raw_text: toPlain(made), doc: made, ...(family ? {ai_export_allowed: false, family_past: true} : {work_past: true}),
+        folder: folder ? {id: folder.id, name: folder.name} : undefined}, rt);
       pastId = saved?.id || '';
     }
   } catch (error) {
-    await rewriteFamilyNote(rt, noteId, doc => { const back = putLine(doc, took.index, took.node); return back ? {doc: back} : null; }).catch(() => {});
+    await rewriteListNote(rt, noteId, doc => { const back = putLine(doc, took.index, took.node); return back ? {doc: back} : null; }, spec.kind).catch(() => {});
     throw error;
   }
-  return {noteId, pastId, index: took.index, node: took.node, line, folderName: folder?.name || ''};
+  return {noteId, pastId, index: took.index, node: took.node, line, folderName: folder?.name || '', kind: spec.kind};
 }
 // [과거 기록으로] 되돌리기: 줄을 '잊지 말기' 노트 제자리에 돌려놓고 '과거 기록' 노트에서 그 줄 하나를 뺀다(이미 있거나 없으면 그 쪽은 쓰지 않음).
 export async function undoPast(rt, moved) {
-  await rewriteFamilyNote(rt, moved.noteId, doc => { const back = putLine(doc, moved.index, moved.node); return back ? {doc: back} : null; });
-  if (moved.pastId) await rewriteFamilyNote(rt, moved.pastId, doc => { const next = dropLine(doc, moved.line); return next ? {doc: next} : null; });
+  const kind = moved.kind || 'family';
+  await rewriteListNote(rt, moved.noteId, doc => { const back = putLine(doc, moved.index, moved.node); return back ? {doc: back} : null; }, kind);
+  if (moved.pastId) await rewriteListNote(rt, moved.pastId, doc => { const next = dropLine(doc, moved.line); return next ? {doc: next} : null; }, kind);
 }
 
 // 가족 줄 [노트]: 업무 줄과 같은 노트 창. 처음 고른 곳은 '잊지 말기' 노트 끝(지금 가족 창과 같은 기본값·폴더 기억).

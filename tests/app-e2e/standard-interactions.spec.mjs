@@ -2267,7 +2267,7 @@ async function notesDragScroll(page, width) {
   const folders = Array.from({ length: 40 }, (_, i) => ({ id: U(100 + i), workspace_id: 'w', parent_id: null, name: '가상 폴더 ' + String(i).padStart(2, '0'), sort_order: 1024 * (i + 1), created_at: '2026-10-01T00:00:00Z' }));
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', r => {
     const req = r.request(), q = new URL(req.url()).searchParams;
-    if (q.has('metadata->>family_list')) return r.fulfill({ json: [] });
+    if (q.has('metadata->>family_list') || q.has('metadata->>work_list')) return r.fulfill({ json: [] }); // 가족·업무 기억할 것 칸 읽기(목록 아님)
     const pick = x => !q.get('id') || 'eq.' + x.id === q.get('id');
     if (req.method() === 'GET') return r.fulfill({ json: structuredClone(rows.filter(pick)).slice(Number(q.get('offset') || 0)) });
     if (req.method() === 'PATCH') { const hit = rows.filter(x => 'eq.' + x.id === q.get('id')); hit.forEach(x => Object.assign(x, structuredClone(req.postDataJSON()))); return r.fulfill({ json: structuredClone(hit) }); }
