@@ -971,7 +971,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     parts.push(diff);
     // WEEKLY-화면정돈 ②: '줄을 찾지 못한 이번 주 기록'·'붙일 기록'은 이름을 '기록 제안'으로 바꿔 기록 제안 탭(한 문장 요약 + 세부).
     const rest = el('details', 'journal-hwpx-plans'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true; rest.open = true;
-    rest.append(el('summary', '', '기록 제안 — 이름이 달라 자동으로 못 붙인 이번 주 기록이에요. 넣을 줄을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
+    rest.append(el('summary', '', '기록 제안 — 이름이 달라 자동으로 못 붙인 이번 주 기록이에요. 넣을 줄을 선택해 주세요.'), el('ul', 'journal-hwpx-material'));
     suggest.unshift(rest);
     // 환류학습 6·4: [학습 시험] 결과(저장하지 않음)와 [확정] 뒤 이번 주 환류 보고 한 장.
     const learn = el('div', 'journal-hwpx-learn'); learn.dataset.hwpxLearn = ''; learn.hidden = true;
