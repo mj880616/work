@@ -3,12 +3,13 @@
 #updatesView .rn-view{min-width:0}
 #updatesView .rn-list{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin-top:0;border-top:.5px solid var(--kptu-border)}
 #updatesView .rn-note{min-width:0;border-bottom:.5px solid var(--kptu-border)}
-#updatesView .rn-head{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;min-width:0;padding:2px 0;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row)}
+/* UI-반복단추줄이기(2026-11-28): 머리 줄 칸들은 첫 글줄 기준선에 맞춘다 — 바뀐 것 글이 여러 줄로 접혀도 오른쪽 [보냄]은 늘 날짜 줄 오른쪽 끝. */
+#updatesView .rn-head{display:flex;flex-wrap:wrap;align-items:baseline;align-content:center;gap:0 8px;min-width:0;padding:2px 0;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row)}
 #updatesView .rn-ver{flex:none;font-variant-numeric:tabular-nums;font-weight:var(--ds-weight-medium,600)}
 #updatesView .rn-date{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
 /* UI-업데이트기록줄바꿈(2026-10-29): 줄은 자르지 않고 접는다. 폰은 버전·날짜 한 줄, 바뀐 것은 그 아래 줄. */
 #updatesView .rn-one{flex:1 1 0;min-width:0;white-space:normal;overflow-wrap:anywhere}
-@media(max-width:700px){#updatesView .rn-one{flex-basis:100%}}
+@media(max-width:700px){#updatesView .rn-one{flex-basis:100%;order:1}}
 #updatesView .rn-now{flex:none;padding:0 6px;border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta)}
 #updatesView .rn-body{padding:0 0 6px 4px;font-size:var(--ds-text-row);overflow-wrap:anywhere}
 #updatesView .rn-changes{margin:0;padding-left:18px}

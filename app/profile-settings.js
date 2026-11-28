@@ -18,7 +18,7 @@ const $=sel=>document.querySelector(sel);
 // 화면 하나에 한 장(data-ps-page)만 보이고, 어떤 장이 보일지는 이 파일의 show() 하나가 정한다(라우터의 sub와 같음).
 // 각 장 안은 지금처럼 각 모듈이 그리고 바로 서버에 저장한다(아래 load*). 맨 아래 큰 [저장]은 없다: 이름도 바꾸면 바로 저장.
 const PAGES=['name','home','push','backup','drive','mcp','account','status'];
-const PAGE_TITLE={name:'이름',home:'홈 칸',push:'알림 설정',backup:'내 기록 백업',drive:'구글 드라이브',mcp:'Claude 읽기 연결',account:'계정',status:'사용 현황'};
+const PAGE_TITLE={name:'이름',home:'홈 칸',push:'알림 설정',backup:'내 기록 백업',drive:'구글 드라이브',mcp:'Claude 연결',account:'계정',status:'사용 현황'};
 const titleOf=key=>PAGE_TITLE[key];
 // 모듈이 알려 주는 첫 화면 요약(오른쪽 회색 글). show=false면 그 줄을 그리지 않는다(드라이브 연결 없음·Claude 연결 행 없음·사용 현황 줄 없음 — 서버 답이 정함).
 // known=false: 아직 서버 답을 못 받음(그동안은 주소로 바로 연 그 장을 닫지 않는다).
@@ -116,7 +116,7 @@ const loadPush=()=>loadPart('push','#psPushPanel',host=>import('./phone-push-set
 const loadBackup=()=>loadPart('backup','#psBackupPanel',host=>import('./record-backup.js').then(m=>m.mountRecordBackup(host,{rt,onSummary:summaryTo('backup')})));
 // S69-41: '구글 드라이브' 장(앱이 쓰는 드라이브 폴더 + 열기 ↗)은 drive-folders-panel.js. 드라이브 연결이 없거나 읽기가 실패하면 첫 화면 줄이 없다.
 const loadDriveFolders=()=>loadPart('drive','#psDriveFoldersPanel',host=>import('./drive-folders-panel.js').then(m=>m.mountDriveFolders(host,{rt,account:()=>user?.email||'',onSummary:summaryTo('drive')})));
-// MCP-Claude읽기 M-5: 'Claude 읽기 연결' 장은 mcp-read-settings.js. 설정 행이 있는 작업공간에서만 첫 화면 줄이 있다(행은 SQL로만, 설계 7.6).
+// MCP-Claude읽기 M-5: 'Claude 연결' 장(2026-11-28 옛 이름 'Claude 읽기 연결')은 mcp-read-settings.js. 설정 행이 있는 작업공간에서만 첫 화면 줄이 있다(행은 SQL로만, 설계 7.6).
 const loadMcpRead=()=>loadPart('mcp','#psMcpReadPanel',host=>import('./mcp-read-settings.js').then(m=>m.mountMcpReadSettings(host,{rt,onSummary:summaryTo('mcp')})));
 // S67-52 HOME-칸끄기: '홈 칸' 장(끌 수 있는 칸마다 스위치 — 서버 화면 기억 view_prefs.home_off에 바로 저장)은 home-off.js.
 const loadHomeOff=()=>loadPart('home','#psHomeOffPanel',host=>import('./home-off.js').then(m=>m.mountHomeOffSettings(host,{onSummary:summaryTo('home')})));

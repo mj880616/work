@@ -103,7 +103,10 @@ for(const width of [390,900,1280])test(`profile '최근 알림 7일': one line '
 
 test("profile recent list: empty and failed reads are one short line",async({page})=>{
   await fixture(page,{items:[],recent:[],query:'?view=profile&pane=push'});
-  await expect(page.locator('#psPushPanel [data-ps-push-fold="recent"] > summary')).toHaveText(/최근 알림 7일\s*없음/,{timeout:15000});
+  // UI-반복단추줄이기(2026-11-28): 비었으면 접는 줄이 아니라 '최근 알림 7일 · 없음' 한 줄(펼쳐도 빈 칸이 나오지 않게, settings-list foldRow).
+  const empty=page.locator('#psPushPanel [data-ps-push-fold="recent"]');
+  await expect(empty).toHaveText(/최근 알림 7일\s*없음/,{timeout:15000});
+  await expect(empty.locator('summary')).toHaveCount(0);
 });
 
 // APP-알림숫자지우기 ②: 폰 앱에서 알림 자리를 열면(알림 줄 [열기]·✕, 폰 알림 주소, 최근 알림) 앱 다리로 그 폰 알림 지우기(push:clear:종류.열쇠)를 보낸다.

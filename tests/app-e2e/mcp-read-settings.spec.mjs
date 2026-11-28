@@ -1,4 +1,4 @@
-// MCP-Claude읽기 M-5(설계 docs/design/mcp-claude-read.md 4.6·6·7.1절): 내 프로필 'Claude 읽기 연결' 칸과 동의 화면.
+// MCP-Claude읽기 M-5(설계 docs/design/mcp-claude-read.md 4.6·6·7.1절): 내 프로필 'Claude 연결' 칸(옛 이름 'Claude 읽기 연결')과 동의 화면.
 // - 칸: 설정 행이 있을 때만 보인다. 스위치는 enabled 한 칸, [모든 연결 끊기]는 revoked_before 한 칸만 PATCH. 기록은 읽기만.
 // - 3판(설계 15.2): 읽을 영역 스위치 다섯(area_*), 가족 방만 기본 꺼짐. 하나씩 그 칸만 PATCH.
 // - 표가 아직 없을 때(DB 적용 전, 404)·행이 없을 때: 칸 없음, 화면 오류 없음.
@@ -70,7 +70,7 @@ async function boot(page, {settings = 'row', row = ROW, logs = LOGS, monthCount 
   return state;
 }
 
-// S71-36 PROFILE-설정화면: 내 프로필 첫 화면의 'Claude 읽기 연결 ›' 줄을 눌러 그 장으로 들어간다(설정 행이 있을 때만 줄이 있다).
+// S71-36 PROFILE-설정화면: 내 프로필 첫 화면의 'Claude 연결 ›' 줄을 눌러 그 장으로 들어간다(설정 행이 있을 때만 줄이 있다).
 async function openProfile(page, {enter = true} = {}) {
   await page.goto(appOrigin + '/app/login/?return=' + encodeURIComponent(appOrigin + '/app/?view=profile'));
   await signInWithSession(page, user.email);
@@ -87,7 +87,7 @@ for (const width of [412, 884, 1280]) test(`칸: 꺼짐·최근 기록·이번 �
   await openProfile(page);
   const p = panel(page);
   await expect(p).toBeVisible({timeout: 15000});
-  await expect(page.locator('#profileView [data-ps-page="mcp"] .sl-page-title')).toHaveText('Claude 읽기 연결');
+  await expect(page.locator('#profileView [data-ps-page="mcp"] .sl-page-title')).toHaveText('Claude 연결');
   await expect(p.locator('[data-mr-enabled]')).not.toBeChecked();
   await expect(p.locator('[data-mr-month]')).toHaveText('42번');
   await expect(p.locator('.mr-log li')).toHaveCount(3);
@@ -277,5 +277,30 @@ test('쓰기 칸: 그 뒤에 바뀌어 되돌리기가 거절되면 일상어 �
   await page.locator('.kptu-ask-actions button', {hasText: '되돌리기'}).click();
   await expect(p.locator('.mr-error')).toHaveText('그 뒤에 또 바뀌어서 되돌리지 않았어요.');
   expect(state.undos).toEqual([{p_log_id: 'w1'}]);
+  expect(state.errors).toEqual([]);
+});
+
+// UI-반복단추줄이기(2026-11-28 14:03 사용자 캡처 '최근 Claude가 수정한 것 없음 ⌄' → 펼치면 '없음'이 칸 밖 왼쪽에 한 번 더):
+// 비어 있으면 펼치기 없이 '이름 · 없음' 한 줄. '최근 읽은 기록'도 같은 모양. 장 제목은 'Claude 연결'.
+for (const width of [412, 1280]) test(`빈 기록: '최근 Claude가 수정한 것'·'최근 읽은 기록'은 펼치기 없이 '없음' 한 번 (${width}px)`, async ({page}) => {
+  await page.setViewportSize({width, height: 900});
+  const state = await boot(page, {row: {...ROW, enabled: true, write_enabled: true}, features: ['mcp_write'], writes: [], logs: []});
+  await openProfile(page);
+  const p = panel(page);
+  await expect(page.locator('#profileView [data-ps-page="mcp"] .sl-page-title')).toHaveText('Claude 연결');
+  await expect(p.locator('[data-mr-enabled]')).toHaveAttribute('aria-label', 'Claude 연결 켜기', {timeout: 15000});
+  for (const [key, label] of [['data-mw-log', '최근 Claude가 수정한 것'], ['data-mr-log', '최근 읽은 기록']]) {
+    const row = p.locator(`[${key}]`);
+    await expect(row).toHaveCount(1);
+    await expect(row.locator('.sl-label')).toHaveText(label);
+    await expect(row.locator('.sl-sum')).toHaveText('없음');
+    await expect(row.locator('summary, details, .sl-chev, [data-wait-empty]')).toHaveCount(0);
+    expect(await row.evaluate(el => el.tagName)).toBe('DIV');
+  }
+  // '없음'은 줄 요약 두 곳뿐(빈 목록 글자가 따로 나오지 않는다).
+  await expect(p.locator('[data-wait-empty]')).toHaveCount(0);
+  await expect(p.getByText('없음', {exact: true})).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await p.screenshot({path: `test-results/mcp-empty-${width}.png`});
   expect(state.errors).toEqual([]);
 });
