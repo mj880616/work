@@ -445,7 +445,7 @@ export function taskAttachHtml({base = [], edits = new Map(), added = [], editab
     // ATT-이름고치기: 할 일 첨부 표에 있는 파일만(메모 속 '첨부:' 줄만 있는 파일은 서버 줄이 없어 고칠 수 없음).
     const rn = editable && taskId && f.inTable ? {target: 'task', id: taskId, driveId: f.drive_file_id, name: f.file_name} : null;
     return `<div class="gt-att-row" data-gt-att-id="${id}" data-fr-row>${ATT_ICON}<span class="gt-att-name gt-att-open" title="${name}" role="button" tabindex="0" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}"${renameHostAttrs(rn)}>${name}</span>${busy ? '' : renameButtonHtml(rn)}`
-      + `<details class="journal-kind-more row-more gt-att-more-menu"><summary aria-label="${name} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="row-more-menu" role="group" aria-label="${name} 메뉴">`
+      + `<details class="journal-kind-more row-more gt-att-more-menu"><summary data-ctx="off" aria-label="${name} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="row-more-menu" role="group" aria-label="${name} 메뉴">`
       + item('내려받기', `data-fa-menu="download"${attrs}`, `첨부 내려받기: ${f.file_name}`, false)
       + (editable ? item('교체', `data-gt-att-swap="${id}"`, `첨부 교체: ${f.file_name}`, busy) + item('빼기', `data-gt-att-remove="${id}"`, `첨부 빼기: ${f.file_name}`, busy, 'row-more-danger') : '')
       + `</div></details></div>`;
