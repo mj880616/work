@@ -16,7 +16,6 @@ const MORE = [
   ['app/project-system-v3.js', /class="ps3-archive-tabs ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-ps3-archive-tab="archive">보관<\/button><button type="button" class="ds-seg-btn" data-ps3-archive-tab="trash">/],
   // UI-보기탭드롭다운(11/10): 사진 [사진 ▾]·사업 보고 [목록 ▾]는 보기 탭이 아니라 위 줄 고르기 상자(select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   // LIB-위쪽한줄(11/09): 자료실 묶기는 보기 탭이 아니라 위 줄 고르기 상자 [폴더 ▾](select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
-  ['app/home-quick.js', /class="home-quick-modes ds-seg"/],
 ];
 
 test('⑤ 보기 바꾸기 한 모양: 연한 알약 바탕 + 고른 칸만 흰 알약·굵게, 선·밑줄 없음, 넘치면 옆으로 밀기', () => {

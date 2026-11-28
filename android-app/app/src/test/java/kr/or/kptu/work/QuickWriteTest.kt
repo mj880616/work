@@ -64,20 +64,18 @@ class QuickWriteTest {
 
     @Test
     fun requestBodiesHoldOnlyTheirFields() {
-        val up = QuickWriteRules.request(WidgetAction.UPDATE, "회의 \"결과\"\n둘째 줄", ws)
-        assertEquals("$base/rest/v1/app_notes", up.url)
-        assertEquals("{\"workspace_id\":\"$ws\",\"raw_text\":\"회의 \\\"결과\\\"\\u000a둘째 줄\"}", up.body)
-        assertEquals("return=minimal", up.prefer)
         val note = QuickWriteRules.request(WidgetAction.NOTE, "  제목 줄  \n본문", ws)
+        assertEquals("$base/rest/v1/app_notes", note.url)
+        assertEquals("return=minimal", note.prefer)
         assertEquals("{\"workspace_id\":\"$ws\",\"kind\":\"note\",\"title\":\"제목 줄\",\"raw_text\":\"  제목 줄  \\u000a본문\"}", note.body)
         val task = QuickWriteRules.request(WidgetAction.TASK, "자료 보내기\n담당 확인", ws)
         assertEquals("$base/functions/v1/google-tasks?action=create", task.url)
         assertEquals("{\"action\":\"create\",\"title\":\"자료 보내기\",\"notes\":\"담당 확인\",\"due\":null}", task.body)
         assertEquals(null, task.prefer)
         // 빈 글·너무 긴 글은 보내지 않는다.
-        assertTrue(QuickWriteRules.check(WidgetAction.UPDATE, "  \n ") is QuickWriteRules.Check.Bad)
-        assertTrue(QuickWriteRules.check(WidgetAction.UPDATE, "가".repeat(20001)) is QuickWriteRules.Check.Bad)
-        assertEquals(QuickWriteRules.Check.Ok, QuickWriteRules.check(WidgetAction.UPDATE, "가".repeat(20000)))
+        assertTrue(QuickWriteRules.check(WidgetAction.NOTE, "  \n ") is QuickWriteRules.Check.Bad)
+        assertTrue(QuickWriteRules.check(WidgetAction.NOTE, "가".repeat(100001)) is QuickWriteRules.Check.Bad)
+        assertEquals(QuickWriteRules.Check.Ok, QuickWriteRules.check(WidgetAction.NOTE, "가".repeat(100000)))
         assertTrue(QuickWriteRules.check(WidgetAction.PHOTO, "x") is QuickWriteRules.Check.Bad)
         // 노트 제목은 200자까지.
         val long = QuickWriteRules.request(WidgetAction.NOTE, "가".repeat(300), ws)
@@ -85,11 +83,11 @@ class QuickWriteTest {
     }
 
     @Test
-    fun updateReadsOwnWorkspaceOnceThenPosts() {
+    fun noteReadsOwnWorkspaceOnceThenPosts() {
         signIn()
         http.answers.add(reply(200, """[{"workspace_id":"$ws"}]"""))
         http.answers.add(reply(201, ""))
-        assertEquals(WidgetSession.Write.Saved, session.write(WidgetAction.UPDATE, "정리함에 넣을 글"))
+        assertEquals(WidgetSession.Write.Saved, session.write(WidgetAction.NOTE, "첫 노트 제목\n본문"))
         assertEquals("GET $base/rest/v1/app_workspace_members?user_id=eq.$user&select=workspace_id&limit=1", http.sent[0].method + " " + http.sent[0].url)
         val post = http.sent[1]
         assertEquals("POST", post.method)
@@ -117,22 +115,22 @@ class QuickWriteTest {
     @Test
     fun failuresKeepTextAndSignedOutHandsOver() {
         // 로그인 없으면 아무것도 보내지 않는다(창은 웹2 쓰기 창으로 넘김).
-        assertEquals(WidgetSession.Write.SignedOut, session.write(WidgetAction.UPDATE, "글"))
+        assertEquals(WidgetSession.Write.SignedOut, session.write(WidgetAction.NOTE, "글"))
         assertTrue(http.sent.isEmpty())
         signIn()
         // 다른 작업공간 id 모양이 아니면 보내지 않는다.
         http.answers.add(reply(200, "[]"))
-        assertEquals(WidgetSession.Write.Failed(QuickWriteRules.NO_WORKSPACE), session.write(WidgetAction.UPDATE, "글"))
+        assertEquals(WidgetSession.Write.Failed(QuickWriteRules.NO_WORKSPACE), session.write(WidgetAction.NOTE, "글"))
         http.answers.add(reply(200, """[{"workspace_id":"$ws"}]"""))
         http.answers.add { throw IOException("down") }
-        assertEquals(WidgetSession.Write.Failed(QuickWriteRules.NETWORK), session.write(WidgetAction.UPDATE, "글"))
+        assertEquals(WidgetSession.Write.Failed(QuickWriteRules.NETWORK), session.write(WidgetAction.NOTE, "글"))
         http.answers.add(reply(503, "{}"))
-        assertEquals(WidgetSession.Write.Failed("서버가 잠시 답하지 않아요 · 다시 저장"), session.write(WidgetAction.UPDATE, "글"))
+        assertEquals(WidgetSession.Write.Failed("서버가 잠시 답하지 않아요 · 다시 저장"), session.write(WidgetAction.NOTE, "글"))
         // 401이면 접근 토큰을 새로 받아 한 번 더.
         http.answers.add(reply(401, "{}"))
         http.answers.add(reply(200, """{"access_token":"a2","refresh_token":"r2","expires_in":3600,"user":{"id":"$user"}}"""))
         http.answers.add(reply(201, ""))
-        assertEquals(WidgetSession.Write.Saved, session.write(WidgetAction.UPDATE, "글"))
+        assertEquals(WidgetSession.Write.Saved, session.write(WidgetAction.NOTE, "글"))
         assertEquals("Bearer a2", http.sent.last().headers["Authorization"])
         // 빈 글은 서버에 보내지 않는다.
         val before = http.sent.size
@@ -151,10 +149,7 @@ class QuickWriteTest {
     }
 
     @Test
-    fun updateTextsUseTheForgetListName() {
-        // 웹 메뉴 이름이 '잊지 말기'로 바뀐 뒤(HOME-잊지말기한목록) 위젯 알림·입력칸 글자도 같은 이름이다.
-        assertEquals("잊지 말기에 넣었어요", QuickWriteRules.saved(WidgetAction.UPDATE))
-        assertEquals("업데이트 입력(잊지 말기에 저장)", QuickWriteRules.hint(WidgetAction.UPDATE))
+    fun quickWindowTexts() {
         assertEquals("할 일에 넣었어요", QuickWriteRules.saved(WidgetAction.TASK))
         assertEquals("노트에 넣었어요", QuickWriteRules.saved(WidgetAction.NOTE))
     }

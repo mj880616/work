@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
 import {showBasketRow,noteAction} from './helpers/basket-more.mjs';
 
 // JOURNAL-요청표시 → UI-요청버튼삭제: the [임원 요청]·[논의 요청] toggles are gone from the home and basket inputs and from an open
@@ -55,43 +55,6 @@ async function noToggles(region) {
   await expect(region.getByRole('button', { name: /^(임원 요청|논의 요청|임원 일정 배정 요청)$/ })).toHaveCount(0);
 }
 
-for (const width of [390, 1280]) test(`home and basket inputs have no request toggles; a new update is saved without marks ${width}`, async ({ page }, info) => {
-  const f = await fixture(page, width, [row('b-old', '기존 업데이트')]);
-  const q = page.locator('#homeView [data-home-quick]'), input = q.locator('[data-quick-input]');
-  await expect(q).toHaveAttribute('data-mode', 'basket');
-  await noToggles(q);
-  await input.focus(); await input.fill('가상 간담회 일정 잡아 주세요 (임원 요청)');
-  await noToggles(q);
-  await page.screenshot({ path: info.outputPath(`home-no-request-${width}.png`) });
-  await press(page, q.locator('[data-quick-save]'), width);
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
-  expect(f.writes).toHaveLength(1);
-  // The word stays in the text; no marks are written.
-  expect(f.writes[0].body).toMatchObject({ raw_text: '가상 간담회 일정 잡아 주세요 (임원 요청)' });
-  expect(f.writes[0].body.metadata).toBeUndefined();
-  await expect(input).toHaveValue('');
-  // [할 일] and back: still no toggles.
-  await input.fill('다음 업데이트');
-  await pickQuickMode(page, 'task');
-  await noToggles(q);
-  await pickQuickMode(page, 'update');
-  await noToggles(q);
-  // The basket screen's input has none either.
-  await page.evaluate(() => window.KPTURouter.go('basket'));
-  const bq = page.locator('#basketView [data-basket-list] [data-home-quick]');
-  await bq.locator('[data-quick-input]').focus(); await bq.locator('[data-quick-input]').fill('정리함 화면 입력');
-  await noToggles(bq);
-  await press(page, bq.locator('[data-quick-save]'), width);
-  await expect.poll(() => f.writes.length).toBe(2);
-  expect(f.writes[1].body.metadata).toBeUndefined();
-  await expect(bq.locator('[data-quick-input]')).toHaveValue('');
-  // New rows carry no tag.
-  await expect(page.locator('[data-basket-row="new-1"]')).toBeVisible();
-  await expect(page.locator('[data-basket-row="new-1"] [data-request-tag]')).toHaveCount(0);
-  await expect(page.locator('[data-basket-row="new-2"] [data-request-tag]')).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(f.errors).toEqual([]);
-});
 
 for (const width of [390, 1280]) test(`an old update's saved marks still show as tags, the open update has no toggles, and an edit keeps the marks ${width}`, async ({ page }, info) => {
   // S71-58 FORGET-처리전만: 할 일을 만든 업데이트(metadata.tasks)는 처리한 것이라 목록에 없다 — 목록 줄 꼬리표를 보려고 할 일 칸은 뺀다(다른 칸이 그대로인지는 그대로 본다).
@@ -128,25 +91,3 @@ for (const width of [390, 1280]) test(`an old update's saved marks still show as
 
 // An update saved with an attachment: no metadata write follows it any more.
 // BIZ-저장먼저닫기 2차(S59-10): the letters are the one write (no metadata), then the file goes up behind to that update.
-test('an update saved with a file gets no follow-up request write', async ({ page }) => {
-  const f = await fixture(page, 1280, []);
-  const uploads = [];
-  await page.route(SB + '/functions/v1/basket-files', async r => {
-    const raw = r.request().postDataBuffer().toString(); uploads.push(raw);
-    const id = raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1], saved = f.rows.find(x => x.id === id);
-    saved.attachments = [{ drive_file_id: 'file_1', file_name: 'a.txt', size_bytes: 12 }];
-    return r.fulfill({ json: { ok: true, note_id: id, attachments: saved.attachments } });
-  });
-  const q = page.locator('#homeView [data-home-quick]');
-  await q.locator('[data-quick-input]').focus(); await q.locator('[data-quick-input]').fill('첨부 업데이트');
-  await q.locator('input[type=file]').setInputFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('fake file') }]);
-  await noToggles(q);
-  await q.locator('[data-quick-save]').click();
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했어요.');
-  await expect.poll(() => uploads.length).toBe(1);expect(uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');
-  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
-  expect(f.writes).toHaveLength(1);expect(f.writes[0].method).toBe('POST');expect(f.writes[0].body.metadata).toBeUndefined();
-  expect(f.rows[0].metadata).toEqual({});
-  await expect(q.locator('[data-quick-status]')).toHaveText('');
-  expect(f.errors).toEqual([]);
-});

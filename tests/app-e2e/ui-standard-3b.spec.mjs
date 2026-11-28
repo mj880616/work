@@ -6,7 +6,6 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import { segBox } from './helpers/seg-box.mjs';
-import { openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
 import {openReportBoxes} from './helpers/report-boxes.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
@@ -114,10 +113,10 @@ test('[일정] 탭: [달력 | 할 일] 전환, 누르면 늘 달력, 옛 ?view=t
  expect(errors).toEqual([]);
 });
 
-test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 입력칸 제자리',async({page})=>{
+test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 입력 막대 없음',async({page})=>{
  const {errors}=await boot(page,1280);
  await expect(page.locator('.mobile-tabs')).toBeHidden();
- expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toHaveCount(0); // S53-13: 옛 [잊지 말기 전체 보기 ›] 링크는 머리 줄 칩(home-forget-line.spec)으로 바뀜
+ await expect(page.locator('#homeView .home-quick,#homeView .home-basket-link')).toHaveCount(0); // QUICK-입력정리(2026-11-28): 홈 입력 막대는 지웠다
  for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 사업영역'],['library','#newDocumentBtn','']]){/* LIB-위쪽한줄: 자료실 [+]는 글자 없는 작은 아이콘 */
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 왼쪽 메뉴 줄이 없어 사업 보고 ⋯ 안에서 연다(clickView가 그 길로 간다).
   await clickView(page,view);await loaded(page,view);
@@ -197,28 +196,19 @@ test('담당조직: 폰 맨 위에 [+ 담당조직]은 없고 ⋯ 맨 위 \'새 
  expect(errors).toEqual([]);
 });
 
-test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가 가리지 않고 자판이 열리면 자판 위로',async({page})=>{
+// QUICK-입력정리(2026-11-28 사용자 결정 '홈 막대 통째로 없앰'): 홈 아래 고정 입력 막대가 없어, 본문이 하단 탭 바로 위까지 온다(빈 띠 없음).
+test('홈: 입력 막대 없음, 끝까지 내리면 마지막 카드가 하단 탭 바로 위(빈 띠 없음)',async({page})=>{
  const {errors}=await boot(page,390);
- const quick=page.locator('#homeView .home-quick'),tabs=page.locator('.mobile-tabs');
- await expect(page.locator('#homeView .home-basket-link')).toBeHidden();
- const q=await box(quick),t=await box(tabs);expect(Math.round(q.bottom)).toBe(Math.round(t.top));expect(q.left).toBe(0);expect(q.right).toBe(390);
- // HOME-입력칸두모양: 폰 홈은 늘 한 줄([종류 ▾][입력칸][잊지 말기]) — [업데이트 | 할 일] 단추 줄 없음. 칸을 눌러도 하단 탭 바로 위.
- await expect(quick).toHaveAttribute('data-quick-shape','line');await openQuickBox(page);expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
- await expect(quick.locator('.home-quick-modes')).toBeHidden();
- // [할 일]의 오늘·내일·날짜·프로젝트 버튼은 입력칸 위.
- await pickQuickMode(page,'task');await quick.locator('[data-quick-input]').click();
- const options=await box(quick.locator('[data-quick-options]'));expect(options.bottom).toBeLessThanOrEqual((await box(quick.locator('.home-quick-entry'))).top);
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
- // 카드는 그 위에서 스크롤: 끝까지 내리면 마지막 카드가 입력칸 위.
- await page.locator('body').click({position:{x:5,y:5}});
+ const tabs=page.locator('.mobile-tabs');
+ await expect(page.locator('#homeView .home-quick,#homeView .home-basket-link')).toHaveCount(0);
  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
- const cards=await box(page.locator('#homeView [data-journal-day]'));/* HOME-업무일지홈: 홈 본문(업무일지 하루 칸) */expect(cards.bottom).toBeLessThanOrEqual((await box(quick)).top+1);
- // 자판(레이아웃 뷰포트가 줄지 않는 브라우저): 탭이 사라지고 입력칸이 자판 바로 위로.
- await quick.locator('[data-quick-input]').focus();
- await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'))});
- await expect(tabs).toBeHidden();await expect.poll(async()=>Math.round((await box(quick)).bottom)).toBe(400);
- await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>844});visualViewport.dispatchEvent(new Event('resize'))});
- await expect(tabs).toBeVisible();await expect.poll(async()=>Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
+ const t=await box(tabs);
+ const m=await page.evaluate(()=>({scroll:document.documentElement.scrollHeight>innerHeight+1,end:document.querySelector('#homeView').getBoundingClientRect().bottom,
+  pad:parseFloat(getComputedStyle(document.querySelector('#homeView')).paddingBottom),dock:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock'))||0}));
+ // 아래 여백은 전환 줄 몫 + 22px뿐(옛 입력칸 높이 몫 없음). 끝까지 내리면 본문(여백 포함)이 하단 탭 위에서 끝나고, 그 사이에 빈 띠가 없다.
+ expect(m.pad).toBeLessThanOrEqual(m.dock+22+1);
+ expect(m.end).toBeLessThanOrEqual(t.top+1);
+ if(m.scroll)expect(t.top-m.end).toBeLessThanOrEqual(40); // 옛 입력칸 몫(약 56~120px)보다 훨씬 작다
  expect(errors).toEqual([]);
 });
 

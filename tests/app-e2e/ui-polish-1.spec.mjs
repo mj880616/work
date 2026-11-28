@@ -168,14 +168,6 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
-test('폰 홈 입력칸의 ⤢가 보이고 누르면 쓰기 창이 열림 390',async({page})=>{
- await boot(page,390);
- await page.evaluate(()=>window.KPTURouter.go('home'));
- const big=page.locator('#homeView [data-quick-big]:visible').first();await expect(big).toBeVisible();
- const r=await big.boundingBox();expect(r.width).toBeGreaterThanOrEqual(24);expect(r.height).toBeGreaterThanOrEqual(24);
- await openWriteFromEntry(page,390);await expect(page.locator('#edWindow')).toBeVisible();
- await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
-});
 
 for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ 새 편집기): 빈 창에서 저장 아이콘을 누르면 정리함 새 업데이트 하나(글자 + 서식, 기존 저장 경로) ${width}`,async({page})=>{
  const {errors,state}=await boot(page,width);
@@ -190,7 +182,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await editor.locator('[data-close="edWindow"]').click();
  // Unsaved text asks first; the answer is to close without saving.
  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('빠른 추가의 [잊지 말기]로 다시 열면 이어서');
+ await expect(page.locator('#toast')).toContainText('같은 쓰기 창을 다시 열면 이어서');
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();

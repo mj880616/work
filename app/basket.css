@@ -54,7 +54,7 @@
 #basketView .home-quick { margin:12px 0; }
 #basketView .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 #basketView .home-quick-input-wrap { flex:1; min-width:0; position:relative; }
-#basketView [data-quick-options][hidden],#basketView [data-quick-basket-options][hidden],#basketView [data-quick-file-picker][hidden] { display:none; }
+#basketView [data-quick-basket-options][hidden],#basketView [data-quick-file-picker][hidden] { display:none; }
 #basketView .basket-title { font-size:15px; font-weight:600; }
 #basketView .basket-preview { font-size:13px; color:var(--kptu-muted); }
 #basketView .basket-text-label { margin:10px 0; gap:5px; }

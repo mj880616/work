@@ -24,7 +24,7 @@
         android:adjustViewBounds="true"
         android:importantForAccessibility="no"
         android:scaleType="fitCenter"
-        android:src="@drawable/widget_tile_update" />
+        android:src="@drawable/widget_tile_note" />
 
     <TextView
         android:id="@+id/one_label"

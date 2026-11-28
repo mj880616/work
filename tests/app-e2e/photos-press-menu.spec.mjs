@@ -127,7 +127,7 @@ test.describe('폰 앱 412 — 꾹 누르기 메뉴', () => {
     const state = await openO1(page);
     const p = await press(page, viewer(page).locator('.diary-viewer-stage'));
     await expect(menu(page)).toBeVisible();
-    await expect(menu(page).getByRole('button')).toHaveText(['사진 복사', '하루 기록에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+    await expect(menu(page).getByRole('button')).toHaveText(['사진 복사', '하루 기록에 넣기', '받기', '다른 앱으로 공유…']);
     await p.end();
     await page.waitForTimeout(100);
     await expect(menu(page)).toBeVisible(); // 손가락을 뗄 때 따라오는 클릭이 메뉴를 닫지 않는다

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="quick_widget_description">업데이트·할 일·노트 쓰기 창, 사진 올리기를 한 번에</string>
-    <string name="one_widget_description">노트·업데이트·할 일·사진·녹음 중 하나를 선택해 한 칸에</string>
+    <string name="quick_widget_description">할 일·노트 쓰기 창, 사진 올리기를 한 번에</string>
+    <string name="one_widget_description">노트·할 일·사진·녹음 중 하나를 선택해 한 칸에</string>
     <string name="week_widget_description">이번 주 요일별 일정 수, 가장 큰 일·주간 보고일·몰린 날</string>
 </resources>

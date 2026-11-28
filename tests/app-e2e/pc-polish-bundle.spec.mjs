@@ -117,7 +117,6 @@ for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 
  await check('업데이트');
  // BASKET-노트입력창: PC(≥1024)에는 화면 위 [업데이트 | 노트]가 없다(사이드바가 맡음).
  await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);
- for(const sel of ['#basketView [data-basket-list] [data-home-quick]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
  await chooseBasketKind(page,'note');
  await expect((await screenFind(page))).toBeVisible();
  await check('노트');

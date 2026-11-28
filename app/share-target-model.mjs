@@ -1,6 +1,9 @@
 // APP-공유노트할일(요청함 11/02 00:22): 폰 공유 창의 '웹2 노트'·'웹2 할 일'로 받은 것을 노트·할 일 초안으로 바꾸는 규칙.
 // 화면·네트워크를 쓰지 않는다(단위 시험 tests/share-target-model.test.mjs). 받은 글은 외부 입력이라 글자로만 다룬다(HTML로 넣지 않음).
 // 한도: 노트 제목 200자·본문 100,000자(basket-data.js NOTE_LIMITS), 할 일 제목 1,024자·메모 8,192자(위젯 빠른 쓰기와 같음).
+import {plainToDocKeep} from './ed-markdown.mjs';
+import {cleanDoc} from './ed-schema.mjs';
+
 export const SHARE_TARGETS = Object.freeze(['basket', 'note', 'task']);
 export const NOTE_TITLE_MAX = 200;
 export const NOTE_BODY_MAX = 100000;
@@ -44,6 +47,29 @@ export function noteDraft({subject = '', text = '', files = []} = {}) {
   const plain = firstLine(withoutLinks(body));
   const title = (hasLink && subj) || oneLine(plain) || subj || (hasLink ? oneLine(linksIn(body)[0]) : '') || fileBase(files[0]?.name) || '공유한 노트';
   return {title:cut(title, NOTE_TITLE_MAX), body:cut(body, NOTE_BODY_MAX)};
+}
+
+/**
+ * SHARE-노트로: 공유한 글 → 노트 저장 모양(ed1). 줄은 글 그대로(plainToDocKeep, 서식으로 읽지 않음), 글 속 http(s) 주소는 링크로.
+ * 받은 글은 외부 입력이라 글자·링크 표시만 만든다(cleanDoc이 http(s)·mailto 밖 링크를 다시 뺀다).
+ */
+export function linkedNoteDoc(text) {
+  const base = plainToDocKeep(String(text ?? ''));
+  const split = node => {
+    if (node?.type !== 'text' || !node.text) return [node];
+    const out = [];
+    let at = 0;
+    for (const m of node.text.matchAll(URL_RE)) {
+      const url = m[0].replace(/[).,;!?。、]+$/u, '');
+      if (m.index > at) out.push({type:'text', text:node.text.slice(at, m.index)});
+      out.push({type:'text', text:url, marks:[{type:'link', attrs:{href:url}}]});
+      at = m.index + url.length;
+    }
+    if (at < node.text.length) out.push({type:'text', text:node.text.slice(at)});
+    return out.length ? out : [node];
+  };
+  const content = (base?.doc?.content || []).map(block => (Array.isArray(block.content) ? {...block, content:block.content.flatMap(split)} : block));
+  return cleanDoc({type:'doc', content});
 }
 
 /** 한 줄 더하기: 비어 있지 않으면 본문 맨 앞 줄로(빈 줄 하나 띄움). */

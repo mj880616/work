@@ -12,7 +12,6 @@
 
 :where(#basketView) label{ font-weight:var(--ds-weight-medium); }
 /* HOME-업무일지홈: 홈 본문(업무일지)은 journal.css가 굵기를 정하고, 빠른 입력 버튼만 정리함과 같은 중간 굵기. */
-#appView #homeView .home-quick :is(button,[aria-pressed="true"]):where(:not(.ds-seg-btn)){ font-weight:var(--ds-weight-medium); }
 
 /* 화면 제목 18px */
 #appView #basketView .basket-head h2{ font-size:var(--ds-text-title); line-height:1.4; }
@@ -22,13 +21,12 @@
 #appView :is(#homeView,#basketView) .ds-section,#appView #basketView [data-basket-list-status],#appView #basketView :is(.basket-manual,.basket-note-tasks) h3{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
 
 /* 입력 모서리 8px, 테두리 0.5px. */
-#appView #basketView :is(textarea,input[type="text"],select),#appView #homeView .home-quick [data-quick-input]{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #basketView :is(textarea,input[type="text"],select){ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
 
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. 노트 [달력]의 날짜 칸(.rv-table)은 사업 관리 달력과 같은 month-cal.css 모양. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn,.nxt-q),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
-#appView #homeView .home-quick :is(.home-quick-save,[data-quick-options] button):where(:not([hidden])){
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.kptu-act,.kptu-sb-act,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.ed-video *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *,.inbox-find,.inbox-chip,.ft-btn,.nbx *,.nb-node-bar *,.nb-text *,.ds-seg-btn,.rv-table *,.ed-grip,.ed-toggle-btn,.nxt-q),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none;
@@ -42,13 +40,13 @@
 :where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *))::after{ content:""; position:absolute; inset:min(0px,calc((100% - var(--kptu-touch-target,44px)) / 2)); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); }
 /* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다.
    UI-버튼전수조사: 채운 버튼(주 동작)은 입력칸 높이 --kptu-control-height(36px). 줄 안 작은 버튼으로 정한 곳(연결 칸·수정 줄)은 그 규칙이 이긴다. */
-#appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView #basketView :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 #appView #basketView :is(button.primary,button.quick-pill-primary,button[data-basket-save]):where(:not([hidden],.basket-row,.icon-btn)){ min-height:var(--kptu-control-height); }
 /* ② 종류 색: 바구니 읽기 화면 아래 버튼 줄은 종류 색 없이 세 버튼이 같은 기본 모양(UI-바구니상세버튼색). */
 /* 고른 쪽(UI-선택표시통일, 2026-10-17 사용자 결정 B): 전환 버튼·필터·날짜의 고른 쪽은 어디서든 회색(--ds-kind-other 옅은 바탕 + 진한 글자),
    안 고른 쪽은 흰 바탕(기본 ③). 고른 상태는 각 버튼의 aria-pressed/aria-checked가 기준이다. 홈 [업데이트 ▾]는 [업데이트]와 ▾ 두 버튼이 한 덩어리로 같이 칠해진다. */
 #appView #basketView .basket-filters [aria-pressed="true"],
-#appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #basketView button[data-manual-task-day][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 /* ④ 삭제: 빨간 테두리. */
 #appView #basketView button.danger{ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
 
@@ -57,9 +55,6 @@
 /* [업데이트 ▾](HOME-빠른입력정리): 공용 ⑤ 보기 바꾸기의 붙은 두 칸(.ds-seg-group, UI-버튼6가지). 자리·폭만 아래 '홈 [업데이트 ▾]' 규칙. */
 
 /* 홈 빠른 입력: 한 줄 입력칸도 [추가]와 같은 높이. 업데이트 칸(여러 줄)은 그대로. */
-#appView #homeView .home-quick:not([data-mode="update"]) [data-quick-input]{ height:var(--ds-control-height); min-height:var(--ds-control-height); }
-#appView #homeView .home-quick[data-mode="task"] [data-quick-input]{ padding-top:12px; padding-bottom:11px; }
-#appView #homeView .home-quick [data-quick-options] button{ max-width:150px; }
 
 /* 바구니 [⋯ 더보기](8-9e-2): 자주 쓰지 않는 AI 기능 묶음. 누르면 버튼 아래 작은 메뉴로 열려 목록을 밀지 않는다.
    메뉴 = [분류 요청]·[GPT 답변 가져오기]. 메뉴 안 항목은 버튼 모양이 아닌 메뉴 줄(44px). */
@@ -103,7 +98,7 @@
 #appView #basketView .basket-manual-record-toggle[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 
 /* 상자: 카드·상자 모서리 12px, 0.5px 선, 그림자·그라데이션 없음. */
-#appView #homeView .home-quick,#appView #basketView :is(.home-quick,[data-basket-rows]:not(:empty),.basket-read-text,.basket-manual-target){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
+#appView #basketView :is(.home-quick,[data-basket-rows]:not(:empty),.basket-read-text,.basket-manual-target){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
 #appView #basketView .library-selected-file{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #basketView .library-selected-file small,#appView #homeView .library-selected-file small{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 
@@ -354,42 +349,24 @@
      S48-6: [+]는 전환 줄 안(아래 'UI-폰달력월보기 결정 6')이라 [+] 몫은 더하지 않는다 — 달력 아래끝이 전환 줄 바로 위(8px 띄움). */
   #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px); }
 
-  /* 홈·바구니 빠른 입력: 하단 탭 바로 위에 붙인다(입력칸·[추가]가 맨 아래, 그 위로 [바구니·할 일·업데이트] 탭과 날짜·프로젝트 버튼).
+  /* 할 일·노트 빠른 입력(QUICK-입력정리: 홈·잊지 말기 입력칸은 지움): 하단 탭 바로 위에 붙인다(입력칸·[추가]가 맨 아래).
      자판이 열리면 탭이 사라지고(--kptu-mobile-tab-height 0) 자판 바로 위로 올라온다(--kptu-keyboard-inset, topbar-actions.js).
      카드·목록은 그 위에서 스크롤하고, 입력칸 높이(--kptu-quick-dock, home-quick.js)만큼 아래를 비운다. */
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick]{
+  #appView :is(#basketView,#tasksView) .home-quick[data-home-quick]{
     position:fixed; z-index:29; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + var(--kptu-keyboard-inset,0px));
     box-sizing:border-box; display:flex; flex-direction:column; gap:8px; max-height:calc(100dvh - var(--kptu-mobile-tab-height,0px) - var(--kptu-switch-dock,0px) - 56px); overflow-y:auto; margin:0;
     padding:8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));
     border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:var(--kptu-surface); box-shadow:none;
   }
   /* 맨 아래 입력칸. */
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-entry{ order:2; }
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
-  #appView #homeView.view-panel:has(.home-quick[data-home-quick]),#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
-  /* HOME-입력칸두모양(S61-44, 명진 11/14 '한 줄·두 줄·세 줄 왔다 갔다' → 'ㄱ'): 폰 홈 빠른 입력은 모양이 둘뿐이다(home-quick.js paint 한 곳이
-     data-quick-shape 하나에 적는다). 평소 한 줄 [종류 ▾][입력칸][잊지 말기 n] — [업데이트 | 할 일] 단추 줄은 폰 홈에 없다.
-     [할 일]에서 글이 있거나 칸에 포커스가 있을 때만(dates) 날짜 줄 한 줄이 입력칸 위에 붙는다. 글(또는 파일)이 있으면(typing)
-     오른쪽 [잊지 말기] 자리에 [추가]가 온다. 옛 접힘(한 줄 → 두 줄 → 세 줄)은 없앴다. 바구니·노트·할 일 화면과 PC 홈은 이 속성이 없다. */
-  #appView #homeView .home-quick[data-home-quick][data-quick-shape]{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; padding-top:4px; padding-bottom:4px; }
-  #appView #homeView .home-quick[data-quick-shape] > [data-quick-options]{ order:0; flex:1 0 100%; min-width:0; }
-  #appView #homeView .home-quick[data-quick-shape] > .home-quick-entry{ order:1; flex:1 1 0; min-width:0; gap:6px; }
-  #appView #homeView .home-quick[data-quick-shape] > .home-quick-head{ order:2; flex:0 0 auto; display:flex; align-items:center; margin:0; }
-  #appView #homeView .home-quick[data-quick-shape] > :is(.home-quick-hint,[data-quick-basket-options],[data-quick-status]){ order:3; flex:1 0 100%; min-width:0; }
-  #appView #homeView .home-quick[data-quick-shape] .home-quick-modes{ display:none; }
-  #appView #homeView .home-quick[data-quick-shape~="typing"] > .home-quick-head{ display:none; }
-  #appView #homeView .home-quick[data-quick-shape]:not([data-quick-shape~="typing"]) .home-quick-save{ display:none; }
-  #appView #homeView .home-quick[data-home-quick] .home-quick-kind:not([hidden]){ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; height:var(--kptu-control-height); min-height:0; margin:0; padding:0 2px; border:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium); white-space:nowrap; cursor:pointer; }
-  #appView #homeView .home-quick[data-home-quick] .home-quick-kind::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-  #appView #homeView .home-quick[data-quick-shape] .home-quick-save{ height:var(--kptu-control-height); min-height:0; }
-  /* 날짜 줄은 한 줄: 폴드 덮개 화면(344px)까지 접히지 않게 단추 안쪽 여백·사이를 좁힌다(누르는 범위는 각 단추의 ::after 44px 그대로). */
-  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options]:not([hidden]){ flex-wrap:nowrap; gap:4px; }
-  #appView #homeView .home-quick[data-quick-shape] [data-quick-task-options] > button{ flex:0 0 auto; padding-left:6px; padding-right:6px; }
-  /* 한 줄 칸이 좁아 안내 글이 두 줄로 접히면 칸이 그만큼 늘어난다(높이 셈이 안내 글도 잼) — 안내 글은 한 줄, 넘치면 '…'. */
-  #appView #homeView .home-quick[data-quick-shape] [data-quick-input]::placeholder{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #appView :is(#basketView,#tasksView) .home-quick .home-quick-entry{ order:2; }
+  #appView :is(#basketView,#tasksView) .home-quick > *{ grid-row:auto; margin-top:0; }
+  /* QUICK-입력정리: 잊지 말기 목록에는 입력칸이 없어 아래 전환 줄 몫만 비운다(빈 띠 없음). */
+  #appView #basketView.view-panel:has([data-basket-list]:not([hidden])){ padding-bottom:calc(var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
+  #appView #tasksView.view-panel,#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
   /* UI-작은알림자리: 작은 알림은 화면 위쪽(base-ui.css --kptu-notice-top)이라 화면별 bottom 올리기는 없앴다. */
 
-  /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */
+  /* 노트 입력칸: 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로(글자 시작은 UI-입력칸첨부간격 규칙). */
   #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
   #appView #basketView .home-quick [data-quick-file-picker]{ top:1px; left:1px; }
   #appView #basketView .home-quick .home-quick-entry{ align-items:stretch; }
@@ -697,16 +674,11 @@
 .modal .event-create-modes button[data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-line); }
 /* 홈 [업데이트 ▾]: [업데이트]와 ▾는 한 칸처럼 붙고(사이 선 없음), ▾는 보이는 폭 28px·누르는 범위는 오른쪽으로 늘려 44×44px. */
 /* 홈 [업데이트 ▾]: 모양은 공용 ⑤(붙은 두 칸), 여기는 자리만 — ▾는 보이는 폭 28px, 누르는 범위는 오른쪽 [할 일]을 덮지 않게 왼쪽으로 늘린다(BASKET-업데이트통합). */
-#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-mode="update"]{ flex:0 0 auto; padding-right:4px; }
-#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]{ flex:0 0 28px; width:28px; min-width:28px; padding:0 8px 0 0; }
-#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]::after{ left:calc(28px - var(--kptu-touch-target,44px)); right:0; }
 
 /* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
-#appView #basketView .basket-switch-row .basket-filters:not([hidden]),
-#appView #homeView .home-quick [data-quick-task-options]:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
+#appView #basketView .basket-switch-row .basket-filters:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:var(--ds-chip-row-gap); min-height:0; padding:2px 2px; }
 #appView #basketView .basket-switch-row .basket-filters button,
-#appView #homeView .home-quick [data-quick-task-options] button,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn){
   position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; width:auto; min-width:0;
@@ -718,26 +690,23 @@
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn,.chip-rows-more){ gap:4px; height:var(--ds-chip-row-height); min-height:var(--ds-chip-row-height); padding:0 var(--ds-chip-row-pad-x); font-size:var(--ds-text-meta); }
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn,.chip-rows-more)::after{ top:calc(50% - (var(--ds-chip-row-height,26px) + 4px) / 2); height:calc(var(--ds-chip-row-height,26px) + 4px); left:-2px; right:-2px; }
 #appView #basketView .basket-switch-row .basket-filters button::after,
-#appView #homeView .home-quick [data-quick-task-options] button::after,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project])::after,
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 #appView #basketView .basket-switch-row .basket-filters button[aria-pressed="true"],
-#appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
 #appView #basketView button[data-manual-task-day][aria-pressed="true"],
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
-#appView #homeView .home-quick [data-quick-task-options] button{ max-width:150px; overflow:hidden; text-overflow:ellipsis; }
 
 /* 눌림 색: 누르는 순간 기기 기본 탭 하이라이트(폰에서 민트·파란 빛)가 보이지 않게 끄고, 누르는 동안은 고른 쪽과 같은 회색.
    마우스가 올라가면 아주 옅은 바탕(--kptu-surface-subtle)만. 키보드 포커스 테두리는 그대로. */
 :is(.modal .event-create-modes button,
-  #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
+  #appView #basketView .basket-switch-row .basket-filters button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button){ -webkit-tap-highlight-color:transparent; }
 :is(.modal .event-create-modes button,
-  #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
+  #appView #basketView .basket-switch-row .basket-filters button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 @media(hover:hover){
   :is(.modal .event-create-modes button,
-  #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
+  #appView #basketView .basket-switch-row .basket-filters button,
   #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
 }
 /* 전환 칸 사이 선은 마우스를 올려도 그대로(공용 버튼 :hover의 테두리 색이 선만 진하게 바꾸지 않게). */
@@ -768,8 +737,6 @@
 
 /* 홈 빠른 입력칸(추가 요청): 세 모드 모두 처음엔 한 줄(46px, [추가]와 같은 높이·같은 줄)에서 시작해 길게 쓰면 늘어나고(home-quick.js),
    5줄을 넘으면 칸 안에서 스크롤. [추가]는 입력칸 첫 줄 옆에 그대로 붙어 있다(.home-quick-entry 위쪽 맞춤). */
-#appView #homeView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); max-height:none; padding-top:12px; padding-bottom:11px; line-height:21px; resize:none; overflow-y:auto; }
-#appView #homeView .home-quick .home-quick-entry{ align-items:flex-start; }
 
 /* ⑤ 빈 상태: 프로젝트 상세 기록 칸의 공용 '없음'(.wait-empty)은 다른 기록 줄과 같은 줄 높이 한 줄. */
 #ps3DetailModal [data-ps3-rec-empty]{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); margin:0; }
@@ -918,30 +885,30 @@
    PC(761px~)는 바구니처럼 목록 위. 폰은 위 8-9e-2 빠른 입력 규칙(같은 선택자)이 전환 줄(--kptu-switch-dock) 바로 위에 붙이고,
    자판이 열리면 아래 탭·전환 줄이 숨어 자판 바로 위로 올라간다(공용 KPTUA11y.keyboard). [달력]·[일기] 등의 [+]는 그대로. */
 #appView #tasksView .home-quick{ box-sizing:border-box; display:grid; gap:8px; min-width:0; margin:12px 0; padding:10px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; }
-#appView #tasksView .home-quick :is([data-quick-options],[data-quick-basket-options],[data-quick-file-picker])[hidden]{ display:none; }
+#appView #tasksView .home-quick :is([data-quick-basket-options],[data-quick-file-picker])[hidden]{ display:none; }
 #appView #tasksView .home-quick .home-quick-entry{ display:flex; align-items:stretch; gap:8px; }
 #appView #tasksView .home-quick .home-quick-input-wrap{ position:relative; display:flex; flex:1; min-width:0; }
 #appView #tasksView .home-quick [data-quick-input]{ box-sizing:border-box; flex:1; min-width:0; width:100%; margin:0; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px; font-family:inherit; font-size:14px; line-height:21px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); resize:none; overflow-y:auto; }
 #appView #tasksView .home-quick .home-quick-save{ box-sizing:border-box; position:relative; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:4px var(--ds-control-pad-x); font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); color:var(--kptu-on-primary); background:var(--kptu-primary); border:var(--ds-line-width) solid var(--kptu-primary); border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer; }
 /* UI-할일빠른추가상세: 입력 칸 안 오른쪽 끝 [+](상세 설정으로 추가). 보이는 그림은 16px, 누르는 범위는 44px 이상(입력 칸 높이 46px 전체). 글이 아이콘 밑으로 들어가지 않게 오른쪽을 비운다. */
 #appView #tasksView .home-quick [data-quick-input]{ padding-right:44px; }
-#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; }
-#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail[hidden]{ display:none; }
-#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #tasksView .home-quick .home-quick-detail{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; }
+#appView #tasksView .home-quick .home-quick-detail[hidden]{ display:none; }
+#appView #tasksView .home-quick .home-quick-detail:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView #tasksView .home-quick .home-quick-detail:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 /* BASKET-업데이트통합 PR 2: 홈·바구니 입력 칸 안 오른쪽 끝 [크게](큰 창에서 쓰기). [할 일] 화면 [+]와 같은 자리·크기(그림 16px, 누르는 범위 44px).
    [할 일] 탭에서는 숨는다. 글이 아이콘 밑으로 들어가지 않게 오른쪽을 비운다. */
-#appView :is(#homeView,#basketView) .home-quick [data-quick-input]{ padding-right:44px; }
-#appView :is(#homeView,#basketView) .home-quick .home-quick-big{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; box-shadow:none; }
-#appView :is(#homeView,#basketView) .home-quick .home-quick-big[hidden]{ display:none; }
-#appView :is(#homeView,#basketView) .home-quick .home-quick-big:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-#appView :is(#homeView,#basketView) .home-quick .home-quick-big:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #basketView .home-quick [data-quick-input]{ padding-right:44px; }
+#appView #basketView .home-quick .home-quick-big{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; box-shadow:none; }
+#appView #basketView .home-quick .home-quick-big[hidden]{ display:none; }
+#appView #basketView .home-quick .home-quick-big:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView #basketView .home-quick .home-quick-big:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 #appView #tasksView .home-quick [data-quick-status]{ font-size:12px; color:var(--kptu-danger); }
 /* UI-빈입력안내: 홈·바구니 업데이트 입력에서 글 없이 [추가]를 누르면 입력칸 바로 아래 작은 안내 한 줄(오류 빨강·테두리 없음).
    글자는 목록 빈 안내("아직 업데이트가 없어요")와 같은 크기·회색. 글을 쓰기 시작하면 사라진다(home-quick.js). 폰은 입력칸 아래 순서. */
-#appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-hint{ margin:0; font-size:var(--ds-text-section); line-height:1.5; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-hint:empty{ display:none; }
-@media(max-width:760px){ #appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-hint{ order:3; } }
+#appView :is(#basketView,#tasksView) .home-quick .home-quick-hint{ margin:0; font-size:var(--ds-text-section); line-height:1.5; font-weight:var(--ds-weight-regular,400); color:var(--kptu-muted); }
+#appView :is(#basketView,#tasksView) .home-quick .home-quick-hint:empty{ display:none; }
+@media(max-width:760px){ #appView :is(#basketView,#tasksView) .home-quick .home-quick-hint{ order:3; } }
 #appView #tasksView .home-quick [data-quick-status]:empty{ display:none; }
 #appView #tasksView .home-quick [data-quick-status] button{ min-height:var(--kptu-touch-target,44px); margin-top:4px; }
 #appView #tasksView .home-quick :disabled{ cursor:wait; opacity:.65; }
@@ -964,11 +931,11 @@
 #appView #basketView .basket-edit-actions .basket-clip:hover{ background:var(--kptu-primary-soft); }
 #appView :is(#homeView,#basketView) .basket-clip .basket-clip-icon{ flex:0 0 auto; color:var(--kptu-link); }
 #appView :is(#homeView,#basketView) .basket-clip .basket-clip-count{ top:-6px; right:-6px; }
-#appView :is(#homeView,#basketView) .home-quick-input-wrap .basket-clip .basket-clip-label{ display:none; }
-#appView :is(#homeView,#basketView) .home-quick-input-wrap .basket-clip .basket-clip-count{ top:2px; right:0; }
+#appView #basketView .home-quick-input-wrap .basket-clip .basket-clip-label{ display:none; }
+#appView #basketView .home-quick-input-wrap .basket-clip .basket-clip-count{ top:2px; right:0; }
 @media(min-width:761px){
-  #appView :is(#homeView,#basketView) .home-quick [data-quick-input]{ padding-left:10px; }
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry{ align-items:flex-start; }
+  #appView #basketView .home-quick [data-quick-input]{ padding-left:10px; }
+  #appView #basketView .home-quick .home-quick-entry{ align-items:flex-start; }
 }
 
 /* UI-바구니상세개편(2026-10-20): 업데이트 상세는 카드 하나 — 글(오른쪽 위 작은 아이콘 [원문 토글]·[복사]) · 분류·시각 ·
@@ -1068,18 +1035,18 @@ body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toa
    일정 머리줄([+ 일정 등록]·화살표)은 이번에 제외(다른 작업과 겹침). 바구니 업데이트 입력칸(여러 줄 72px)과 일지 입력칸(2줄)은 높이 그대로. */
 @media(min-width:761px){
   #appView #homeView .journal-line-row button[data-journal-save],
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView :is(#basketView,#tasksView) .home-quick button.home-quick-save{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* 한 줄 입력칸: 글줄 21px + 위 7px·아래 6px + 테두리(화면에 1px씩) = 36px. 홈은 길게 쓰면 지금처럼 늘어나고 5줄에서 멈춘다(home-quick.js). */
-  #appView :is(#homeView,#tasksView) .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView #tasksView .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
+  #appView #basketView .home-quick .home-quick-big,#appView #tasksView .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* UI-버튼크기전수: 머리줄의 [+ HTML]과 [+ 새 공유 페이지]는 한 줄이라 같은 작은 버튼 높이(.btn-row). 이 묶음은 PC 폭(761px~)이고 폰은 첫 줄 네모 작은 +(.sp-add) 하나. */
   #appView #pagesView .sp-root .sp-head-actions.btn-row > button.primary:not(.icon-btn){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
   #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
+  #appView :is(#basketView,#tasksView) .home-quick button.home-quick-save::after,
+  #appView #basketView .home-quick .home-quick-big::after,#appView #tasksView .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
 
 /* UI-PC다듬기묶음 ②(2026-10-20 요청함 16:32): 일정 머리줄 [+ 일정 등록]은 UI-PC버튼36(#758)에서 제외돼 큰 버튼(--ds-control-height 46px)으로 남았고,
@@ -1141,10 +1108,9 @@ body:has(.basket-photo-view) > :is(.kptu-ask,.kptu-notice,.kptu-undo-notice,.toa
    ④ 폰 메뉴 판 타일 여섯은 모두 같은 모양, 높이 56px. */
 html :is(
   #appView #basketView .basket-filters [aria-pressed="true"],
-  #appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"],
+  #appView #basketView button[data-manual-task-day][aria-pressed="true"],
   #appView #basketView .basket-manual-record-toggle[aria-pressed="true"],
   #appView #basketView .basket-switch-row .basket-filters button[aria-pressed="true"],
-  #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
   #appView #basketView button[data-manual-task-day][aria-pressed="true"],
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
   #appView #ledgerView .lb-chip:has(input:checked),
@@ -1195,7 +1161,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* UI-입력칸첨부간격(2026-10-30): 폰(~760px)에서 클립이 입력칸 안 왼쪽에 있을 때 글자 시작 자리는 이 한 규칙이 정한다(홈 업데이트·할 일,
    정리함 업데이트, 노트, [할 일] 화면 모두). 클립 칸(왼쪽 1px + 44px) 오른쪽 끝에서 8px 띄운다. 전에는 화면·모드마다 44px·46px이라 글자가 클립 칸에 붙었다.
    PC(761px~)도 같다(NOTE-입력줄높이 S71-67: 클립은 늘 입력칸 안). */
-#appView :is(#homeView,#basketView,#tasksView) .home-quick .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:calc(1px + var(--kptu-touch-target,44px) + 8px); }
+#appView :is(#basketView,#tasksView) .home-quick .home-quick-input-wrap:has(> [data-quick-file-picker]:not([hidden])) [data-quick-input]{ padding-left:calc(1px + var(--kptu-touch-target,44px) + 8px); }
 #appView #tasksView .home-quick [data-quick-basket-options]{ min-width:0; }
 /* UI-버튼기준(2026-10-22 사용자 결정): 안내·상태 줄 안의 보조 버튼은 글자 버튼. 일정 '최신 아님 · 마지막 확인 HH:MM [다시 시도]' 줄이 위
    화면별 기본 버튼 규칙(높이 46px·테두리)을 그대로 받아 안내 글자보다 커 보였다. 안내 글자 옆 작은 글자 버튼(보이는 높이 --ds-compact-height-sm 28px·
@@ -1242,14 +1208,14 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 #appView #homeView .journal-line-row button[data-journal-save]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ⑦ 폰 빠른 입력 [추가] 46 → 36px(입력칸 첫 줄 가운데), 입력칸 안 [큰 창에서 쓰기]는 보이는 32px. 누르는 범위 44px. */
 @media(max-width:760px){
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save{
+  #appView :is(#basketView,#tasksView) .home-quick button.home-quick-save{
     position:relative; align-self:flex-start; height:var(--kptu-control-height); min-height:var(--kptu-control-height); margin-top:calc((var(--ds-control-height) - var(--kptu-control-height)) / 2);
   }
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big,
-  #appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ top:calc((var(--ds-control-height) - var(--ds-compact-height)) / 2); height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,
-  #appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
+  #appView #basketView .home-quick .home-quick-big,
+  #appView #tasksView .home-quick .home-quick-detail{ top:calc((var(--ds-control-height) - var(--ds-compact-height)) / 2); height:var(--ds-compact-height); min-height:var(--ds-compact-height); }
+  #appView :is(#basketView,#tasksView) .home-quick button.home-quick-save::after,
+  #appView #basketView .home-quick .home-quick-big::after,
+  #appView #tasksView .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
 
 /* TEST-홈빠른입력안정화(2026-10-22): 할 일 첨부 확인이 오기 전에는 첨부 자리를 보이지 않게 잡아 둔다(home-quick.js·task-files.js).
@@ -1654,7 +1620,7 @@ button.report-filter-chip.is-on{ border-color:var(--ds-select-line,var(--kptu-bo
 body.kptu-mobile-keyboard :is(
   .mobile-tabs,
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#diaryView #newDiaryBtn),
-  #appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick],
+  #appView :is(#basketView,#tasksView) .home-quick[data-home-quick],
   #appView :is(.schedule-switch,.nv-switch,.so-team-tabs,.rd-switch),
   .save-row-sticky,
   #appView #photosView .photos-act,
@@ -1683,7 +1649,7 @@ body.kptu-mobile-keyboard .modal:not(.ed-window) > .modal-card{ max-height:100% 
 /* UI-펼침표시(S48-30, 요청함 10/23 11:09 사이트 공통 규칙 ②): 고를 거리를 여는 버튼은 이름 뒤(오른쪽)에 작은 ▾ 하나.
    글자로 ▾를 쓴 버튼(사업영역 ▾·폴더 ▾ 등)과 같은 자리이며, 이름(글자·읽어 주는 이름)은 그대로 두고 그림 글자만 더한다(`/ ""`).
    ::after는 누르는 범위(44px)가 쓰는 버튼이 많아 ::before에 둔다(flex 버튼은 order, 그 밖은 float로 글자 뒤). */
-:is(#libraryListCard .lu-select-act[aria-haspopup], button[data-quick-day="week"], button[data-manual-task-day="week"], button[data-task-due-quick="week"], button[data-gt-due-quick="week"])::before{ content:"▾"; content:"▾" / ""; float:right; order:2; margin-left:4px; font-size:.85em; opacity:.7; }
+:is(#libraryListCard .lu-select-act[aria-haspopup], button[data-manual-task-day="week"], button[data-task-due-quick="week"], button[data-gt-due-quick="week"])::before{ content:"▾"; content:"▾" / ""; float:right; order:2; margin-left:4px; font-size:.85em; opacity:.7; }
 
 /* UI-줄버튼(S49-20, 요청함 11/04 00:10): 목록 줄 안의 작은 동작 버튼(숨기기·꺼내기·빼기·끊기 등)은 테두리·바탕 없는 작은 회색 글자 한 규칙.
    보이는 글자는 '고정' 꼬리표와 같은 크기이고, 누르는 범위는 줄 높이만큼(::after) 둔다. 새 줄 버튼은 class="row-act"만 붙인다(docs/design-decisions.md UI-버튼기준 '줄 안 동작 버튼'). */
@@ -1838,16 +1804,16 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
    홈·잊지 말기·노트·[할 일])은 한 줄 = [입력칸(안 왼쪽 클립 = 첨부, 안 오른쪽 ⤢ = 크게)] [폴더 아이콘](노트만) [추가](글자·진한 바탕).
    세 칸은 폰·폴드·PC 모두 같은 높이 하나(--ds-quick-row-height 40px). 칸 안 클립·⤢는 칸 안쪽 높이(40 - 2), 누르는 범위는 ::after로 44px.
    홈은 길게 쓰면 지금처럼 글만큼 늘고(home-quick.js size, 5줄까지) 단추는 첫 줄 옆에 그대로 있다. 다른 화면 CSS는 이 높이를 따로 정하지 않는다. */
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry{ align-items:flex-start; gap:6px; }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry{ align-items:flex-start; gap:6px; }
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{
   box-sizing:border-box; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); padding-top:9px; padding-bottom:8px; line-height:21px; font-size:14px;
 }
 /* 늘지 않는 칸(잊지 말기·노트·[할 일]): 한 줄 고정, 넘치는 글은 칸 안에서 넘긴다(반쪽 줄이 보이지 않게 줄 높이 = 칸 안 높이). */
 #appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry [data-quick-input]{ resize:none; max-height:var(--ds-quick-row-height); padding-top:0; padding-bottom:0; line-height:calc(var(--ds-quick-row-height) - 2px); }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-kind:not([hidden])){
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder){
   box-sizing:border-box; position:relative; flex:0 0 auto; align-self:flex-start; height:var(--ds-quick-row-height); min-height:var(--ds-quick-row-height); max-height:none; margin:0;
 }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry .home-quick-save{
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry .home-quick-save{
   min-width:0; padding:0 14px; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1;
   color:var(--kptu-on-primary); background:var(--kptu-primary); border:0; border-radius:var(--ds-radius-control);
 }
@@ -1865,10 +1831,10 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
 #appView #basketView .home-quick .home-quick-folder .home-quick-folder-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:760px){ #appView #basketView .home-quick[data-home-quick] .home-quick-entry .home-quick-folder{ max-width:6.5em; } }
 /* 칸 안 클립(첨부)·⤢(크게): 폭 44px · 높이는 칸 안쪽(40 - 2), 누르는 범위 44px. 글자 시작 자리는 위 'UI-입력칸첨부간격' 규칙 하나. */
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker]{ position:absolute; top:1px; left:1px; z-index:1; width:var(--kptu-touch-target,44px); height:calc(var(--ds-quick-row-height) - 2px); flex:none; }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker] .basket-clip{ position:relative; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; padding:0; border:0; background:transparent; }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap :is(.home-quick-big,.home-quick-detail){ top:1px; right:1px; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; }
-#appView :is(#homeView,#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-kind:not([hidden]),.home-quick-big,.home-quick-detail,.basket-clip)::after{
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker]{ position:absolute; top:1px; left:1px; z-index:1; width:var(--kptu-touch-target,44px); height:calc(var(--ds-quick-row-height) - 2px); flex:none; }
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap > [data-quick-file-picker] .basket-clip{ position:relative; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; padding:0; border:0; background:transparent; }
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-input-wrap :is(.home-quick-big,.home-quick-detail){ top:1px; right:1px; width:var(--kptu-touch-target,44px); min-width:0; height:calc(var(--ds-quick-row-height) - 2px); min-height:0; }
+#appView :is(#basketView,#tasksView) .home-quick[data-home-quick] .home-quick-entry :is(.home-quick-save,.home-quick-folder,.home-quick-big,.home-quick-detail,.basket-clip)::after{
   content:""; position:absolute; inset:auto; left:calc(50% - max(50%, var(--kptu-touch-target,44px) / 2)); right:auto; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:max(100%, var(--kptu-touch-target,44px)); min-width:0; height:var(--kptu-touch-target,44px);
 }
 
@@ -1979,11 +1945,6 @@ body:has(.modal:not(.hidden):not([role="region"]), #appView .view-panel:not(.hid
   .nbx-item .nbx-acts{ opacity:0; }
   .nbx-item:hover .nbx-acts,.nbx-item:focus-within .nbx-acts,.nbx-item .nbx-acts:has([aria-expanded="true"]){ opacity:1; }
 }
-/* S53-13 HOME-잊지말기칩(요청함 11/08 13:54, 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'): 홈 '잊지 말기' 띠 한 줄 대신
-   입력 칸 머리 줄 오른쪽 ④ 칩 하나. 모양은 공용 칩(button.ds-chip) 그대로, 색만 위 forget 톤(톤다운 노랑)·숫자는 .nbx-badge(빨강).
-   처리 안 한 것이 없으면(data-chip-empty) 칩만 흐리게. 폰·폴드 펼침·PC 같은 규칙(자리만 home-quick.css). */
-button.ds-chip[data-chip-tone="forget"]{ color:var(--kptu-warning); background:var(--kptu-warning-soft); }
-button.ds-chip[data-chip-tone="forget"][data-chip-empty]{ color:var(--kptu-faint); background:transparent; }
 
 /* FORGET-기본이미함(S70-20b): 줄 앞 ★(중요 — 글자에 섞지 않고 앞에만 그림, 읽기 프로그램에는 '중요')와 접힌 한 줄 묶음(notice-box.mjs groupHtml). */
 .nbx-item[data-nbx-star] > .nbx-body::before{ content:"★ " / "중요 "; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium,500); }

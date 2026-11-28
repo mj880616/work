@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APP-위젯다시 ②: 빠른 쓰기(2×1). 자주 쓰는 [업데이트] [할 일] 두 개. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다.
+<!-- APP-위젯다시 ②: 빠른 쓰기(2×1). 자주 쓰는 [할 일] [노트] 두 개. 안드로이드 12+에서 칸이 좁으면 홈 화면이 이 그림을 고른다.
      APP-위젯먹색 S68-06(11/22): 단추는 한 칸 위젯과 같은 정사각 둥근 먹색 칸 + 흰 그림, 이름은 칸 아래.
      S68-11(11/22): 칸은 그림 한 장(widget_tile_*)을 이름 줄 위 남는 공간 전체에 fitCenter로 그려 위젯이 실제로 받은 공간에서
      가장 큰 정사각이 된다(크기 계산 없음). 좌우는 칸 폭의 14%씩 비운다(무게 14 : 72 : 14).
@@ -18,7 +18,7 @@
         android:layout_weight="1"
         android:background="@drawable/widget_day_plain"
         android:clickable="true"
-        android:contentDescription="업데이트"
+        android:contentDescription="할 일"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
@@ -43,7 +43,7 @@
                 android:adjustViewBounds="true"
                 android:importantForAccessibility="no"
                 android:scaleType="fitCenter"
-                android:src="@drawable/widget_tile_update" />
+                android:src="@drawable/widget_tile_task" />
 
             <TextView
                 android:layout_width="0dp"
@@ -53,7 +53,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="업데이트"
+            android:text="할 일"
             android:singleLine="true"
             android:ellipsize="end"
             android:textColor="@color/widget_ink"
@@ -70,7 +70,7 @@
         android:layout_weight="1"
         android:background="@drawable/widget_day_plain"
         android:clickable="true"
-        android:contentDescription="할 일"
+        android:contentDescription="노트"
         android:focusable="true"
         android:gravity="center"
         android:minHeight="40dp"
@@ -95,7 +95,7 @@
                 android:adjustViewBounds="true"
                 android:importantForAccessibility="no"
                 android:scaleType="fitCenter"
-                android:src="@drawable/widget_tile_task" />
+                android:src="@drawable/widget_tile_note" />
 
             <TextView
                 android:layout_width="0dp"
@@ -105,7 +105,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="할 일"
+            android:text="노트"
             android:singleLine="true"
             android:ellipsize="end"
             android:textColor="@color/widget_ink"

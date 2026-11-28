@@ -160,7 +160,7 @@ test.describe('폰 앱 412', () => {
     await expect(viewer(page)).toBeVisible();
     await viewer(page).locator('[data-diary-share]').click();
     // 공유 창 길이 없는 옛 앱: 메뉴에 [다른 앱으로 공유…]가 없다(나머지 항목은 그대로).
-    await expect(page.locator('#shareMenu').locator('button:visible')).toHaveText(['사진 복사', '하루 기록에 넣기', '업데이트로 보내기', '받기']);
+    await expect(page.locator('#shareMenu').locator('button:visible')).toHaveText(['사진 복사', '하루 기록에 넣기', '받기']);
     await page.keyboard.press('Escape');
     await expect(viewer(page).locator('[data-diary-viewer-note] [data-wait]')).toHaveCount(0);
 

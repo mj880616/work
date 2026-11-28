@@ -85,7 +85,7 @@ for(const width of [390,1280]){
   await page.setViewportSize({width,height:900});
   const seen=await fixture(page,{notes:[{id:'rich',raw_text:RICH,occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[]}]});
   const detail=page.locator('[data-basket-detail]'),read=detail.locator('[data-basket-read-text]');
-  await press(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);
+  await press(page,page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);
   await press(page,page.locator('[data-basket-row="rich"]'),width);
   await expect(read).toHaveClass(/md-body/);
   const chip=read.locator('button.md-image-chip');
@@ -117,36 +117,17 @@ for(const width of [390,1280]){
   expect(seen.errors).toEqual([]);
  });
 
- test(`pasted ChatGPT HTML becomes a .html attachment and shows in a sandbox that reaches nothing ${width}`,async({page},info)=>{
+ test(`a ChatGPT HTML attachment shows in a sandbox that reaches nothing ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:900});
   const reply=(route,body)=>route.fulfill({json:{ok:true,file_name:'chatgpt-20261006-1000.html',size:PROBE.length,html:PROBE}});
   const notes=[{id:'pasted',raw_text:'📄 ChatGPT HTML',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'html_1',file_name:'chatgpt-20261006-1000.html',mime_type:'text/html',size_bytes:PROBE.length}]}];
   const seen=await fixture(page,{notes,htmlReply:reply});
   await page.evaluate(()=>{window.__copied=null;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:text=>{window.__copied=text;return Promise.resolve();}}});});
-  await press(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);
+  await press(page,page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);
   // BASKET-AI메뉴삭제: [GPT 답변 가져오기] is gone (there is no [⋯ 더보기]).
   await expect(page.locator('#basketView [data-basket-more]')).toHaveCount(0);
-  // Pasting a whole document into the basket input turns it into an attachment and leaves a short mark.
-  const quick=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=quick.locator('[data-quick-input]');
-  await input.fill('오늘 받은 답변\n');
-  await input.evaluate(el=>el.setSelectionRange(el.value.length,el.value.length));
-  const pasted=await input.evaluate((el,html)=>{const data=new DataTransfer();data.setData('text/plain','설명\n\n```html\n'+html+'\n```\n끝');const ev=new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true});el.dispatchEvent(ev);return ev.defaultPrevented;},PROBE);
-  expect(pasted).toBe(true);
-  await expect(input).toHaveValue('오늘 받은 답변\n설명\n📄 ChatGPT HTML\n끝');
-  await expect(quick.locator('[data-basket-file]')).toHaveCount(1);
-  await expect(quick.locator('[data-basket-file] b')).toHaveText(/^chatgpt-\d{8}-\d{4}\.html$/);
-  // A short fragment is pasted as ordinary text.
-  const plain=await input.evaluate(el=>{const data=new DataTransfer();data.setData('text/plain','<div>조각</div>');const ev=new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true});el.dispatchEvent(ev);return ev.defaultPrevented;});
-  expect(plain).toBe(false);
-  await press(page,quick.locator('[data-quick-save]'),width);
-  await expect.poll(()=>seen.uploads.length).toBe(1);
-  expect(seen.uploads[0]).toMatch(/filename="chatgpt-\d{8}-\d{4}\.html"\r\nContent-Type: text\/html/);
-  expect(seen.notePosts.map(x=>x.raw_text)).toEqual(['오늘 받은 답변\n설명\n📄 ChatGPT HTML\n끝']);
-  expect(seen.uploads[0]).toContain('name="note_id"\r\n\r\npasted');expect(seen.uploads[0]).not.toContain('name="raw_text"');
-  expect(seen.uploads[0]).toContain('<div class="card" id="card">');
-  // 뒤 올리기가 끝나면 목록을 한 번 더 읽는다 — 그 읽기가 끝난 뒤 줄을 누른다.
-  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(0);
-
+  // QUICK-입력정리(2026-11-28): 잊지 말기 손 입력칸은 지웠다 — 붙여 넣기로 .html을 만드는 길은 노트 입력칸(basket-note-html.spec)이 본다.
+  // 여기서는 이미 있는 업데이트의 .html 첨부를 읽기 화면이 칸막이 안에 보여 주는지만 본다.
   // The reading screen shows the attachment in a sandboxed frame.
   const probe=page.evaluate(()=>new Promise(resolve=>addEventListener('message',e=>{if(e.data?.type==='web2-test-probe')resolve(e.data.result);})));
   await press(page,page.locator('[data-basket-row="pasted"]'),width);
@@ -206,7 +187,7 @@ test('an older server, a refused page and a page over 2MB show a notice instead 
  const file=(id,size=100)=>({drive_file_id:id,file_name:`${id}.html`,mime_type:'text/html',size_bytes:size});
  const notes=[{id:'n',raw_text:'',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[file('old'),file('big',2*1024*1024+1),file('refused')]}];
  const seen=await fixture(page,{notes,htmlReply:(route,body)=>body.drive_file_id==='old'?route.fulfill({status:400,json:{error:'document_id가 필요합니다.'}}):route.fulfill({status:400,json:{error:'Drive 원본이 휴지통에 있습니다.',code:'DRIVE_FILE_TRASHED'}})});
- await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
+ await page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
  await page.locator('[data-basket-row="n"]').click();
  await expect(page.locator('[data-basket-html-view="old"]')).toContainText('HTML 보기 서버가 아직 준비되지 않았어요');
  await expect(page.locator('[data-basket-html-view="big"]')).toContainText('2MB보다 큰 HTML은 화면으로 보지 않아요');
@@ -217,13 +198,3 @@ test('an older server, a refused page and a page over 2MB show a notice instead 
  await expect(page.locator('[data-basket-share]')).toBeHidden();
 });
 
-test('a pasted HTML document over 2MB is not attached',async({page})=>{
- await page.setViewportSize({width:1280,height:900});
- await fixture(page,{notes:[]});
- const quick=page.locator('#homeView [data-home-quick]'),input=quick.locator('[data-quick-input]');
- const prevented=await input.evaluate(el=>{const data=new DataTransfer();data.setData('text/plain','<!doctype html><p>'+'가'.repeat(700000)+'</p>');const ev=new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true});el.dispatchEvent(ev);return ev.defaultPrevented;});
- expect(prevented).toBe(true);
- await expect(quick.locator('[data-quick-status]')).toContainText('2MB를 넘어');
- await expect(quick.locator('[data-basket-file]')).toHaveCount(0);
- await expect(input).toHaveValue('');
-});

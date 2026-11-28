@@ -107,6 +107,8 @@ test('the update window has no switch to a note, no autosave and no browser stor
   const banned = [['local', 'Storage'], ['session', 'Storage'], ['indexed', 'DB'], ['set', 'Interval']].map(parts => parts.join(''));
   for (const word of banned) assert.ok(!win.includes(word), word);
   assert.ok(!/import[^;]*(createNoteDoc|md-editor|write-window)/.test(win));
-  assert.match(readFileSync('app/home-quick.js', 'utf8'), /updateVia:async\(letters,list,doc\)=>\{[^}]*save\(\{doc\}\)/);
+  // QUICK-입력정리(2026-11-28): 홈·잊지 말기 입력칸의 [크게](updateVia)는 입력칸째 지웠다. 창은 자기 저장 길 하나만 쓴다.
+  assert.ok(!/updateVia/.test(win));
+  assert.doesNotMatch(readFileSync('app/home-quick.js', 'utf8'), /update-window|updateVia/);
   assert.match(readFileSync('app/basket.js', 'utf8'), /saveUpdateDoc\(id, \{raw_text:changes\.raw_text, doc:changes\.doc, version:changes\.version\}\)/);
 });

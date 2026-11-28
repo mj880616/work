@@ -27,12 +27,16 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S70-72 FILES-상세칸정리: DB(20261126090000, 같은 PR, #3124 reading_split 뒤) files_prev_shut을 화면 허용 목록에도 더했다(적용 전에는 접음 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-84 BRIEF-두칸폴더: DB(20261126120000, 같은 PR, #3138 files_prev_shut 뒤) brief_sort·split_ratio.brief를 화면 허용 목록에도 더했다(적용 전에는 정렬·폭 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S71-50 NOTE-보드배경색: DB(20261126220000, 같은 PR, brief_room 뒤) note_board_bg를 화면 허용 목록에도 더했다(적용 전에는 바탕색 저장만 거절, 기본 바탕). DB에만 있는 칸은 없다.
-const DB_ONLY = [];
+// SHARE-노트로: DB(20261128190000, #3316, brief_lens 뒤) share_folder를 화면 허용 목록에도 더했다(적용 전에는 공유 폴더 기억만 거절, 공유 노트는 폴더 밖).
+// brief_lens(20261128130100)는 DB에만 있다 — 화면 쪽은 BRIEF-품질올리기 PR(#3307)이 더한다. 그 PR이 들어오면 이 목록을 비운다.
+const DB_ONLY = ['brief_lens'];
 test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut·BRIEF-두칸폴더 brief_sort·NOTE-보드배경색 note_board_bg)와 같다', () => {
-  const sql = read('supabase/migrations/20261126220000_profile_view_prefs_note_board_bg.sql');
+  const sql = read('supabase/migrations/20261128190000_profile_view_prefs_share_folder.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 66);
+  assert.equal(KEYS.length, 67);
+  for (const v of ['0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d']) assert.equal(validValue('share_folder', v), true, v);
+  for (const v of ['0B1C2D3E-4F50-4A6B-8C7D-9E0F1A2B3C4D', '', 'abc', ' 0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', null, 1, {}]) assert.equal(validValue('share_folder', v), false, JSON.stringify(v));
   // note_board_bg 색 이름이 DB 검사 목록·화면 목록(view-prefs.js NOTE_BOARD_BGS)과 같다.
   const bgNames = [...sql.match(/@\.value\.type\(\) != "string" \|\| !\(([^)]*)\)\)/)[1].matchAll(/@\.value == "([a-z]+)"/g)].map(m => m[1]);
   assert.deepEqual(bgNames, ['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);

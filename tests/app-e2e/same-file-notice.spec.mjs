@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 
-// UX-이미있는파일알림(S60-15): 자료실에 있는 한글 파일을 다른 넣는 곳(홈 빠른 입력 📎 — 노트·정리함·업데이트·조직 기록 📎과 같은 고르기 부품)에 넣으면
+// UX-이미있는파일알림(S60-15): 자료실에 있는 한글 파일을 다른 넣는 곳([할 일] 입력칸 📎 — 노트·업데이트·조직 기록 📎과 같은 고르기 부품. QUICK-입력정리로 홈 빠른 입력은 지움)에 넣으면
 // 올리기 전에 '이미 있는 자료예요 · 자료실 › 폴더 › 이름 · 날짜'가 뜨고, [올리지 않기]는 그 파일만 빼고 [그래도 올리기]는 그대로 둔다.
 // Supabase REST는 합성(소유자 RLS 흉내: 내 작업공간 줄만), 화면은 실제 앱이다.
 test.use({hasTouch: true});
@@ -28,12 +28,16 @@ async function fixture(page, width) {
   });
   await page.route('**/rest/v1/app_library_folder_items?**', r => r.fulfill({json: [{document_id: DOC, folder_id: FOLDER}]}));
   await page.route('**/rest/v1/app_library_folders?**', r => r.fulfill({json: [{id: FOLDER, name: '예시 폴더'}]}));
+  // [할 일] 화면 입력칸의 📎(할 일 첨부 표가 있다고 목록 읽기가 답하면 보인다).
+  await page.evaluate(() => window.KPTURouter.go('tasks'));
+  await expect(page.locator('#tasksView [data-home-quick] input[type=file]').first()).toBeAttached();
+  await expect(page.locator('#tasksView [data-home-quick] [data-quick-file-picker]')).toBeVisible();
   return {reads, errors};
 }
 
-for (const width of [412, 1280]) test(`이미 있는 파일 알림 · 홈 📎 ${width}`, async ({page}) => {
+for (const width of [412, 1280]) test(`이미 있는 파일 알림 · [할 일] 📎 ${width}`, async ({page}) => {
   const {reads, errors} = await fixture(page, width);
-  const q = page.locator('#homeView [data-home-quick]');
+  const q = page.locator('#tasksView [data-home-quick]');
   const input = q.locator('input[type=file]').first();
   await input.setInputFiles([{name: '예시 보도자료.hwp', mimeType: 'application/x-hwp', buffer: HWP}, {name: '새 파일.txt', mimeType: 'text/plain', buffer: Buffer.from('new')}]);
   const ask = page.locator('.kptu-ask.same-file-ask');
@@ -61,7 +65,7 @@ for (const width of [412, 1280]) test(`이미 있는 파일 알림 · 홈 📎 $
 test('같은 것이 없으면 묻지 않는다 · 찾기가 실패해도 그대로 담긴다', async ({page}) => {
   await fixture(page, 412);
   await page.route('**/rest/v1/app_notes?**attachments=cs.**', r => r.fulfill({status: 500, json: {message: 'QA'}}));
-  const q = page.locator('#homeView [data-home-quick]');
+  const q = page.locator('#tasksView [data-home-quick]');
   await q.locator('input[type=file]').first().setInputFiles([{name: '다른 파일.hwp', mimeType: 'application/x-hwp', buffer: HWP}]);
   await expect(q.locator('[data-basket-file] b')).toHaveText(['다른 파일.hwp']);
   await page.waitForTimeout(300);

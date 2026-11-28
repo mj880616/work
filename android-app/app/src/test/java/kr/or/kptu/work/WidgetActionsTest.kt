@@ -26,15 +26,51 @@ class WidgetActionsTest {
     private fun attr(e: Element, name: String): String = e.getAttributeNS(android, name)
 
     @Test
-    fun quickCellsAreUpdateTaskNotePhoto() {
-        assertEquals(listOf(WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE, WidgetAction.PHOTO), WidgetActions.QUICK)
-        assertEquals(listOf("업데이트", "할 일", "노트", "사진"), WidgetActions.QUICK.map { it.label })
+    fun quickCellsAreTaskNotePhoto() {
+        assertEquals(listOf(WidgetAction.TASK, WidgetAction.NOTE, WidgetAction.PHOTO), WidgetActions.QUICK)
+        assertEquals(listOf("할 일", "노트", "사진"), WidgetActions.QUICK.map { it.label })
     }
 
     @Test
-    fun oneWidgetChoicesAreTheFiveAsked() {
+    fun noUpdateCellAnywhere() {
+        // 사용자 결정(0.5.32): [업데이트] 칸은 숨김이 아니라 코드·레이아웃·그림에서 없앴다.
+        assertEquals(listOf("task", "note", "photo", "record"), WidgetAction.values().map { it.id })
+        assertNull(WidgetActions.fromId("update"))
+        assertNull(WidgetActions.writeKind("update"))
+        assertFalse(WidgetActions.QUICK.any { it.label == "업데이트" })
+        assertFalse(WidgetActions.ONE_CHOICES.any { it.label == "업데이트" })
+        assertFalse(File("src/main/res/drawable/widget_tile_update.xml").exists())
+        for (name in listOf("quick_widget", "quick_widget_small", "one_widget")) {
+            val text = File("src/main/res/layout/$name.xml").readText()
+            assertFalse(name, text.contains("업데이트\"") || text.contains("widget_tile_update"))
+        }
+        for (f in listOf("ActionWidgets.kt", "WidgetActions.kt", "QuickWriteRules.kt", "QuickWrite.kt", "MainActivity.kt")) {
+            val text = File("src/main/java/kr/or/kptu/work/$f").readText()
+            assertFalse(f, text.contains("WidgetAction.UPDATE") || text.contains("widget_tile_update") || text.contains("write=update") || text.contains("write:open:update"))
+        }
+        assertFalse(File("src/main/res/values/strings.xml").readText().contains("업데이트·"))
+        // 앱이 웹에 보내는 쓰기 종류는 할 일·노트뿐이다.
+        for (a in WidgetAction.values().filter(WidgetActions::isWrite)) {
+            assertTrue(a.id, a.id == "task" || a.id == "note")
+        }
+    }
+
+    @Test
+    fun oldSavedUpdateChoiceShowsAsNote() {
+        // 이미 놓인 한 칸 위젯이 저장해 둔 옛 값은 아무 일도 안 하는 칸이 되지 않고 [노트]로 읽는다.
+        assertEquals(WidgetAction.NOTE, WidgetActions.chosen("update"))
+        assertEquals(WidgetAction.NOTE, WidgetActions.chosen(WidgetActions.LEGACY_UPDATE))
+        assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "note"), WidgetActions.target(WidgetActions.chosen("update")!!))
+        // 남은 값은 그대로, 모르는 값은 여전히 놓지 않는다.
+        assertEquals(WidgetAction.TASK, WidgetActions.chosen("task"))
+        assertNull(WidgetActions.chosen("Update"))
+        assertNull(WidgetActions.chosen("delete"))
+    }
+
+    @Test
+    fun oneWidgetChoicesAreTheFourAsked() {
         assertEquals(
-            listOf(WidgetAction.NOTE, WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.PHOTO, WidgetAction.RECORD),
+            listOf(WidgetAction.NOTE, WidgetAction.TASK, WidgetAction.PHOTO, WidgetAction.RECORD),
             WidgetActions.ONE_CHOICES,
         )
         assertEquals(WidgetAction.RECORD, WidgetActions.chosen("record"))
@@ -45,8 +81,6 @@ class WidgetActionsTest {
 
     @Test
     fun eachCellOpensTheRightPlace() {
-        assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "update"), WidgetActions.target(WidgetAction.UPDATE))
-        assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "update"), WidgetActions.bigTarget(WidgetAction.UPDATE))
         assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "task"), WidgetActions.target(WidgetAction.TASK))
         assertEquals(WidgetActions.Target("MainActivity", "kr.or.kptu.work.action.WIDGET_WRITE", "task"), WidgetActions.bigTarget(WidgetAction.TASK))
         assertEquals(WidgetActions.Target("QuickWriteActivity", "kr.or.kptu.work.action.WIDGET_QUICK_WRITE", "note"), WidgetActions.target(WidgetAction.NOTE))
@@ -59,7 +93,6 @@ class WidgetActionsTest {
 
     @Test
     fun writeAddressAndBridgeMessageOnlyForWriteKinds() {
-        assertEquals("https://workonplus.com/work/app/?write=update", WidgetActions.writeUrl(WidgetAction.UPDATE))
         assertEquals("https://workonplus.com/work/app/?write=task", WidgetActions.writeUrl(WidgetAction.TASK))
         assertEquals("https://workonplus.com/work/app/?write=note", WidgetActions.writeUrl(WidgetAction.NOTE))
         assertEquals("write:open:note", WidgetActions.writeMessage(WidgetAction.NOTE))
@@ -180,7 +213,7 @@ class WidgetActionsTest {
         assertEquals("12sp", attr(label, "textSize"))
         assertTrue(attr(label, "shadowRadius").isNotEmpty())
         // 먹색 하나: 칸 모양 파일은 먹색 토큰, 낮·밤 모두 같은 먹(앱 테마 기본 먹 #22262b).
-        for (a in listOf("update", "task", "note", "photo", "record")) {
+        for (a in listOf("task", "note", "photo", "record")) {
             assertTrue(a, File("src/main/res/drawable/widget_tile_$a.xml").readText().contains("@color/widget_one_bg"))
         }
         for (p in listOf("src/main/res/values/colors.xml", "src/main/res/values-night/colors.xml")) {

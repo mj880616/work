@@ -121,7 +121,7 @@ async function basket(page){
  return {errors,deleted,confirmed,links};
 }
 // S71-58 FORGET-처리전만: 연결된(처리한) 업데이트는 잊지 말기 목록에 없다 — 줄 칩 ×도 없다. 상세는 다른 화면이 여는 것과 같은 요청 길로 연다.
-async function openList(page,width){await tap(page,page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);}
+async function openList(page,width){await tap(page,page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first(),width);await expect(page.locator('#basketView [data-forget-section]')).toBeVisible();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);}
 // The × paints 24px but answers anywhere in a 44px square around its center.
 async function hitArea(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;return [[-21,0],[21,0],[0,-21],[0,21]].every(([dx,dy])=>el.contains(document.elementFromPoint(cx+dx,cy+dy)));});}
 

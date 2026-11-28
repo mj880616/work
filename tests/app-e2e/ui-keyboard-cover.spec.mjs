@@ -60,17 +60,18 @@ async function sweep(page,scope,limit=10){
 }
 const bad=results=>results.filter(r=>!r.visible||r.blockers.length||!r.marked);
 
-for(const [width,height] of [[412,915],[344,882]])test(`홈 ${width}: 업무일지 칸을 누르면 빠른 입력·[업데이트|할 일]·아래 탭이 숨고 칸이 자판 위로, 자판을 내리면 돌아옴`,async({page})=>{
+for(const [width,height] of [[412,915],[344,882]])test(`홈 ${width}: 업무일지 칸을 누르면 아래 탭이 숨고 칸이 자판 위로, 자판을 내리면 돌아옴`,async({page})=>{
  const errors=await boot(page,width,height);
- const quick=page.locator('#homeView [data-home-quick]'),tabs=page.locator('#appView > .mobile-tabs');
+ // QUICK-입력정리(2026-11-28): 홈 빠른 입력 막대는 지웠다. 빠른 입력 줄이 자판 바로 위에 붙는 것은 [할 일] 화면 입력칸으로 본다.
+ const quick=page.locator('#tasksView [data-home-quick]'),tabs=page.locator('#appView > .mobile-tabs');
  const field=page.locator('#homeView [data-journal-input]');
- await expect(field).toBeVisible();await expect(quick).toBeVisible();await expect(tabs).toBeVisible();
+ await expect(field).toBeVisible();await expect(page.locator('#homeView [data-home-quick]')).toHaveCount(0);await expect(tabs).toBeVisible();
  // 칸을 화면 아래(빠른 입력 줄 뒤)로 내려 둔 채 누른다: 자판이 열리면 칸이 가려질 자리.
  await field.evaluate(el=>{const r=el.getBoundingClientRect();scrollBy(0,r.top-(innerHeight-90));el.focus({preventScroll:true});});
  await resizeKeyboard(page,width,height,true);
  await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);
  await expect(field).toHaveAttribute('data-keyboard-field','');
- await expect(quick).toBeHidden();await expect(tabs).toBeHidden();
+ await expect(tabs).toBeHidden();
  const at=await page.evaluate(coverCheck);
  expect(at,JSON.stringify(at)).toMatchObject({visible:true,blockers:[]});
  // 칸 아래 1~2줄 여유.
@@ -78,9 +79,10 @@ for(const [width,height] of [[412,915],[344,882]])test(`홈 ${width}: 업무일�
  // 자판을 내리면 숨긴 줄이 돌아오고 표시가 없어진다.
  await resizeKeyboard(page,width,height,false);
  await expect(page.locator('body')).not.toHaveClass(/kptu-mobile-keyboard/);
- await expect(quick).toBeVisible();await expect(tabs).toBeVisible();
+ await expect(tabs).toBeVisible();
  await expect(page.locator('[data-keyboard-field]')).toHaveCount(0);
- // 빠른 입력 줄 자체에 쓸 때는 그 줄만 남아 자판 바로 위.
+ // 빠른 입력 줄 자체에 쓸 때는 그 줄만 남아 자판 바로 위([할 일] 화면).
+ await page.evaluate(()=>{document.activeElement?.blur?.();window.KPTURouter.go('tasks');});await expect(quick).toBeVisible();
  await quick.locator('[data-quick-input]').focus();await resizeKeyboard(page,width,height,true);
  await expect(quick).toBeVisible();await expect(tabs).toBeHidden();
  await expect.poll(async()=>{const b=await quick.boundingBox();return Math.round(b.y+b.height);}).toBe(height-KB);
@@ -110,7 +112,7 @@ test('홈 412: 화면 위만 덮는 자판에서도 칸이 자판 위로',async(
  const field=page.locator('#homeView [data-journal-input]');await expect(field).toBeVisible();
  await field.evaluate(el=>{const r=el.getBoundingClientRect();scrollBy(0,r.top-(innerHeight-90));el.focus({preventScroll:true});});
  await overlayKeyboard(page,true);
- await expect(page.locator('#homeView [data-home-quick]')).toBeHidden();
+ await expect(page.locator('#homeView [data-home-quick]')).toHaveCount(0);
  const at=await page.evaluate(coverCheck);
  expect(at,JSON.stringify(at)).toMatchObject({visible:true,blockers:[],marked:true});
  // 자판이 열린 동안 숨은 빠른 입력 줄은 누를 수 없다(쓰던 칸이 끝나고 자판을 내리면 돌아옴). 다음 칸으로 넘어가는 경우는 팝업·전수 시험이 본다.
@@ -161,6 +163,7 @@ for(const [width,height] of [[412,915],[344,882]])test(`전수 ${width}: 모든 
   failures.push(...bad(results).map(r=>view+': '+JSON.stringify(r)));
  }
  await resizeKeyboard(page,width,height,false);
- expect(checked).toBeGreaterThanOrEqual(3);
+ // QUICK-입력정리(2026-11-28): 홈 빠른 입력·잊지 말기 손 입력칸이 없어져 기본 화면에서 찾는 칸이 하나 줄었다(전에 3 → 2).
+ expect(checked).toBeGreaterThanOrEqual(2);
  expect(failures).toEqual([]);
 });

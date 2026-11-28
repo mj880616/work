@@ -36,8 +36,10 @@ for(const w of WINDOWS)test(`A1 폰 390 ${w.name}: 쓰던 중 다른 앱에 갔�
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await openHome(page);
   // 폰에는 상단 줄이 보이지 않는다. 폰 앱 위젯 쓰기 칸과 같은 [+ 추가] 열기 길을 쓴다(눌러 연 창과 같은 창).
-  await page.locator('#appView>.app-topline [data-quick-add]').evaluate(b=>b.click());
-  await page.locator(`#toplineAddMenu [data-topline-add="${w.kind}"]`).evaluate(b=>b.click());
+  // QUICK-입력정리(2026-11-28): [+ 추가]에 '잊지 말기' 줄은 없다 — 그 창은 폰 앱 위젯 길(KPTUQuickWrite)로만 연다.
+  if(w.kind==='update')await page.evaluate(()=>window.KPTUQuickWrite.open('update'));
+  else{await page.locator('#appView>.app-topline [data-quick-add]').evaluate(b=>b.click());
+  await page.locator(`#toplineAddMenu [data-topline-add="${w.kind}"]`).evaluate(b=>b.click());}
   if(w.kind==='report'){const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-sheet-value="meeting"]').click();}
   const box=page.locator(w.box),field=page.locator(w.field).first();
   await expect(box).toBeVisible();await expect(field).toBeVisible();

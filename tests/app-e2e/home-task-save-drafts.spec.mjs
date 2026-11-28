@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
-import {pressName} from './helpers/area-org-picker.mjs';
-import {openHome, pickQuickMode } from './helpers/home-entry.mjs';
-const SB='https://xmlkxfjeagycwttklxjw.supabase.co',quick=page=>page.locator('#homeView [data-home-quick]');
+import {openHome} from './helpers/home-entry.mjs';
+// QUICK-입력정리(2026-11-28): 홈 빠른 입력은 지웠다 — 같은 저장·확인 길(home-quick.js saveTask)을 쓰는 [할 일] 화면 입력칸으로 본다.
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co',quick=page=>page.locator('#tasksView [data-home-quick]');
 async function setup(page,width=390){
   await page.setViewportSize({width,height:900});const base=await openHome(page),state={calls:[],rules:[],tasks:[],links:[],serial:0};
   state.next=(action,{hold=false,status=200,response,apply=true}={})=>{let release;const gate=hold?new Promise(r=>release=r):Promise.resolve(),rule={action,gate,status,response,apply,claimed:false,done:false,release:()=>release?.()};state.rules.push(rule);return rule};
@@ -14,12 +14,8 @@ async function setup(page,width=390){
     else if(action==='link'){if(!rule||rule.apply)state.links.push(...body.links.map(link=>({...link,google_task_id:body.task_id,status:'confirmed'})));result={ok:true,links:state.links.filter(l=>l.google_task_id===body.task_id),meeting_links:[]};}
     else{const task=state.tasks.find(t=>t.id===body.task_id);if(!task)throw new Error('Wrong frozen task identity');if(!rule||rule.apply)Object.assign(task,{title:body.title,notes:body.notes||'',due:body.due||null});result={ok:true,task};}
     await route.fulfill({status:rule?.status||200,json:rule?.response===undefined?result:rule.response});if(rule)rule.done=true;
-  });await pickQuickMode(page,'task');return{...base,state};
+  });await page.evaluate(()=>window.KPTURouter.go('tasks'));await expect(quick(page).locator('[data-quick-input]')).toBeVisible();return{...base,state};
 }
-async function selectProject(page){const q=quick(page);await q.locator('[data-quick-project]').click();await pressName(page,'자식 프로젝트');}
-for(const width of [390,1280])test(`known quick task link partial preserves input and options ${width}`,async({page})=>{
-  const {state}=await setup(page,width),q=quick(page);await q.locator('[data-quick-input]').fill('연결할 초안');await selectProject(page);await q.getByRole('button',{name:'내일',exact:true}).click();state.next('create',{apply:false,response:{ok:true,task:{id:'known-task',taskListId:'@default',title:'연결할 초안',notes:'',due:'2026-10-07'},links:[],meeting_links:[],link_error:'link denied'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('할 일은 저장');await expect(q.locator('[data-quick-input]')).toHaveValue('연결할 초안');await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);
-});
 test('quick task unknown negative pure read never permits another create',async({page})=>{
   const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('불명 초안');state.next('create',{status:503,apply:false,response:{message:'unknown task reply'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('unknown task reply');await q.getByRole('button',{name:'할 일 목록에서 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('찾지 못');await q.locator('[data-quick-input]').fill('새 제목');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);expect(state.calls.find(c=>c.action==='tasks').query.pending_scope).toBe('all');expect(state.calls.filter(c=>c.action==='link'||c.action==='update')).toHaveLength(0);
 });
@@ -29,13 +25,4 @@ test('quick task unknown uses explicit existing identity and exact link GET befo
 test('full quick task success preserves text added after its submitted snapshot',async({page})=>{
   const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('제출할 글');const first=state.next('create',{hold:true});await q.locator('[data-quick-save]').click();await expect.poll(()=>first.claimed).toBe(true);await q.locator('[data-quick-input]').evaluate(input=>{input.value='후속 입력';input.dispatchEvent(new Event('input',{bubbles:true}))});first.release();await expect(page.locator('#toast')).toContainText('할 일을 추가');await expect(q.locator('[data-quick-input]')).toHaveValue('후속 입력');expect(state.calls[0].body.title).toBe('제출할 글');
 });
-test('restarting home cards keeps the mounted unknown task attempt',async({page})=>{
-  const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('방문 유지 초안');state.next('create',{status:503,apply:false,response:{message:'unknown'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('unknown');await page.evaluate(()=>window.KPTUJournal.refresh());await q.locator('[data-quick-input]').fill('다른 제목');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);await expect(q.getByRole('button',{name:'할 일 목록에서 확인',exact:true})).toBeVisible();
-});
 
-test('known partial task confirms only missing links and never repeats a successful create or link',async({page})=>{
-  const {state}=await setup(page),q=quick(page),task={id:'known-task',taskListId:'@default',title:'연결할 초안',notes:'',due:'2026-10-06T00:00:00.000Z',status:'needsAction'};await page.clock.setFixedTime(new Date('2026-10-06T03:00:00Z'));state.tasks.push(task);await q.locator('[data-quick-input]').fill(task.title);await selectProject(page);state.next('create',{apply:false,response:{ok:true,task,links:[],meeting_links:[],link_error:'initial link unknown'}});await q.locator('[data-quick-save]').click();await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();await q.getByRole('button',{name:'연결 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('선택한 기존');state.next('link',{status:503,apply:true,response:{message:'link reply lost'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('link reply lost');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='link')).toHaveLength(1);await q.getByRole('button',{name:'연결 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('선택한 기존');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);expect(state.calls.filter(c=>c.action==='link')).toHaveLength(1);expect(state.calls.filter(c=>c.action==='update')).toHaveLength(0);expect(state.calls.filter(c=>c.action==='links').every(c=>c.method==='GET'&&c.query.task_id==='known-task')).toBe(true);
-});
-test('task mode round trip keeps unknown ownership and its next read action',async({page})=>{
-  const {state}=await setup(page),q=quick(page);await q.locator('[data-quick-input]').fill('왕복 초안');state.next('create',{status:503,apply:false,response:{message:'unknown'}});await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('unknown');await pickQuickMode(page,'update');await pickQuickMode(page,'task');await expect(q.getByRole('button',{name:'할 일 목록에서 확인',exact:true})).toBeVisible();await q.locator('[data-quick-input]').fill('새 왕복 제목');await q.locator('[data-quick-save]').click();expect(state.calls.filter(c=>c.action==='create')).toHaveLength(1);
-});

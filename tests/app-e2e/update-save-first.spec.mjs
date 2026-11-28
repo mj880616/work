@@ -16,7 +16,6 @@ const SHOTS = process.env.CAPTURE_DIR || '';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const png = name => ({name, mimeType: 'image/png', buffer: PNG});
 const pdf = name => ({name, mimeType: 'application/pdf', buffer: Buffer.alloc(64 * 1024, 1)});
-const quick = page => page.locator('#homeView [data-home-quick]');
 const dock = page => page.locator('#uploadDock:not([hidden])');
 const noFrameWidth = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
@@ -72,59 +71,7 @@ async function fixture(page, width, {postFails = false} = {}) {
 }
 
 for (const width of [412, 1280]) {
-  test(`빠른 입력칸 업데이트 [추가]: 글이 저장되면 입력칸이 바로 풀리고, 사진·파일은 다른 화면으로 가도 그 업데이트로 끝까지 올라간다 ${width}`, async ({page}) => {
-    const f = await fixture(page, width), q = quick(page);
-    f.hold();
-    await q.locator('[data-quick-input]').fill('현장 점검 소식');
-    await q.locator('input[type=file]').setInputFiles([png('현장 사진.png'), pdf('점검표.pdf')]);
-    await q.locator('[data-quick-save]').click();
-    // 글이 먼저 업데이트로 저장되고 입력칸은 바로 풀린다(올리는 동안 잠그지 않음).
-    await expect(page.locator('#toast')).toHaveText('잊지 말기에 저장했어요.');
-    await expect(q.locator('[data-quick-input]')).toHaveValue('');
-    await expect(q.locator('[data-quick-input]')).toBeEditable();
-    await expect(q.locator('[data-quick-save]')).toBeEnabled();
-    await expect(q.locator('[data-basket-file]')).toHaveCount(0);
-    expect(f.writes).toEqual([{method: 'POST', body: expect.objectContaining({raw_text: '현장 점검 소식'})}]);
-    await expect.poll(() => f.uploads.length).toBe(1);
-    await expect(dock(page)).toContainText('2개 올리는 중');
-    expect(await noFrameWidth(page)).toBe(true);
-    if (SHOTS) await page.screenshot({path: `${SHOTS}/quick-saving-${width}.png`});
-    // 다른 화면으로 옮겨도 멈추지 않는다(예전에는 화면을 옮기면 멈췄다).
-    await page.evaluate(() => window.KPTURouter.go('basket'));
-    await expect(page.locator('#basketView')).toBeVisible();
-    f.release();
-    await expect.poll(() => f.uploads).toEqual([{noteId: 'up-1', name: '현장 사진.png'}, {noteId: 'up-1', name: '점검표.pdf'}]);
-    await expect(dock(page)).toContainText('업데이트에 사진 1장·파일 1개 올렸어요');
-    if (SHOTS) await page.screenshot({path: `${SHOTS}/quick-done-${width}.png`});
-    expect(f.notes.find(n => n.id === 'up-1').attachments).toHaveLength(2);
-    await expect(page.locator('[data-basket-row-item="up-1"]')).toContainText('첨부 2개');
-    expect(f.errors).toEqual([]);
-  });
 
-  test(`빠른 입력칸 업데이트: 못 올린 파일은 하단 한 줄에 남고 [다시 업로드]는 못 올린 것만 같은 업데이트로 보낸다 ${width}`, async ({page}) => {
-    const f = await fixture(page, width), q = quick(page);
-    f.failWhen(name => name === '두번째.pdf');
-    await q.locator('[data-quick-input]').fill('자료 모음');
-    await q.locator('input[type=file]').setInputFiles([pdf('첫번째.pdf'), pdf('두번째.pdf')]);
-    await q.locator('[data-quick-save]').click();
-    await expect(q.locator('[data-quick-input]')).toHaveValue('');
-    const line = dock(page);
-    await expect(line).toContainText('업데이트에 파일 1개 못 올렸어요');
-    await expect(line.locator('.up-dock-note')).toContainText('파일 1개 올렸어요');
-    const again = line.getByRole('button', {name: '못 올린 파일 다시 업로드'});
-    await expect(again).toHaveText('다시 업로드');
-    // 누를 때까지 남는다.
-    await page.waitForTimeout(6500); await expect(again).toBeVisible();
-    expect(await noFrameWidth(page)).toBe(true);
-    if (SHOTS) await page.screenshot({path: `${SHOTS}/quick-fail-${width}.png`});
-    f.failWhen(() => false);
-    await again.click();
-    await expect(dock(page)).toContainText('업데이트에 파일 1개 올렸어요');
-    expect(f.uploads).toEqual([{noteId: 'up-1', name: '첫번째.pdf'}, {noteId: 'up-1', name: '두번째.pdf'}, {noteId: 'up-1', name: '두번째.pdf'}]);
-    expect(f.notes.find(n => n.id === 'up-1').attachments.map(a => a.file_name)).toEqual(['첫번째.pdf', '두번째.pdf']);
-    expect(f.writes).toHaveLength(1); // 업데이트는 한 번만 만든다
-    expect(f.errors).toEqual([]);
-  });
 
   test(`업데이트 큰 창 [저장]: 창이 바로 닫히고 [📎 첨부]는 그 업데이트로 뒤에서 올라가 고른 곳 자료로 들어간다 ${width}`, async ({page}) => {
     const f = await fixture(page, width);
@@ -231,14 +178,9 @@ test('글 저장이 실패하면 업데이트 큰 창은 닫히지 않고 파일
   expect(f.writes).toHaveLength(1);
 });
 
-test('글 저장이 실패하면 빠른 입력칸·조직 기록 입력칸은 글과 파일을 그대로 두고 아무것도 보내지 않는다 (412)', async ({page}) => {
-  const f = await fixture(page, 412, {postFails: true}), q = quick(page);
-  await q.locator('[data-quick-input]').fill('저장 실패');
-  await q.locator('input[type=file]').setInputFiles([pdf('남는 파일.pdf')]);
-  await q.locator('[data-quick-save]').click();
-  await expect(q.locator('[data-quick-status]')).not.toHaveText('');
-  await expect(q.locator('[data-quick-input]')).toHaveValue('저장 실패');
-  await expect(q.locator('[data-basket-file]')).toContainText('남는 파일.pdf');
+// QUICK-입력정리(2026-11-28): 홈 빠른 입력칸은 지웠다 — 조직 기록 입력칸만 본다.
+test('글 저장이 실패하면 조직 기록 입력칸은 글과 파일을 그대로 두고 아무것도 보내지 않는다 (412)', async ({page}) => {
+  const f = await fixture(page, 412, {postFails: true});
   await clickView(page, 'team'); await page.locator('[data-so-org="o"]').first().click();
   await expect(page.locator('#wdInboxClip [data-basket-clip]')).toBeVisible();
   await page.locator('#wdInboxText').fill('기록 저장 실패');
@@ -248,7 +190,7 @@ test('글 저장이 실패하면 빠른 입력칸·조직 기록 입력칸은 �
   await expect(page.locator('#wdInboxText')).toHaveValue('기록 저장 실패');
   await expect(page.locator('#wdInboxFiles [data-basket-file]')).toContainText('남는 기록 파일.pdf');
   expect(f.uploads).toEqual([]);
-  expect(f.writes).toHaveLength(2);
+  expect(f.writes).toHaveLength(1);
 });
 
 // 한 영역 한 주인(#3278): 조직 상세는 자료를 다 받기 전에 기록 입력칸을 보이지 않는다 — 받기 전에 [저장]이 눌려 조용히 무시되지 않게(고치기 전 실패·고친 뒤 통과).

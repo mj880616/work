@@ -3,7 +3,7 @@ import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 
 // S62-22 APP-공유로뉴스보관: 폰 공유 창 'WORK ON+ 저장'(옛 'News 보관')(앱이 목록에 target 'news'를 적음)으로 오면 창 없이 글에서 기사 주소 하나를 골라
-// 서버(news-feed ?action=save_url)에 주소만 보내고, 위쪽 작은 알림 한 줄 '저장한 글에 넣었어요 [열기]'. 주소가 없으면 '기사 주소가 없어요 [잊지 말기로 넣기]'.
+// 서버(news-feed ?action=save_url)에 주소만 보내고, 위쪽 작은 알림 한 줄 '저장한 글에 넣었어요 [열기]'. 주소가 없으면 '기사 주소가 없어요 [노트로 넣기]'(SHARE-노트로: 새 노트 길).
 // 앱 다리·서버는 시험용 흉내(합성 주소). 화면 사진은 docs/design/screens/s62-22/(PR 첨부용, SHOTS=1일 때만 저장).
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 KPTUAndroid/0.5.11';
@@ -40,7 +40,7 @@ async function fixture(page, list, reply = {status:200, json:{ok:true, status:'s
     });
     await page.route(SB + '/rest/v1/app_notes**', route => {
       const req = route.request();
-      if (req.method() === 'POST') { const b = req.postDataJSON(); state.posts.push(b); return route.fulfill({status:201, json:[{id:'note-1', workspace_id:b.workspace_id, kind:'update', raw_text:b.raw_text, metadata:{}, attachments:[], created_at:'2026-11-15T01:00:00Z', updated_at:'2026-11-15T01:00:00Z'}]}); }
+      if (req.method() === 'POST') { const b = req.postDataJSON(); state.posts.push(b); return route.fulfill({status:201, json:[{id:'note-1', workspace_id:b.workspace_id, kind:b.kind, title:b.title, raw_text:b.raw_text, metadata:{}, attachments:[], created_at:'2026-11-15T01:00:00Z', updated_at:'2026-11-15T01:00:00Z'}]}); }
       return route.fallback();
     });
   }});
@@ -78,18 +78,19 @@ test('저장(공유): 본문을 못 뽑은 기사는 원문 링크로 보라는 
   expect(errors).toEqual([]);
 });
 
-test('저장(공유): 주소가 없는 글은 서버로 보내지 않고 [잊지 말기로 넣기]를 누를 때만 정리함 길로 — PC 1280', async ({page}) => {
+test('저장(공유): 주소가 없는 글은 서버로 보내지 않고 [노트로 넣기]를 누를 때만 새 노트 길로 — PC 1280', async ({page}) => {
   await page.setViewportSize({width:1280, height:900});
   const {state, errors} = await fixture(page, {id:ID, subject:'', text:'주소 없는 합성 메모', target:'news', items:[]});
   await expect(notice(page)).toContainText('기사 주소가 없어요');
-  const put = notice(page).getByRole('button', {name:'잊지 말기로 넣기'});
+  const put = notice(page).getByRole('button', {name:'노트로 넣기'});
   await expect(put).toBeVisible();
   expect(state.saves).toEqual([]);
   expect(state.posts).toEqual([]);
   await shot(page, 'share-news-no-url-1280.png');
   await put.click();
   await expect.poll(() => state.posts.length).toBe(1);
-  expect(state.posts[0].raw_text).toContain('주소 없는 합성 메모');
+  expect(state.posts[0]).toMatchObject({kind:'note', raw_text:'주소 없는 합성 메모'});
+  await expect(notice(page).locator('.kptu-notice-text')).toHaveText('노트에 넣었어요');
   expect(state.saves).toEqual([]);
   expect(errors).toEqual([]);
 });

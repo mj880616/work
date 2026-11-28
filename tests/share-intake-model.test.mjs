@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isShareId, parseShareList, pickShareItems, shareSummary, shareRawText, fitText, SHARE_MAX_BYTES} from '../app/share-intake-model.mjs';
+import {isShareId, parseShareList, pickShareItems, shareSummary, SHARE_MAX_BYTES} from '../app/share-intake-model.mjs';
 
 const ID = 'AbCdEfGhIjKlMnOpQrStUv';
 
@@ -47,21 +47,13 @@ test('확인 줄 한 줄 문구', () => {
   assert.equal(shareSummary({items:items.slice(2)}, {large:2, over:1}), '파일 1 · 뺌: 100MB 넘는 파일 2개, 20개 넘는 1개');
 });
 
-test('저장할 글: 메모 → 제목(글에 없을 때) → 받은 글, 20,000자(CRLF 기준) 안', () => {
-  assert.deepEqual(shareRawText({memo:' 읽어 볼 것\n ', subject:'기사 제목', text:'https://example.com/a'}), {text:'읽어 볼 것\n기사 제목\nhttps://example.com/a', cut:false});
-  assert.equal(shareRawText({subject:'같은 제목', text:'같은 제목 https://x'}).text, '같은 제목 https://x');
-  assert.equal(shareRawText({}).text, '');
-  const long = fitText('a\n'.repeat(8000) + 'b'.repeat(10000));
-  assert.equal(long.cut, true);
-  assert.ok([...long.text.replace(/\n/g, '\r\n')].length <= 20000);
-  assert.equal(fitText('가나다', 2).text, '가나');
-});
-
-test('확인 줄 화면은 바구니 기존 저장 길만 쓰고 기기에 저장하지 않는다', () => {
+test('공유 받기 화면은 노트 기존 저장 길만 쓰고 기기에 저장하지 않는다(SHARE-노트로)', () => {
   const src = readFileSync(new URL('../app/basket-share.js', import.meta.url), 'utf8');
   assert.match(src, /import\('\.\/basket-upload\.js'\)/);
-  assert.match(src, /uploadBatch\(/);
-  assert.match(src, /createNote\(/);
+  assert.match(src, /createNoteDoc\(/);
+  assert.match(src, /sendNoteBehind\(/);
+  // 잊지 말기(업데이트) 저장 길은 쓰지 않는다.
+  assert.doesNotMatch(src, /uploadBatch\(|createNote\(\{|updateNote\(/);
   // 기기 저장 이름은 조각으로 만든다(browser-storage-audit가 이 시험 파일 자체를 잡지 않게).
   for (const word of ['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'cach' + 'es.']) assert.equal(src.includes(word), false, word);
   assert.doesNotMatch(src, /\/functions\/v1\/|\/rest\/v1\//);

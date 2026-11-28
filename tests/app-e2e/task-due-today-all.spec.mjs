@@ -2,7 +2,7 @@
 // 이미 있는 할 일을 고칠 때는 그 기한 그대로. 규칙은 app/task-due.mjs newTaskDue 한 곳이다.
 // 이 파일: ① 할 일 쓰기 창(할 일 화면·담당조직·프로젝트 상세 [할 일 추가]·홈 가족 제안 [할 일로]가 같이 쓰는 창)
 //          ② 사업 보고 보기 면 '다음 할 일' 줄의 [할 일로]
-// 다른 곳: 홈 입력칸(home-task-default-today), 공유하기(share-note-task), 업데이트 → 할 일(basket-manual-link),
+// 다른 곳: 공유하기(share-note-task), 업데이트 → 할 일(basket-manual-link),
 //          사업 보고 쓰기 창 후속 할 일(meeting-entry). 모든 이름·글은 합성 값.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';

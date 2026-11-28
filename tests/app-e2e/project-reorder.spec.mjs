@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 import { SHEET, chosenKeys, openPicker, offeredKeys, toggleKeys, removeKey } from './helpers/area-org-picker.mjs';
@@ -154,7 +155,7 @@ const taskLinkIds=async page=>{
  await page.keyboard.press('Escape');await expect(page.locator(SHEET)).toBeHidden();
  await page.keyboard.press('Escape');await expect(body).toBeHidden();return ids;
 };
-test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list projects in the order set on the project screen',async({page})=>{
+test('PC 1280: 기록할 곳 (큰 쓰기 창) and 할 일 연결 list projects in the order set on the project screen',async({page})=>{
  const {errors}=await fixture(page);
  // 할 일 연결 read once before the move (its list is kept for the visit): it must not keep the old order.
  expect(await taskLinkIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
@@ -162,12 +163,13 @@ test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list proje
  await row(page,'pe').dragTo(row(page,'pa'),{targetPosition:{x:40,y:4}});
  await expect.poll(()=>listIds(page)).toEqual(['pe','pa','pc','pd','pg','pb']);
  await clickView(page,'home');
- const q=page.locator('#homeView [data-home-quick]');await pickQuickMode(page,'update');await q.locator('[data-quick-input]').fill('QA');
- await pickQuickMode(page,'org');const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
+ // QUICK-입력정리(2026-11-28): 홈 [업데이트 ▾]는 지웠다 — 같은 '기록할 곳' 창을 여는 큰 쓰기 창으로 본다.
+ await openWriteFromEntry(page,1280);await page.locator('#edWindow [data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');await expect(sheet).toBeVisible();
  const ids=await sheet.locator('[data-sheet-value^="project:"]').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue.slice(8)));
  expect(ids).toEqual(['pe','pa','pc','pd','pg','pb']);
  if(SHOT)await page.screenshot({path:SHOT+'/prj-order-place-sheet-1280.png'});
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
+ await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  expect(await taskLinkIds(page)).toEqual(['pe','pa','pc','pd','pg','pb']);
  expect(errors).toEqual([]);
 });

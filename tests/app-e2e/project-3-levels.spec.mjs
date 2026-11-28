@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openFolds} from './helpers/area-org-picker.mjs';
-import {openHome, openQuickBox, pickQuickMode } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
 // PRJ-3단(docs/design/project-3-levels.md, 2026-10-21 승인: 최대 3단). 2단 제한은 화면에만 있었다(사실). 이제 화면이 3단(상위 → 하위 → 그 아래)까지
@@ -134,8 +135,8 @@ test('phone 390: the same tree, and the third level opens in the dialog without 
 
 for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단 › 2단" on a third-level row only while searching`,async({page})=>{
  const {errors}=await fixture(page,{width});
- const q=page.locator('#homeView [data-home-quick]');await pickQuickMode(page,'update');
- await pickQuickMode(page,'org');await openFolds(page.getByRole('dialog'));const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();
+ // QUICK-입력정리(2026-11-28): 홈 [업데이트 ▾]는 지웠다 — 같은 '기록할 곳' 창을 여는 큰 쓰기 창으로 본다.
+ await openWriteFromEntry(page,width);await page.locator('#edWindow [data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');await expect(sheet).toBeVisible();await openFolds(sheet);
  const deep=sheet.locator('[data-sheet-projects] [data-sheet-value="project:pd"]');await expect(deep).toHaveAttribute('data-depth','2');
  await expect(deep.locator('.home-choice-path')).toHaveCount(0);await expect(deep).toHaveText('합성 세부 사안');
  await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"] .home-choice-path')).toHaveCount(0);
@@ -148,7 +149,7 @@ for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단
  await search.fill('토론회');await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"]')).toBeVisible();await expect(deep).toBeHidden();
  await search.fill('');await expect(deep.locator('.home-choice-path')).toHaveCount(0);await expect(deep).toHaveText('합성 세부 사안');
  // UPD-여러곳고르기: a press marks the row; [저장] keeps it and closes the sheet.
- await deep.click();await expect(deep).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(q.locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 합성 세부 사안');
+ await deep.click();await expect(deep).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(page.locator('#edWindow [data-edw-place]')).toHaveAttribute('aria-label','기록할 곳 선택: 합성 세부 사안');
  expect(errors).toEqual([]);
 });
 

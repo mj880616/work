@@ -1,4 +1,5 @@
-// WIDGET-여러개 ①: 폰 앱 홈 위젯 [업데이트]·[할 일]·[노트] 칸이 여는 쓰기 창.
+// WIDGET-여러개 ①: 폰 앱 홈 위젯 [할 일]·[노트] 칸이 여는 쓰기 창.
+// SHARE-노트로(2026-11-28 사용자 결정): 위젯 [업데이트] 칸은 앱·웹 모두에서 없앴다(옛 앱이 보내는 'update'는 받지 않는다).
 // 폰 앱(KPTUAndroid)에서만 붙는다. 웹 브라우저에서는 아무것도 하지 않는다.
 // 1) 앱이 웹2를 새로 열 때는 주소 ?write=<종류>로 온다. 읽은 뒤 주소에서 지운다(새로고침해도 다시 열리지 않게).
 // 2) 웹2가 이미 떠 있으면 앱이 다리(KPTUAppShell, 허용 Origin의 최상위 화면에만 보임)로 'write:open:<종류>'를 보낸다
@@ -8,7 +9,7 @@
 //   달력 화면의 기존 '그 날로 옮기기'(calendar-view.js showDay, 업무일지 [달력 ›]와 같은 길)를 쓴다.
 // APP-위젯다시: 텔레그램 위젯은 지웠다(그 방 열기 길 tg_room·tg:open도 함께 지움).
 const BRIDGE = 'KPTUAppShell';
-const KINDS = ['update', 'task', 'note'];
+const KINDS = ['task', 'note'];
 const OPEN = /^write:open:([a-z]{1,16})$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_OPEN = /^day:open:(\d{4}-\d{2}-\d{2})$/;

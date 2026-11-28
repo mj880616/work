@@ -162,7 +162,9 @@ test('the new write window is opened by the note, update and record screens; not
   assert.match(readFileSync('app/record-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
   assert.match(readFileSync('app/basket-notes.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
   assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
-  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js', 'workplace-detail.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
+  for (const f of ['basket.js', 'topbar-actions.js', 'workplace-detail.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
+  // QUICK-입력정리(2026-11-28): 빠른 입력칸(할 일·노트만 남음)은 업데이트 쓰기 창을 열지 않는다.
+  assert.doesNotMatch(readFileSync('app/home-quick.js', 'utf8'), /update-window\.js/);
   // MTG-프로젝트합치기 3단계: 프로젝트 상세의 진행 기록 입력칸과 [크게]가 없어져, 상세는 업데이트 창을 열지 않는다(기록 고치기는 record-window.js).
   assert.doesNotMatch(readFileSync('app/project-system-v3.js', 'utf8'), /update-window\.js/);
   for (const f of ['workplace-detail.js', 'project-system-v3.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/record-window\.js'\)/, f);

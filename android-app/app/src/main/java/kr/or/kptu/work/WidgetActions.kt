@@ -3,15 +3,14 @@ package kr.or.kptu.work
 /**
  * WIDGET-여러개 ①: 서버를 읽지 않는 위젯(빠른 쓰기 4×1, 한 칸 1×1)의 규칙. 안드로이드 API를 쓰지 않아 JVM 시험 대상이다.
  * - 칸을 누르면 앱 화면만 연다. 이 객체·위젯 그리기는 서버 요청을 하지 않는다.
- * - [업데이트]·[할 일]·[노트]: APP-위젯빠른쓰기 — 웹2를 띄우지 않는 앱 자체 작은 입력 창(QuickWriteActivity, 설계 13절).
+ * - [할 일]·[노트]: APP-위젯빠른쓰기 — 웹2를 띄우지 않는 앱 자체 작은 입력 창(QuickWriteActivity, 설계 13절).
  *   위젯 로그인이 없거나 풀렸으면, 또는 [크게 열기]는 웹2의 상단 [+ 추가]와 같은 쓰기 창(웹 phone-widget-write.js).
  * - [사진]: 사진 고르기·카메라 → 위젯 로그인이 있으면 창을 닫고 뒤에서 정리함에 올린다(QuickPhoto). 없으면 공유 받기 길(SHARE-바로넣기).
  * - [녹음]: 녹음 시작 인텐트(RecordHub.ACTION_START, 내보내지 않은 RecordActionActivity).
  * - 한 칸 위젯이 고른 기능은 앱 전용 공간(SharedPreferences, 백업 제외)에 위젯 번호별로 둔다. 업무 내용은 두지 않는다.
- * 시안 6번 '한 칸 바구니'는 한 칸 위젯의 [업데이트](기록할 곳을 고르지 않으면 정리함)와 같아 하나로 합쳤다.
+ * [업데이트] 칸(잊지 말기 app_notes 쓰기)은 사용자 결정으로 없앴다. 이미 놓인 한 칸 위젯이 저장해 둔 옛 값 "update"는 [노트]로 보여 준다(chosen).
  */
 enum class WidgetAction(val id: String, val label: String) {
-    UPDATE("update", "업데이트"),
     TASK("task", "할 일"),
     NOTE("note", "노트"),
     PHOTO("photo", "사진"),
@@ -25,13 +24,13 @@ object WidgetActions {
     /** 한 칸 위젯이 고른 기능을 두는 앱 전용 설정 파일 이름(data_extraction_rules에서 백업 제외). */
     const val PREFS = "widget_one"
 
-    /** 빠른 쓰기(4×1) 칸 순서: [업데이트] [할 일] [노트] [사진]. */
-    val QUICK: List<WidgetAction> = listOf(WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE, WidgetAction.PHOTO)
+    /** 빠른 쓰기(4×1) 칸 순서: [할 일] [노트] [사진]. */
+    val QUICK: List<WidgetAction> = listOf(WidgetAction.TASK, WidgetAction.NOTE, WidgetAction.PHOTO)
 
     /** 한 칸(1×1) 위젯을 놓을 때 고르는 목록(요청 순서). */
-    val ONE_CHOICES: List<WidgetAction> = listOf(WidgetAction.NOTE, WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.PHOTO, WidgetAction.RECORD)
+    val ONE_CHOICES: List<WidgetAction> = listOf(WidgetAction.NOTE, WidgetAction.TASK, WidgetAction.PHOTO, WidgetAction.RECORD)
 
-    private val WRITE = setOf(WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE)
+    private val WRITE = setOf(WidgetAction.TASK, WidgetAction.NOTE)
 
     fun fromId(id: String?): WidgetAction? = WidgetAction.values().firstOrNull { it.id == id }
 
@@ -69,7 +68,7 @@ object WidgetActions {
     const val ACTION_QUICK = "kr.or.kptu.work.action.WIDGET_QUICK_WRITE"
 
     fun target(action: WidgetAction): Target = when (action) {
-        WidgetAction.UPDATE, WidgetAction.TASK, WidgetAction.NOTE -> Target(QUICK_ACTIVITY, ACTION_QUICK, action.id)
+        WidgetAction.TASK, WidgetAction.NOTE -> Target(QUICK_ACTIVITY, ACTION_QUICK, action.id)
         WidgetAction.PHOTO -> Target(PHOTO_ACTIVITY, ACTION_PHOTO, null)
         WidgetAction.RECORD -> Target(RECORD_ACTIVITY, RecordHub.ACTION_START, null)
     }
@@ -80,5 +79,9 @@ object WidgetActions {
     fun prefKey(widgetId: Int): String = "one.$widgetId"
 
     /** 한 칸 위젯 설정 창의 결과: 고른 기능만, 모르는 값은 null(위젯을 놓지 않음). */
-    fun chosen(value: String?): WidgetAction? = fromId(value)?.takeIf { it in ONE_CHOICES }
+    fun chosen(value: String?): WidgetAction? =
+        (if (value == LEGACY_UPDATE) WidgetAction.NOTE else fromId(value))?.takeIf { it in ONE_CHOICES }
+
+    /** 없앤 [업데이트] 칸이 한 칸 위젯 설정에 남긴 옛 값. 아무 동작도 안 하는 칸이 되지 않게 [노트]로 읽는다. */
+    const val LEGACY_UPDATE = "update"
 }

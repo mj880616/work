@@ -81,18 +81,13 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'library');{const b=await page.locator('#newDocumentBtn').boundingBox();expect([b.width,b.height],'#newDocumentBtn').toEqual([32,32]);}/* LIB-위쪽한줄(11/09): 자료실 [+]는 위 줄 작은 아이콘 32px */
  await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'사업영역');
  await open(page,'home');await pcButton(page.locator('#homeView [data-journal-save]'),'업무일지 저장');
- // 홈: 입력칸·[추가]가 한 줄에서 같은 높이 — NOTE-입력줄높이(S71-67): 빠른 입력 줄은 40px(--ds-quick-row-height), 클립·[크게]는 칸 안(칸 안쪽 높이).
- await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
- const hi=await measure(home.locator('[data-quick-input]')),hs=await pcButton(home.locator('[data-quick-save]'),'홈 추가',40),hc=await measure(home.getByRole('button',{name:'파일 첨부',exact:true}));
- const hb=await measure(home.locator('[data-quick-big]'));
- expect(hi.height).toBe(40);for(const m of [hb,hc]){expect(m.height).toBe(38);expect(m.touch).toBeGreaterThanOrEqual(44);}expect(Math.abs(hi.top-hs.top)).toBeLessThanOrEqual(0.5);for(const m of [hb,hc])expect(Math.abs(m.top-hs.top-1)).toBeLessThanOrEqual(0.5);
+ // QUICK-입력정리(2026-11-28): 홈·잊지 말기 손 입력칸은 지웠다 — 남은 [할 일]·노트 입력 줄을 본다.
  // 할 일: 입력칸·칸 안 [+]·[추가].
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  const ti=await measure(tq.locator('[data-quick-input]')),ts=await pcButton(tq.locator('[data-quick-save]'),'할 일 추가',40),td=await measure(tq.locator('[data-quick-detail]'));
  expect(ti.height).toBe(40);expect(td.height).toBe(38);expect(td.touch).toBeGreaterThanOrEqual(44);expect(Math.abs(ti.top-ts.top)).toBeLessThanOrEqual(0.5);
  // 잊지 말기·노트: 입력 줄 [추가] 40px(NOTE-입력줄높이), 클립은 칸 안. 노트 찾기 칸 36px.
- await open(page,'basket');const bq=page.locator('#basketView [data-basket-list] [data-home-quick]');
- await pcButton(bq.locator('[data-quick-save]'),'정리함 추가',40);expect((await measure(bq.getByRole('button',{name:'파일 첨부',exact:true}))).touch).toBeGreaterThanOrEqual(44);
+ await open(page,'basket');
  await chooseBasketKind(page,'note');
  const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가',40),ns=await measure((await screenFind(page)));
  expect(ns.height).toBe(36); // S70-54 UI-검색창하나로: 노트 찾기는 상단 줄 칸이 겸한다(높이 36 그대로)
@@ -114,9 +109,6 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 입력칸�
  // BIZ-위쪽정돈(11/09 01:22 확정안, 사업 보고만 예외): 사업 보고 [+]는 떠 있는 36px 동그라미가 아니라 맨 위 줄 오른쪽 32px 작은 아이콘(떠 있지 않음).
  await open(page,'meetings');{const b=await page.locator('#newMeetingBtn').boundingBox();expect([b.width,b.height],'#newMeetingBtn').toEqual([32,32]);
   expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');}
- await open(page,'home');await openQuickBox(page);/* UI-폰하단고정: 접힌 입력칸을 눌러 펼친다 */const home=page.locator('#homeView [data-home-quick]');
- await home.locator('[data-quick-input]').fill('글');/* HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 */
- expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(40);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(40);/* NOTE-입력줄높이(S71-67) */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(40);
 });

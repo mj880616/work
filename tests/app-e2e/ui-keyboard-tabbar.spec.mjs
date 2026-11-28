@@ -29,9 +29,10 @@ const keyboard=(page,open)=>page.evaluate(open=>{if(open)Object.defineProperty(w
 const tabs=page=>page.locator('.mobile-tabs');
 const goView=async(page,view)=>{await page.evaluate(view=>window.KPTURouter.go(view),view);await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe(view);};
 
-test('다른 화면 입력 칸(홈 빠른 입력·노트 검색)도 같은 곳에서 자판 따라 하단 탭 숨김·복귀 390',async({page})=>{
+test('다른 화면 입력 칸([할 일] 빠른 입력·노트 검색)도 같은 곳에서 자판 따라 하단 탭 숨김·복귀 390',async({page})=>{
  const f=await fixture(page);
- const input=page.locator('#homeView [data-home-quick] [data-quick-input]');
+ // QUICK-입력정리(2026-11-28): 홈 빠른 입력은 지웠다 — [할 일] 화면 입력칸으로 본다.
+ await goView(page,'tasks');const input=page.locator('#tasksView [data-home-quick] [data-quick-input]');
  await input.focus();await expect(tabs(page)).toBeVisible();
  await keyboard(page,true);await expect(tabs(page)).toBeHidden();
  await keyboard(page,false);await expect(tabs(page)).toBeVisible();

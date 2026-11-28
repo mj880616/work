@@ -267,9 +267,8 @@ export function openPhotoStrip(opts) {
     shareFrom(trigger, {video:!!item.video, count:1, note,
       getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
-      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]·[업데이트로 보내기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치·[정리함 보기])으로.
+      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치)으로.
       download:acts && !item.video ? () => acts.run('down', item, trigger) : item.video && download ? () => download(item) : null,
-      basket:acts && !item.video ? () => acts.run('basket', item, trigger) : undefined,
       // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
       diary:diary && !item.video ? () => diary(item, trigger) : undefined}, menu ? {wide:true} : {});
   }
@@ -348,7 +347,7 @@ export function openPhotoStrip(opts) {
     }
   }, {passive:true});
   strip.addEventListener('touchcancel', () => { touch = null; settle(); }, {passive:true});
-  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기][업데이트로 보내기]).
+  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기]; SHARE-노트로로 [업데이트로 보내기]는 없앰).
   // 세로 밀기·넘기기·두 손가락 확대는 손가락이 움직이면 꾹 누르기를 취소하므로 겹치지 않는다. 동영상은 메뉴 없음(바이트가 이 화면에 없음).
   attachPhotoLongPress(box, {
     photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pz.pinching(),

@@ -6,7 +6,7 @@
 //   창을 닫고 파일은 그 할 일의 뒤 줄(task-files.js sendTaskFilesBehind → google-tasks action=attach). 할 일 화면과 같은 서버 길만 쓴다.
 // 받은 글·파일 이름은 외부 입력이라 textContent·value로만 넣는다(HTML로 넣지 않음). 기기에는 아무것도 저장하지 않는다.
 // 창은 <dialog>(뒤로가기·Esc·× = 닫기, 저장 중에는 닫지 않음). 닫으면 앱에 끝났다고 알려 앱이 든 항목을 버린다.
-import {noteDraft, noteBodyWithExtra, taskDraft, taskNotesWithExtra, folderOptions, NOTE_TITLE_MAX, TASK_TITLE_MAX, EXTRA_MAX} from './share-target-model.mjs';
+import {noteDraft, noteBodyWithExtra, linkedNoteDoc, taskDraft, taskNotesWithExtra, folderOptions, NOTE_TITLE_MAX, TASK_TITLE_MAX, EXTRA_MAX} from './share-target-model.mjs';
 import {shareSummary, skippedText} from './share-intake-model.mjs';
 import {QUICK_DUES, quickDueDay, nextWeekDays, weekdayLabel, newTaskDue} from './task-due.mjs';
 import {notify} from './small-notice.js';
@@ -165,7 +165,7 @@ async function saveNote(s, title, extra) {
   const files = await filesOf(s);
   if (!s.isCurrent()) throw new Error('로그인 계정이 바뀌어 넣지 않았어요. 다시 공유해 주세요.');
   const notes = [];
-  if (!s.made) s.made = await createNoteDoc({title, raw_text:noteBodyWithExtra(s.draft.body, extra)});
+  if (!s.made) { const body = noteBodyWithExtra(s.draft.body, extra); s.made = await createNoteDoc({title, raw_text:body, doc:linkedNoteDoc(body)}); }
   const row = s.made;
   if (!row?.id) throw new Error('저장한 노트를 확인하지 못했어요.');
   const folderId = $('[data-st-folder]').hidden ? '' : $('[data-st-folder]').value;

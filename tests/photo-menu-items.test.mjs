@@ -3,49 +3,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PHOTO_ACT_TEXT, PHOTO_ACT_SHORT, SEND_ROWS, SEND_NOTE, PHOTO_MENUS, PHOTO_BAR_MENUS, diaryDoneText, basketDoneText, shortDay, releaseAfter} from '../app/photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_ACT_SHORT, SEND_ROWS, SEND_NOTE, PHOTO_MENUS, PHOTO_BAR_MENUS, diaryDoneText, shortDay, releaseAfter} from '../app/photo-menu-items.mjs';
 import {shareRows, SHARE_ROW_TEXT, SHARE_NOTE} from '../app/share-menu.js';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('이름은 하나: 업데이트로 보내기 · 일기에 넣기, 좁은 칸 앞부분은 같은 이름의 앞', () => {
-  assert.equal(PHOTO_ACT_TEXT.basket, '업데이트로 보내기');
+test('이름은 하나: 일기에 넣기, 좁은 칸 앞부분은 같은 이름의 앞 — SHARE-노트로: 업데이트로 보내기는 없음', () => {
+  assert.equal(PHOTO_ACT_TEXT.basket, undefined);
+  assert.equal(Object.values(PHOTO_ACT_TEXT).includes('업데이트로 보내기'), false);
   assert.equal(PHOTO_ACT_TEXT.diary, '하루 기록에 넣기');
   for (const id of Object.keys(PHOTO_ACT_SHORT)) assert.ok(PHOTO_ACT_TEXT[id].startsWith(PHOTO_ACT_SHORT[id]), id);
-  assert.deepEqual(SEND_ROWS, ['diary', 'basket']);
-  assert.equal(SEND_NOTE.basketDone, '업데이트로 보냈어요');
+  assert.deepEqual(SEND_ROWS, ['diary']);
+  for (const k of ['basketBusy', 'basketDone', 'basketFail', 'basketOpen']) assert.equal(SEND_NOTE[k], undefined, k);
   // 공유 메뉴 글자는 공용 목록 그대로.
   for (const id of Object.keys(SHARE_ROW_TEXT)) assert.equal(SHARE_ROW_TEXT[id], PHOTO_ACT_TEXT[id], id);
-  assert.equal(SHARE_NOTE.basketDone, SEND_NOTE.basketDone);
+  assert.equal(SHARE_ROW_TEXT.basket, undefined);
+  assert.equal(SHARE_NOTE.basketDone, undefined);
 });
 
-test('공유 메뉴 줄 순서 = 항목 표(viewerShare), 보내기 두 줄 순서는 어느 메뉴든 같다', () => {
+test('공유 메뉴 줄 순서 = 항목 표(viewerShare), 보내기 줄 순서는 어느 메뉴든 같다', () => {
   assert.deepEqual(shareRows({native:true, diary:true}), PHOTO_MENUS.viewerShare);
   assert.deepEqual(shareRows({count:2, native:true, diary:true}), PHOTO_MENUS.viewerShare.filter(id => id !== 'copy'));
   assert.deepEqual(shareRows({video:true, native:true, diary:true}), ['download', 'native']);
+  // 일기를 주지 않는 화면은 보내기 줄 없음(옛 '업데이트로 보내기'만 남던 자리).
+  assert.deepEqual(shareRows({native:true}), ['copy', 'download', 'native']);
+  for (const menu of Object.values(PHOTO_MENUS)) assert.equal(menu.includes('basket'), false);
+  for (const menu of Object.values(PHOTO_BAR_MENUS)) for (const items of Object.values(menu)) assert.equal(items.includes('basket'), false);
   for (const menu of Object.values(PHOTO_MENUS)) if (menu.some(id => SEND_ROWS.includes(id))) assert.deepEqual(menu.filter(id => SEND_ROWS.includes(id)), SEND_ROWS);
   for (const menu of Object.values(PHOTO_BAR_MENUS)) for (const items of Object.values(menu)) if (items.some(id => SEND_ROWS.includes(id))) assert.deepEqual(items.filter(id => SEND_ROWS.includes(id)), SEND_ROWS);
 });
 
-test('알림 한 줄: 11.3 일기에 넣었어요 / 업데이트로 보냈어요', () => {
+test('알림 한 줄: 11.3 일기에 넣었어요', () => {
   assert.equal(shortDay('2026-11-03'), '11.3');
   assert.equal(diaryDoneText(['2026-11-03']), '11.3 하루 기록에 넣었어요');
   assert.equal(diaryDoneText(['2026-11-02', '2026-11-03']), '11.2 · 11.3 하루 기록에 넣었어요');
-  assert.equal(basketDoneText(1), '업데이트로 보냈어요');
-  assert.equal(basketDoneText(2), '업데이트로 보냈어요(2장)');
-  assert.equal(basketDoneText(2, 3), '업데이트로 보냈어요(2장, 1장은 받지 못함)');
 });
 
 test('보낸 뒤 고르기 풀기 규칙: 보내기·옮기기는 성공하면 풀고, 실패·별표·받기는 고른 채', () => {
-  for (const act of ['diary', 'basket', 'move', 'album', 'delete']) { assert.equal(releaseAfter(act, true), true, act); assert.equal(releaseAfter(act, false), false, act); }
-  for (const act of ['star', 'download', 'share']) assert.equal(releaseAfter(act, true), false, act);
+  for (const act of ['diary', 'move', 'album', 'delete']) { assert.equal(releaseAfter(act, true), true, act); assert.equal(releaseAfter(act, false), false, act); }
+  for (const act of ['star', 'download', 'share', 'basket']) assert.equal(releaseAfter(act, true), false, act);
 });
 
 test('사진 메뉴들은 공용 목록을 읽고 옛 이름이 남지 않는다(같은 종류 전수)', () => {
   const photos = read('app/photos.js'), menu = read('app/share-menu.js'), strip = read('app/photo-strip.js'), share = read('app/basket-share.js');
   assert.match(photos, /from '\.\/photo-menu-items\.mjs'/);
   assert.match(menu, /from '\.\/photo-menu-items\.mjs'/);
-  assert.match(share, /const LABEL = PHOTO_ACT_TEXT\.basket;/);
+  assert.doesNotMatch(share, /photo-menu-items/);
+  // SHARE-노트로: 사진 화면의 '업데이트로 보내기' 부르는 곳·처리기는 모두 없다.
+  for (const [name, src] of [['photos.js', photos], ['share-menu.js', menu], ['photo-strip.js', strip]]) {
+    assert.doesNotMatch(src, /data-pm-basket|putInBasket|basketDoneText|SEND_NOTE\.basket|PHOTO_ACT_TEXT\.basket|'basket', item|where === 'basket'|basket:\(\) =>|basket:acts/, name);
+  }
   for (const [name, src] of [['photos.js', photos], ['share-menu.js', menu], ['basket-share.js', share]]) {
     assert.doesNotMatch(src, /'정리함에 넣기'|'정리함에 넣었어요'|'업데이트로'\)|>일기로<|>업데이트</, name);
   }
@@ -57,7 +64,9 @@ test('사진 메뉴들은 공용 목록을 읽고 옛 이름이 남지 않는다
   assert.match(photos, /label:SEND_NOTE\.retry/);
   // 폰 공유 창 이름(앱 새 판에 들어감).
   const manifest = read('android-app/app/src/main/AndroidManifest.xml');
-  assert.equal((manifest.match(/android:label="WORK ON\+ 잊지 말기로 보내기"/g) || []).length, 2);
+  // SHARE-노트로: 기본 공유 칸은 새 노트로 바로 넣는다(SEND·SEND_MULTIPLE 두 칸).
+  assert.equal((manifest.match(/android:label="WORK ON\+ 노트로 보내기"/g) || []).length, 2);
+  assert.doesNotMatch(manifest, /잊지 말기로 보내기|업데이트로 보내기/);
   assert.doesNotMatch(manifest, /android:label="노동조합\+ 정리함"/);
 });
 
@@ -75,18 +84,18 @@ test('아래 줄은 다섯 칸까지: 고르기 줄·크게 보기 줄 모두, �
   // 예전 아래 줄 기능(받기·일기·업데이트·옮기기·앨범·편집·정보수정·정보·되돌리기·이름)이 모두 메뉴 안에 있다.
   const inView = new Set([...Object.values(PHOTO_BAR_MENUS.viewBar).flat(), ...PHOTO_MENUS.viewBar]);
   const inSelect = new Set([...Object.values(PHOTO_BAR_MENUS.selectBar).flat(), ...PHOTO_MENUS.selectBar]);
-  for (const id of ['star', 'delete', 'down', 'diary', 'basket', 'move', 'tag', 'untag', 'restore', 'rename', 'edit', 'info', 'detail']) assert.ok(inView.has(id), `크게 보기에 ${id}`);
-  for (const id of ['star', 'delete', 'down', 'diary', 'basket', 'move', 'tag', 'untag', 'restore', 'rename', 'info']) assert.ok(inSelect.has(id), `고르기에 ${id}`);
-  // 공유 ▾ 안: 크게 보기 = 사진 복사·일기·업데이트·받기·다른 앱, 고르기 = 복사 빼고 같은 순서.
-  assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.share], ['copy', 'diary', 'basket', 'down', 'native']);
-  assert.deepEqual([...PHOTO_BAR_MENUS.selectBar.share], ['diary', 'basket', 'down', 'native']);
+  for (const id of ['star', 'delete', 'down', 'diary', 'move', 'tag', 'untag', 'restore', 'rename', 'edit', 'info', 'detail']) assert.ok(inView.has(id), `크게 보기에 ${id}`);
+  for (const id of ['star', 'delete', 'down', 'diary', 'move', 'tag', 'untag', 'restore', 'rename', 'info']) assert.ok(inSelect.has(id), `고르기에 ${id}`);
+  assert.equal(inView.has('basket') || inSelect.has('basket'), false);
+  // 공유 ▾ 안: 크게 보기 = 사진 복사·일기·받기·다른 앱, 고르기 = 복사 빼고 같은 순서.
+  assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.share], ['copy', 'diary', 'down', 'native']);
+  assert.deepEqual([...PHOTO_BAR_MENUS.selectBar.share], ['diary', 'down', 'native']);
   // S71-62 PHOTO-설명: [수정 ▾] 끝에 '설명', 고르기 [메뉴] 끝에 '설명 붙이기'(같은 칸 재사용).
   assert.deepEqual([...PHOTO_BAR_MENUS.viewBar.edit], ['edit', 'info', 'desc']);
   assert.equal(PHOTO_BAR_MENUS.selectBar.more.at(-1), 'descAdd');
   assert.equal(barItemText('desc'), '설명');
   assert.equal(barItemText('descAdd'), '설명 붙이기');
   assert.equal(barItemText('tag'), '앨범에 넣기');
-  assert.equal(barItemText('basket'), '업데이트로 보내기');
   // 그리기 코드는 한 곳, 아이콘은 모두 같은 선 아이콘(글자 모양 ✚ ↥ # ↩ 없음), ▾ 칸은 공유·편집만.
   const html = photoActButtons(PHOTO_MENUS.viewBar, id => `data-x="${id}"`);
   for (const id of PHOTO_MENUS.viewBar) assert.equal((html.match(new RegExp(`data-x="${id}"`, 'g')) || []).length, 1, id);
@@ -109,7 +118,6 @@ test('크게 보기가 열려 있으면 작은 알림·되돌리기 알림·확�
   const over = Number(/body:has\(\[data-diary-viewer\]\) > :is\(([^)]*)\)\{\s*z-index:(\d+)/.exec(css)?.[2]);
   assert.ok(viewer > 0 && over > viewer, `viewer ${viewer} / over ${over}`);
   for (const sel of ['.kptu-ask', '.kptu-notice', '.kptu-undo-notice', '.toast']) assert.match(css, new RegExp(`body:has\\(\\[data-diary-viewer\\]\\) > :is\\([^)]*${sel.replace('.', '\\.')}`), sel);
-  assert.equal(SEND_NOTE.basketOpen, '잊지 말기 보기');
 });
 
 test('S53-10 사진 [폴더] ⋯ [지우기]는 늘 맨 아래 — 못 지우면 흐리게, 누르면 이유 한 줄', async () => {
