@@ -494,9 +494,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // under the letters because a phone's own cut/copy bar is above them. PC: a right click on the chosen letters puts it at the pointer
   // (in a table cell the cell menu gets [인용] on top instead).
   const qmenu = document.createElement('div');
-  qmenu.className = 'ed-ctx ed-qmenu'; qmenu.hidden = true; qmenu.setAttribute('role', 'menu'); qmenu.setAttribute('aria-label', '고른 글 메뉴');
-  const qbtn = btn('인용', {edQuote: '1'}, '고른 글 인용'); qbtn.setAttribute('role', 'menuitem'); qmenu.append(qbtn);
-  const ctxQuote = btn('인용', {edQuote: '1'}, '고른 글 인용'); ctxQuote.setAttribute('role', 'menuitem'); ctxQuote.hidden = true; ctx.prepend(ctxQuote);
+  qmenu.className = 'ed-ctx ed-qmenu'; qmenu.hidden = true; qmenu.setAttribute('role', 'menu'); qmenu.setAttribute('aria-label', '선택한 글 메뉴');
+  const qbtn = btn('인용', {edQuote: '1'}, '선택한 글 인용'); qbtn.setAttribute('role', 'menuitem'); qmenu.append(qbtn);
+  const ctxQuote = btn('인용', {edQuote: '1'}, '선택한 글 인용'); ctxQuote.setAttribute('role', 'menuitem'); ctxQuote.hidden = true; ctx.prepend(ctxQuote);
   const measure = document.createElement('div');
   measure.className = 'ed-doc ed-measure'; measure.setAttribute('aria-hidden', 'true');
   const band = document.createElement('div'); band.className = 'ed-stick';

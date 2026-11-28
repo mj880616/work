@@ -18,7 +18,7 @@ const shape = page => page.evaluate(() => {
   return window.ed.getValue().doc.content.map(walk);
 });
 const menu = page => page.locator('.ed-qmenu');
-const quoteButton = page => menu(page).getByRole('menuitem', {name: '고른 글 인용'});
+const quoteButton = page => menu(page).getByRole('menuitem', {name: '선택한 글 인용'});
 // Chooses `text` inside the element matched by `selector` the way a drag or a long press leaves it (a DOM range over the letters).
 const choose = (page, selector, text, endText = text, endSelector = selector) => page.evaluate(([selector, text, endText, endSelector]) => {
   const find = (sel, word, end) => {
@@ -114,15 +114,15 @@ test.describe('PC 1280', () => {
     await page.mouse.click(at.x, at.y, {button: 'right'});
     const ctx = page.getByRole('menu', {name: '표 칸 메뉴'});
     await expect(ctx).toBeVisible();
-    await expect(ctx.getByRole('menuitem').first()).toHaveAccessibleName('고른 글 인용');
-    await ctx.getByRole('menuitem', {name: '고른 글 인용'}).click();
+    await expect(ctx.getByRole('menuitem').first()).toHaveAccessibleName('선택한 글 인용');
+    await ctx.getByRole('menuitem', {name: '선택한 글 인용'}).click();
     const kinds = (await value(page)).doc.content.map(n => n.type);
     expect(kinds).toEqual(['paragraph', 'table', 'blockquote', 'paragraph', 'paragraph']);
     expect((await shape(page))[2]).toEqual({blockquote: [{paragraph: ['칸 글']}]});
     // 인용 없이 표 칸 우클릭이면 [인용]은 없다.
     await box.locator('td', {hasText: '라 칸'}).click({button: 'right'});
     await expect(ctx).toBeVisible();
-    await expect(ctx.getByRole('menuitem', {name: '고른 글 인용'})).toBeHidden();
+    await expect(ctx.getByRole('menuitem', {name: '선택한 글 인용'})).toBeHidden();
   });
 
   test('Q1 코드 블록 안에서 고르면 코드 블록 바로 아래, 줄바꿈은 줄마다 한 줄', async ({page}) => {

@@ -46,7 +46,7 @@ for(const width of [1280,412]){
   const field=noteField(page);await expect(field).toBeVisible();
   await field.focus();
   await chooseText(page,'코멘트를 단다');
-  const quote=page.locator('[data-note-detail] .ed-qmenu').getByRole('menuitem',{name:'고른 글 인용'});
+  const quote=page.locator('[data-note-detail] .ed-qmenu').getByRole('menuitem',{name:'선택한 글 인용'});
   await expect(quote).toBeVisible();
   if(width<761)await quote.tap();else await quote.click();
   await expect(field.locator('blockquote.ed-quote')).toHaveText('코멘트를 단다');
