@@ -18,13 +18,17 @@ function walk(dir) {
   });
 }
 
-// 사용자 동의로 받는 Google 권한만 모은다. FCM은 서버 서비스 계정 권한이라 사용자 데이터가 아니다.
+// 사용자 동의로 받는 Google 권한. S71-01부터 요청 목록은 공용 도우미 한 곳(REVIEW_SCOPES)이다.
+// 함수 코드에 남은 권한 글자는 그 목록 안이거나, 받은 토큰 확인용 drive 글자(자료실 가져오기 한 곳)뿐이어야 한다. FCM은 서버 서비스 계정 권한이라 뺀다.
+const { REVIEW_SCOPES } = await import('../supabase/functions/_shared/google-oauth-clients.mjs');
 function requestedUserScopes() {
-  const found = new Set();
   for (const file of walk('supabase/functions').filter(f => /\.(ts|mjs|js)$/.test(f) && !f.includes('_shared/fcm-send'))) {
-    for (const m of read(file).matchAll(/https:\/\/www\.googleapis\.com\/auth\/[a-z.]+/g)) found.add(m[0]);
+    for (const m of read(file).matchAll(/https:\/\/www\.googleapis\.com\/auth\/[a-z.]+/g)) {
+      const checkOnly = m[0] === 'https://www.googleapis.com/auth/drive' && file.endsWith('library-files/drive-auto.mjs');
+      assert.ok(REVIEW_SCOPES.includes(m[0]) || checkOnly, `${file}: 목록 밖 권한 글자 ${m[0]}`);
+    }
   }
-  return [...found].sort();
+  return REVIEW_SCOPES.filter(s => s.startsWith('https://')).sort();
 }
 
 test('코드가 요청하는 Google 사용자 권한이 모두 처리방침 표에 있다', () => {
@@ -71,18 +75,16 @@ test('공개 소개 페이지들의 상대 링크가 저장소 안 파일로 이
   assert.ok(mails.size <= 1, `공개 연락처 메일은 한 주소만: ${mails.size}개`);
 });
 
-// S62-11 MULTI-구글드라이브사진모두(명진 11/15 결정 1·2): 전체 drive도 Drive를 연결하는 모든 사용자에게 요청하고 각자 자기 것만 본다는 설명이 실제 코드와 맞아야 한다.
-test('Drive 권한 설명: drive.file·전체 drive 모두 모든 사용자, 각자 자기 Drive만', () => {
+// S71-01 AUTH-구글권한나누기(명진 2026-11-26 'ㄱ', S62-11을 바꿈): 이 앱(심사용 창구)은 Drive 전체(drive)를 요청하지 않는다.
+// 처리방침 표의 권한은 코드가 요청하는 목록(공용 도우미 REVIEW_SCOPES)과 같아야 한다(로그인용 profile은 Supabase 로그인이 요청).
+test('Drive 권한 설명: drive.file 하나만, 전체 drive 행 없음, 표 권한은 코드 목록과 같음', async () => {
   const row = scope => {
     const m = page.match(new RegExp(`<tr><td><code>${scope.replace(/\./g, '\\.')}</code></td><td>([^<]*)</td></tr>`));
-    assert.ok(m, `처리방침 표에 행 없음: ${scope}`);
-    return m[1];
+    return m ? m[1] : null;
   };
-  assert.match(row('https://www.googleapis.com/auth/drive.file'), /모든 사용자/);
-  assert.match(row('https://www.googleapis.com/auth/drive'), /Drive를 연결하는 모든 사용자에게 요청/);
-  assert.match(row('https://www.googleapis.com/auth/drive'), /본인의 WORK ON\+ 사진·파일 화면에만/);
-  assert.match(row('https://www.googleapis.com/auth/drive'), /영구 삭제 없음/);
-  assert.doesNotMatch(row('https://www.googleapis.com/auth/drive'), /운영자 한 사람/);
-  const code = read('supabase/functions/public-policy-drive/index.ts');
-  assert.match(code, /scope: DRIVE_SCOPES\.join\(' '\),/);
+  assert.match(row('https://www.googleapis.com/auth/drive.file'), /모든 사용자에게 요청하는 Drive 권한은 이것 하나/);
+  assert.equal(row('https://www.googleapis.com/auth/drive'), null, '전체 drive 행 없음');
+  const { REVIEW_SCOPES } = await import('../supabase/functions/_shared/google-oauth-clients.mjs');
+  const listed = [...page.matchAll(/<tr><td><code>(https:\/\/www\.googleapis\.com\/auth\/[^<]+)<\/code>/g)].map(m => m[1]).sort();
+  assert.deepEqual(listed, REVIEW_SCOPES.filter(s => s.startsWith('https://')).sort());
 });

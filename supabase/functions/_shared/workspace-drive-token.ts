@@ -1,9 +1,10 @@
 // MULTI-노조사용자 ②-2 (S49-53): 사람별(작업공간별) Google Drive 연결. 설계: docs/design/multi-user-audit.md 8절.
 // Drive 갱신 열쇠(refresh token)는 작업공간마다 public.app_drive_connections 한 행에 있다(RLS 켬·정책 없음·API 권한 없음, service_role만).
-// 앱 값(client id/secret)은 앱 하나에 하나라 그대로 public_policy_drive_config id=1에서 읽는다. id=1의 refresh token은 여기서 읽지 않는다.
+// 앱 값(client id/secret)은 연결을 내준 창구의 것(S71-01: 심사용 창구 = public_policy_drive_config id=1, 명진 전용 창구 = Edge 비밀값). id=1의 refresh token은 여기서 읽지 않는다.
 // 작업공간 id는 늘 서버가 확인한 값(로그인 → 본인 owner 행, 또는 행의 작업공간 owner 확인)만 넘긴다. 화면이 보낸 값을 넘기지 않는다.
 // 연결이 없으면 424 drive_not_connected(화면이 'Drive 연결' 안내). 다른 작업공간의 연결로 넘어가는 길(대체 연결)은 없다.
 // 토큰·Google 응답 원문은 응답·로그에 싣지 않는다(오류 코드만).
+import { DriveCredentialError, driveRefreshCredentials, refreshAccessToken } from "./google-oauth-clients.mjs";
 
 // supabase-js 관리자 클라이언트(from) 또는 REST 읽기 함수(rest: 'table?query' → 행 배열) 둘 중 하나. 둘 다 service_role.
 // deno-lint-ignore no-explicit-any
@@ -66,53 +67,49 @@ export async function callerOwnerWorkspace(admin: Admin, userId: unknown): Promi
 }
 
 // 그 작업공간의 Drive 연결로 짧은 access token을 받는다.
+// S71-01: 앱 값은 그 연결을 내준 창구의 것(app_drive_connection_clients, 없으면 심사용 창구 = id=1). google-oauth-clients.mjs 한 곳에서 고른다.
 export async function workspaceDriveToken(
   admin: Admin,
   workspaceId: unknown,
-  options: { fetch?: typeof fetch; log?: (code: string) => void } = {},
+  options: { fetch?: typeof fetch; log?: (code: string) => void; env?: (name: string) => string | undefined } = {},
 ): Promise<string> {
   const request = options.fetch ?? globalThis.fetch;
   const log = options.log ?? ((code: string) => console.error(code));
   if (!isWorkspaceId(workspaceId)) throw new WorkspaceDriveError(500, "drive_workspace_missing");
-  let cfg, cfgError, conn, connError;
+  // supabase-js 클라이언트든 REST 읽기 함수든 같은 'table?query' 읽기로 맞춘다(행 배열, 오류는 예외).
+  const rest = isRestReader(admin) ? admin.rest : async (path: string) => {
+    // 'table?col=eq.v&select=a,b&limit=1' 모양 하나만(도우미가 만드는 읽기). 한 행 읽기로 바꾼다.
+    const [table, query] = path.split("?");
+    const q = new URLSearchParams(query);
+    const filter = [...q].find(([k, v]) => k !== "select" && k !== "limit" && v.startsWith("eq."));
+    if (!filter) throw new Error("read_failed");
+    const { data, error } = await readOne(admin, table, q.get("select") || "*", filter[0], filter[1].slice(3));
+    if (error) throw new Error("read_failed");
+    return data ? [data] : [];
+  };
+  let cred;
   try {
-    // 두 읽기는 서로 상관없어 함께 보낸다(S54-16). 오류 판정 순서(설정 → 연결)는 아래에서 그대로. 토큰은 보관하지 않는다.
-    const [c, w] = await Promise.all([
-      readOne(admin, "public_policy_drive_config", "google_client_id,google_client_secret", "id", 1),
-      readOne(admin, "app_drive_connections", "google_refresh_token", "workspace_id", workspaceId),
-    ]);
-    ({ data: cfg, error: cfgError } = c);
-    ({ data: conn, error: connError } = w);
-  } catch {
+    // supabase-js 쪽 앱 값은 옛 도우미와 같은 읽기(id 숫자 1, 읽기 오류는 설정 없음으로)로 함께 시작한다.
+    const cfgRow = isRestReader(admin) ? undefined
+      : readOne(admin, "public_policy_drive_config", "google_client_id,google_client_secret", "id", 1).then((r) => r.error ? null : r.data ?? null, () => null);
+    cred = await driveRefreshCredentials(rest, workspaceId, { ...(options.env ? { env: options.env } : {}), ...(cfgRow ? { cfgRow } : {}) });
+  } catch (e) {
+    const code = e instanceof DriveCredentialError ? e.code : "read_failed";
+    if (code === "config_missing") throw new WorkspaceDriveError(503, "drive_config_missing");
+    if (code === "not_connected") throw new WorkspaceDriveError(424, "drive_not_connected");
     throw new WorkspaceDriveError(503, "drive_token_failed");
   }
-  if (cfgError || !cfg?.google_client_id || !cfg?.google_client_secret) {
-    throw new WorkspaceDriveError(503, "drive_config_missing");
-  }
-  if (connError) throw new WorkspaceDriveError(503, "drive_token_failed");
-  if (!conn?.google_refresh_token) throw new WorkspaceDriveError(424, "drive_not_connected");
-  let r: Response;
+  let res;
   try {
-    r = await request("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: cfg.google_client_id,
-        client_secret: cfg.google_client_secret,
-        refresh_token: conn.google_refresh_token,
-        grant_type: "refresh_token",
-      }),
-      redirect: "error",
-    });
+    res = await refreshAccessToken(request, cred);
   } catch {
     log("drive_token_failed");
     throw new WorkspaceDriveError(503, "drive_token_failed");
   }
-  let d: { access_token?: unknown; error?: unknown } = {};
-  try { d = await r.json(); } catch { d = {}; }
-  if (!r.ok || typeof d.access_token !== "string" || !d.access_token) {
+  const d = res.data as { access_token?: unknown; error?: unknown };
+  if (!res.ok || typeof d.access_token !== "string" || !d.access_token) {
     log("drive_token_failed");
-    if (d.error === "invalid_grant" || [400, 401].includes(r.status)) {
+    if (d.error === "invalid_grant" || [400, 401].includes(res.status)) {
       throw new WorkspaceDriveError(424, "drive_auth_expired");
     }
     throw new WorkspaceDriveError(503, "drive_token_failed");

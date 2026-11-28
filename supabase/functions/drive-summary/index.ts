@@ -16,6 +16,9 @@ Deno.serve(withWebCors(createHandler({
     SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     // S7-d: ledger tables are read with the owner's token + anon key (no service_role grant on them).
     SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY'),
+    // S71-01: 명진 전용 구글 창구(드라이브 전체). 없으면 심사용 창구 그대로.
+    GOOGLE_DRIVE_FULL_CLIENT_ID: Deno.env.get('GOOGLE_DRIVE_FULL_CLIENT_ID'),
+    GOOGLE_DRIVE_FULL_CLIENT_SECRET: Deno.env.get('GOOGLE_DRIVE_FULL_CLIENT_SECRET'),
     DRIVE_SUMMARY_CRON_SECRET: Deno.env.get('DRIVE_SUMMARY_CRON_SECRET'),
     COLLECTOR_HEARTBEAT_SECRET: Deno.env.get('COLLECTOR_HEARTBEAT_SECRET'),
     // S52-46 FEED-최신화즉시수집: the Apps Script web app address and its body secret (POST ?action=collector_pull wakes it once).

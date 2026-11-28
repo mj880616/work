@@ -64,7 +64,8 @@ test('Task 12C leaves Google Calendar, Tasks, and Drive return paths intact', ()
 
   assert.match(calendar, /const raw='calendar\.'\+platform/);
   assert.match(tasks, /const raw='tasks\.'\+platform/);
-  assert.match(calendar, /redirect_uri:CALLBACK/);
+  // S71-01: 동의 화면 주소는 공용 도우미(reviewAuthUrl)가 같은 CALLBACK으로 만든다.
+  assert.match(calendar, /reviewAuthUrl\(\{cfg,redirectUri:CALLBACK,/);
   assert.match(callback, /calendarRedirect\('connected', state\)/);
   assert.match(callback, /const DRIVE_APP_URL = 'https:\/\/bokdoong\.com\/work\/app\/\?view=library';/);
 });

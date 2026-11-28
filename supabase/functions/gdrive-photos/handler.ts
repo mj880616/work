@@ -19,12 +19,14 @@
 
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { readJpegMeta, validLoc, writeJpegMeta } from "../_shared/jpeg-exif.ts";
+import { DRIVE_FULL_SCOPE as SHARED_DRIVE_FULL_SCOPE, DriveCredentialError, driveRefreshCredentials, refreshAccessToken } from "../_shared/google-oauth-clients.mjs";
 import { ROOT_FOLDER_NAME } from "../_shared/brand-folders.mjs";
 
 type Env = (name: string) => string | undefined;
 export type GdriveOptions = { fetch?: typeof fetch; env: Env; now?: () => number };
 
-export const DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
+// 드라이브 전체 권한 글자는 공용 도우미 한 곳에만(S71-01). 여기서는 받은 토큰에 있는지 확인만 한다.
+export const DRIVE_FULL_SCOPE = SHARED_DRIVE_FULL_SCOPE;
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 const META_MAX = 10, META_BYTES = 30 * 1024 * 1024, META_HEAD = 256 * 1024;
@@ -283,7 +285,7 @@ export function createGdriveHandler(options: GdriveOptions) {
   // S54-16: 접근 토큰만 이 인스턴스 안에서 약 50분 기억한다(사진 한 장마다 구글 토큰을 새로 받지 않게, onedrive-photos와 같은 방식).
   // 키 = 작업공간 id + 갱신 토큰 지문(SHA-256 앞 16자). 갱신 토큰이 바뀌거나(다시 연결) 작업공간이 다르면 다른 키라 섞이지 않는다.
   // 갱신 토큰은 요청마다 그 작업공간 연결 행(app_drive_connections)에서 그대로 읽는다 — 연결을 끊으면 바로 drive_not_connected.
-  // 앱 값(client id/secret)만 public_policy_drive_config id=1에서 읽는다(그 행의 갱신 토큰은 읽지 않음). 위 문(authorize)도 요청마다 그대로다.
+  // 앱 값(client id/secret)은 그 연결을 내준 창구의 것(S71-01, _shared/google-oauth-clients.mjs). 위 문(authorize)도 요청마다 그대로다.
   // 같은 순간 여러 요청(썸네일 묶음)은 토큰 교환 하나를 함께 기다린다. 구글이 401을 주면 기억한 토큰을 버린다(drive()).
   const tokenCache = new Map<string, { token: string; full: boolean; until: number }>();
   const tokenFlights = new Map<string, Promise<{ token: string; full: boolean }>>();
@@ -294,14 +296,18 @@ export function createGdriveHandler(options: GdriveOptions) {
   }
   async function driveToken(workspaceId: string): Promise<{ token: string; full: boolean }> {
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(workspaceId)) throw new Fail(500, "drive_workspace_missing");
-    const [cfg, conn] = await Promise.all([
-      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret"),
-      rows("drive_conn", `app_drive_connections?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=google_refresh_token&limit=1`),
-    ]);
-    if (!cfg[0]?.google_client_id || !cfg[0]?.google_client_secret) throw new Fail(503, "drive_config_missing");
-    if (!conn[0]?.google_refresh_token) throw new Fail(424, "drive_not_connected");
-    const c = { ...cfg[0], google_refresh_token: conn[0].google_refresh_token };
-    const key = workspaceId + ":" + await fingerprint(String(c.google_refresh_token));
+    // S71-01: 갱신 열쇠와 그 열쇠를 내준 창구(심사용 / 명진 전용)의 앱 값은 공용 도우미 한 곳에서 고른다.
+    let c: { kind: string; client: { client_id: string; client_secret: string }; refreshToken: string };
+    try {
+      c = await driveRefreshCredentials((path: string) => rows("drive_cred", path), workspaceId, { env: options.env });
+    } catch (e) {
+      if (e instanceof Fail) throw e;
+      const code = e instanceof DriveCredentialError ? e.code : "read_failed";
+      if (code === "config_missing") throw new Fail(503, "drive_config_missing");
+      if (code === "not_connected") throw new Fail(424, "drive_not_connected");
+      throw new Fail(503, "gdrive_store_unavailable");
+    }
+    const key = workspaceId + ":" + c.kind + ":" + await fingerprint(c.refreshToken);
     const hit = tokenCache.get(key);
     if (hit && hit.until > now()) return { token: hit.token, full: hit.full };
     const going = tokenFlights.get(key);
@@ -310,20 +316,13 @@ export function createGdriveHandler(options: GdriveOptions) {
     tokenFlights.set(key, flight);
     return await flight;
   }
-  async function exchangeToken(key: string, c: Record<string, unknown>): Promise<{ token: string; full: boolean }> {
+  async function exchangeToken(key: string, c: { client: { client_id: string; client_secret: string }; refreshToken: string }): Promise<{ token: string; full: boolean }> {
     tokenCache.delete(key);
-    const r = await call("drive_token", "https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: String(c.google_client_id || ""), client_secret: String(c.google_client_secret || ""),
-        refresh_token: String(c.google_refresh_token), grant_type: "refresh_token",
-      }),
-    });
-    const d = await body(r);
-    if (!r.ok || typeof d?.access_token !== "string" || !d.access_token) {
-      log("drive_token_" + r.status);
-      if (d?.error === "invalid_grant" || [400, 401].includes(r.status)) throw new Fail(424, "drive_auth_expired");
+    const res = await refreshAccessToken((url: string, init: RequestInit) => call("drive_token", url, init), c);
+    const d = res.data as { access_token?: unknown; error?: unknown; scope?: unknown; expires_in?: unknown };
+    if (!res.ok || typeof d?.access_token !== "string" || !d.access_token) {
+      log("drive_token_" + res.status);
+      if (d?.error === "invalid_grant" || [400, 401].includes(res.status)) throw new Fail(424, "drive_auth_expired");
       throw new Fail(503, "gdrive_unavailable");
     }
     let full = scopeHas(d.scope);

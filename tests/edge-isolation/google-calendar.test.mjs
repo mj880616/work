@@ -21,7 +21,7 @@ test('real google-calendar graph (CAL-일정첨부: event files + shared Drive u
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/app-folders.mjs','_shared/brand-folders.mjs','_shared/delegated-token-guard.mjs','_shared/drive-photo.ts','_shared/drive-trash.ts','_shared/drive-upload.ts','_shared/file-rename-name.mjs','_shared/safe-error.ts','_shared/web-cors.ts','_shared/workspace-drive-token.ts','google-calendar/event-files.ts','google-calendar/index.ts']);
+  assert.deepEqual(local.sort(),['_shared/app-folders.mjs','_shared/brand-folders.mjs','_shared/delegated-token-guard.mjs','_shared/drive-photo.ts','_shared/drive-trash.ts','_shared/drive-upload.ts','_shared/file-rename-name.mjs','_shared/google-oauth-clients.mjs','_shared/safe-error.ts','_shared/web-cors.ts','_shared/workspace-drive-token.ts','google-calendar/event-files.ts','google-calendar/index.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'google-calendar.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });

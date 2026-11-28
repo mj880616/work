@@ -22,6 +22,7 @@
 import { isDelegatedToken } from "../_shared/delegated-token-guard.mjs";
 import { GRAPH, normalizeScopes, safeDownloadUrl, SCOPE as OD_SCOPE, scopeAllowed, validItemId } from "../onedrive-photos/graph.ts";
 import { scopeHas } from "../gdrive-photos/handler.ts";
+import { DriveCredentialError, driveRefreshCredentials, refreshAccessToken } from "../_shared/google-oauth-clients.mjs";
 import { checkFileBase, numberedName } from "../_shared/file-rename-name.mjs";
 import { Md5, Sha1 } from "./hash.ts";
 import {
@@ -359,31 +360,28 @@ export function createCloudFilesHandler(options: CloudFilesOptions) {
     return await flight;
   }
 
-  // ---- 구글 토큰(drive 범위 확인). 갱신 토큰은 그 작업공간 연결 행, 앱 값(client id/secret)만 id=1에서(그 행의 갱신 토큰은 읽지 않음) ----
+  // ---- 구글 토큰(drive 범위 확인). 갱신 토큰은 그 작업공간 연결 행, 앱 값은 그 연결을 내준 창구의 것(S71-01, _shared/google-oauth-clients.mjs) ----
   async function gdToken(workspaceId: string): Promise<string> {
-    const [refresh, cfg] = await Promise.all([
-      gdConnection(workspaceId),
-      rows("drive_cfg", "public_policy_drive_config?id=eq.1&select=google_client_id,google_client_secret"),
-    ]);
-    if (!refresh) throw new Fail(424, "gd_not_connected");
-    if (!cfg[0]?.google_client_id || !cfg[0]?.google_client_secret) throw new Fail(503, "cloud_unavailable");
-    const c = { ...cfg[0], google_refresh_token: refresh };
-    const key = await tokenKey("gd", workspaceId, String(c.google_refresh_token));
+    if (!isUuid(workspaceId)) throw new Fail(500, "drive_workspace_missing");
+    let c: { kind: string; client: { client_id: string; client_secret: string }; refreshToken: string };
+    try {
+      c = await driveRefreshCredentials((path: string) => rows("gd_cred", path), workspaceId, { env: options.env });
+    } catch (e) {
+      if (e instanceof Fail) throw e;
+      const code = e instanceof DriveCredentialError ? e.code : "read_failed";
+      if (code === "not_connected") throw new Fail(424, "gd_not_connected");
+      throw new Fail(503, "cloud_unavailable");
+    }
+    const key = await tokenKey("gd", workspaceId + ":" + c.kind, c.refreshToken);
     return await cachedToken(key, () => gdExchange(key, c));
   }
-  async function gdExchange(key: string, c: Record<string, unknown>): Promise<string> {
+  async function gdExchange(key: string, c: { client: { client_id: string; client_secret: string }; refreshToken: string }): Promise<string> {
     tokenCache.delete(key);
-    const r = await call("gd_token", "https://oauth2.googleapis.com/token", {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: String(c.google_client_id || ""), client_secret: String(c.google_client_secret || ""),
-        refresh_token: String(c.google_refresh_token), grant_type: "refresh_token",
-      }),
-    });
-    const d = await body(r);
-    if (!r.ok || typeof d?.access_token !== "string" || !d.access_token) {
-      log("gd_token_" + r.status);
-      if (d?.error === "invalid_grant" || [400, 401].includes(r.status)) throw new Fail(424, "gd_auth_expired");
+    const res = await refreshAccessToken((url: string, init: RequestInit) => call("gd_token", url, init), c);
+    const d = res.data as { access_token?: unknown; error?: unknown; scope?: unknown; expires_in?: unknown };
+    if (!res.ok || typeof d?.access_token !== "string" || !d.access_token) {
+      log("gd_token_" + res.status);
+      if (d?.error === "invalid_grant" || [400, 401].includes(res.status)) throw new Fail(424, "gd_auth_expired");
       throw new Fail(503, "cloud_unavailable");
     }
     let full = scopeHas(d.scope);
