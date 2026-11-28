@@ -146,6 +146,13 @@ dialog:modal{overscroll-behavior:contain}
 .modal-card{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);width:min(100%,1040px);max-height:94vh;overflow:auto;box-shadow:var(--kptu-shadow-modal)}
 .small-card{width:min(100%,460px);padding:var(--kptu-space-5)}
 .editor-card{padding:var(--kptu-space-5)}
+/* BRIEF-추가빠르게: 자료 등록 창 기다림 틀(upload-window-open.js) — 누르자마자 같은 틀·폭으로 머리 줄(자료 등록 ×)과 회색 줄만 보이고, 높이는 지난번 창 높이(--doc-wait-h, 처음이면 넓은 화면 672px·폰은 공용 폰 창 최대 높이 workspace-ui.css와 같은 값).
+   최종 창 내용은 틀이 벗겨질 때 한 번에 보인다(상태 클래스 doc-wait, 이 창 하나). */
+#documentModal .doc-wait-box{display:none}
+#documentModal.doc-wait .doc-wait-box{display:block}
+#documentModal.doc-wait .modal-card>:not(.modal-head):not(.doc-wait-box){display:none}
+#documentModal.doc-wait .modal-card{min-height:min(var(--doc-wait-h,672px),94vh)}
+@media(max-width:760px){#documentModal.doc-wait .modal-card{min-height:var(--doc-wait-h,calc(100dvh - 16px - env(safe-area-inset-bottom)))}}
 .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-3);margin-bottom:var(--kptu-space-3)}
 .modal-head h2{margin:0;font-size:20px;line-height:1.35;font-weight:800}
 .icon-btn{border:1px solid var(--kptu-border);background:var(--kptu-surface-subtle);color:var(--kptu-muted);width:32px;height:32px;border-radius:var(--kptu-radius-md);font-size:20px;line-height:1;display:grid;place-items:center;padding:0}

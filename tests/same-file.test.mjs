@@ -123,9 +123,27 @@ test('묻기: 같은 것만 모아 한 번, 나머지는 바로', async () => {
   assert.equal(seen.note, '나머지 1개는 바로 올려요');
   assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 업로드']);
   assert.deepEqual(r.files, [b]);
-  const r2 = await screenSameFiles([a, b], {find, useExisting: true, ask: async (anchor, o) => { seen = o; return 'use'; }});
-  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 업로드', '있는 것 쓰기']);
+  // 찾은 곳이 노트·할 일 첨부뿐이면(자료실 자료 없음) useExisting이어도 지금처럼 [올리지 않기].
+  await screenSameFiles([a, b], {find, useExisting: true, ask: async (anchor, o) => { seen = o; return 'skip'; }});
+  assert.deepEqual(seen.actions.map(x => x.label), ['올리지 않기', '그래도 업로드']);
+  // BRIEF-추가빠르게: 자료실 자료가 있으면 [올리지 않기] 자리가 [있는 자료 쓰기] — 그 자료를 고른 것으로 넘긴다.
+  const doc = {kind: 'document', ref: {id: 'd1'}, line: '자료실 › 예시 폴더 › a.hwp · 11/11'};
+  const findDoc = async files => new Map([[files[0], [{kind: 'note', line: '노트 › a.hwp'}, doc]]]);
+  const r2 = await screenSameFiles([a, b], {find: findDoc, useExisting: true, ask: async (anchor, o) => { seen = o; return 'use'; }});
+  assert.deepEqual(seen.actions.map(x => x.label), ['있는 자료 쓰기', '그래도 업로드']);
+  assert.equal(seen.actions[0].kind, 'primary');
   assert.equal(r2.used[0].file, a);
+  assert.equal(r2.used[0].hit, doc, '자료실 자료를 고른다(노트 첨부가 먼저 찾혀도)');
+  assert.deepEqual(r2.files, [b], '겹치지 않은 것만 올린다');
+  // 일부만 자료실 자료: 자료실에 없는 것은 올리지 않는다고 미리 알린다.
+  const c = file('c.txt', 9);
+  const findMix = async files => new Map([[files[0], [doc]], [files[1], [{kind: 'task', line: '할 일 첨부 › c.txt'}]]]);
+  const r3 = await screenSameFiles([a, c, b], {find: findMix, useExisting: true, ask: async (anchor, o) => { seen = o; return 'use'; }});
+  assert.equal(seen.note, '나머지 1개는 바로 올려요 · 자료실에 없는 1개는 올리지 않아요');
+  assert.deepEqual(r3.used.map(u => u.file), [a]); assert.deepEqual(r3.skipped, [c]); assert.deepEqual(r3.files, [b]);
+  // 올리지 않기의 찾은 곳(부른 곳이 '자료 보기' 길을 보일 때)
+  const r4 = await screenSameFiles([a, b], {find: findDoc, ask: async () => 'skip'});
+  assert.deepEqual(r4.skippedHits, [doc]);
   let took = null;
   await takeAfterSameCheck([a], list => { took = list; }, {find, ask: async () => 'skip'});
   assert.equal(took, null, '올릴 것이 없으면 부르지 않음');
