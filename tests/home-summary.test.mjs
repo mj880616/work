@@ -17,12 +17,16 @@ test('잊지 말기 한 줄 숫자(S52-20): 업데이트 미분류 + 처리 전 
   assert.equal(forgetCount({}), null);
 });
 
-test('홈 순서: 날짜 줄 → 업데이트 입력줄(머리 줄에 잊지 말기 칩, S53-13) → [하루] 카드 → [그날 일정 | 할 일] → 오늘 한 일 → 주간 보고 재료', () => {
+test('홈 순서: 날짜 줄 → [하루] 카드(아래 고정 입력 막대 없음, QUICK-입력정리) → [그날 일정 | 할 일] → 오늘 한 일 → 주간 보고 재료', () => {
   const src = read('journal.js');
   const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
-  const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
+  const order = ['data-journal-days', 'data-journal-day>', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
   assert.deepEqual([...order].sort((a, b) => a - b), order);
   assert.doesNotMatch(src, /mountRadar|data-journal-radar/);
+  // QUICK-입력정리(2026-11-28 사용자 결정 '홈 막대 통째로 없앰'): 홈에는 빠른 입력 자리·잊지 말기 칩이 없다(부르는 곳째 지움).
+  assert.doesNotMatch(src, /home-quick-placeholder|data-home-quick/);
+  const summary = read('home-summary.js');
+  assert.doesNotMatch(summary, /home-quick|mountQuick|forgetChipHtml|data-home-forget|innerHTML/);
   assert.match(read('index.html'), /<section id="homeView" class="view-panel hidden">\s*<div id="journalRoot" class="journal"><\/div>/);
   assert.doesNotMatch(read('index.html'), /id="journalView"|data-view="journal"|data-home-cards/);
 });

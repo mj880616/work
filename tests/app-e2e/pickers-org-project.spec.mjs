@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox, pickQuickMode, placeTrigger } from './helpers/home-entry.mjs';
+import {openHome} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import { expectChoiceAtButton } from './helpers/choice-anchor.mjs';
 import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picker.mjs';
 // UI-고르기창개선 (PC만, 폰 그대로). A: 담당조직 선택은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩) + 맨 위 검색칸, 고른 칩은 초록 + ✓,
@@ -10,33 +11,26 @@ import { SHEET, openPicker, pressRow, openFolds } from './helpers/area-org-picke
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NAMES=['전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부'];
 const LONG='아주 긴 이름의 합성 시험용 지역 공공운수 현장 지부 노동조합 분회';
-const quick=page=>page.locator('#homeView [data-home-quick]');
 const dialog=page=>page.getByRole('dialog');
 async function orgRoutes(page,names){
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:names.map((name,i)=>({id:'o'+i,name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:names.map((_,i)=>({organization_id:'o'+i}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
 }
+// QUICK-입력정리(2026-11-28): 홈 [업데이트 ▾]는 지웠다 — 같은 '기록할 곳' 창을 여는 큰 쓰기 창 [기록할 곳 ▾]로 본다.
+const placeButton=page=>page.locator('#edWindow [data-edw-place]');
 async function homeOrgSheet(page,width,names){
- await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();await openQuickBox(page);
- const q=quick(page);await pickQuickMode(page,'update');await q.locator('[data-quick-input]').fill('QA');
- const trigger=await placeTrigger(page);await pickQuickMode(page,'org');const sheet=dialog(page);await expect(sheet).toBeVisible();
+ await page.setViewportSize({width,height:900});await openHome(page);await orgRoutes(page,names);await page.reload();
+ await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await openWriteFromEntry(page,width);
+ const trigger=placeButton(page);await trigger.click();const sheet=page.locator('#edwPlaceSheet');await expect(sheet).toBeVisible();
  // S52-01 ②: 담당조직·사업영역은 접힌 묶음(같은 고르기 창 목록) — 줄을 보려면 펼친다.
  await openFolds(sheet);
- return {q,trigger,sheet};
+ return {trigger,sheet};
 }
 // The extra projects are served by the network as well (a later catalog reload must not drop them).
 const BASE=[{id:'p',name:'테스트 프로젝트',owner_id:'home-test',status:'active',metadata:{project_system:'v2'}},{id:'child',name:'자식 프로젝트',parent_id:'p',owner_id:'home-test',status:'active'}];
 const EXTRA=[{id:'grand',name:'손자 프로젝트',parent_id:'child',owner_id:'home-test',status:'active',metadata:{project_system:'v2'}},{id:'other',name:'다른 상위 프로젝트',owner_id:'home-test',status:'active',metadata:{project_system:'v2'}}];
-async function homeProjectSheet(page,width){
- await page.setViewportSize({width,height:900});await openHome(page);
- await page.route(SB+'/rest/v1/app_spaces?**',route=>route.fulfill({json:[...BASE,...EXTRA]}));
- await page.evaluate(extra=>{const c=KPTUProjectCatalog,s=c.snapshot();c.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:[...s.spaces,...extra]});},EXTRA);
- const q=quick(page);await pickQuickMode(page,'task');await q.locator('[data-quick-input]').fill('QA');
- const trigger=q.locator('[data-quick-project]');await trigger.click();const sheet=dialog(page);await expect(sheet).toBeVisible();
- return {q,trigger,sheet};
-}
-const quickOrgButton=page=>placeTrigger(page); // HOME-입력칸두모양: 폰은 [종류 ▾]
+const quickOrgButton=page=>placeButton(page);
 const below=async(trigger,sheet)=>{const t=await trigger.boundingBox(),d=await sheet.boundingBox();return {t,d,gap:d.y-(t.y+t.height)};};
 
 // UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직이 한 줄에 하나씩 체크칸과 함께.
@@ -87,9 +81,9 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
  await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.locator('[data-sheet-empty][data-wait-empty]')).toBeHidden();
  // ↓ goes from the box to the first choice shown; Enter marks it and [저장] closes the list.
  await box.fill('공항');await box.press('ArrowDown');const first=sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true});await expect(first).toBeFocused();
- await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAttribute('aria-label','기록할 곳 선택: 공항철도지부');
+ await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(placeButton(page)).toHaveAttribute('aria-label','기록할 곳 선택: 공항철도지부');
  // Opening again starts with an empty box and every choice.
- await pickQuickMode(page,'org');await expect(box).toHaveValue('');await openFolds(sheet);await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
+ await placeButton(page).click();await expect(box).toHaveValue('');await openFolds(sheet);await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
 });
 
 test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한 묶음 + 검색, 묶음 이름 없음',async({page})=>{
@@ -101,36 +95,6 @@ test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한
 });
 
 // S52-01 ②: 빠른 입력 [할 일] 사업영역도 같은 고르기 창(#areaOrgPickSheet) — 큰 묶음만 보이고 꺾쇠로 하위를 펼친다.
-test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(↳ 없음), 체크칸, 줄 전체 눌러 선택, 검색',async({page})=>{
- const {trigger,sheet}=await homeProjectSheet(page,1280);
- await expect(sheet).toHaveClass(/home-choice-anchored/);
- const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);expect(d.width).toBeLessThanOrEqual(360);
- const rows=sheet.locator('.aop-list [data-sheet-value]');
- await expect(rows).toHaveText(['사업영역 없음','테스트 프로젝트','자식 프로젝트','손자 프로젝트','다른 상위 프로젝트']);
- await expect(rows.filter({visible:true})).toHaveText(['사업영역 없음','테스트 프로젝트','다른 상위 프로젝트']);
- await sheet.getByRole('button',{name:'테스트 프로젝트 하위 1개 펼치기'}).click();await sheet.getByRole('button',{name:'자식 프로젝트 하위 1개 펼치기'}).click();
- await expect(rows.filter({visible:true})).toHaveCount(5);
- expect((await sheet.locator('[data-sheet-content]').textContent())).not.toContain('↳');
- const info=await rows.evaluateAll(rs=>rs.map(r=>{const n=r.querySelector('.home-choice-name'),c=r.querySelector('.home-choice-check'),b=r.getBoundingClientRect();return {x:n.getBoundingClientRect().left,color:getComputedStyle(n).color,check:c.getBoundingClientRect().width,h:b.height,w:b.width};}));
- const [, top,child,grand,other]=info;
- expect(child.x).toBeGreaterThan(top.x+10);expect(grand.x).toBeGreaterThan(child.x+10);expect(other.x).toBe(top.x);
- expect(child.color).not.toBe(top.color);expect(grand.color).toBe(child.color);expect(other.color).toBe(top.color);
- for(const r of info){expect(r.check).toBeGreaterThan(10);expect(r.check).toBeLessThanOrEqual(16);expect(r.h).toBeLessThanOrEqual(34);}
- // The whole row is the button: a press at its right end picks it.
- const childRow=sheet.locator('.aop-list [data-sheet-value="p:child"]'),b=await childRow.boundingBox();
- await page.mouse.click(b.x+b.width-6,b.y+b.height/2);await expect(sheet).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');
- // Picking a parent does not pick its children.
- await trigger.click();await expect(sheet.locator('.aop-list [aria-pressed="true"]')).toHaveText(['자식 프로젝트']);
- const chosen=sheet.locator('.aop-list [data-sheet-value="p:child"]');
- const look=await chosen.evaluate(el=>{const p=document.createElement('span');p.style.background='var(--kptu-success-soft)';p.style.color='var(--kptu-success)';document.body.append(p);const s=getComputedStyle(p),out={soft:s.backgroundColor,green:s.color};p.remove();const c=getComputedStyle(el.querySelector('.home-choice-check'));return {...out,bg:getComputedStyle(el).backgroundColor,check:c.backgroundColor,mark:getComputedStyle(el.querySelector('.home-choice-check'),'::after').content};});
- expect(look.bg).toBe(look.soft);expect(look.check).toBe(look.green);expect(look.mark).toContain('✓');
- await sheet.locator('.aop-list [data-sheet-value="p:p"]').click();await trigger.click();await expect(sheet.locator('.aop-list [aria-pressed="true"]')).toHaveText(['테스트 프로젝트']);
- const box=sheet.getByRole('searchbox',{name:'찾기'});await box.fill('손자');
- await expect(sheet.locator('[data-sheet-value]:visible .home-choice-name')).toHaveText(['손자 프로젝트']);
- // PRJ-3단: while searching, a third-level row also shows where it sits ("1단 › 2단").
- await expect(sheet.locator('[data-sheet-value]:visible .home-choice-path')).toHaveText(['테스트 프로젝트 › 자식 프로젝트']);
- await box.fill('상위');await expect(sheet.locator('[data-sheet-value]:visible')).toHaveText(['다른 상위 프로젝트']);
-});
 
 // UPD-여러곳고르기: the phone sheet has the same list as a PC (group headings, one organization per 44px line, check boxes on every
 // row, since many can be chosen) with [취소] [저장] fixed at the bottom; still no search box.
@@ -145,7 +109,7 @@ test('폰: 아래에서 올라오는 시트, 찾기 칸, 묶음 이름 + 조직 
  await expect(row.locator('.home-choice-check')).toBeVisible();
  await expect(sheet.getByRole('button',{name:'저장',exact:true})).toBeVisible();
  // S52-01 ②: 찾기 칸은 폰에도 있어, PC에서 쓴 글자가 폰 폭으로 줄여도 그대로 거른다.
- await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await pickQuickMode(page,'org');
+ await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await placeButton(page).click();
  await sheet.getByRole('searchbox').fill('9호선');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
  await page.setViewportSize({width:390,height:844});await expect(sheet).toHaveClass(/home-choice-anchored/);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);

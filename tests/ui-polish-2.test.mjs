@@ -56,7 +56,7 @@ test('③ 잘림: 노트 큰 창의 [폴더 ▾]는 8글자까지 다 보이고 
 test('① ▾: 고를 거리를 여는 버튼은 이름 뒤 작은 ▾(읽어 주는 이름은 그대로), [화면 색]은 PC에서 누른 자리 아래', () => {
   const css = read('app/ui-standard.css');
   const rule = css.match(/:is\([^{]*lu-select-act\[aria-haspopup\][^{]*\)::before\{[^}]*\}/)?.[0] || '';
-  for (const sel of ['data-quick-day="week"', 'data-manual-task-day="week"', 'data-task-due-quick="week"', 'data-gt-due-quick="week"']) assert.ok(rule.includes(sel), sel);
+  for (const sel of ['data-manual-task-day="week"', 'data-task-due-quick="week"', 'data-gt-due-quick="week"']) assert.ok(rule.includes(sel), sel);
   assert.match(rule, /content:"▾" \/ ""/);
   assert.match(read('app/topbar-actions.css'), /\.account-action\[data-theme-open\]::before\{content:"▾";content:"▾" \/ ""/);
   const top = read('app/topbar-actions.js');

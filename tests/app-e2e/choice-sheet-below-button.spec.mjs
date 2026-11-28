@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome, openQuickBox, pickQuickMode, placeTrigger } from './helpers/home-entry.mjs';
+import {openHome, openQuickBox } from './helpers/home-entry.mjs';
 import {expectChoiceAtButton} from './helpers/choice-anchor.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {bootLibrary,libFolder,libDoc} from './helpers/library-folder-server.mjs';
@@ -19,20 +19,6 @@ async function orgRoutes(page){
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:[]}));
 }
 
-for(const width of WIDTHS)test(`${width}: 홈 빠른 입력 [기록할 곳]·[프로젝트] 고르기 창이 누른 버튼 아래`,async({page})=>{
- await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page);await page.reload();await openQuickBox(page);
- const q=page.locator('#homeView [data-home-quick]');
- await pickQuickMode(page,'task');await q.locator('[data-quick-input]').fill('QA');
- const project=q.locator('[data-quick-project]');
- await project.click();
- await expectChoiceAtButton(page,page.getByRole('dialog'),project);
- await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toBeHidden();
- await pickQuickMode(page,'update');
- const org=await placeTrigger(page);// HOME-입력칸두모양: 폰은 [종류 ▾] → 기록할 곳 선택, 창은 그 단추 곁
- await pickQuickMode(page,'org');
- // 넓은 화면(761px~)의 [기록할 곳]은 담당조직·프로젝트가 나란한 넓은 목록(최대 880px)이다.
- await expectChoiceAtButton(page,page.getByRole('dialog'),org,{maxWidth:width>=761?880:480});
-});
 
 for(const width of WIDTHS)test(`${width}: 할 일 연결의 사업영역·담당조직 고르기 창이 누른 줄 아래, 첫 줄이 다 보임`,async({page})=>{
  await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page);
@@ -67,10 +53,3 @@ for(const width of WIDTHS)test(`${width}: 보고 [+] 종류 고르기 창이 누
 });
 
 // 버튼 아래 자리가 모자라면 위로: 화면 아래쪽에 있는 버튼에서도 창이 아래 바를 덮지 않는다.
-test('390: 화면 아래쪽 버튼에서 열어도 창은 아래 메뉴 줄 위에서 끝나고 버튼 위나 아래에 붙음',async({page})=>{
- await page.setViewportSize({width:390,height:640});await openHome(page);await orgRoutes(page);await page.reload();await openQuickBox(page);
- const q=page.locator('#homeView [data-home-quick]');
- await pickQuickMode(page,'update');
- const org=await placeTrigger(page);await pickQuickMode(page,'org');
- await expectChoiceAtButton(page,page.getByRole('dialog'),org);
-});

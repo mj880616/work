@@ -33,12 +33,8 @@ const noWideScroll=async page=>expect(await page.evaluate(()=>document.documentE
 for(const width of [390,1280]){
  test(`빠른 입력 [추가] 40px(입력 줄 높이)·할 일 추가 창 ${width}`,async({page})=>{
   const errors=await boot(page,width);
-  // HOME-입력칸두모양: 폰 홈 [추가]는 글을 쓰는 동안만 [잊지 말기] 자리에 온다.
-  if(width<761)await page.locator('#homeView .home-quick [data-quick-input]').fill('글');
-  // NOTE-입력줄높이(S71-67): 빠른 입력 줄 [추가]는 입력칸과 같은 40px, 칸 안 ⤢·[+]는 칸 안쪽 높이 38px.
-  await check(page.locator('#homeView .home-quick [data-quick-save]'),40,'홈 [추가]');
-  if(width<761)await check(page.locator('#homeView .home-quick .home-quick-big'),38,'홈 [큰 창에서 쓰기]');
-  await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),40,'정리함 [추가]');
+  // NOTE-입력줄높이(S71-67): 빠른 입력 줄 [추가]는 입력칸과 같은 40px, 칸 안 [+]는 칸 안쪽 높이 38px.
+  // QUICK-입력정리(2026-11-28): 홈·잊지 말기 손 입력칸은 지웠다 — [할 일] 화면 입력 줄을 본다.
   await go(page,'tasks');await check(page.locator('#tasksView .home-quick [data-quick-save]'),40,'할 일 [추가]');
   if(width<761)await check(page.locator('#tasksView .home-quick .home-quick-detail'),38,'할 일 [상세 설정으로 추가]');
   await page.locator('#tasksView .home-quick-detail').click();await expect(page.locator('#eventModal')).toBeVisible();

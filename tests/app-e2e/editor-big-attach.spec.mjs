@@ -80,34 +80,12 @@ for(const width of [390,1280]){
 
  // ED③ 순서 6: the old write window's [📎 첨부] test went with the window; the new window's file batch is in update-window.spec.mjs and update-attach-target.spec.mjs.
 
- test(`홈 [크게] [📎 첨부]: 홈 입력의 파일과 같은 묶음, 창에서 고른 파일이 홈 입력에도 보임 ${width}`,async({page})=>{
-  const f=await fixture(page,width),q=page.locator('#homeView [data-home-quick]');
-  await q.locator('[data-quick-input]').fill('홈 업데이트');
-  await q.locator('[data-quick-big]').click();
-  const e=page.locator('#edWindow');await expect(e).toBeVisible();
-  const clip=e.getByRole('button',{name:'파일 첨부',exact:true});
-  await chooseFile(page,clip,'b.txt');
-  await expect(clip.locator('[data-basket-count]')).toHaveText('1');
-  // Closing without saving: the file stays with the home input (one batch). The window asks first (a file was chosen).
-  await e.locator('[data-close="edWindow"]').click();
-  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
-  await expect(q.getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
-  await q.locator('[data-quick-big]').click();await expect(e).toBeVisible();
-  await expect(e.locator('[data-basket-file]')).toHaveCount(1);
-  await e.locator('[data-edw-save]').click();
-  await expect(page.locator('#edWindow')).toHaveCount(0);
-  // BIZ-저장먼저닫기 2차(S59-10): the letters are saved first and the window closes; the file goes up behind to that update.
-  expect(f.notes).toHaveLength(1);expect(f.notes[0].raw_text).toBe('홈 업데이트');
-  await expect.poll(()=>f.uploads.length).toBe(1);expect(f.uploads[0]).toContain('filename="b.txt"');expect(f.uploads[0]).toContain('name="note_id"\r\n\r\nnew-1');
-  await expect(page.locator('#uploadDock:not([hidden])')).toContainText('업데이트에 파일 1개 올렸어요');
-  expect(f.errors).toEqual([]);
- });
 }
 
 for(const width of [390,1280])test(`정리함 업데이트 수정 [큰 창에서 수정] [📎 첨부]: 수정 화면과 같은 파일 선택, 저장은 기존 [첨부 저장] ${width}`,async({page})=>{
  const f=await fixture(page,width);
  await page.route('**/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:[{id:'n',kind:'basket',raw_text:'고칠 업데이트',occurred_at:'2026-10-06',attachments:[]}]}):r.fallback());
- await page.locator('#homeView [data-home-quick] [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
+ await page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
  await page.locator('[data-basket-row="n"]').click();
  await page.locator('[data-basket-note-more]').click();await page.locator('[data-basket-edit]').click();
  const detail=page.locator('[data-basket-detail]');

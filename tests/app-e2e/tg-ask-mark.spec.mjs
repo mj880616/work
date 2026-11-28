@@ -95,11 +95,10 @@ test('홈 잊지 말기 한 줄 숫자에 요청이 들고(정리함 숫자와 �
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_candidates',r=>{const st=new URL(r.request().url()).searchParams.get('status')||'';return r.fulfill({json:CANDS().filter(c=>st==='eq.open'?c.status==='open':c.status!=='open')});});
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_my_features',r=>r.fulfill({json:['telegram']}));
  }});
- const line=page.locator('#homeView [data-home-summary]');
- await expect(line.locator('[data-nbx-badge]')).toHaveText(/^\d+$/);
- await expect(line.locator('[data-home-forget-open]')).toContainText('잊지 말기');
- await expect(line).not.toContainText('새 소식');
- await line.locator('[data-home-forget-open]').click();
+ // QUICK-입력정리(2026-11-28): 홈 칩은 없다 — 숫자는 메뉴 '홈' 표시(같은 읽기)로 보고, 잊지 말기는 메뉴로 연다.
+ await expect(page.locator('#appView')).toHaveAttribute('data-home-asks',/^\d+$/);
+ await expect(page.locator('#homeView')).not.toContainText('새 소식');
+ await page.locator('.app-nav [data-view="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').first().click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('#basketView [data-forget-section] [data-forget-src="telegram"]')).toHaveCount(1);
 });
