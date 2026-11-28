@@ -283,8 +283,6 @@
    선택자 무게가 같아 모양 파일을 붙인 순서로 승패가 갈린다(다른 메뉴를 먼저 열면 이 파일이 뒤에 붙어 채운 바탕에 어두운 글자). */
 #appView #homeView .journal-hwpx button.mini:not(.primary){ color:var(--kptu-ink); }
 #appView #homeView .journal-hwpx button:disabled{ opacity:.45; cursor:not-allowed; }
-/* 채운 버튼이 바쁠 때(확정하는 중·저장 중): 흐리게 하면 글자가 바탕에 묻히므로 연한 주 색 바탕 + 주 색 글자(대비 그대로)로 '지금은 못 누름'을 보인다. */
-#appView #homeView :is(.journal-hwpx,.journal-weekly) button.mini.primary:disabled{ opacity:1; color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary-soft); }
 #appView #homeView .journal-hwpx-target{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-compact-text); }
 #appView #homeView .journal-hwpx-plans > summary{ cursor:pointer; font-size:var(--ds-text-row); color:var(--kptu-muted); }
 #appView #homeView .journal-hwpx-plans > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
@@ -726,8 +724,6 @@
 #appView #homeView .weekly-confirm-bar > .weekly-confirm-tabs{ flex:0 1 auto; min-width:0; }
 #appView #homeView .weekly-confirm-bar > .weekly-flow-confirm{ margin-left:auto; padding:0; border:0; }
 /* 막대 안 보기 바꾸기는 공용 ⑤의 작은 판(.ds-seg-sm, ui-standard.css — 모양은 그 한 곳)을 쓴다(journal-hwpx.js). */
-/* [확정하고 받기] = 이 막대의 하나뿐인 채운 단추, 작게(--ds-compact-height-sm, DESIGN-단추정리 2026-11-28 15:37 결정). */
-#appView #homeView .weekly-confirm-bar button.mini.primary[data-hwpx-confirm]{ height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); }
 #appView #homeView .weekly-confirm-panes{ max-height:50vh; overflow:auto; }
 #appView #homeView .journal-hwpx:not(.is-open) > .weekly-confirm-panes{ display:none; }
 #appView #homeView .weekly-confirm-head{ display:flex; align-items:center; gap:6px; min-width:0; flex:none; }

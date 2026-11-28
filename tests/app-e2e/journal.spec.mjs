@@ -3759,7 +3759,7 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
 // WEEKLY-막대한줄(2026-11-28 사용자 신고 — 폰 412·큰 글자에서 막대가 두 줄, [확정하고 받기] 글자가 채운 바탕에 묻힘):
-// 막대는 어느 폭·큰 글자에서도 한 줄(줄바꿈 대신 탭 칸만 옆으로 밀기), [확정하고 받기]는 작은 채운 버튼이고 모든 테마·바쁨에서 글자 대비 4.5:1 이상.
+// 막대는 어느 폭·큰 글자에서도 한 줄(줄바꿈 대신 탭 칸만 옆으로 밀기, 탭은 공용 ⑤ 작은 판), [확정하고 받기]는 작은 채운 버튼이고 모든 테마·바쁨(흐리게 하지 않음)에서 글자 대비 4.5:1 이상.
 // 큰 글자는 화면 확대 1.3배(글자·칸이 함께 커짐 — 시스템 글꼴 크기 1.3배보다 넉넉한 최악 흉내)로 본다.
 const BAR_THEMES=['olive','navy','ink','lavender','teal','sky','mint','coral','lemon','red'];
 async function barLine(page){
@@ -3806,17 +3806,20 @@ for(const [width,zoom] of [[360,1],[412,1],[412,1.3],[884,1],[1280,1]])test(`WEE
  expect(line.overflow).toBeLessThanOrEqual(1);expect(line.pageOverflow).toBeLessThanOrEqual(1);
  // 탭 이름은 줄이지 않는다(넘치면 탭 칸만 옆으로 밀기).
  await expect(tabs.locator('.weekly-confirm-tab-name')).toHaveText(['파일','기록 제안','환류','기억']);
- // [확정하고 받기] = 작은 채운 버튼(--ds-compact-height-sm), 글자는 한 줄.
- const sm=await page.evaluate(()=>{const e=document.createElement('span');e.style.height='var(--ds-compact-height-sm)';e.style.display='block';document.querySelector('#journalRoot').append(e);const r=getComputedStyle(e).height;e.remove();return r;});
- const bs=await btn.evaluate(e=>({h:getComputedStyle(e).height,lines:Math.round(e.scrollHeight/parseFloat(getComputedStyle(e).lineHeight||'1')),ws:getComputedStyle(e).whiteSpace}));
- expect(bs.h).toBe(sm);expect(bs.ws).toBe('nowrap');
+ // [확정하고 받기] = 작은 채운 버튼(주간 보고 화면 작은 버튼 높이 --ds-compact-height 이하), 글자는 한 줄. 막대 탭(작은 판)은 --ds-compact-height-sm.
+ const tok=v=>page.evaluate(v=>{const e=document.createElement('span');e.style.height=`var(${v})`;e.style.display='block';document.querySelector('#journalRoot').append(e);const r=parseFloat(getComputedStyle(e).height);e.remove();return r;},v);
+ const [cmp,sm]=[await tok('--ds-compact-height'),await tok('--ds-compact-height-sm')];
+ const bs=await btn.evaluate(e=>({h:e.getBoundingClientRect().height/(parseFloat(getComputedStyle(document.documentElement).zoom)||1),ws:getComputedStyle(e).whiteSpace}));
+ expect(bs.h).toBeLessThanOrEqual(cmp+0.5);expect(bs.ws).toBe('nowrap');
+ const segH=await tabs.nth(0).evaluate(e=>parseFloat(getComputedStyle(e.parentElement).height)-parseFloat(getComputedStyle(e.parentElement).paddingTop)*2);
+ expect(Math.abs(segH-sm)).toBeLessThanOrEqual(0.5);
  for(const theme of BAR_THEMES){
   await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);
   const on=await confirmContrast(page);
   expect(on.filled,`${order} ${theme} 채움`).toBe(true);expect(on.ratio,`${order} ${theme} 대비`).toBeGreaterThanOrEqual(4.5);
-  await btn.evaluate(e=>{e.disabled=true;}); // 바쁨(확정하는 중) 모양
+  await btn.evaluate(e=>{e.setAttribute('aria-busy','true');e.textContent='확정하는 중…';}); // 바쁨(확정하는 중) 모양 — paintConfirm 과 같은 표시
   const busy=await confirmContrast(page);
-  await btn.evaluate(e=>{e.disabled=false;});
+  await btn.evaluate(e=>{e.removeAttribute('aria-busy');e.textContent='확정하고 받기';});
   expect(busy.ratio,`${order} ${theme} 바쁨 대비`).toBeGreaterThanOrEqual(4.5);
  }
  await page.evaluate(()=>{delete document.documentElement.dataset.theme;});

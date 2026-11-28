@@ -484,7 +484,9 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
     // 시각과 '다시 누르면 새 판'은 설명(title)으로.
     confirmState.textContent = c?.at ? `${md(c.at)} 확정` : '확정 전';
     confirmState.title = c?.at ? `${mdhm(c.at)} 확정 · 다시 누르면 새 판으로 확정해요` : '';
-    confirmBtn.disabled = !!state?.confirming;
+    // 확정하는 중: 꺼짐(흐리게)으로 하면 채운 바탕 위 글자가 묻혀 읽기 어렵다(WEEKLY-막대한줄) — 색은 그대로, 글자로 알리고(aria-busy 는 doConfirm)
+    // 누름은 click 길에서 막는다(state.confirming).
+    confirmBtn.textContent = state?.confirming ? '확정하는 중…' : '확정하고 받기';
     paintFinal(c);
     paintTabs();
   }
@@ -1997,7 +1999,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   const onClick = event => {
     const b = event.target.closest('button');
     if (!b || !event.currentTarget.contains(b) || b.disabled) return;
-    if (b.matches('[data-hwpx-confirm]')) { void doConfirm(b); return; }
+    if (b.matches('[data-hwpx-confirm]')) { if (!state?.confirming) void doConfirm(b); return; }
     if (b.matches('[data-hwpx-build]')) { void doBuild(); return; }
     if (b.matches('[data-hwpx-hwp]')) { void doHwp(); return; }
     if (b.matches('[data-hwpx-copy]')) { void Promise.resolve(onCopy?.()).then(ok => { if (ok) flashDone(confirmBtn); }); return; }
