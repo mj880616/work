@@ -231,7 +231,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, onDra
   let opened = false;
   const TABS = Object.freeze([['file', '파일'], ['suggest', '기록 제안'], ['review', '환류'], ['memory', '기억']]);
   const EMPTY_TAB = Object.freeze({file:'확인할 것이 없어요.', suggest:'붙일 기록이 없어요.', review:'확정하면 이번 주 환류 보고가 여기에 나와요.', memory:'확정하면 다음 주에도 쓸 일정을 여기서 선택해요.'});
-  const tabBar = el('div', 'weekly-confirm-tabs ds-seg'); tabBar.setAttribute('role', 'tablist'); tabBar.setAttribute('aria-label', '확정 칸 보기'); tabBar.dataset.weeklyConfirmTabs = ''; // 공용 ⑤ 보기 바꾸기 모양
+  const tabBar = el('div', 'weekly-confirm-tabs ds-seg ds-seg-sm'); tabBar.setAttribute('role', 'tablist'); tabBar.setAttribute('aria-label', '확정 칸 보기'); tabBar.dataset.weeklyConfirmTabs = ''; // 공용 ⑤ 보기 바꾸기 모양
   const panes = {}, tabBtn = {}, tabEmpty = {};
   for (const [key, label] of TABS) {
     const b = el('button', 'ds-seg-btn weekly-confirm-tab'); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.weeklyConfirmTab = key; b.id = `weeklyConfirmTab-${key}`;

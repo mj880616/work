@@ -2056,6 +2056,10 @@ button.ds-chip:is([aria-pressed="true"],[aria-checked="true"]){ color:var(--ds-s
 .ds-seg button.ds-seg-btn[hidden]{ display:none; }
 /* 글자 크기 [−][+](S68-33 READ-글자크기, text-size.js): 기호 한 글자 칸이라 폭만 작은 칸 높이만큼(좁은 머리 줄에 들어가게). 누르는 범위 높이는 ::after 그대로. */
 .ds-seg.txs button.ds-seg-btn{ min-width:var(--ds-compact-height); padding:0 var(--ds-seg-inset); }
+/* 작은 판(.ds-seg-sm, WEEKLY-막대한줄 2026-11-28): 좁은 한 줄 막대 안(주간 보고 확정 막대)에서 쓰는 보기 바꾸기 — 알약 바탕 높이 = 작은 버튼 높이(--ds-compact-height-sm),
+   칸 안 좌우 여백은 바탕 안쪽 여백의 두 배, 칸 최소 폭은 작은 버튼 높이. 색·굵기·고른 칸 모양은 위 기본 그대로, 누르는 범위 44px(::after·--ds-seg-hit)도 그대로. 이 클래스를 단 곳만 바뀐다. */
+.ds-seg.ds-seg-sm{ --ds-seg-hit:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height-sm)) / 2); height:calc(var(--ds-compact-height-sm) + var(--ds-seg-hit) * 2); }
+.ds-seg.ds-seg-sm button.ds-seg-btn{ min-width:var(--ds-compact-height-sm); height:calc(var(--ds-compact-height-sm) - var(--ds-seg-inset) * 2); padding:0 calc(var(--ds-seg-inset) * 2); }
 /* 붙은 두 칸(.ds-seg-group, 예: 홈 [업데이트 ▾])은 한 알약처럼: 앞 칸을 고르면 두 칸을 함께 흰 알약으로 띄운다. */
 .ds-seg-group{ display:flex; align-items:center; flex:none; border-radius:var(--ds-chip-radius); }
 .ds-seg > button.ds-seg-btn:is([aria-pressed="true"],[aria-selected="true"],[aria-checked="true"]),.ds-seg > .ds-seg-group:has(> button.ds-seg-btn:is([aria-pressed="true"],[aria-checked="true"])){ background:var(--ds-seg-on); box-shadow:var(--ds-seg-on-shadow); }
