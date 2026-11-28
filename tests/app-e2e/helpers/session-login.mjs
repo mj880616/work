@@ -11,6 +11,8 @@ export async function signInWithSession(page,email='qa@example.org'){
     data.expires_at=data.expires_at||Math.floor(Date.now()/1000)+(data.expires_in||3600);
     window.KPTURuntime.session.write(data);
     const target=window.KPTUAuth.safeReturn(new URLSearchParams(location.search).get('return'));
-    location.replace(target);
+    // 이동은 이 evaluate가 답을 돌려준 다음 차례에 한다: 같은 차례에 location.replace를 부르면 바쁜 러너에서 답이 오기 전에 페이지가 바뀌어
+    // 'Execution context was destroyed'로 깨졌다(LAYOUT-폭별검사 반복 실행에서 300번 중 2번). replace는 그대로라 로그인 화면은 방문 기록에 남지 않는다.
+    setTimeout(()=>location.replace(target));
   },email);
 }
