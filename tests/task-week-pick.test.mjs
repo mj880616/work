@@ -29,7 +29,7 @@ test('빠른 기한 줄은 [오늘][내일][모레][다음주][기한 없음], �
   assert.equal(weekdayLabel(''), '');
 });
 
-test('빠른 기한 줄·[다음주] 목록은 공용 부품 하나를 쓴다(수정 창, ⋯ 기한 바꾸기, 홈 빠른 쓰기, 정리함 할 일 만들기)', () => {
+test('빠른 기한 줄·[다음주] 목록은 공용 부품 하나를 쓴다(수정 창, ⋯ 기한 바꾸기, 정리함 할 일 만들기)', () => {
   const editor = read('app/google-tasks.js');
   assert.match(editor, /QUICK_DUES\.map/);
   assert.match(editor, /openWeekPick\(q,/);
@@ -37,7 +37,9 @@ test('빠른 기한 줄·[다음주] 목록은 공용 부품 하나를 쓴다(�
   const inline = read('app/task-inline.js');
   assert.match(inline, /QUICK_DUES\.map/);
   assert.match(inline, /openWeekPick\(anchor,/);
-  for (const file of ['app/home-quick.js', 'app/basket-manual-link.js']) {
+  // QUICK-입력정리(2026-11-28): 홈 빠른 쓰기의 기한 줄은 홈 막대째 지웠다([할 일] 화면 입력칸은 오늘 기한 그대로).
+  assert.doesNotMatch(read('app/home-quick.js'), /openWeekPick|data-quick-day/);
+  for (const file of ['app/basket-manual-link.js']) {
     const src = read(file);
     assert.match(src, /openWeekPick\(b,/, file);
     assert.match(src, />모레</, file);

@@ -294,7 +294,9 @@ window.addEventListener('kptu:view-changed',event=>{
   // 본문 날짜 줄 끝 돋보기(journal.js). 전체 검색 화면은 이름('검색')이 있어 머리줄(그 칸)이 보인다(이름 글자는 topbar-actions.css가 뺀다).
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
-// [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
+// [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): openWriter('update') opens the update's big window (update-window.js) with no place
+// (= the basket). QUICK-입력정리: [+ 추가] no longer offers it; only the phone app's home widget [업데이트] still opens it (KPTUQuickWrite) —
+// left in place until the widget's own change is decided (PR 본문 보고).
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
 // note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for the next time only
 // (never in browser storage).
@@ -330,7 +332,7 @@ async function openWriter(kind='update'){
     openUpdateWindow({text:writeDraft,doc:writeDraftDoc,title:'쓰기',onClose:(text,{saved,value})=>{
       if(saved){writeDraft='';writeDraftDoc=null;return}
       writeDraft=text.trim()?text:'';writeDraftDoc=writeDraft?value:null;
-      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [잊지 말기]로 다시 열면 이어서 쓸 수 있어요.');
+      if(writeDraft)writeToast('저장하지 않은 글은 같은 쓰기 창을 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
@@ -628,7 +630,8 @@ paintWhere();
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
 // 일기·사업 보고 = the router opens the screen, then that screen's own [새 일기] / [+] button is pressed (no new save path). NOTE-게시 ③: [공유 페이지] 줄은 화면과 함께 없앴다.
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','잊지 말기'],['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['report',word('사업 보고')]];
+// QUICK-입력정리(2026-11-28 사용자 결정 '잊지 말기는 입력한 자체를 없애'): [+ 추가]에 '잊지 말기' 줄은 없다(손으로 새 잊지 말기를 넣는 길을 지움).
+const ADD_ITEMS=[['task','할 일'],['note','노트'],['event','일정'],['diary','하루 기록'],['report',word('사업 보고')]];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');

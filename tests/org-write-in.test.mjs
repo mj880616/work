@@ -60,7 +60,6 @@ test('같은 종류 전수: 조직 고르기 창을 여는 곳이 모두 같은 
   const callers = {
     'app/feed-link.js':/orgWriteInFor\(\{orgs, mine\}\)/,                       // 통화·텔레그램 소식 연결
     'app/update-window.js':/bindPlaceWriteIn\(/,                                // 업데이트 '기록할 곳'
-    'app/home-quick.js':/bindPlaceWriteIn\(/,                                   // 홈 입력칸 '기록할 곳'
     'app/report-places-sheet.js':/bindPlaceWriteIn\(/,                          // 사업 보고 [연결할 곳]
     'app/basket-manual-link.js':/orgWriteInFor\(/,                              // 잊지 말기 [연결하기](여러 개)
     'app/google-tasks.js':/create:\(\)=>[\s\S]{0,120}orgWriteInFor\(/,           // 할 일 조직 줄

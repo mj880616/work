@@ -93,8 +93,7 @@ const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const length = text => [...String(text ?? '')].length;
 
 // HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 이 화면이 홈이다(#homeView, 라우터 이름 home). 위에서부터
-//   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → 업데이트 입력줄(home-quick.js, 폰은 아래 고정)
-//   → [하루] 카드 맨 위 '잊지 말기' 한 줄 + 빨간 숫자(home-summary.js, S52-20 — 누르면 정리함 한 목록)
+//   날짜 제목·이번 주 날짜 줄(‹ 26 … 1 › 이번 주, 오늘은 갈색 테두리) → (QUICK-입력정리 2026-11-28: 아래 고정 입력 막대는 지움)
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
 // S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
@@ -102,7 +101,6 @@ const length = text => [...String(text ?? '')].length;
 //   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 그대로라 돋보기는 폰 틀에서만 보인다(journal.css).
 root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
-<div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
 <div class="journal-top-cols" data-journal-top-cols><section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section><section class="journal-tasks" data-journal-tasks aria-label="할 일"></section></div>
 <div class="journal-day-right" data-journal-day-right>
@@ -117,8 +115,8 @@ root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-d
 </section>
 <section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" class="a11y-only" tabindex="-1" data-journal-weekly-title></h3><div class="journal-weekly-body" data-journal-weekly></div></section>`;
 const $ = selector => root.querySelector(selector);
-// HOME-업무일지홈: 요약 한 줄과 업데이트 입력줄(home-summary.js · home-quick.js). 이 화면은 자리만 둔다.
-const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt, onTasksChanged:() => refreshTasks()});
+// HOME-업무일지홈: 잊지 말기 숫자(메뉴 '홈' 표시)·그날 첫 찾기(home-summary.js). 화면에 그리는 것은 없다.
+const homeTop = mountHomeSummary({root:document.querySelector('#homeView') || root, rt});
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 // HOME-하루채우기: [하루] 오늘 한 일 아래 세 칸(home-day-fill.js가 유일한 renderer). 사진·일기 쓰기는 그날 일기 화면으로 간다(일기 저장은 일기 화면 몫).
 // HOME-오늘사진은사진으로(S73-07): '오늘 사진' 칸의 썸네일·+n·[사진 보기 ›]는 일기가 아니라 [사진] 화면의 그날로 간다(썸네일은 그 사진 크게 보기).
@@ -989,20 +987,8 @@ function weeklyKit() {
   return kitFlight;
 }
 const kitFailed = () => { const host = $('[data-journal-weekly]'); if (mode === 'week' && !W && host) host.innerHTML = failHtml({retry:'data-journal-kit-retry'}); };
-// WEEKLY-입력줄없애기(요청함 11/07 19:23): [주간 정리] 보기에서는 업데이트·할 일 입력줄(home-quick.js, 폰은 하단 탭 위 고정 세 줄)을
-// 그리지 않는다 — 홈 칸 배치의 주인인 이 함수가 그 상자를 화면에서 떼어 두고, [하루]로 돌아오면 원래 자리(아래 표시 자리)에 다시 붙인다.
-// 상자는 떼어 둔 동안에도 같은 것이라(쓰던 글·고른 곳 그대로) 다시 만들지 않는다. 폰 아래 여백은 상자가 붙어 있을 때만 그 높이를
-// 비운다(ui-standard.css '홈·바구니 빠른 입력' 여백 규칙의 :has) — 떼어 두면 주간 정리 내용이 하단바 바로 위까지 온다.
-let quickBox = null; const quickSpot = document.createComment('home-quick');
-function placeQuick() {
-  quickBox ||= root.querySelector('[data-home-quick]');
-  if (!quickBox) return;
-  if (!quickSpot.parentNode) quickBox.before(quickSpot);
-  if (mode === 'week') quickBox.remove(); else if (!quickBox.isConnected) quickSpot.after(quickBox);
-}
 function renderMode() {
   root.dataset.journalMode = mode;
-  placeQuick();
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
   days.hidden = mode === 'week';
   $('[data-journal-day]').hidden = mode === 'week';

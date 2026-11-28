@@ -102,8 +102,8 @@
       "buttonHeight": 1
     },
     "app/home-quick.css": {
-      "fontSize": 15,
-      "buttonHeight": 3
+      "fontSize": 13,
+      "buttonHeight": 1
     },
     "app/hwp-lab.css": {
       "fontSize": 1,

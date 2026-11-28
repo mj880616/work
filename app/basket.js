@@ -4,7 +4,6 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {seoulInputValue, formatSeoulTime} from './meeting-time.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
-import { mountQuick } from './home-quick.js';
 import { readBasket, updateNote, saveUpdateDoc, readBasketNote, noteState, visibleNotes, filedProjects, filedOrganizations, moveToNote, suggestNoteTitle, noteClassified, canKeepInJournal } from './basket-data.js';
 import { noteJournalAt, setNoteJournal } from './update-journal.js';
 import { noteRequests, requestTagsHtml } from './update-requests.js';
@@ -42,7 +41,7 @@ import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js'
 import { holdMenu } from './menu-dismiss.js'; // STD-메뉴바깥닫기(S70-78)
 import { bindRowSwipe, PICK, EDIT, DELETE } from './row-swipe.js';
 import { SPLIT_QUERY } from './screen-width.mjs';
-import { followPane } from './follow-pane.js';
+import { followPane, dockBottom } from './follow-pane.js';
 import {word} from './brand/brand.mjs';
 import {registerScreenFind, refreshScreenFind, toolsBox} from './screen-find.js'; // S70-54: [노트]일 때만 맨 위 칸이 노트 찾기 · S70-57: [잊지 말기] 목록이면 잊지 말기 찾기
 
@@ -59,7 +58,7 @@ let upload = createUploadBatch(), pickerFiles = null;
 // (그 업데이트를 열면 올리는 줄이 보이고, 같은 잠금 attachGoing이 걸린다).
 const attachQueue = updateFileLine;
 let sentRows = null, staleRead = false;
-let quick=null, bigWriter=null, bigPicker=null, bigOpening=false;
+let bigWriter=null, bigPicker=null, bigOpening=false;
 let currentScope = scope(), retainedForTraversal = false;
 // BUG-뒤로가기: an opened memo is one router layer, so Back returns to the list at the same scroll.
 let noteLayer = null, listScroll = 0, layerNoteId = ''; // layerNoteId: 그 겹이 지금 보이는 업데이트(폴드 펼침에서 줄을 바꾸면 따라 바뀐다)
@@ -91,7 +90,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
-root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div data-basket-list><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation only: the phone header (~760px) and the PC top line (761px~,
 // '정리함' / '노트', UI-화면정리 B ①·UI-폴드PC틀) already name the screen at every width.
 const basketTitle=root.querySelector('.basket-head > h2');basketTitle.classList.add('a11y-only');
@@ -194,8 +193,7 @@ const splitWide = () => !!SPLIT?.matches;
 const isSplit = () => root.classList.contains('basket-split');
 const BASKET_CLOSE_X = '<button type="button" class="icon-btn basket-icon-button basket-close-x" data-basket-close aria-label="닫기">✕</button>';
 // 폴드 펼침 폰 틀(600~760px): 아래에 입력칸·하단바가 떠 있으므로 그 높이만큼 칸 최대 높이를 줄인다(할 일과 같은 값).
-function splitBottomDock(){const cs=getComputedStyle(document.documentElement),v=n=>parseFloat(cs.getPropertyValue(n))||0;return v('--kptu-mobile-tab-height')+v('--kptu-switch-dock')+v('--kptu-quick-dock')}
-function followDetail(reset){followPane(detail,SPLIT_FRAME_PC?.matches?{reset}:{reset,narrow:true,bottom:splitBottomDock})}
+function followDetail(reset){followPane(detail,SPLIT_FRAME_PC?.matches?{reset}:{reset,narrow:true,bottom:dockBottom})}
 function unfollowDetail(){detail.classList.remove('kptu-follow-pane','kptu-follow-narrow')}
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
@@ -348,7 +346,8 @@ async function runOcr(action,fileId,anchor=null){
   }catch{if(token.current())status.textContent='글자 읽기 결과를 확인하지 못했어요. 상태를 확인해 주세요.';}
   finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
 }
-quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
+// QUICK-입력정리(2026-11-28 사용자 결정 '잊지 말기는 입력한 자체를 없애'): 이 화면 위 손 입력칸(옛 home-quick.js basketOnly)은 지웠다.
+// 잊지 말기는 자동 추천(AI 제안)과 이미 있는 항목 보기·처리·지우기만 한다.
 // The manual link panel: show the confirmed
 // destinations at once, then replace them with one fresh read.
 async function linksConfirmed(noteId,targets){
@@ -1338,8 +1337,8 @@ window.addEventListener('storage',()=>guardOcrPrivacy());
 root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) void manual.cancel({anchor:e.target instanceof Element ? e.target : null}); else void askCloseDetail(e.target instanceof Element ? e.target : null); } });
 window.addEventListener('kptu:before-reload', e => {
   // 뒤에서 올리는 중(업데이트·노트 첨부 줄)에도 예전 잠금 때처럼 막는다: 새로 고치면 줄에 선 파일이 알림 없이 사라진다(줄은 메모리뿐).
-  if (busy||quick?.isBusy()||noteDocs.isBusy()||attachQueue.any()||noteDocs.isUploading()) e.preventDefault();
-  else if (quick?.hasDraft()||noteDocs.hasDraft()) e.detail.otherDraft=true;
+  if (busy||noteDocs.isBusy()||attachQueue.any()||noteDocs.isUploading()) e.preventDefault();
+  else if (noteDocs.hasDraft()) e.detail.otherDraft=true;
   else if (dirty() || manualDraft()) e.detail.otherDraft = true;
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -1350,18 +1349,18 @@ window.addEventListener('kptu:session-changed', () => {
 window.addEventListener('kptu:before-view-change',e=>{
   // S67-23: 잠긴 노트 폴더가 다시 잠겨 잠금 화면이 이 화면을 가릴 때(hold)는 쓰던 것을 그대로 붙들어 둔다(PIN을 풀면 돌아옴).
   if(e.detail?.hold&&window.KPTURouter.current==='basket'&&e.detail?.view==='lock'){e.detail.retainBasketDraft=true;return}
-  if(retainedForTraversal&&(busy||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft()))e.detail.retainBasketDraft=true;
+  if(retainedForTraversal&&(busy||dirty()||manualDraft()))e.detail.retainBasketDraft=true;
   if(window.KPTURouter.current!=='basket'||e.detail?.view==='basket')return;
   // Without a native entry position, honor the traversal and retain the draft
   // in this mounted view. Never guess its direction or rewrite the destination.
-  if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&(busy||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft())){
+  if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&(busy||dirty()||manualDraft())){
     e.detail.retainBasketDraft=true;return;
   }
-  const blockedBusy=quick?.isBusy()||noteDocs.isBusy()||busy;
+  const blockedBusy=noteDocs.isBusy()||busy;
   // UI-알림창정리(S61-31): 쓰던 것이 있으면 라우터의 공용 작은 확인창으로 묻는다(e.detail.ask, app-router.js). 저장 중이면 묻지 않고 막는다.
   if(blockedBusy){e.preventDefault();return}
   const ask=text=>e.detail.ask(text);
-  void((noteDocs.hasDraft()&&!ask('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!ask('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!ask('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!ask('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?')));
+  void((noteDocs.hasDraft()&&!ask('수정하던 노트를 저장하지 않고 다른 화면으로 갈까요?'))||(dirty()&&!ask('수정 중인 글을 저장하지 않고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!ask('작성 중인 연결·할 일 입력을 삭제하고 다른 화면으로 갈까요?')));
 });
 // Leaving the 정리함 closes what is open on it (a step that keeps the draft for Back/forward keeps it).
 window.addEventListener('kptu:view-changed',e=>{

@@ -1,27 +1,18 @@
-// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈 '잊지 말기' 칩(S53-13 전에는 [하루] 맨 위 한 줄)의 재료와 업데이트 입력줄.
-// - S52-20 HOME-잊지말기한목록 ②(요청함 11/07 14:37, 시안 docs/design/mockups/forget-one-list.html, 명진 14:44 '좋은데'):
-//   옛 '나한테 온 요청' 상자·'잊지 말기' 상자(asks-box.js·home-family.js)는 지웠다. 홈 [하루] 맨 위는 '잊지 말기' 한 줄 + 빨간 숫자 동그라미
-//   (앱 안 읽은 알림처럼, 처리 안 한 수 — 0이면 숫자 없음, '놓친 것' 글자 없음)이고, 누르면 정리함(잊지 말기) 한 목록이 열린다.
-//   → S53-13 HOME-잊지말기칩: 그 한 줄을 입력 칸 머리 줄 오른쪽 칩 [잊지 말기 n]으로 옮겼다(아래 forgetChipHtml). 이 파일이 그 자리의 유일한 renderer다.
-//   숫자 = 연결 안 된 업데이트(미분류) + 처리 전 후보(텔레그램 요청 포함, 이미 할 일로 만든 제목은 뺌) + 가족 잊지 말기 제안(운영자 기능 family일 때).
-//   정리함 한 목록의 처리 전 줄과 같은 기준이다(상대 약속은 세지 않음). 메뉴 '홈' 표시(UI-앱안알림, home-asks.js)도 같은 숫자.
-//   LEDGER-화면에서빼기(2026-11-25 명진 결정): 옛 '내일 약속 n ›'(원장으로 가는 흐린 글자 버튼)은 지웠다 — 원장은 사용자 화면에 없다.
-// - 업데이트 입력줄: home-quick.js 그대로([업데이트 ▾ | 할 일], 폰은 하단 탭 위 고정). 고르기 시트 목록 읽기(dependencies)만 여기서 준다.
+// HOME-업무일지홈(2026-10-30 명진 시안 v2 확정): 홈의 '잊지 말기' 숫자 세기(메뉴 '홈' 표시)와 그날 첫 챙길 것 찾기.
+// - 숫자 = 연결 안 된 업데이트(미분류) + 처리 전 후보(텔레그램 요청 포함, 이미 할 일로 만든 제목은 뺌) + 가족 잊지 말기 제안(운영자 기능 family일 때)
+//   + 처리 전 소식. 정리함 한 목록의 처리 전 줄과 같은 기준이다(상대 약속은 세지 않음). 메뉴 '홈' 표시(UI-앱안알림, home-asks.js)가 이 숫자를 쓴다.
+// - QUICK-입력정리(2026-11-28 사용자 결정 '홈 막대 통째로 없앰'): 홈 아래 고정 막대([잊지 말기 ▾ | 할 일] 입력칸 + [잊지 말기 n] 칩)는 지웠다.
+//   그 칩이 이 파일의 화면 몫이었다 — 이제 이 파일은 화면에 아무것도 그리지 않는다.
 // - 챙길 것 찾기(D7): 이 탭에서 그날 처음 홈을 열 때 서버에 한 번(todo-radar.js autoFindToday).
 // 기기 저장 없음. 가족 줄은 세기만 한다(내용을 이 화면에 그리지 않음).
 import {readInboxCount, readInboxParts} from './inbox-count.js';
-import {readRecordPages} from './basket-link-records.js';
-import {mountQuick} from './home-quick.js';
 import {autoFindToday} from './todo-radar.js';
 import {setHomeAsks} from './home-asks.js';
 import {countOpenNews} from './forget-news-data.js';
-import {esc as escHtml} from './notice-box.mjs';
 import {hasFamily, readNotes} from './family-notes-data.js';
-import {openedFromPush} from './family-notes-model.mjs';
 
-const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
-// 순수: 숫자들 → '잊지 말기' 한 줄의 처리 안 한 수. 모르는 값(null)은 null(줄 숨김). family는 모르면 0(가족 기능 없음·못 읽음).
+// 순수: 숫자들 → '잊지 말기' 처리 안 한 수. 모르는 값(null)은 null(표시 내림). family는 모르면 0(가족 기능 없음·못 읽음).
 // news: 처리 전 소식(FORGET-소식합치기, 명진 '넣어') — 운영자 작업공간만, 모르면 0.
 export function forgetCount({update, todo, family = 0, news = 0} = {}) {
   const n = v => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
@@ -29,36 +20,13 @@ export function forgetCount({update, todo, family = 0, news = 0} = {}) {
   if (u === null || t === null) return null;
   return u + t + (n(family) || 0) + (n(news) || 0);
 }
-// HOME-잊지말기칩(S53-13, 요청함 11/08 13:54 '4글자를 위해 한 줄 전체', 시안 docs/design/mockups/home-forget-slim.html 명진 13:55 'A'):
-// 홈 [하루] 맨 위 '잊지 말기' 띠 한 줄을 없애고, 입력 칸 머리 줄([업데이트 ▾ | 할 일]) 오른쪽 칩 하나로 — ④ 칩(button.ds-chip) + 톤다운 노랑(forget),
-// 처리 안 한 수는 빨간 숫자(0이면 숫자 없이 칩만 흐리게). 누르면 정리함(잊지 말기) 한 목록. 
-export function forgetChipHtml(count) {
-  const label = count > 0 ? `잊지 말기 ${count}건. 열기` : '잊지 말기 열기';
-  const badge = count > 0 ? `<span class="nbx-badge" data-nbx-badge>${count > 99 ? '99+' : count}</span>` : '';
-  return `<button type="button" class="ds-chip home-forget-chip" data-chip-tone="forget"${count > 0 ? '' : ' data-chip-empty'} data-goto="basket" data-home-forget-open aria-label="${escHtml(label)}"><span>잊지 말기</span>${badge}</button>`;
-}
-export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged = () => {}}) {
+export function mountHomeSummary({root, rt = window.KPTURuntime}) {
   if (!root) return null;
-  let run = 0, line = null, drawn = '';
+  let run = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  let pushShown = false;
-  // 칩 그리기: 모르는 동안(null — 처음·세션 바뀜·못 읽음)도 칩은 늘 있다(정리함 가는 길, 옛 '전체 보기' 링크 자리). 숫자 없이 흐리게.
-  function draw(count) {
-    if (!line) return false;
-    if (count === null) delete line.dataset.homeForgetCount; else line.dataset.homeForgetCount = String(count);
-    // 같은 모양이면 칩을 갈아 끼우지 않는다(모름 → 0처럼 겉이 같은 다시 그리기에서 포커스·누르던 칩이 사라지지 않게).
-    const html = forgetChipHtml(count === null ? 0 : count);
-    if (drawn !== html || !line.firstChild) { line.innerHTML = html; drawn = html; }
-    return true;
-  }
-  // count: 처리 안 한 수(null = 모름 → 숫자 없는 흐린 칩).
-  function paint(count) {
-    // UI-앱안알림 3단계(A4): 같은 숫자로 메뉴 '홈' 표시(home-asks.js). 모르면 표시를 내린다.
-    setHomeAsks(count);
-    if (!draw(count) || count === null) return;
-    // 폰 알림(가족 잊지 말기)을 눌러 연 홈(family=1): 이 줄이 보이게 한 번 옮긴다.
-    if (!pushShown && openedFromPush(window.location?.search)) { pushShown = true; line.scrollIntoView?.({block: 'nearest'}); }
-  }
+  // count: 처리 안 한 수(null = 모름 → 표시를 내린다).
+  // UI-앱안알림 3단계(A4): 같은 숫자로 메뉴 '홈' 표시(home-asks.js). 모르면 표시를 내린다.
+  const paint = count => setHomeAsks(count);
   // 가족 잊지 말기 제안 수: 운영자 기능 family(서버 app_my_features)일 때만 읽는다. 못 읽으면 0(줄은 그대로).
   async function familyCount() {
     const ws = rt.context.read()?.workspace?.id;
@@ -73,30 +41,15 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
     if (mine !== run || owner !== scope()) return;
     paint(out?.ok ? forgetCount({update: out.update, todo: out.todo, family, news}) : null);
   }
-  // 고르기 시트([업데이트 ▾]·[할 일]의 사업영역)가 쓰는 목록. 정리함·쓰기 창과 같은 읽기(update-places.js readPlaces).
-  const flights = new Map();
-  const share = (key, read) => { if (!flights.has(key)) flights.set(key, Promise.resolve().then(read).catch(e => { flights.delete(key); throw e; })); return flights.get(key); };
-  const ctx = () => rt.context.read() || {};
-  const dependencies = {
-    projects: () => share('projects', async () => {
-      await import('./project-catalog.js');
-      return (await window.KPTUProjectCatalog.load({workspaceId: ctx().workspace?.id, userId: ctx().user?.id})).projects;
-    }),
-    orgs: () => share('orgs', () => readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(ctx().workspace?.id || '')}&active=eq.true&select=id,name,active&order=id.asc`, rt)),
-    assignments: () => share('assignments', () => readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(ctx().user?.id || '')}&select=organization_id&order=organization_id.asc`, rt)),
-    google: () => share('google', async () => { await Promise.all([import('./organization-order.js'), import('./google-tasks.js')]); return window.KPTUGoogleTasks; }),
-  };
-  // 옛 홈처럼 할 일 모듈을 처음부터 불러 둔다(할 일 줄 바로 처리·고치기 창·할 일 화면이 같은 KPTUGoogleTasks를 씀).
-  void dependencies.google().catch(() => {});
-  mountQuick({root, dependencies, refreshTasks: () => onTasksChanged(), invalidateProjects: () => flights.delete('projects'), esc, view: 'home', idPrefix: 'home', onSaved: () => void refresh()});
-  // 칩 자리: 입력 칸 머리 줄 오른쪽 빈 자리(home-quick.js가 놓기만 함). 이 파일이 그 자리의 유일한 renderer.
-  line = root.querySelector('.home-quick[data-home-quick] [data-home-summary]');
-  draw(null);
+  // 옛 홈처럼 할 일 모듈을 처음부터 불러 둔다(달력 하루 목록·할 일 화면이 같은 KPTUGoogleTasks를 씀).
+  let google = null;
+  const loadGoogle = () => (google ||= Promise.all([import('./organization-order.js'), import('./google-tasks.js')]).then(() => window.KPTUGoogleTasks).catch(e => { google = null; throw e; }));
+  void loadGoogle().catch(() => {});
   // HOME-잊지말기숫자(S61-44): 'kptu:session-changed'는 로그인한 사람이 바뀔 때만이 아니라 같은 사람의 로그인 이어 가기(토큰 새로 받기, 약 1시간마다·
-  // 앱을 다시 열 때)에도 온다(runtime-client.js write). 그때마다 칩을 '모름'(숫자 없는 흐린 칩)으로 내리고 읽던 셈까지 버리면, 홈에 다시 들어올 때까지
-  // 숫자가 사라진다. 사람·작업공간(scope)이 바뀐 때만 지우고, 같은 사람이면 숫자를 그대로 둔다.
+  // 앱을 다시 열 때)에도 온다(runtime-client.js write). 그때마다 표시를 '모름'으로 내리고 읽던 셈까지 버리면, 홈에 다시 들어올 때까지
+  // 표시가 사라진다. 사람·작업공간(scope)이 바뀐 때만 지우고, 같은 사람이면 숫자를 그대로 둔다.
   let shown = scope();
-  window.addEventListener('kptu:session-changed', () => { const next = scope(); if (next === shown) return; shown = next; flights.clear(); run++; paint(null); });
+  window.addEventListener('kptu:session-changed', () => { const next = scope(); if (next === shown) return; shown = next; run++; paint(null); });
   // 정리함(잊지 말기) 한 목록에서 처리하면 숫자를 다시 센다(홈이 보이는 동안만 읽음).
   window.addEventListener('kptu:todo-radar-changed', event => { if (event.detail?.reload && window.KPTURouter?.current === 'home') void refresh(); });
   return {
@@ -109,7 +62,7 @@ export function mountHomeSummary({root, rt = window.KPTURuntime, onTasksChanged 
       void autoFindToday();
       const parts = readInboxParts(rt);
       parts.catch(() => {}); // 실패는 refresh가 받는다(그 전에 끝나도 처리되지 않은 실패로 남지 않게)
-      void dependencies.google().then(g => g?.listTasks?.({publish: true})).catch(() => {}).finally(() => refresh({parts}));
+      void loadGoogle().then(g => g?.listTasks?.({publish: true})).catch(() => {}).finally(() => refresh({parts}));
     },
     refresh,
   };

@@ -14,15 +14,14 @@ test('늘어나는 칸: 처음 한 줄, 글만큼 늘고 상한에서 멈춘다'
   assert.equal(growHeight({...base, scroll: 2000, screen: 700}).scroll, true);
 });
 
-test('홈 빠른 입력 셈과 같다(5줄 상한)', () => {
+test('옛 홈 빠른 입력 셈과 같다(5줄 상한)', () => {
   // 옛 size(): max(min, min(line*5+edge, scrollHeight+borders))
   for (const scroll of [10, 50, 90, 200]) {
     const old = Math.max(46, Math.min(21 * 5 + 22, scroll + 2));
     assert.equal(growHeight({min: 46, line: 21, edge: 22, borders: 2, scroll, maxLines: 5}).height, old);
   }
-  const quick = read('app/home-quick.js');
-  assert.match(quick, /import \{fitHeight\} from '\.\/auto-grow\.js'/);
-  assert.match(quick, /fitHeight\(input,\{maxLines:5,overflow:false\}\)/);
+  // QUICK-입력정리(2026-11-28): 글만큼 늘던 홈 빠른 입력칸은 지웠다. 남은 할 일·노트 입력칸은 한 줄 CSS 높이 그대로라 이 셈을 쓰지 않는다.
+  assert.doesNotMatch(read('app/home-quick.js'), /fitHeight/);
 });
 
 test('한 줄 칸: 끝 줄바꿈은 지우고 가운데 줄바꿈은 빈칸', () => {

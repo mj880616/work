@@ -1,10 +1,10 @@
 // ED③ 업데이트 (설계 docs/design/unified-editor.md 11.4 순서 3): the update's big window in the new editor (ed-window.js), for a new update
-// (PC top line [+ 추가] → [업데이트], the home and basket update input's [크게]) and for the basket update's [큰 창에서 수정]. An organization's
+// (the phone app's home widget [업데이트] through KPTUQuickWrite — QUICK-입력정리 2026-11-28 removed the PC [+ 추가] row and the home and basket
+// inputs' [크게]) and for the basket update's [큰 창에서 수정]. An organization's
 // or a project's own record input ([크게] there) opens it too (ED③ 기록, 순서 5); the old window is gone (순서 6).
-// The window saves nothing by itself: openUpdateWindow hands the save to the opener's own (updateVia, the home input's) or to the same
-// existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateFilesBehind, the basket upload).
+// The window saves nothing by itself: openUpdateWindow saves through the same existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateFilesBehind, the basket upload).
 //   - [기록할 곳 ▾] above the text: nothing chosen is the basket (미분류); one or more places as before (update-places.js).
-//   - [📎 첨부] under the text: the opener's own file batch (the home input) or this window's.
+//   - [📎 첨부] under the text: the opener's own file batch (an organization's record input) or this window's.
 //   - The saved form (doc) goes with the letters: onto the basket update, or (ED③ 기록, 순서 5) onto one organization's or project's own
 //     record. One project's record is a one-line summary, so its letters stop at 500 (textLimitFor).
 //   - There is no [업데이트 | 노트] switch here: a note is written from the note input / [+ 추가] → [노트] (note-window.js).
@@ -49,15 +49,13 @@ function placeRow() {
 }
 
 // text: the input's letters (kept as written), or doc: a saved form kept in this tab's memory from an earlier unsaved close.
-// place: null (basket), {kind, id} or a list. places: the opener's already read lists (optional). sources: reads for the place lists.
-// updateVia(letters, places, doc) → {ok, message?, linkError?, fileError?, docError?} | undefined: the opener's own save (the home input
-// keeps its files, photo reading and screen state that way); undefined leaves it to this window's own save.
+// place: null (basket), {kind, id} or a list.
 // fileLine (ORG-기록첨부): given only by an organization's record input — files without letters still make that record (update-places.js).
 // own: {place, name} the opener's own record, kept chosen. upload: {getBatch(), isBusy(), onChange(), reset()} the opener's file batch.
-// onPlace(places) after [저장] in the sheet. onSaved({kind:'update', place, places, name}) after a save.
+// onSaved({kind:'update', place, places, name}) after a save.
 // onClose(text, {saved, places, value}) when it closes: text/value = what was written (letters / saved form), saved = it was saved.
-export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft = true, place = null, places = null, sources = null, rt = window.KPTURuntime,
-  updateVia = null, own = null, upload = null, fileLine = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
+export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft = true, place = null, rt = window.KPTURuntime,
+  own = null, upload = null, fileLine = null, onSaved = () => {}, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let handle = null, saved = null, flight = null, closed = false, busy = false, ownBatch = upload ? null : createUploadBatch();
   const batch = () => upload ? upload.getBatch() : ownBatch;
@@ -66,14 +64,14 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   const head = placeRow();
   const files = attachRow({id:'edwUpdateAttach', getBatch:batch, isBusy:() => busy || !!upload?.isBusy?.(), say:message => { upload?.onChange?.(); say(message); paint(); }});
   const state = {
-    places, chosen:placeList(place), pending:[],
+    places:null, chosen:placeList(place), pending:[],
     closed:() => closed,
     say,
     load() {
       if (state.places) return Promise.resolve(state.places);
       flight ||= (async () => {
         await Promise.all([import('./organization-order.js'), import('./project-catalog.js')]);
-        const read = await readPlaces(sources || placeSources(rt), {rt, isCurrent:() => !closed && rt.session.read()?.user?.id === owner});
+        const read = await readPlaces(placeSources(rt), {rt, isCurrent:() => !closed && rt.session.read()?.user?.id === owner});
         if (!read) throw new Error('기록할 곳을 불러오지 못했어요.');
         state.places = read; state.chosen = state.chosen.filter(p => (ownPlace && samePlace(p, ownPlace)) || keepPlaces(read, [p]).length); paint();
         return read;
@@ -84,7 +82,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
       const next = togglePlace(state.pending, value);
       if (next) state.pending = next; else say(`한 번에 ${PLACE_LIMIT}곳까지 선택할 수 있어요.`);
     },
-    choose() { state.chosen = [...state.pending]; onPlace(state.chosen); paint(); say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '잊지 말기에 저장돼요.'); },
+    choose() { state.chosen = [...state.pending]; paint(); say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '잊지 말기에 저장돼요.'); },
   };
   const name = () => placesLabel(state.places, state.chosen, p => ownPlace && samePlace(p, ownPlace) ? own.name || '' : '');
   function paint() {
@@ -95,7 +93,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   head.button.addEventListener('click', () => void placeSheet().open('place', head.button));
   paint();
 
-  // The window's own save (no updateVia): the basket update with the text, its files and the saved form.
+  // The window's own save: the basket update with the text, its files and the saved form.
   // BIZ-저장먼저닫기 2차(S59-10): with files, only the letters (and the form) are saved and linked here — the window closes on that — and
   // the files go up behind on the update's line (update-places.js saveUpdateFilesBehind); the batch is handed over and this one emptied.
   async function saveOwn(letters, target, doc1, label) {
@@ -113,8 +111,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     try {
       if (!count) { if (!letters.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(letters); }
       const doc1 = letters.trim() ? value : null;
-      let result = updateVia ? await updateVia(letters, target, doc1) : undefined;
-      if (result === undefined) result = await saveOwn(letters, target, doc1, label);
+      const result = await saveOwn(letters, target, doc1, label);
       if (result?.ok === false) return result;
       if (result?.stale) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
       if (result?.linkError) warning = linkFailText;
