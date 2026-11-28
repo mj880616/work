@@ -334,8 +334,9 @@ test('basket attachments in line keep what already went up on screen; the big ed
  expect(u.calls.map(fileOf)).toEqual(['one.txt','two.txt']);expect(u.calls.map(noteOf)).toEqual(['n','n']);
  expect(await reloadAllowed()).toBe(true); // 줄이 끝났으면 막지 않는다(못 올린 파일은 알림 [다시])
 });
-// 올리는 중인 업데이트의 [노트로]는 줄 ⋯ 메뉴뿐 아니라 줄 단추(PC는 줄에 보임)로 눌러도 같은 잠금이다: 묻는 창을 띄우지 않고 까닭을 말한다.
-test('basket row button [노트로] also waits while that update\'s attachment goes up (1280)',async({page})=>{
+// 올리는 중인 업데이트는 줄 ⋯ 메뉴뿐 아니라 줄 단추로 눌러도 같은 잠금이다: 묻는 창을 띄우지 않고 까닭을 말한다.
+// FORGET-업무노트: 줄 단추 [노트로] 자리는 [업무 노트에] — 노트에 아무것도 더하지 않고 까닭을 말한다.
+test('basket row button [업무 노트에] also waits while that update\'s attachment goes up (1280)',async({page})=>{
  await page.setViewportSize({width:1280,height:1000});
  const f=await fixture(page),u=await basketUploadFixture(page,f);let open;u.setPending(new Promise(r=>open=r));
  await toBasket(page);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
@@ -343,7 +344,7 @@ test('basket row button [노트로] also waits while that update\'s attachment g
  await expect.poll(()=>u.calls.length).toBe(1);
  await page.locator('[data-basket-cancel]').click();await page.locator('[data-basket-close]').click();
  // 줄 단추 [노트로]는 마우스가 있는 PC에서만 줄에 보인다(ui-standard.css: 좁은 창·마우스 없음이면 ⋯ 안). 이 시험 브라우저는 마우스 없음으로 잡히므로 그 단추의 누름을 직접 보낸다.
- await page.locator('[data-nbx-row="u:n"] [data-nbx-act="note"]').dispatchEvent('click');
+ await page.locator('[data-nbx-row="u:n"] [data-nbx-act="note-work"]').dispatchEvent('click');
  await expect(page.locator('[data-basket-list-status]')).toContainText('첨부를 올리는 중이에요');
  await expect(page.locator('.kptu-ask')).toHaveCount(0);await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
  open();

@@ -158,8 +158,9 @@ export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리
     const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo kptu-notice-action';b.textContent=String(action.label);
     b.addEventListener('click',()=>{if(token===seq)action.run({box,close,doc})});box.append(b);
   }
+  let undoId=0;
   if(undo){
-    const entry=makeEntry({label:label||line,undo});if(record)pushEntry(entry);
+    const entry=makeEntry({label:label||line,undo});if(record){pushEntry(entry);undoId=entry.id}
     const b=doc.createElement('button');b.type='button';b.className='kptu-notice-undo';b.textContent=buttonLabel;
     b.addEventListener('click',()=>{if(token!==seq||undoBusy)return;close();void runEntry(entry,doc)},{once:true});box.append(b);
   }
@@ -167,7 +168,7 @@ export function notify(text,{undo=null,label='',undoLabel:buttonLabel='되돌리
   const x=doc.createElement('button');x.type='button';x.className='kptu-notice-close';x.setAttribute('aria-label','알림 닫기');x.textContent='✕';x.addEventListener('click',close,{once:true});box.append(x);
   box.hidden=false;
   clock=holdTimer(box,noticeMs({error,undo:!!undo,ms}),close);
-  return {close};
+  return {close,undoId}; // undoId = 되돌리기 기록 번호(거둘 때 dropUndo(undoId))
 }
 
 // 작은 확인창. anchor 근처에 뜨고(없으면 화면 가운데 아래), 하단바 위로 자리를 잡는다.
