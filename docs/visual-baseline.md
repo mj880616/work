@@ -3,8 +3,8 @@
 화면 시험 대부분은 동작만 확인해서, 한 화면(공용 CSS·공용 부품)을 고칠 때 다른 화면이 틀어져도 잡지 못했다. 이 시험은 주요 화면 20개를 PC 1280px·폰 412px에서 사진으로 찍고, 저장소에 넣어 둔 기준 사진과 한 점씩 비교한다.
 
 - 시험: `tests/app-e2e/visual-baseline.spec.mjs` (화면 20개 × 2폭 = 40개)
-- 기준 사진: `tests/app-e2e/visual-baseline.spec.mjs-snapshots/<화면>-<pc|phone|fold>-chromium-linux.png`
-- 폴드 펼침 폭(712px, 두 칸 + 손가락 줄 밀기가 함께 켜지는 600~760px)에서만 따로 보는 화면은 `FOLD_SCREENS` 표에 둔다(사진 이름 `<화면>-fold`, 갱신 이름 `<화면>:fold`).
+- 기준 사진: `tests/app-e2e/visual-baseline.spec.mjs-snapshots/<화면>-<pc|phone>-chromium-linux.png`
+- 갱신 도우미(`scripts/ops/visual-baseline-update.mjs`)는 폴드 펼침 폭 사진 이름 `<화면>-fold`(712px, 갱신 이름 `<화면>:fold`)도 받는다. 폴드 폭 화면은 도우미가 main에 들어간 뒤 따로 더한다(workflow가 main의 도우미로 이름을 검사하기 때문).
 - 도는 곳: `App browser E2E check`(app-e2e-check.yml). 전체 시험(main push·매일·공용 부품 PR)에는 늘 들어가고, PR에서는 화면 CSS(`app/*.css`)나 기준 사진·이 시험을 고쳤을 때 함께 고른다(`scripts/ci/e2e-select.mjs`).
 
 ## 고정한 것
@@ -45,7 +45,6 @@
 | arsenal | 아스날 | 긴 목록·경기 카드 글자 밀도 |
 | profile | 내 프로필(설정) | 21건, 설정 줄 모양 |
 | menu-edit | 메뉴 수정 창 | 메뉴 관련 80건, 하단바·위 메뉴 한 목록 |
-| note-folder (fold만) | 노트 [폴더] 폴드 펼침 두 칸, 폴더를 누른 뒤 | FIX-노트폴드목록(2026-11-28): 좁은 오른쪽 목록에서 제목 칸이 0으로 줄고 머리 글자가 겹치던 화면 |
 
 ## 기준 사진 갱신 (의도한 디자인 변경)
 
