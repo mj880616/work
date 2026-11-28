@@ -8,6 +8,12 @@ export const DEFAULT_AI_MODEL = "gpt-6-luna";
 export const AI_REASONING_EFFORT = "low";
 // 생각 토큰이 max_output_tokens에 포함되므로, 표 설정 함수들은 원래 상한에 이만큼 더해 보낸다(답이 중간에 잘려 비는 것을 막음).
 export const AI_REASONING_TOKEN_HEADROOM = 1500;
+// BRIEF-품질올리기(사용자 2026-11-28 "명진 것만 잘되면 돼"): 브리핑 '더 깊게'(운영자 기능 brief_plus)의 마지막 합치기 한 번만 쓰는 설정.
+// - 모델은 바꾸지 않는다(위 기본 모델 또는 운영 비밀값 WEB2_AI_MODEL 그대로 — 단가·사람별 한도 셈이 지금과 같게). 생각 수준만 high로 올린다.
+//   이 파일에 더 센 모델이 없고 새 모델 단가가 확인되지 않아서다. 후보(운영 설정 표 advanced_model 값 gpt-5.6-sol 등)로 바꿀 때는
+//   model 값과 단가(priceIn·priceOut, 100만 토큰당 원)를 여기서 함께 정한다(비밀값을 새로 만들지 않는다).
+// - 생각 토큰이 max_output_tokens에 들어가므로 공용 여유(AI_REASONING_TOKEN_HEADROOM) 위에 여유를 더 둔다(합쳐 6,000 + 12,000). 조각 메모 단계는 기본 설정 그대로다.
+export const BRIEF_PLUS_MERGE = Object.freeze({ model: null as string | null, effort: "high", maxOutputTokens: 6000, extraReasoningHeadroom: 10500, timeoutMs: 120000 });
 // 1달러 = 1,400원 가정. 입력 0.10달러 → 140원, 출력 0.50달러 → 700원(100만 토큰당).
 export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 140;
 export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 700;

@@ -250,6 +250,8 @@ export function verifyBrief(raw, ctx) {
       if (chars(text) > L.item || totalChars + chars(text) > L.totalChars) continue;
       const item = { text, page };
       if (io.ours === true && matchScopeName('', text, ctx.names)) item.ours = true;
+      // BRIEF-품질올리기: '더 깊게'(ctx.folded가 있을 때만)는 근거 위치(조문·부칙·표·쪽)를 남긴다. 원문에 없는 조문 번호면 뺀다.
+      if (ctx.folded) { const ref = cleanRef(io.ref, ctx.folded, ctx.pageCount); if (ref) item.ref = ref; }
       items.push(item); total++; totalChars += chars(text);
     }
     if (items.length) sections.push({ title, items });
@@ -352,3 +354,168 @@ export function mergeInput({ title, scope, notes, candidates }) {
 
 /** 진행 단계 수: 조각 수 + 합치기 1. */
 export const stepTotal = chunks => Math.min(chunks, BRIEF_MAX_CHUNKS) + 1;
+
+// --- BRIEF-품질올리기: '더 깊게'(운영자 기능 brief_plus, 설계 6-2절) ------------------------------------------
+// 사용자 2026-11-28: 같은 법안 자료의 Claude 직접 요약(구조 한 줄·근거 조문·쟁점 판단·문서 안 불일치·배경 지식)이 브리핑 룸보다 낫다 → 그 수준으로.
+// - 키가 없는 작업공간은 위 지시·검사 그대로(이 절의 함수를 부르지 않는다).
+// - 조각 메모: 항목마다 근거 위치(ref) + 숫자·날짜·기한·비율을 원문 글자 그대로 모은 facts. 서버는 value가 원문에 그대로 있을 때만 남긴다.
+// - 합치기: 핵심(짜임 한 줄)·항목 근거 위치·쟁점(관점에 따른 판단·이유)·문서 안 불일치(두 값 모두 원문에 있을 때만)·배경 지식(늘 '확인 필요').
+// - 관점 글(사람별 view_prefs.brief_lens)은 지시에만 넣고 결과·로그에 남기지 않는다.
+export const BRIEF_PLUS_LIMITS = Object.freeze({
+  ref: 40, facts: 20, what: 60, value: 80, core: 160,
+  issues: 8, issue: 200, why: 200, mismatches: 8, mismatchNote: 160, background: 5, bg: 240, lens: 200, totalFacts: 120,
+});
+export const BRIEF_DEFAULT_LENS = '노동자에게 불리한 조항, 노조 권한 축소, 공공기관 인건비·정원 영향';
+/** 관점 글: 1~200자, 제어 문자·꺾쇠 없음(DB 검사와 같은 규칙). 아니면 기본 관점. */
+export function lensText(v) {
+  const s = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '';
+  if (!s || BAD.test(s) || chars(s) > BRIEF_PLUS_LIMITS.lens) return BRIEF_DEFAULT_LENS;
+  return s;
+}
+
+const REF_MARK = /(제\s*\d+\s*(조|항|호|장|절|관|편)|부칙|별표|별지|표\s*\d|그림\s*\d|\d{1,4}\s*쪽|\d+\s*항|\d+\s*호|항목|단서|제안\s*이유|주요\s*내용|요약|개요|본문|목차|서문|결론|부록|붙임)/;
+const ARTICLE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
+/**
+ * 근거 위치 한 칸(예: '제3조의2 제1항', '부칙 제2조', '별표 1', '12쪽', '주요 내용 나'). 40자 안, 위치 표시 낱말이 있어야 하고,
+ * 그 안의 '제n조(의m)'은 원문에 그대로 있어야 한다(지어낸 조문 번호 막기). 'n쪽'은 1..pageCount 안일 때만. 틀리면 ''.
+ */
+export function cleanRef(v, folded, pageCount = null) {
+  const s = cleanLine(typeof v === 'string' ? v : '', BRIEF_PLUS_LIMITS.ref, null);
+  if (!s || internal(s) || !REF_MARK.test(s)) return '';
+  for (const m of s.matchAll(ARTICLE)) {
+    const k = `제${m[1]}조${m[2] ? `의${m[2]}` : ''}`;
+    if (!folded?.out?.includes(k)) return '';
+  }
+  for (const m of s.matchAll(/(\d{1,4})\s*쪽/g)) { const n = Number(m[1]); if (!pageCount || n < 1 || n > pageCount) return ''; }
+  return s;
+}
+/** 숫자·날짜·조건 값: 원문에 글자 그대로 있을 때만(공백·따옴표 모양 무시). 글자 2개 이상. */
+export function valueIn(folded, v) {
+  const s = cleanLine(typeof v === 'string' ? v : '', BRIEF_PLUS_LIMITS.value, null);
+  if (!s) return '';
+  const k = foldForMatch(s).out;
+  return [...k].length >= 2 && folded?.out?.includes(k) ? s : '';
+}
+
+const REF_RULE = '근거 위치(ref): 그 내용이 나온 조문·부칙·별표·표 번호나 쪽(예: "제3조의2 제1항", "부칙 제2조", "별표 1", "12쪽")을 원문에 적힌 그대로 짧게(40자 안). 원문에 번호가 없으면 "".';
+const FACT_RULE = '숫자·날짜·기한·비율·금액·인원·조건(예: "공포 후 6개월", "2027년 1월 1일", "100분의 30")은 고치거나 계산하지 말고 원문 글자 그대로 옮긴다. 같은 대상이 다른 곳에 다른 값으로 적혀 있어도 둘 다 그대로 남긴다.';
+const NO_GUESS = '확실하지 않은 판단·사실은 지어내지 말고 문장 끝에 "(확인 필요)"를 붙인다.';
+
+export const CHUNK_PLUS_INSTRUCTIONS = [
+  '너는 법안·규정·보고서 같은 긴 자료를 대신 읽어 주는 비서다. 자료의 한 조각을 읽고, 내용을 빠짐없이 짧게 요약하고 근거 위치와 숫자를 원문 그대로 모은다.',
+  'JSON 객체 하나로만 답한다: {"lead":"","points":[{"heading":"","text":"","ref":""}],"facts":[{"what":"","value":"","ref":""}],"quotes":[{"text":"","heading":"","speaker":"","why":""}]}',
+  FREE_RULE,
+  'points: 이 조각 내용의 요약, 자료 순서대로 최대 12개. heading은 그 내용이 속한 원문의 소제목·안건·조문 이름(없으면 ""), text는 한 문장(160자 안).',
+  REF_RULE,
+  'facts: 이 조각에 나온 숫자·날짜·기한·비율·조건을 최대 20개. what은 무엇의 값인지(60자 안, 예: "시행일", "위원 정수"), value는 원문 글자 그대로(80자 안), ref는 근거 위치. 앞쪽 요약·제안 이유·부칙처럼 같은 대상이 여러 곳에 나오면 곳마다 따로 적는다.',
+  FACT_RULE,
+  WHO_RULE,
+  STYLE_RULE,
+  '쪽 표시 〔n쪽〕가 있으면 근거 쪽을 text 끝에 (n쪽)으로 적는다. 없으면 쪽을 적지 않는다.',
+  'quotes: 꼭 원문 그대로 봐야 할 문장이 있을 때만 최대 3개(없으면 빈 배열). text는 원문 글자를 한 글자도 바꾸지 말고 그대로 옮긴다(요약·생략·고침 금지, 400자 안). heading은 그 문장이 속한 소제목(40자 안), speaker는 그 말을 한 사람·기관(원문에 있을 때만, 없으면 ""), why는 왜 봐야 하는지 한 줄(80자 안).',
+  SAFE_RULE,
+].join('\n');
+
+/** 합치기 지시(관점 글을 넣는다). 관점은 lensText로 거른 값만. */
+export function mergePlusInstructions(lens) {
+  return [
+    '너는 법안·규정·보고서 같은 긴 자료를 대신 읽어 주는 비서이자 검토자다. 조각별 메모를 합쳐, 바쁜 사람이 위에서부터 읽는 한 편의 브리핑을 만든다. 요약에 그치지 않고 근거 위치를 달고, 쟁점을 판단하고, 문서 안에서 서로 맞지 않는 값을 찾아낸다.',
+    'JSON 객체 하나로만 답한다: {"core":"","gist":[""],"sections":[{"title":"","items":[{"text":"","page":0,"ours":false,"ref":""}]}],"issues":[{"text":"","why":"","ref":""}],"mismatches":[{"what":"","a":{"value":"","ref":""},"b":{"value":"","ref":""},"note":""}],"background":[{"text":""}],"quotes":[{"id":"q1"}]}',
+    'core: 이 자료의 짜임 한 줄(160자 안, 예: "총 12개 조와 부칙 3개 조, 핵심은 제5조 위원회 설치와 부칙 시행일").',
+    'gist: 요지 1~3줄(각 120자 안). 자료 전체의 핵심 — 누가 무엇을 했는지·말했는지·바꾸는지. 첫 줄은 목록에도 보인다.',
+    'sections: 본문 요약. 소제목(title, 40자 안)과 항목(items)을 이 자료의 짜임에 맞게 네가 정한다(법안이면 조문·바뀌는 점별). 소제목 0~8개, 소제목마다 항목 10개 안, 모두 합쳐 40개 안. 항목 text는 짧은 한 문장(160자 안). 항목마다 ref(근거 위치)를 메모에서 옮겨 꼭 단다(없으면 "").',
+    REF_RULE,
+    `issues: 쟁점, 중요한 순서로 최대 8개. 관점: "${lens}". 이 관점에서 문제가 되거나 따져 볼 대목(불리한 조항, 빠져나갈 길, 제도 공백, 비용·인력 영향 등)을 text 한 문장(200자 안)으로, why에 그렇게 본 이유(200자 안, 메모의 근거로), ref에 근거 위치. 자료에 근거가 없으면 쓰지 않는다.`,
+    'mismatches: 문서 안 불일치·확인 필요. 메모의 숫자·날짜(원문 그대로) 목록에서 같은 대상(what)에 다른 숫자·날짜·조건이 둘 이상이면 반드시 모두 맞춰 본다(예: 앞쪽 요약의 시행일과 부칙의 시행일이 다름). 하나마다 what(무엇, 60자 안), a·b에 두 값을 목록 글자 그대로(value)와 각 근거 위치(ref), note에 어느 쪽이 맞을지 또는 무엇을 확인해야 하는지 한 줄(160자 안). 서로 다른 대상의 값을 억지로 맞대지 않는다. 없으면 빈 배열.',
+    'background: 이 자료를 읽는 데 도움이 되는 관련 판례·제도·선례를 네가 아는 범위에서 최대 5개(각 240자 안). 자료에 없는 바깥 지식이므로 확실하지 않으면 쓰지 않고, 쓰면 끝에 "(확인 필요)"를 붙인다.',
+    WHO_RULE,
+    'page: 그 항목의 근거 쪽(메모의 (n쪽)). 모르면 0. text에는 쪽을 다시 쓰지 않는다.',
+    'ours: 그 항목이 입력의 "내가 등록한 담당" 목록에 있는 대상·프로젝트와 확실히 닿을 때만 true, 그때 text 안에 그 이름을 그대로 쓴다. 목록에 없는 조직·업종·사업장을 이 사람의 담당으로 전제하지 않는다. 목록이 "없음"이거나 애매하면 false.',
+    'quotes: 후보 인용 중 꼭 원문 그대로 직접 봐야 할 대목이 있을 때만 최대 5개 번호(id)로 고른다(없으면 빈 배열). 인용 글을 새로 쓰지 않는다.',
+    NO_GUESS,
+    STYLE_RULE,
+    SAFE_RULE,
+  ].join('\n');
+}
+
+/** '더 깊게' 조각 메모 검사: 기본 검사(parseChunkNote) + 항목 근거 위치 + 원문 그대로의 숫자·날짜. */
+export function parseChunkNotePlus(raw, ctx) {
+  const base = parseChunkNote(raw, ctx);
+  if (!base) return null;
+  const v = parseJsonObject(raw);
+  const P = BRIEF_PLUS_LIMITS;
+  const pageCount = pagesKnown(ctx.starts) ? ctx.starts.length : null;
+  // 항목 근거 위치: 기본 검사가 남긴 항목과 같은 글을 찾아 붙인다(버려진 항목의 ref는 붙지 않음).
+  const bare = s => trimTail(String(s ?? '').replace(PAGE_REF, '').replace(/\s+/g, ' ').replace(/\s+([.,])/g, '$1').trim());
+  const byText = new Map();
+  for (const p of Array.isArray(v.points) ? v.points : []) {
+    const o = obj(p); if (!o || typeof o.text !== 'string') continue;
+    const ref = cleanRef(o.ref, ctx.folded, pageCount);
+    const key = bare(o.text);
+    if (ref && key && !byText.has(key)) byText.set(key, ref);
+  }
+  const points = base.points.map(p => { const ref = byText.get(bare(p.text)); return ref ? { ...p, ref } : p; });
+  const facts = [];
+  for (const f of Array.isArray(v.facts) ? v.facts : []) {
+    const o = obj(f); if (!o) continue;
+    const what = plain(o.what, P.what, null); if (!what) continue;
+    const value = valueIn(ctx.folded, o.value); if (!value) continue; // 원문에 없는 값은 뺀다
+    facts.push({ what, value, ref: cleanRef(o.ref, ctx.folded, pageCount) });
+    if (facts.length >= P.facts) break;
+  }
+  return { ...base, points, facts, plus: true };
+}
+
+/** '더 깊게' 합치기 입력: 기본 입력 + 항목 근거 위치 + 숫자·날짜 목록(원문 그대로, 근거 위치). */
+export function mergeInputPlus({ title, scope, notes, candidates }) {
+  const line = p => `- ${p.heading ? `[${p.heading}] ` : ''}${p.text}${p.ref ? ` 〈${p.ref}〉` : ''}`;
+  const memo = notes.map((n, i) => [`[조각 ${i + 1}] ${n.lead ?? ''}`, ...(Array.isArray(n.points) ? n.points.map(line) : noteLines(n))].join('\n')).join('\n');
+  const facts = [];
+  notes.forEach((n, i) => { for (const f of Array.isArray(n.facts) ? n.facts : []) if (facts.length < BRIEF_PLUS_LIMITS.totalFacts) facts.push(`- [조각 ${i + 1}] ${f.what}: ${f.value}${f.ref ? ` 〈${f.ref}〉` : ''}`); });
+  const q = candidates.map(c => `${c.id}${c.page ? ` (${c.page}쪽)` : ''}${c.heading ? ` [${c.heading}]` : ''}${c.speaker ? ` {${c.speaker}}` : ''}: ${c.text}`).join('\n');
+  return `자료: ${String(title ?? '').slice(0, 120)}\n${scope}\n\n메모:\n${memo}\n\n숫자·날짜(원문 그대로):\n${facts.join('\n') || '(없음)'}\n\n후보 인용:\n${q || '(없음)'}`;
+}
+
+/**
+ * '더 깊게' 최종 검사: 기본 검사(verifyBrief, 항목 근거 위치 포함) + plus 칸.
+ * - mismatches: what·두 값이 있어야 하고, 두 값 모두 원문에 글자 그대로 있어야 하며 서로 달라야 한다(지어낸 불일치 막기).
+ * - background: 바깥 지식이라 늘 '(확인 필요)'로 끝나게 서버가 붙인다.
+ * @param {string} raw
+ * @param {{candidates: any[], pageCount: number|null, names?: string[]|null, folded: ReturnType<typeof foldForMatch>}} ctx
+ */
+export function verifyBriefPlus(raw, ctx) {
+  const base = verifyBrief(raw, ctx);
+  if (!base) return null;
+  const v = parseJsonObject(raw);
+  const P = BRIEF_PLUS_LIMITS;
+  const range = ctx.pageCount ? [1, ctx.pageCount] : null;
+  const list = x => (Array.isArray(x) ? x : []);
+  const core = plain(v.core ?? '', P.core, range) ?? '';
+  const issues = [];
+  for (const it of list(v.issues)) {
+    const o = obj(it); if (!o) continue;
+    const text = plain(o.text, P.issue, range); if (!text) continue;
+    issues.push({ text: trimTail(text), why: plain(o.why ?? '', P.why, range) ?? '', ref: cleanRef(o.ref, ctx.folded, ctx.pageCount) });
+    if (issues.length >= P.issues) break;
+  }
+  const mismatches = [];
+  const side = s => { const o = obj(s); if (!o) return null; const value = valueIn(ctx.folded, o.value); return value ? { value, ref: cleanRef(o.ref, ctx.folded, ctx.pageCount) } : null; };
+  for (const it of list(v.mismatches)) {
+    const o = obj(it); if (!o) continue;
+    const what = plain(o.what, P.what, null); if (!what) continue;
+    const a = side(o.a), b = side(o.b);
+    if (!a || !b || foldForMatch(a.value).out === foldForMatch(b.value).out) continue;
+    mismatches.push({ what, a, b, note: plain(o.note ?? '', P.mismatchNote, range) ?? '' });
+    if (mismatches.length >= P.mismatches) break;
+  }
+  const background = [];
+  for (const it of list(v.background)) {
+    const o = obj(it) ?? (typeof it === 'string' ? { text: it } : null); if (!o) continue;
+    let text = plain(o.text, P.bg, null); if (!text) continue;
+    if (!/\(확인 필요\)\s*$/.test(text)) text = `${text.replace(/[.。]\s*$/, '')} (확인 필요)`;
+    if (chars(text) > P.bg + 8) continue;
+    background.push({ text });
+    if (background.length >= P.background) break;
+  }
+  return { ...base, plus: { core, issues, mismatches, background } };
+}

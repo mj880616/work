@@ -27,12 +27,15 @@ const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8'
 // S70-72 FILES-상세칸정리: DB(20261126090000, 같은 PR, #3124 reading_split 뒤) files_prev_shut을 화면 허용 목록에도 더했다(적용 전에는 접음 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S70-84 BRIEF-두칸폴더: DB(20261126120000, 같은 PR, #3138 files_prev_shut 뒤) brief_sort·split_ratio.brief를 화면 허용 목록에도 더했다(적용 전에는 정렬·폭 기억만 이번 접속). DB에만 있는 칸은 없다.
 // S71-50 NOTE-보드배경색: DB(20261126220000, 같은 PR, brief_room 뒤) note_board_bg를 화면 허용 목록에도 더했다(적용 전에는 바탕색 저장만 거절, 기본 바탕). DB에만 있는 칸은 없다.
+// BRIEF-품질올리기: DB(20261128130100, 같은 줄 PR ①) brief_lens를 화면 허용 목록에도 더했다(적용 전에는 관점 저장만 거절, 기본 관점). DB에만 있는 칸은 없다.
 const DB_ONLY = [];
-test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut·BRIEF-두칸폴더 brief_sort·NOTE-보드배경색 note_board_bg)와 같다', () => {
-  const sql = read('supabase/migrations/20261126220000_profile_view_prefs_note_board_bg.sql');
+test('허용 칸이 DB 검사(마지막 migration, UI-폴더줄크기 row_size·NOTE-목록표머리 note_list_sort 판 위에 NOTE-목록표머리 note_cols·READ-두칸보기 reading·FILES-상세칸정리 files_prev_shut·BRIEF-두칸폴더 brief_sort·NOTE-보드배경색 note_board_bg·BRIEF-품질올리기 brief_lens)와 같다', () => {
+  const sql = read('supabase/migrations/20261128130100_profile_view_prefs_brief_lens.sql');
   const listed = [...sql.match(/strict \$\.keyvalue\(\) \? \(!\(([^)]*)\)\)/)[1].matchAll(/@\.key == "([a-z_]+)"/g)].map(m => m[1]);
   assert.deepEqual([...KEYS, ...DB_ONLY].sort(), listed.sort());
-  assert.equal(KEYS.length, 66);
+  assert.equal(KEYS.length, 67);
+  for (const v of ['관점', '가'.repeat(200), 'A·B (C) 50%']) assert.equal(validValue('brief_lens', v), true, v);
+  for (const v of ['', '   ', '가'.repeat(201), '줄\n바꿈', '<b>', null, 1, ['관점']]) assert.equal(validValue('brief_lens', v), false, JSON.stringify(v));
   // note_board_bg 색 이름이 DB 검사 목록·화면 목록(view-prefs.js NOTE_BOARD_BGS)과 같다.
   const bgNames = [...sql.match(/@\.value\.type\(\) != "string" \|\| !\(([^)]*)\)\)/)[1].matchAll(/@\.value == "([a-z]+)"/g)].map(m => m[1]);
   assert.deepEqual(bgNames, ['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);
