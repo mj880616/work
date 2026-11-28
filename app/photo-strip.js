@@ -347,7 +347,7 @@ export function openPhotoStrip(opts) {
     }
   }, {passive:true});
   strip.addEventListener('touchcancel', () => { touch = null; settle(); }, {passive:true});
-  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기][업데이트로 보내기]).
+  // PHOTO-꾹누르기메뉴(S49-18): 사진을 꾹 누르면(PC는 우클릭) 기본 이미지 메뉴 대신 Web2 작은 메뉴 하나([사진 복사][공유][다운로드][일기에 넣기]; SHARE-노트로로 [업데이트로 보내기]는 없앰).
   // 세로 밀기·넘기기·두 손가락 확대는 손가락이 움직이면 꾹 누르기를 취소하므로 겹치지 않는다. 동영상은 메뉴 없음(바이트가 이 화면에 없음).
   attachPhotoLongPress(box, {
     photoAt:target => !!items[at] && !items[at].video && !!target?.closest?.('.diary-slide .diary-photo') && !onControl(target) && !pz.pinching(),

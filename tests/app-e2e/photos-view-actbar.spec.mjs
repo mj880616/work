@@ -133,7 +133,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       expect(await barNames(page)).toEqual(BAR_NAMES);
       expect(await bar(page).locator('button:visible').count()).toBeLessThanOrEqual(5);
       const b = bar(page);
-      expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '하루 기록에 넣기', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+      expect(await menuTexts(page, b.locator('[data-diary-share]'))).toEqual(['사진 복사', '하루 기록에 넣기', '받기', '다른 앱으로 공유…']);
       expect(await menuTexts(page, b.locator('[data-strip-act="edit"]'))).toEqual(['사진 수정']); // 정보수정은 폰 앱 0.4.15(meta)부터라 이 흉내(0.4.7)에는 없다 — photos-info-edit.spec.mjs가 본다
       const more = await menuTexts(page, b.locator('[data-strip-act="more"]'));
       expect(more).toEqual(['정보', '폴더로 옮기기', '앨범에 넣기']);
@@ -146,7 +146,7 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
       expect(state.errors).toEqual([]);
     });
 
-    test('항목이 지금 사진 1장에 동작: 별표·정보·앨범·옮기기·업데이트로 보내기(알림이 보임)·삭제', async ({ page }) => {
+    test('항목이 지금 사진 1장에 동작: 별표·정보·앨범·옮기기·삭제', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
@@ -207,19 +207,25 @@ for (const [label, width, height] of [['폰 412', 412, 915], ['폴드 884', 884,
     });
 
     // PHOTO-업데이트반응없음(S49-34): 누르면 곧바로 '보내는 중'/결과 알림이 크게 보기 위에 보여야 한다(예전에는 크게 보기 뒤에 깔려 반응이 없어 보임).
-    test('[공유 ▾] → 업데이트로 보내기·하루 기록에 넣기: 알림이 크게 보기 위에 보인다', async ({ page }) => {
+    // SHARE-노트로(2026-11-28): [업데이트로 보내기]는 없앴다 — 남은 [하루 기록에 넣기]로 같은 겹침 순서를 본다.
+    test('[공유 ▾] → 하루 기록에 넣기: 알림이 크게 보기 위에 보인다(업데이트로 보내기 없음)', async ({ page }) => {
       const state = await fixture(page, { app: true });
       await openPhotos(page, width);
       await expect.poll(() => ids(page)).toEqual(['ph:1', 'O1']);
       await page.locator('#photosRoot [data-photos-id="O1"]').click();
       await expect(viewer(page).locator('.diary-slide .diary-photo[data-state="shown"]').first()).toBeVisible();
-      await pickItem(page, bar(page).locator('[data-diary-share]'), '업데이트로 보내기');
+      await bar(page).locator('[data-diary-share]').click();
+      await expect(page.locator('#shareMenu').getByRole('button', { name: '업데이트로 보내기' })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await pickItem(page, bar(page).locator('[data-diary-share]'), '하루 기록에 넣기');
+      // 먼저 묻는 작은 창(찍은 날 하루 기록에 넣을까요?) → [넣기].
+      await page.getByRole('button', { name: '넣기', exact: true }).click();
       const note = page.locator('#kptuNotice');
       await expect(note).toBeVisible();
       // 알림은 누름을 받지 않는 칸(pointer-events:none)이라 elementFromPoint로는 못 잡는다 → 겹침 순서(z-index)가 크게 보기보다 위인지 본다.
       const z = await page.evaluate(() => ({ note: Number(getComputedStyle(document.getElementById('kptuNotice')).zIndex), viewer: Number(getComputedStyle(document.querySelector('[data-diary-viewer]')).zIndex) }));
       expect(z.note).toBeGreaterThan(z.viewer);
-      await expect(note).toContainText(/업데이트로 보|사진 받는 중|받지 못했|보내지 못했/);
+      await expect(note).toContainText(/하루 기록|사진 받는 중|받지 못함|못 넣은 것/);
       expect(state.errors).toEqual([]);
     });
   });

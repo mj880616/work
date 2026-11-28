@@ -1724,7 +1724,7 @@ async function itemFile(item) {
 // S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 사진(동영상 빼고 20장까지) → [일기에 넣기] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기).
 // 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js). SHARE-노트로(2026-11-28): 옛 [업데이트로 보내기](잊지 말기)는 없앴다.
 // S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진에서 보냈으면(fromPick) 다 들어간 뒤 고르기를 끝내고 알림 한 줄
-// ('11.3 일기에 넣었어요 [일기 보기]' / '업데이트로 보냈어요'). 하나라도 못 넣으면 고른 것을 그대로 두고 [다시](못 넣은 장만 다시).
+// ('11.3 일기에 넣었어요 [일기 보기]'). 하나라도 못 넣으면 고른 것을 그대로 두고 [다시](못 넣은 장만 다시).
 // 크게 보기 한 장의 [공유] 메뉴도 같은 함수(그 한 장, 고르기와 상관없음).
 let sendBusy = false;
 const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
@@ -3450,7 +3450,7 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
     if (b.matches('[data-gdm-retry]')) return gdRetry();
     if (b.matches('[data-gdm-off]')) return toggleSourceName('gdrive');
   }});
-// S48-56: 사진 우클릭 메뉴의 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기](휴지통·동영상은 없음). 이름은 공용 목록(photo-menu-items.mjs) 하나.
+// S48-56: 사진 우클릭 메뉴의 [별표]·[공유]·[일기에 넣기](휴지통·동영상은 없음). 이름은 공용 목록(photo-menu-items.mjs) 하나.
 function sendMenuBtns(id) {
   const it = (shownList() || []).find(x => x.id === id);
   if (tab === 'trash' || !it || it.video) return [];
