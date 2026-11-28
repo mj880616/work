@@ -8,6 +8,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {editCell,cellMenu,holdCell,cellAct} from './helpers/cell-menu.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -88,7 +89,7 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간 보고 칸 — �
   await expect(empty).toBeVisible();
   await expect(empty.locator('[data-bp-recs]')).toHaveCount(0); // 그 주 기록이 없으면 '이번 주 기록'도 없다
   // ② 보고 없는 줄의 진행 칸: 누르면 글 칸, Ctrl+Enter 저장.
-  await empty.locator('[data-bp-cell="progress"]').click();
+  await editCell(page,empty.locator('[data-bp-cell="progress"]'));
   const box=empty.locator('textarea[data-bp-field]');
   await expect(box).toBeFocused();
   await box.fill('직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄');
@@ -100,7 +101,7 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간 보고 칸 — �
   expect(nowRow('child-a2')).toMatchObject({week_start:s.week,body:'직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄'});
   expect(s.draftWrites).toEqual([]);
   // 담당 칸: 보고 있는 줄에도 쓸 수 있다(Enter 저장).
-  await withReport.locator('[data-bp-cell="owner"]').click();
+  await editCell(page,withReport.locator('[data-bp-cell="owner"]'));
   const owner=withReport.locator('input[data-bp-field]');
   await expect(owner).toBeFocused();
   await owner.fill('합성 담당 가');
@@ -110,7 +111,7 @@ for(const width of [1440,412])test(`${width}: 이번 주 주간 보고 칸 — �
   expect(nowRow('child-a2').body).toBe('직접 쓴 진행 첫 줄\n직접 쓴 둘째 줄'); // 진행 칸 저장 값은 그대로 남음
   // 쓰던 칸은 Esc 로 닫히고 저장하지 않는다.
   const writes=s.bizNow.writes.length;
-  await empty.locator('[data-bp-cell="progress"]').click();
+  await editCell(page,empty.locator('[data-bp-cell="progress"]'));
   await empty.locator('textarea[data-bp-field]').fill('저장하지 않을 글');
   await page.keyboard.press('Escape');
   await expect(dlg).toBeVisible();

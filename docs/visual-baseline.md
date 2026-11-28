@@ -4,6 +4,7 @@
 
 - 시험: `tests/app-e2e/visual-baseline.spec.mjs` (화면 20개 × 2폭 = 40개)
 - 기준 사진: `tests/app-e2e/visual-baseline.spec.mjs-snapshots/<화면>-<pc|phone>-chromium-linux.png`
+- 갱신 도우미(`scripts/ops/visual-baseline-update.mjs`)는 폴드 펼침 폭 사진 이름 `<화면>-fold`(712px, 갱신 이름 `<화면>:fold`)도 받는다. 폴드 폭 화면은 도우미가 main에 들어간 뒤 따로 더한다(workflow가 main의 도우미로 이름을 검사하기 때문).
 - 도는 곳: `App browser E2E check`(app-e2e-check.yml). 전체 시험(main push·매일·공용 부품 PR)에는 늘 들어가고, PR에서는 화면 CSS(`app/*.css`)나 기준 사진·이 시험을 고쳤을 때 함께 고른다(`scripts/ci/e2e-select.mjs`).
 
 ## 고정한 것

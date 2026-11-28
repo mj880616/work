@@ -4,14 +4,18 @@
 // - [과거 기록으로]: 그 줄을 같은 폴더 '과거 기록' 노트로 옮긴다(family-note-send.js moveToPast, 지우지 않음) → '과거 기록으로 옮겼어요 · 되돌리기'.
 // - 본 기록은 서버(노트 metadata.remind, basket-data.js setNoteRemind). 기기 저장 없음. 가족 노트가 없거나 비면 칸을 그리지 않는다.
 // - AI를 쓰지 않고, 이 칸의 글은 어디에도 넘기지 않는다(보이기만). 이 파일이 이 칸의 유일한 renderer다.
+// - FORGET-업무노트(2026-11-28 사용자 결정): 같은 부품을 kind 'work'로 한 번 더 붙이면 '업무 · 기억할 것'(업무 노트, family-note-send.mjs LISTS.work).
+//   규칙·본 기록·[↻ 다른 줄]·줄 ⋯ [과거 기록으로]가 모두 같고, 칸 이름과 읽는 노트만 다르다.
 import {esc} from './notice-box.mjs';
 import {seoulDateKey} from './meeting-time.js';
 import {readRemind, remindLines, pickToday, pickOther} from './family-remind-model.mjs';
 import {openRemindMenu, remindMenuFollower} from './family-remind-menu.js';
 import {keepMenus} from './anchored-menu.js';
+import {listSpec, REMIND_CHANGED} from './family-note-send.mjs';
 
-export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} = {}) {
+export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window, kind = 'family'} = {}) {
   if (!host) return null;
+  const spec = listSpec(kind), head = esc(spec.head);
   let note = null, picks = [], total = 0, run = 0, status = '';
   const ws = () => rt.context?.read?.()?.workspace?.id || '';
 
@@ -21,11 +25,11 @@ export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} 
   const locked = () => !!note && !!win.KPTUFeatureLock?.noteHidden?.(note);
   function paintNow() {
     if (!note || !picks.length) { host.hidden = true; host.innerHTML = ''; return; }
-    if (locked()) { host.hidden = false; host.innerHTML = '<div class="nbx-head"><span class="nbx-title">가족 · 기억할 것</span><span class="nbx-faint" data-fam-locked data-lock-here="notes">잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>'; return; }
+    if (locked()) { host.hidden = false; host.innerHTML = '<div class="nbx-head"><span class="nbx-title">${head}</span><span class="nbx-faint" data-fam-locked data-lock-here="notes">잠김 <button type="button" class="row-act lk-open">풀기</button></span></div>'; return; }
     host.hidden = false;
     // 공용 상자(notice-box: .nbx 머리 줄·줄·⋯·상태 줄) 그대로. 이 칸 CSS는 자리만 정한다(basket.css).
     const other = total > picks.length ? '<button type="button" class="row-act" data-fam-other>↻ 다른 줄</button>' : '';
-    host.innerHTML = `<div class="nbx-head"><span class="nbx-title">가족 · 기억할 것</span><span class="nbx-faint">${picks.length}/${total}</span><span class="nbx-acts">${other}<button type="button" class="row-act" data-fam-open>노트 열기 ›</button></span></div>`
+    host.innerHTML = `<div class="nbx-head"><span class="nbx-title">${head}</span><span class="nbx-faint">${picks.length}/${total}</span><span class="nbx-acts">${other}<button type="button" class="row-act" data-fam-open>노트 열기 ›</button></span></div>`
       + `<ul class="nbx-list">${picks.map(p => `<li class="nbx-item" data-fam-line="${esc(p.key)}"><p class="nbx-body fam-remind-text">${esc(p.text)}</p><button type="button" class="icon-btn nbx-more" data-fam-more="${esc(p.key)}" aria-label="${esc(`메뉴: ${p.text}`)}" aria-haspopup="true" aria-expanded="false"><span class="more-dots" aria-hidden="true">⋯</span></button></li>`).join('')}</ul>`
       + `<p class="nbx-status" role="status" aria-live="polite" data-fam-status>${esc(status)}</p>`;
   }
@@ -41,7 +45,7 @@ export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} 
     const mine = ++run, owner = ws();
     if (!owner) { note = null; picks = []; paint(); return; }
     let row = null;
-    try { const {readRemindNote} = await import('./family-note-send.js'); [row] = await Promise.all([readRemindNote(rt), win.KPTUFeatureLock?.ready?.()]); } catch { row = null; }
+    try { const {readRemindNote} = await import('./family-note-send.js'); [row] = await Promise.all([readRemindNote(rt, spec.kind), win.KPTUFeatureLock?.ready?.()]); } catch { row = null; }
     if (mine !== run || owner !== ws()) return;
     note = row;
     const lines = row ? remindLines(row.doc) : [];
@@ -69,7 +73,7 @@ export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} 
     if (b.dataset.famOpen !== undefined) { void openNote(); return; }
     const key = b.dataset.famMore;
     const line = key && picks.find(p => p.key === key);
-    if (line) openRemindMenu(b, {rt, noteId: note.id, text: line.text, row: b.closest('li'),
+    if (line) openRemindMenu(b, {rt, noteId: note.id, text: line.text, kind: spec.kind, row: b.closest('li'),
       onOpen: () => void openNote(),
       onMoved: () => { status = ''; },
       onUndone: () => { status = ''; },
@@ -78,7 +82,7 @@ export function mountFamilyRemind(host, {rt = window.KPTURuntime, win = window} 
   win.addEventListener('kptu:feature-lock-changed', () => { if (host.isConnected) paint(); });
   win.addEventListener('kptu:session-changed', () => { run++; note = null; picks = []; total = 0; status = ''; paint(); });
   // 노트 화면에서 줄을 옮기거나 노트를 고치면 다시 읽는다(family-remind-menu.js가 보냄).
-  win.addEventListener('kptu:family-remind-changed', () => { if (host.isConnected) void refresh(); });
+  win.addEventListener(REMIND_CHANGED, () => { if (host.isConnected) void refresh(); });
   paint();
   return {refresh};
 }

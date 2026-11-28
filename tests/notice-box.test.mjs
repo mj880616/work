@@ -135,7 +135,12 @@ test('줄 단추 줄이기: 접히는 버튼 표시·줄마다 ⋯ 하나·메�
   assert.deepEqual(nb.foldActs({report: true}), [['event', label.event], ['note', label.note], ['org', label.org], ['area', label.area], ['dismissed', '무시']]);
   assert.deepEqual(nb.foldActs().map(([a]) => a), ['event', 'note', 'dismissed']);
   const fl = read('forget-list.js');
-  assert.match(fl, /foldActs\(\{report: kind !== 'f'\}\)/); assert.match(fl, /data-nbx-menu-act="\$\{act\}"/);
+  assert.match(fl, /foldActs\(\{report: kind !== 'f', notes: true\}\)/);
+  // FORGET-업무노트: 노트 갈래 버튼을 주면 [노트로] 자리에 그 버튼들(접지 않음 — 폰에서도 줄에), ⋯ 메뉴의 [노트로]는 [다른 노트에].
+  const split = nb.rowHtml({id: 'c:3', body: 'x', report: true, more: 'data-x', notes: [nb.NB_NOTE_ACTS.work, nb.NB_NOTE_ACTS.family]});
+  assert.deepEqual([...split.matchAll(/<button type="button" class="([^"]*)"[^>]*data-nbx-act="([a-z-]+)"/g)].filter(m => !/nbx-fold/.test(m[1])).map(m => m[2]), ['task', 'note-work', 'note-family', 'done']);
+  assert.doesNotMatch(split, /data-nbx-act="note"/);
+  assert.deepEqual(nb.foldActs({report: true, notes: true}).find(([a]) => a === 'note'), ['note', '다른 노트에']); assert.match(fl, /data-nbx-menu-act="\$\{act\}"/);
   assert.match(fl, /rowAct\(key, button\.dataset\.nbxMenuAct, active\.trigger\)/, '메뉴 항목은 줄 버튼과 같은 길');
   // 업데이트 줄 ⋯(basket.js): 이름은 [할 일로]·[노트로], 처리 버튼이 있는 줄은 [일정으로][조직][사업]도.
   const bk = read('basket.js');

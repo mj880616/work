@@ -157,7 +157,7 @@ export function paintHqSchedule(slot, {model, start, rt = window.KPTURuntime, on
     }
     box.append(list);
     const actions = el('div', 'journal-edit-actions save-row');
-    const cancel = btn('취소', 'journalHqPickCancel'), ok = btn('넣기', 'journalHqPickSave', 'mini primary');
+    const cancel = btn('취소', 'journalHqPickCancel', 'row-act'), ok = btn('넣기', 'journalHqPickSave', 'mini primary');
     ok.disabled = busy || !ui.picked.size;
     actions.append(cancel, ok); box.append(actions);
     return box;
@@ -258,7 +258,7 @@ export function dayRowForm(doc, {values = {}, busy = false, invalid = '', idBase
   }
   const actions = el('div', 'journal-edit-actions save-row');
   const mk = (text, data, cls) => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = tag; if (busy) b.disabled = true; return b; };
-  actions.append(mk('취소', cancel, 'mini'), mk('저장', save, 'mini primary')); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
+  actions.append(mk('취소', cancel, 'row-act'), mk('저장', save, 'mini primary')); // WEEKLY-화면정돈 ②: [취소]는 글자 단추(공용 ③ row-act) // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
   form.append(actions);
   return form;
 }

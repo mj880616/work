@@ -17,11 +17,16 @@
 //   읽기·쓰기는 forget-news-data.js(서버 표 app_journal_memorable 그대로). 버튼은 다른 줄과 같은 일곱(옛 소식 줄만의 ⋯·[무시]는 없앰 — ×가 무시).
 //   운영자 기능(통화·텔레그램)은 서버 판정 그대로다.
 // - 가족 줄은 이 화면에 보이기만 한다. 업데이트·원장·주간보고·업무일지·AI 길에는 넘기지 않는다(docs/design/tg-personal.md 7절).
+// - FORGET-업무노트(2026-11-28 사용자 결정 "아예 업무 노트로·가정 노트로 나눠 달라"): 줄의 [노트로] 자리는 [업무 노트에]·[가족 노트에](NB_NOTE_ACTS).
+//   고르기 창 없이 그 노트(family-note-send.js addLineHere — 업무 노트, 가족 '잊지 말기' 노트) 맨 아래에 '☐ 내용 (출처 날짜)' 한 줄을 더하고 그 줄을 처리한 것으로 뺀다.
+//   되돌리기는 노트의 그 줄까지 뺀다. 가족 줄은 [가족 노트에]만(가족 줄은 업무 노트로 보내지 않음), [가족 노트에]는 가족 기능(서버 family)이 있을 때만.
+//   노트를 골라 넣는 옛 길(노트 창)은 줄 ⋯ [다른 노트에]로 남는다.
 // 이 파일이 이 목록 자리의 유일한 renderer다. 기기 저장 없음.
 import {createAnchoredMenu, keepMenus} from './anchored-menu.js';
 import {setHomeAsks} from './home-asks.js';
 import {lockedLineHtml} from './locked-line.mjs';
-import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText} from './notice-box.mjs';
+import {esc, rowHtml, groupHtml, foldActs, openFromMeta, plainText, NB_NOTE_ACTS} from './notice-box.mjs';
+import {listLine} from './family-note-send.mjs';
 import {waitHtml, emptyHtml} from './wait-state.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
@@ -51,6 +56,9 @@ export const promiseNewsLedger = r => ledgerRequestText({summary: newsText(r), d
 
 const shortDay = v => { const m = String(v ?? '').match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${Number(m[1])}/${Number(m[2])}` : ''; };
 const cut = (v, n) => [...String(v ?? '')].slice(0, n).join('');
+// FORGET-업무노트: 줄의 노트 갈래 버튼(row 종류 첫 글자 c·n·u·f, familyOn = 가족 기능). 가족 줄은 가족 노트만.
+export const noteActsFor = (kind, familyOn) => kind === 'f' ? [NB_NOTE_ACTS.family] : familyOn ? [NB_NOTE_ACTS.work, NB_NOTE_ACTS.family] : [NB_NOTE_ACTS.work];
+export const NOTE_KIND = Object.freeze({'note-work': 'work', 'note-family': 'family'});
 export const candidateSource = c => c?.source_kind === 'telegram' ? 'telegram' : 'todo';
 // 아래 작은 줄 왼쪽 글(출처 꼬리표 뒤). 텔레그램: 방 이름 · 날짜 · 기한. 챙길 것: '업데이트에서' 같은 원래 기록 · 날짜 · 기한.
 export function candidateMeta(c) {
@@ -89,7 +97,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     render: key => {
       const kind = rowKind(key), c = kind === 'c' ? byId(key.slice(2)) : null;
       const hint = host.querySelector(`[data-nbx-row="${CSS.escape(key)}"] [data-nbx-hint]`)?.dataset.nbxAct || ''; // AI가 고른 버튼은 메뉴에서도 굵게
-      const folded = foldActs({report: kind !== 'f'}).map(([act, label]) => `<button type="button" class="row-act${act === hint ? ' nbx-hint' : ''}" data-nbx-menu-act="${act}">${esc(label)}</button>`).join('');
+      const folded = foldActs({report: kind !== 'f', notes: true}).map(([act, label]) => `<button type="button" class="row-act${act === hint ? ' nbx-hint' : ''}" data-nbx-menu-act="${act}">${esc(label)}</button>`).join('');
       return folded + (c && candidateSource(c) === 'todo'
         ? '<button type="button" class="row-act" data-forget-menu="not-mine">내 일 아님</button>' : '');
     },
@@ -117,13 +125,13 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
       if (s === 'telegram' && locked.telegram) { hidden++; continue; }
       if (!hit(plainText(c.summary), candidateMeta(c))) continue;
       const star = starredCandidate(c), into = star ? stars : bundleDay(c, today, d => seoulDateKey(d)) ? bundle : out;
-      into.push({at: c.created_at, html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: busy.has(c.id), report: true,
+      into.push({at: c.created_at, html: rowHtml({id: `c:${c.id}`, body: c.summary, meta: candidateMeta(c), src: SOURCE_TAG[s], busy: busy.has(c.id), report: true, notes: noteActsFor('c', fOn),
         // 내용을 누르면 원래 기록(업데이트·노트·사업 보고·조직 기록·텔레그램 방)을 연다 — 기존 출처 열기 길(todo-radar.js openSource).
         open: {attrs: `data-forget-source="${esc(c.id)}" aria-label="${esc(`${plainText(c.summary)} — 출처 열기: ${sourceText(c)}`)}"`},
         more: `data-forget-more="c:${esc(c.id)}"`, attrs: `data-forget-src="${s}"${star ? ' data-nbx-star' : ''}`})});
     }
     if (fOn) {
-      for (const n of notes) if (hit(n.body, metaLine(n))) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`),
+      for (const n of notes) if (hit(n.body, metaLine(n))) out.push({at: n.at || n.day, html: rowHtml({id: `f:${n.id}`, body: n.body, meta: metaLine(n), src: SOURCE_TAG.family, busy: busy.has(`f:${n.id}`), notes: noteActsFor('f', fOn),
         prefix: FIRM_LABEL[n.firmness] ? `<span class="nbx-tag">${esc(FIRM_LABEL[n.firmness])}</span> ` : '', more: `data-forget-more="f:${esc(n.id)}"`, attrs: 'data-forget-src="family"'})});
     }
     if (nOn) {
@@ -133,11 +141,11 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
         if (!hit(label)) continue;
         out.push({at: r.at, html: rowHtml({id: `n:${r.id}`, body: label, meta: shortDay(r.day), src: NEWS_SOURCE_TAG[r.source], busy: busy.has(`n:${r.id}`),
           open: {attrs: `data-forget-news-open="${esc(r.id)}" aria-label="${esc(`${label} — 원본 ${r.source === 'telegram' ? '텔레그램' : '통화'} 열기`)}"`},
-          report: true, hint: NEWS_HINT[r.kind] || '', why: r.reason, more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
+          report: true, notes: noteActsFor('n', fOn), hint: NEWS_HINT[r.kind] || '', why: r.reason, more: `data-forget-more="n:${esc(r.id)}"`, attrs: `data-forget-src="news"`})});
       }
     }
     for (const u of updates().items || []) if (hit(u.text ?? u.body, u.meta)) out.push({at: u.at, html: rowHtml({id: `u:${u.id}`, body: u.body, meta: u.meta, src: SOURCE_TAG.update, busy: !!u.busy,
-      report: true, open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
+      report: true, notes: noteActsFor('u', fOn), open: u.open, tail: u.tail || '', below: u.below || '', attrs: `data-forget-src="update" ${u.attrs || ''}`})});
     if (bundle.length) {
       const rowsIn = newestFirst(bundle), shut = !openBundles.has('yesterday');
       out.push({at: rowsIn[0].at, html: groupHtml({key: 'yesterday', label: `어제 들어온 요청 ${bundle.length}개`, faint: '· 두면 내일 이미 함', rows: rowsIn.map(x => x.html), open: !shut})});
@@ -253,6 +261,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     ...(news?.id ? {source_kind: 'memorable', source_id: news.id} : {source_kind: 'user'})}, rt));
   // [되돌리기]의 앞 반: 방금 넣은 그 한 줄만 기존 소유자 삭제 길로 지운다(조직 기록 org-row-delete.js, 사업 기록 business-now-data.js). 새 권한·DB 변경 없음.
   async function dropSaved(saved) {
+    if (saved.kind === 'line') { const {undoDone} = await import('./family-note-send.js'); await undoDone(rt, saved); return; }
     if (saved.kind === 'org') {
       const {deleteOrgUpdate} = await import('./org-row-delete.js');
       await deleteOrgUpdate((path, opts) => rt.api(path, opts), saved.id, saved.orgId);
@@ -268,7 +277,21 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     try { await dropSaved(saved); } catch { return {status: 'failed', message: SAVED_UNDO.failed}; }
     let back = false;
     try { back = await reopen(); } catch { back = false; }
-    return back ? {status: 'done', message: SAVED_UNDO.done} : {status: 'failed', message: SAVED_UNDO.half};
+    const where = saved.kind === 'line' ? '노트' : '기록';
+    return back ? {status: 'done', message: SAVED_UNDO.done.replace('기록', where)} : {status: 'failed', message: SAVED_UNDO.half.replace('기록', where)};
+  }
+  // ── FORGET-업무노트 [업무 노트에]·[가족 노트에]: 고르기 창 없이 그 노트 맨 아래 한 줄 → 그 줄을 처리한 것으로(되돌리기는 노트의 그 줄까지 뺀다) ──
+  // 업무 노트가 아직 없으면 누른 버튼 옆에서 폴더를 한 번 고른다(닫으면 아무것도 안 씀). 넣은 줄은 {kind: 'line', noteId, line}(dropSaved가 뺀다).
+  const lineDone = kind => `${kind === 'work' ? '업무' : '가족'} 노트에 넣었어요`;
+  async function lineKeep(key, kind, line, anchor, finish) {
+    if (busy.has(key) || !line) return;
+    busy.add(key); // 폴더 고르기 창이 누른 버튼 옆에 뜨도록 다시 그리지 않는다(두 번 누름만 막음)
+    let sent = null;
+    try { const {addLineHere} = await import('./family-note-send.js'); sent = await addLineHere(rt, {kind, line, anchor}); }
+    catch { busy.delete(key); say('노트에 넣지 못했어요. 다시 눌러 주세요'); return; }
+    busy.delete(key);
+    if (!sent) { paint(); return; }
+    await finish({kind: 'line', noteId: sent.noteId, line: sent.line}, lineDone(kind));
   }
 
   // ── 소식 줄(FORGET-소식합치기 → 소식바로잡기): 다른 줄과 같은 일곱 버튼. 상태는 표가 허락한 셋뿐 — 처리하면 kept, ×는 dropped ──
@@ -331,6 +354,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     const text = newsText(r), memo = [NEWS_SOURCE_TAG[r.source], shortDay(r.day)].filter(Boolean).join(' · '), mine = radarScope(rt), live = () => mine === radarScope(rt);
     if (act === 'dismissed') return newsMark(r, 'dropped', '무시했어요.', true);
     if (act === 'done') return newsMark(r, 'kept', r.kind === 'promise' ? '받음으로 뺐어요.' : '이미 한 일로 뺐어요.', true);
+    if (NOTE_KIND[act]) return lineKeep(`n:${r.id}`, NOTE_KIND[act], listLine(text, memo), button, (saved, done) => newsMark(r, 'kept', done, false, saved));
     if (act === 'ledger') { void copyText(promiseNewsLedger(r)).then(ok => say(ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.')); return; }
     // [조직]: 그 조직 이름이 이미 줄 앞에 있으면 줄만, 다른 조직에 넣으면 AI가 쓴 이름까지 그대로 남긴다.
     if (act === 'org') return pickOrg(button, {guess: read => matchOrg(r.org, read.orgs, read.mine),
@@ -404,6 +428,7 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (kind === 'org') return pickOrg(button, {guess: read => (read.orgs || []).find(o => o?.id && o.id === c.organization_id && o.active !== false && read.mine?.has?.(o.id)) || null,
       onPick: org => void candidateReport(c, () => saveOrg(org, c.summary), orgDone(org))});
     if (kind === 'area') return pickArea(button, project => void candidateReport(c, () => saveArea(project, c.summary), areaDone(project)));
+    if (NOTE_KIND[kind]) return lineKeep(c.id, NOTE_KIND[kind], listLine(plainText(c.summary), draft.memo), button, (saved, done) => decideCandidate(c, () => markDone(c.id, rt), 'done', done, null, saved));
     if (kind === 'dismissed') return decideCandidate(c, () => dismissCandidate(c.id, rt), 'dismissed', '무시했어요.', 'dismissed');
     if (kind === 'done') return decideCandidate(c, () => markDone(c.id, rt), 'done', '이미 한 일로 뺐어요.', 'done');
     if (kind === 'task') return candidateTask(c);
@@ -463,6 +488,8 @@ export function mountForgetList(host, {rt = window.KPTURuntime, win = window, st
     if (busy.has(`f:${n.id}`)) return;
     const draft = draftOf(n);
     if (kind === 'dismissed') { if (await familyChange(n, 'dismissed', '삭제했어요')) familyUndo(n, '삭제했어요'); return; }
+    // [가족 노트에]: 가족 '잊지 말기' 노트 맨 아래 한 줄(가족 줄은 업무 노트로 보내지 않는다). 되돌리기는 제안과 노트의 그 줄을 함께.
+    if (kind === 'note-family') return lineKeep(`f:${n.id}`, 'family', noteLine(n), trigger, async (saved, done) => { if (await familyChange(n, 'kept', done)) familyUndo(n, done, {noteId: saved.noteId, line: saved.line}); });
     if (kind === 'done') {
       const line = noteLine(n, true);
       busy.add(`f:${n.id}`); paint();

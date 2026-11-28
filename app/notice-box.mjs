@@ -52,13 +52,21 @@ export function headHtml({title, count = 0, faint = '', open = null, countAttr =
 //   모양 규칙은 ui-standard.css 'UI-잊지말기줄단추' 한 곳. 접힌 동작은 foldActs()의 같은 이름으로 ⋯ 메뉴에 둔다(이름 하나).
 export const NB_FOLD = Object.freeze(['event', 'note', 'org', 'area']);
 const NB_LABEL = Object.fromEntries(NB_REPORT_ACTS);
+// FORGET-업무노트(2026-11-28 사용자 결정 "아예 업무 노트로·가정 노트로 나눠 달라"): 잊지 말기 줄의 [노트로](고르기 창)를 노트 갈래 버튼으로 나눈다.
+// 줄 버튼은 고르기 창 없이 그 노트 맨 아래 한 줄([업무 노트에]·[가족 노트에]), 폰에서도 줄에 보인다(접지 않음 — 한 번 누르기).
+// 노트를 직접 고르는 옛 길은 ⋯ 메뉴 [다른 노트에]로 남는다(같은 act 'note').
+export const NB_NOTE_ACTS = Object.freeze({work: ['note-work', '업무 노트에'], family: ['note-family', '가족 노트에']});
+export const NB_NOTE_OTHER = '다른 노트에';
 // ⋯ 메뉴 안에 둘 접힌 동작(줄 버튼과 같은 이름) + × 자리 [무시]. report=false(가족 줄)면 조직·사업 없음.
-export function foldActs({report = false} = {}) {
-  return [...NB_FOLD.filter(a => report || (a !== 'org' && a !== 'area')).map(a => [a, NB_LABEL[a]]), ['dismissed', '무시']];
+// notes=true(줄에 노트 갈래 버튼이 있는 줄): [노트로] 자리는 [다른 노트에].
+export function foldActs({report = false, notes = false} = {}) {
+  return [...NB_FOLD.filter(a => report || (a !== 'org' && a !== 'area')).map(a => [a, a === 'note' && notes ? NB_NOTE_OTHER : NB_LABEL[a]]), ['dismissed', '무시']];
 }
-export function rowHtml({id, body: rawBody, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why: rawWhy = '', done = '', open = null, attrs = '', tail = '', more = '', below = '', acts = null}) {
+// notes: [[act, 이름], …] — 주면 줄 버튼 [노트로] 자리에 이 버튼들을 둔다(NB_NOTE_ACTS, 접지 않음).
+export function rowHtml({id, body: rawBody, meta = '', prefix = '', busy = false, src = '', report = false, hint = '', why: rawWhy = '', done = '', open = null, attrs = '', tail = '', more = '', below = '', acts = null, notes = null}) {
   const body = plainText(rawBody), why = plainText(rawWhy), dis = busy ? ' disabled' : '';
   const fold = act => !acts && NB_FOLD.includes(act) ? ' nbx-fold' : '';
+  const list = acts || (report ? NB_REPORT_ACTS : NB_ACTS).flatMap(a => (a[0] === 'note' && Array.isArray(notes) ? notes : [a]));
   const btn = ([act, label]) => act === hint
     ? `<button type="button" class="row-act nbx-act nbx-hint${fold(act)}" data-nbx-act="${act}" data-nbx-hint${dis}>${esc(label)}</button>`
     : `<button type="button" class="row-act nbx-act${fold(act)}" data-nbx-act="${act}"${dis}>${esc(label)}</button>`;
@@ -66,7 +74,7 @@ export function rowHtml({id, body: rawBody, meta = '', prefix = '', busy = false
     ? `<button type="button" class="icon-btn nbx-more" ${more} aria-label="메뉴: ${esc(body)}" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button>` : '';
   const right = done
     ? `<span class="nbx-done">${esc(done)}</span>${tail}`
-    : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${(acts || (report ? NB_REPORT_ACTS : NB_ACTS)).map(btn).join('')}`
+    : `<span class="nbx-acts" role="group" aria-label="${esc(body)}">${list.map(btn).join('')}`
       + `${acts ? '' : `<button type="button" class="icon-btn nbx-x nbx-fold" data-nbx-act="dismissed" aria-label="삭제: ${esc(body)}"${dis}>×</button>`}${tail}${dots}</span>`;
   const text = open ? `<button type="button" class="row-act nbx-body-btn" ${open.attrs}>${open.label == null ? esc(body) : esc(plainText(open.label))}</button>` : esc(body);
   const metaIn = `${src ? `<span class="nbx-src">${esc(src)}</span>` : ''}${esc(meta)}`;
