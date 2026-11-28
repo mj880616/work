@@ -77,7 +77,9 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     const more = rowMore(page, 'n-plain');
     const mb = await more.boundingBox();
-    expect(mb.width).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
+    // 줄 끝 ⋯ 는 눈에 보이는 폭을 줄이되(세로 점, 32px) 누르는 자리(::after)는 손가락 크기(≥44) 그대로다.
+    const hit = await more.evaluate(el => { const a = getComputedStyle(el, '::after'); return { w: el.getBoundingClientRect().width + Math.abs(parseFloat(a.left)||0) + Math.abs(parseFloat(a.right)||0), h: parseFloat(a.height)||el.getBoundingClientRect().height }; });
+    expect(mb.width).toBeGreaterThanOrEqual(28); expect(hit.w).toBeGreaterThanOrEqual(44); expect(mb.height).toBeGreaterThanOrEqual(44);
     // [복사] sits left of [⋯], both on the right side of the row.
     const rb = await page.locator('[data-note-row="n-plain"]').boundingBox(); expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
     await expect(page.locator('[data-note-row-copy]')).toHaveCount(0);

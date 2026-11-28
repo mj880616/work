@@ -136,7 +136,7 @@ test('toggle: 아이콘 왼쪽 꺾쇠 단추(펼침 상태를 알림), 아이콘
 test('전수: 폴더 나무를 그리는 파일에 세모 글자·세모 모양이 없다', () => {
   const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8').replace(/\/\*[^]*?\*\//g, '');
   // 고르기 단추·이동 글자(폴더 펼침 아님), '최근' 상자 머리 ▴▾(S51-22 #1969 — 폴더가 아닌 최근 파일 상자 접기, 따로 결정)
-  const ALLOWED = [/SORT_SHORT\[sort\]\} ▾/, /fx-xfer-open">목록 ▸/, /libraryManageModal/, /ft-box-caret/];
+  const ALLOWED = [/SORT_SHORT\[sort\]\} ▾/, /fx-xfer-open">목록 ▸/, /libraryManageModal/, /ft-box-caret/, /data-nl-ph-sort/]; // data-nl-ph-sort: 폰 노트 머리 줄 '수정한 날 순 ▾' 정렬 고르기 단추(NOTE-폰머리줄, 폴더 펼침 아님)
   const bad = [];
   for (const f of ['folder-tree-ui.mjs', 'library-tree.js', 'note-tree.mjs', 'note-boards.js', 'news-clipping.js', 'od-settings.js', 'tree-icons.js', 'photos.js', 'basket-notes.js', 'files.js', 'library-upload.js', 'library-folders.js']) {
     read(f).split('\n').forEach((line, i) => {

@@ -5,6 +5,7 @@ import { colDevice, colsFor, withCol, isDoubleTap } from './col-widths-model.mjs
 // - 화면은 칸마다 CSS 변수 하나(예: --fx-w-name)로 너비를 받고, 이 부품은 그 변수만 px로 바꾼다. 줄 모양·그리드는 각 화면 CSS가 가진다.
 // - 머리 칸 안에 gripHtml(칸, 이름, dir)을 두면 그 칸 가장자리에 가는 세로 금(손잡이)이 늘 보인다. 보이는 금은 2px, 잡는 범위는 손가락 크기(24px).
 //   dir=1(기본): 칸 오른쪽 금 — 끌면 그 칸(금의 왼쪽 칸)이 넓어지거나 좁아진다. dir=-1: 칸 왼쪽 금(옛 모양, 왼쪽으로 끌면 넓어짐).
+// - 칸 사이에 틈(grid column-gap)이 있는 표는 머리에 --col-gap(틈 크기)을 두면 금이 칸 가장자리가 아니라 틈 한가운데에 선다 — 오른쪽 맞춤 칸의 글자·▲▼와 겹치지 않게(NOTE-목록머리겹침).
 // - 끄는 동안 금 자리에서 표 아래까지 세로 안내선. 금 두 번 누르기(손가락·마우스) = 그 칸 글자 길이에 맞춤.
 //   키보드: 손잡이에 초점 → ←/→ 8px, Home = 그 칸 기본 너비로. role=separator.
 // - 너비는 서버에 화면별·화면 종류별(폰·폴드 펼침·PC 따로)로 기억한다(view_prefs.col_widths.<화면>.<칸>[_f|_p], col-widths-model.mjs). 기기 저장 없음.
@@ -18,7 +19,7 @@ function ensureStyle() {
   if (sheet) return; sheet = true;
   const style = document.createElement('style'); style.dataset.kptuColResize = '';
   style.textContent = `.col-grip{position:absolute;top:0;bottom:0;width:24px;margin:0;padding:0;cursor:col-resize;touch-action:none;outline:none;z-index:2;-webkit-tap-highlight-color:transparent}
-.col-grip[data-dir="-1"]{left:-12px}.col-grip[data-dir="1"]{right:-12px}
+.col-grip[data-dir="-1"]{left:calc(-12px - var(--col-gap,0px) / 2)}.col-grip[data-dir="1"]{right:calc(-12px - var(--col-gap,0px) / 2)}
 .col-grip::before{content:"";position:absolute;top:4px;bottom:4px;left:50%;width:2px;margin-left:-1px;border-radius:2px;background:var(--kptu-border-strong,var(--kptu-border));transition:background-color .12s,width .12s}
 .col-grip:hover::before{background:var(--kptu-muted)}
 .col-grip.is-dragging::before{width:3px;margin-left:-1.5px;background:var(--kptu-primary-ink,var(--kptu-primary))}
