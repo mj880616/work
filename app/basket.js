@@ -90,7 +90,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
-root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div data-basket-list><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>잊지 말기</h2></div><div data-basket-list><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><section class="nbx fam-remind" data-nbx-tone="forget" data-fam-remind aria-label="가족 기억할 것" hidden></section><section class="nbx fam-remind" data-nbx-tone="forget" data-work-remind aria-label="업무 기억할 것" hidden></section><section class="nbx forget-list" data-nbx-tone="list" data-forget-section aria-label="잊지 말기 목록"><ul class="nbx-list" data-basket-rows id="basketRows"></ul><p class="nbx-status" role="status" aria-live="polite" data-forget-status></p></section><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation only: the phone header (~760px) and the PC top line (761px~,
 // '정리함' / '노트', UI-화면정리 B ①·UI-폴드PC틀) already name the screen at every width.
 const basketTitle=root.querySelector('.basket-head > h2');basketTitle.classList.add('a11y-only');
@@ -433,8 +433,9 @@ registerScreenFind('forget',{label:'잊지 말기에서 찾기',
   value:()=>forget.query(),
   apply:(raw,opt={})=>forget.setQuery(raw,opt)});
 // FAMILY-기억알림: 맨 위 '가족 · 기억할 것' 칸(family-remind.js가 유일한 renderer — 가족 노트가 없거나 비면 칸 없음). 이 파일은 칸 자리만 둔다.
-let famRemind=null;
-const refreshFamRemind=()=>import('./family-remind.js').then(m=>{famRemind||=m.mountFamilyRemind(root.querySelector('[data-fam-remind]'),{rt});return famRemind.refresh();}).catch(()=>{});
+// FORGET-업무노트: 그 아래 '업무 · 기억할 것' 칸도 같은 부품(kind 'work' — 업무 노트, 없거나 비면 칸 없음).
+let famRemind=null,workRemind=null;
+const refreshFamRemind=()=>import('./family-remind.js').then(m=>{famRemind||=m.mountFamilyRemind(root.querySelector('[data-fam-remind]'),{rt});workRemind||=m.mountFamilyRemind(root.querySelector('[data-work-remind]'),{rt,kind:'work'});return Promise.all([famRemind.refresh(),workRemind.refresh()]);}).catch(()=>{});
 void refreshFamRemind();
 // [다시 찾기]: the same finder as the work journal (todo-radar.js); its change event makes the list read its 챙길 것 rows again.
 async function findAgain(){
@@ -529,7 +530,8 @@ async function moveToReport(note,trigger){
 }
 // UPD-보류이름통일: [보류로] / [보류 해제] from the list menu. Same stored field as the detail's button (archived_at); the row leaves this
 // list at once and the 미분류 number follows (renderList counts again).
-async function holdFromList(noteId,on,{undo=''}={}){
+// also(optional): 되돌리기 때 보류 해제 뒤 함께 되돌릴 일(FORGET-업무노트: 노트에 더한 줄 빼기). 실패하면 그렇다고 알린다.
+async function holdFromList(noteId,on,{undo='',also=null}={}){
   if(busy||selected||attachGoing(noteId))return;
   const run=++epoch,owner=scope();busy=true;listStatus.textContent='';
   let saved=null;
@@ -545,6 +547,7 @@ async function holdFromList(noteId,on,{undo=''}={}){
     let back=null;try{back=await updateNote(noteId,{archived_at:null});}catch{back=null;}
     if(!back)return {status:'failed',message:'되돌리지 못했어요. 다시 시도해 주세요.'};
     if(owner===scope()){notes=notes.map(n=>n.id===noteId?back:n);renderList();}
+    if(also){try{await also();}catch{return {status:'done',message:'다시 보이게 했지만 노트의 줄은 남았어요.'};}}
     return {status:'done',message:'다시 보이게 했어요.'};
   }});
   else showToast(on?'보류로 보냈어요.':'보류를 해제했어요.');
@@ -661,12 +664,27 @@ async function updateAct(id, act, button) {
   }
   if (act === 'task') { rowMenuAction('task', id); return; }
   if (act === 'note') { void rowToNote(note); return; }
+  if (act === 'note-work' || act === 'note-family') { void updateToListNote(note, act === 'note-work' ? 'work' : 'family', button); return; }
   if (act === 'event') {
     if (!window.KPTUEventCreate?.open) { showToast('일정 창을 열지 못했어요'); return; }
     window.KPTUEventCreate.open({title: [...memoTitle(note)].slice(0, 100).join(''), memo: ['업데이트', time(note)].filter(Boolean).join(' · '), onCreated: () => void holdFromList(id, true, {undo: '일정으로 만들었어요.'})}); // FORGET-처리전만: 일정으로 만든 업데이트도 처리한 것 — 보류로 빼고 되돌리기 알림
     return;
   }
   if (act === 'done' || act === 'dismissed') void holdFromList(id, true, {undo: act === 'done' ? '이미 한 일로 보류에 넣었어요.' : '보류로 보냈어요.'});
+}
+// FORGET-업무노트 [업무 노트에]·[가족 노트에](잊지 말기 줄): 고르기 창 없이 그 노트 맨 아래 '☐ 글 (업데이트 11/28)' 한 줄(family-note-send.js addLineHere),
+// 그 업데이트는 [일정으로]처럼 보류로 뺀다. 되돌리기 = 보류 해제 + 노트의 그 줄 빼기. 업데이트 글·첨부는 그대로(지우지 않음).
+async function updateToListNote(note, listKind, anchor) {
+  const id = note.id;
+  if (busy || selected || attachGoing(id)) return;
+  const day = /^\d{4}-(\d{2})-(\d{2})/.exec(seoulInputValue(note.occurred_at || note.created_at) || '');
+  let sent = null;
+  try {
+    const m = await import('./family-note-send.js');
+    sent = await m.addLineHere(rt, {kind: listKind, line: m.listLine(note.raw_text || memoTitle(note), ['업데이트', day ? `${Number(day[1])}/${Number(day[2])}` : ''].filter(Boolean).join(' ')), anchor});
+  } catch { listStatus.textContent = '노트에 넣지 못했어요. 다시 눌러 주세요.'; return; }
+  if (!sent) return;
+  await holdFromList(id, true, {undo: `${listKind === 'work' ? '업무' : '가족'} 노트에 넣었어요.`, also: () => import('./family-note-send.js').then(m => m.undoDone(rt, {noteId: sent.noteId, line: sent.line}))});
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');

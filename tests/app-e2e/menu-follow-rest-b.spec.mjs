@@ -49,7 +49,7 @@ async function familyFixture(page,width){
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_note_folders',r=>r.fulfill({json:[{id:FAM,parent_id:null,name:'가족',sort_order:1,created_at:'2026-10-01T00:00:00Z'}]}));
     await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{
       const req=r.request(),q=new URL(req.url()).searchParams;
-      const hit=row=>(!q.get('kind')||row.kind===eqv(q.get('kind')))&&(!q.get('id')||row.id===eqv(q.get('id')))&&(!q.get('metadata->>family_list')||row.metadata?.family_list===true)&&(!q.get('metadata->>family_past')||row.metadata?.family_past===true);
+      const hit=row=>(!q.get('kind')||row.kind===eqv(q.get('kind')))&&(!q.get('id')||row.id===eqv(q.get('id')))&&(!q.get('metadata->>family_list')||row.metadata?.family_list===true)&&(!q.get('metadata->>work_list')||row.metadata?.work_list===true)&&(!q.get('metadata->>family_past')||row.metadata?.family_past===true);
       if(req.method()==='POST'){const body=req.postDataJSON(),row={id:N(90+posts.length),attachments:[],archived_at:null,metadata:{},...body,updated_at:'2026-10-06T01:00:00Z'};posts.push(body);rows.push(row);return r.fulfill({status:201,json:[row]});}
       if(req.method()==='PATCH'){const body=req.postDataJSON(),list=rows.filter(hit);list.forEach(row=>Object.assign(row,body));return r.fulfill({json:list});}
       return r.fulfill({json:rows.filter(hit)});
