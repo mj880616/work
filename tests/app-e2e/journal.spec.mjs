@@ -14,6 +14,7 @@ import {answerAsk} from './helpers/small-notice.mjs';
 import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {editCell,cellMenu,holdCell,cellAct} from './helpers/cell-menu.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
 // 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -3321,7 +3322,7 @@ for(const width of [390,884,1440])test(`[주간 정리] 2. 1) 사업요약(전�
  await expect(row('세부 과제 가-1').locator('.biz-hand-line')).toHaveText(['가상 지금 상황 가-1','가상 둘째 줄']);
  await expect(row('세부 과제 나-1').locator('.biz-now-empty')).toHaveText('—');
  // 화면에서 나-1 지금 상황을 쓰면(이번 주 행) 바로 파일에도.
- await row('세부 과제 나-1').locator('[data-bp-cell="progress"]').click();
+ await editCell(page,row('세부 과제 나-1').locator('[data-bp-cell="progress"]'));
  await row('세부 과제 나-1').locator('textarea[data-bp-field]').fill('가상 나-1 새 상황');
  await row('세부 과제 나-1').locator('[data-bp-edit-save]').click();
  await expect(row('세부 과제 나-1').locator('.biz-hand-line')).toHaveText(['가상 나-1 새 상황']);
@@ -3410,22 +3411,16 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
  await expect(table.locator('tbody tr').nth(1).locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 나-1']);
  await page.screenshot({path:`docs/design/screens/s61-42/2-groups-${width}.png`});
- // [수정]: 수정할 칸(사업영역 자기 칸 · 세부 과제 칸) 고르기 → 가-2 칸에 쓰기.
- await ga.locator('[data-bp-cell="progress"]').click();
- const pick=ga.locator('select[data-bp-target]');
- await expect(pick.locator('option')).toHaveText(['사업영역 가','◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
- await pick.selectOption({label:'◦ 세부 과제 가-2'});
- await ga.locator('textarea[data-bp-field]').fill('가상 가-2 새 상황');
+ // [수정](WEEKLY-화면정돈 ② STD C10): 칸 전체가 글상자 하나(자기 칸 줄 + '◦ 세부 과제' 줄). 칸 고르기 상자·안내 줄 없음.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await expect(ga.locator('select[data-bp-target]')).toHaveCount(0);
+ await expect(ga.locator('textarea[data-bp-field]')).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황');
+ // '◦ 세부 과제 가-2' 줄을 더해 쓰면 그 칸에, 맨 위(소제목 앞) 줄은 사업영역 자기 칸에 저장된다.
+ await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸\n◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 세부 과제 가-2\n가상 가-2 새 상황');
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
- expect(db.writes.at(-1)).toMatchObject({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'});
- // 자기 칸(글이 보이는 칸이 열리므로 수정할 칸에서 사업영역 칸을 고른다)
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('select[data-bp-target]').selectOption({label:'사업영역 가'});
- await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸');
- await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-hand-line').first()).toHaveText('가상 가 자기 칸');
- expect(db.writes.at(-1)).toMatchObject({space_id:'wa',week_start:'2026-11-16',body:'가상 가 자기 칸'});
+ expect(db.writes.slice(-2)).toEqual([expect.objectContaining({space_id:'wa',week_start:'2026-11-16',body:'가상 가 자기 칸'}),expect.objectContaining({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'})]);
  await page.screenshot({path:`docs/design/screens/s61-42/2-groups-edited-${width}.png`});
  // 한글 파일도 같은 자리: 자기 칸 글이 맨 위, 세부 과제는 '◦ 이름' + 줄.
  const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
@@ -3436,8 +3431,9 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
 });
 
 // WEEKLY-수정열기·글지우기: 묶음 표 [수정]은 글이 보이는 칸을 기존 글 그대로 열고(자기 칸이 비고 세부 과제 칸에 글이 있어도), 저장하면 그 칸이 바뀌며,
-// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 삭제]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
+// 취소하면 원문 그대로. WEEKLY-화면정돈 ②: [이 칸 글 삭제] 대신 칸 메뉴 [비우기](확인 뒤 비우고 [되돌리기]로 살린다). 이름·글은 합성 값.
 for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글을 채워 열고 글 칸을 지울 수 있다 ${width}`,async({page})=>{
+ test.setTimeout(90000);
  const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
  const f=await weekLinesFixture(page,{width,hwpx:true,team});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
@@ -3450,40 +3446,79 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글
  await expect(table).toBeVisible();
  const ga=table.locator('tbody tr').filter({has:page.locator('td',{hasText:/^사업영역 가$/})});
  const field=ga.locator('textarea[data-bp-field]');
- // 자기 칸은 비고 글은 세부 과제 가-1에만 있다 → [수정]은 그 글을 채워 연다(빈 칸이 뜨면 새로 쓰기).
- await ga.locator('[data-bp-cell="progress"]').click();
- await expect(field).toHaveValue('가상 가-1 상황');
- await expect(ga.locator('select[data-bp-target] option:checked')).toHaveText('◦ 세부 과제 가-1');
- expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([9,9]); // '가상 가-1 상황' 끝
+ // [수정]은 칸 전체 글('◦ 세부 과제 가-1' + 줄)을 채워 열고 커서는 글 끝.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황');
+ expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd,el.value.length])).toEqual([21,21,21]);
+ // 안내 줄·칸 고르기·[이 칸 글 삭제] 없음, [취소]는 글자 단추·[저장]은 작은 단추로 글상자 오른쪽 위.
+ await expect(ga.locator('.biz-write-hint,select[data-bp-target],[data-bp-edit-clear]')).toHaveCount(0);
+ const [cb,sb,tb]=await Promise.all([ga.locator('[data-bp-edit-cancel]').boundingBox(),ga.locator('[data-bp-edit-save]').boundingBox(),field.boundingBox()]);
+ expect(cb.x).toBeLessThan(sb.x);expect(sb.y+sb.height).toBeLessThanOrEqual(tb.y+1);expect(sb.x+sb.width).toBeGreaterThan(tb.x+tb.width-40);
+ // 바깥을 눌러도 닫히지 않고 쓰던 글이 남는다.
+ await field.fill('◦ 세부 과제 가-1\n가상 쓰던 글');
+ await table.locator('thead th').first().click();
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n가상 쓰던 글');
  // 취소하면 원문 그대로, 저장 요청도 없다.
  const writes=db.writes.length;
- await field.fill('가상 고친 글');
  await ga.locator('[data-bp-edit-cancel]').click();
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
  expect(db.writes.length).toBe(writes);
- // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await field.fill('가상 가-1 고친 상황');
- await ga.locator('[data-bp-edit-save]').click();
+ // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다. Ctrl+Enter 저장.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await field.fill('◦ 세부 과제 가-1\n가상 가-1 고친 상황');
+ await field.press('Control+Enter');
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ expect(db.writes.length).toBe(writes+1);
  expect(db.writes.at(-1)).toMatchObject({space_id:'wa1',body:'가상 가-1 고친 상황'});
- // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 삭제]는 없다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('select[data-bp-target]').selectOption({label:'◦ 세부 과제 가-2'});
- await expect(field).toHaveValue('');
- await expect(ga.locator('[data-bp-edit-clear]')).toHaveCount(0);
- await ga.locator('[data-bp-edit-cancel]').click();
- // 삭제: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('[data-bp-edit-clear]').click();
- await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 삭제할까요?');
+ // [비우기]: 확인 → 칸의 모든 줄을 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다. 빈 칸의 [비우기]는 흐림.
+ await cellAct(page,ga.locator('[data-bp-cell="progress"]'),'clear');
+ await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 비울까요?');
  await page.locator('.kptu-ask .kptu-ask-actions .danger').click();
  await expect(ga.locator('.biz-hand-line')).toHaveCount(0);
  expect(db.writes.at(-1)).toMatchObject({body:''});
  await page.locator('.kptu-notice-undo').click();
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
  expect(db.writes.at(-1)).toMatchObject({body:'가상 가-1 고친 상황'});
+ const own=await cellMenu(page,ga.locator('[data-bp-cell="owner"]'));
+ await expect(own.locator('[data-row-item="clear"]')).toHaveAttribute('aria-disabled','true');
+ await expect(own.locator('[data-row-item]')).toHaveText(['수정','비우기']);
+ await page.keyboard.press('Escape');
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-화면정돈 ② 0순위(사용자 2026-11-28 09:12 "파란색 표시부분 수정 삭제 안됨"): 사업영역 자기 칸과 세부 과제 칸에 같은 글이 들어가 있으면
+// 화면에는 세부 과제 아래 한 번만 보이고, [수정] 글상자에도 한 번, 한글 파일에도 한 번. 글상자에서 지우면 두 칸 모두에서 빠진다(보이는 줄은 모두 고치고 지울 수 있음).
+// 폰은 칸을 꾹 눌러 같은 메뉴. 이름·글은 합성 값.
+for(const width of [412,1280])test(`C10 [주간 정리] 2. 1) 0순위: 자기 칸·세부 과제 칸에 같은 글 = 한 번만 보이고 지울 수 있다(화면·한글 파일) ${width}`,async({page})=>{
+ test.setTimeout(90000);
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n0','wa','2026-11-09','- 가상 연구 착수'),now('n1','wa1','2026-11-09','- 가상 연구 착수')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const table=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box] table[data-bp-grouped]');
+ await expect(table).toBeVisible();
+ const ga=table.locator('tbody tr[data-bp-area="사업영역 가"]');
+ // 화면: 소제목 없는 맨 위 줄 없이 '◦ 세부 과제 가-1' 아래 한 번.
+ await expect(ga.locator('[data-bp-box="progress"] > p')).toHaveText(['◦ 세부 과제 가-1','- 가상 연구 착수']);
+ // 한글 파일도 한 번.
+ const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect((await savedReport(d1)).report.summary[0].rows[0].progress).toEqual(['◦ 세부 과제 가-1','- 가상 연구 착수']);
+ // 꾹 누르기(폰)·우클릭(PC) [수정] → 글상자에 보이는 줄 그대로. 줄을 지우고 저장하면 두 칸 모두 비워진다.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'),{hold:width<761});
+ const field=ga.locator('textarea[data-bp-field]');
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n- 가상 연구 착수');
+ await field.fill('');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-now-empty')).toHaveText('—');
+ await expect.poll(()=>['wa','wa1'].map(sp=>db.now.filter(r=>r.space_id===sp).sort((a,b)=>b.week_start.localeCompare(a.week_start))[0]?.body)).toEqual(['','']);
+ const [d2]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect((await savedReport(d2)).report.summary[0].rows[0].progress).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
@@ -3562,11 +3597,10 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
  expect(grid((await savedReport(d)).report)).toEqual([
   ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 사업영역 나 · 세부 과제 나-1','가상 나-1 상황']],['남의 칸',[]]]],
  ]);
- // [수정]의 수정할 칸에도 넣은 칸이 있고, 저장 자리는 원래 칸(wb1) 그대로.
- await row('사업영역 가').locator('[data-bp-cell="progress"]').click();
- await expect(row('사업영역 가').locator('select[data-bp-target] option')).toHaveText(['사업영역 가','◦ 세부 과제 가-1','◦ 세부 과제 가-2','◦ 사업영역 나','◦ 사업영역 나 · 세부 과제 나-1']);
- await row('사업영역 가').locator('select[data-bp-target]').selectOption({label:'◦ 사업영역 나 · 세부 과제 나-1'});
- await row('사업영역 가').locator('textarea[data-bp-field]').fill('가상 나-1 고친 상황');
+ // [수정] 글상자에도 넣은 칸이 '◦' 줄로 있고, 저장 자리는 원래 칸(wb1) 그대로.
+ await editCell(page,row('사업영역 가').locator('[data-bp-cell="progress"]'));
+ await expect(row('사업영역 가').locator('textarea[data-bp-field]')).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 사업영역 나 · 세부 과제 나-1\n가상 나-1 상황');
+ await row('사업영역 가').locator('textarea[data-bp-field]').fill('◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 사업영역 나 · 세부 과제 나-1\n가상 나-1 고친 상황');
  await row('사업영역 가').locator('[data-bp-edit-save]').click();
  await expect.poll(()=>db.now.find(r=>r.space_id==='wb1'&&r.week_start==='2026-11-16')?.body).toBe('가상 나-1 고친 상황');
  // ② 따로 두기: 가 칸 ⋯ → 다시 두 줄.

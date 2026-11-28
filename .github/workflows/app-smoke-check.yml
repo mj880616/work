@@ -838,6 +838,8 @@ jobs:
 
       - name: Check business summary window model (BIZ-기록하나로 B-3)
         run: node --test tests/business-now-model.test.mjs
+      - name: Check weekly area cell lines (WEEKLY-화면정돈 ② 0순위)
+        run: node --test tests/weekly-area-cell.test.mjs
       - name: Check business detail window model (BIZ-기록하나로 B-4 ②)
         run: node --test tests/biz-detail-model.test.mjs
 

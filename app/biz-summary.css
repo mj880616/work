@@ -25,14 +25,16 @@
 .biz-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 /* 사업요약표 직접 쓰기(S49-39): 진행·담당 칸 끝 작은 글자 버튼 [쓰기]/[고치기], 누르면 글 칸 + 작은 [저장]·[취소]. 작고 낮게. */
 .biz-hand-line{margin:0 0 2px;overflow-wrap:anywhere}
-.biz-write-open{position:relative;display:inline-block;white-space:nowrap;margin-top:2px;padding:0 2px;border:0;background:none;font:inherit;font-size:12px;color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.biz-write-open::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-.biz-write{display:grid;gap:4px}
-.biz-write textarea,.biz-write input{width:100%;box-sizing:border-box;min-width:0;font-size:13px}
-.biz-write-btns{display:flex;gap:4px}
-.biz-write-hint{font-size:11px;color:var(--kptu-muted)}
 /* BIZ-기록하나로 B-3: 사업요약표 '진행' 칸 = 지금 상황(이어 씀) + 칸 아래 흐린 '이번 주 기록 n'(누르면 그 주 사업 기록·사업 보고 줄을 펼침, 읽기만). 작고 흐리게. */
 .biz-now-empty{color:var(--kptu-muted)}
+/* WEEKLY-화면정돈 ②(STD C10): 고칠 수 있는 칸 — 우클릭·꾹 누르기 메뉴, 두 번 누르기·Enter = [수정]. 칸 자리 글상자 + 오른쪽 위 '취소'·작은 [저장]. */
+.biz-sum-table td[data-bp-cell]{cursor:default;-webkit-touch-callout:none}
+.biz-sum-table td[data-bp-cell]:focus-visible{outline:2px solid var(--kptu-accent);outline-offset:-2px}
+.cell-edit{position:relative;display:grid}
+.cell-edit-acts{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 2px}
+.cell-edit-cancel{border:0;background:none;padding:0 2px;font:inherit;font-size:var(--ds-text-meta);color:var(--kptu-muted);cursor:pointer}
+.cell-edit .mini{min-height:var(--ds-compact-height);font-size:var(--ds-text-meta)}
+.cell-edit textarea,.cell-edit input{width:100%;box-sizing:border-box;min-width:0;font:inherit;font-size:var(--ds-text-row);resize:none}
 .biz-rec-n{display:inline-flex;align-items:center;gap:2px;margin:2px 8px 0 0}
 .biz-rec-list{margin:2px 0 0;padding-left:6px;border-left:2px solid var(--kptu-border);color:var(--kptu-muted);font-size:12px}
 .biz-rec-list .biz-cell-line{color:inherit}
