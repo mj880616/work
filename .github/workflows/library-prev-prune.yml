@@ -2,7 +2,7 @@ name: Library previous files prune
 
 # LIB-이전파일정리: 자료실 [수정]에서 파일을 교체해 밀려난 '이전 파일'을 교체한 지 30일이 지나면 하루 한 번 서버가 Drive 휴지통으로 옮긴다(영구 삭제 없음).
 # 예약 실행은 저장소 변수 LIBRARY_PREV_PRUNE_ENABLED 가 'true'일 때만 일한다(기본 꺼짐). 켜기 전에 아래 수동 실행의 dry_run(기본 켜짐)으로 개수만 본다.
-# drive-summary-refresh.yml·library-text-nightly.yml 과 같은 방식(같은 비밀값 DRIVE_SUMMARY_CRON_SECRET). 시각(KST) 03:47.
+# drive-summary-refresh.yml 과 같은 방식(같은 비밀값 DRIVE_SUMMARY_CRON_SECRET). 시각(KST) 03:47.
 on:
   schedule:
     - cron: '47 18 * * *'

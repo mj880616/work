@@ -7,7 +7,7 @@ import {checkDriveSummaryIsolation} from '../../scripts/check-drive-summary-isol
 
 test('functions-only deployment copy passes Deno check and bundle for the real drive-summary graph',{timeout:120000},async()=>{
   const result=await checkDriveSummaryIsolation();
-  assert.equal(result.modules,23); // S69-41 _shared/brand-folders.mjs(core.mjs가 읽기용 사본 폴더 이름으로 부름)로 22 -> 23, S69-40 _shared/text-temp-sweep.mjs(document-text.ts가 부름)로 21 -> 22, S67-33 _shared/hwp-text.mjs(document-text.ts가 부름)로 20 -> 21, MCP-Claude읽기 M-2 _shared/delegated-token-guard.mjs로 19 -> 20, FEED-최신화즉시수집 collector-pull.mjs로 18 -> 19, EDGE-서버함수정리 _shared/web-cors.ts로 17 -> 18, AI-사용량줄 ai-usage.mjs·_shared/ai-prices.mjs로 15 -> 17, LIB-이전파일정리 library-prev-prune.mjs·_shared/library-prev-model.mjs·_shared/drive-trash.ts로 12 -> 15, 바구니 원문 제거로 9 -> 8, LIB-글자채우기야간 text-backfill.mjs·_shared/document-text.ts로 8 -> 10, LIB-스캔글자읽기 _shared/drive-ocr.ts·basket-ocr-text.mjs로 10 -> 12
+  assert.equal(result.modules,17); // S70-29 text-backfill.mjs와 그것만 부르던 _shared/document-text.ts 묶음을 지워 23 -> 17, S69-41 _shared/brand-folders.mjs(core.mjs가 읽기용 사본 폴더 이름으로 부름)로 22 -> 23, S69-40 _shared/text-temp-sweep.mjs(document-text.ts가 부름)로 21 -> 22, S67-33 _shared/hwp-text.mjs(document-text.ts가 부름)로 20 -> 21, MCP-Claude읽기 M-2 _shared/delegated-token-guard.mjs로 19 -> 20, FEED-최신화즉시수집 collector-pull.mjs로 18 -> 19, EDGE-서버함수정리 _shared/web-cors.ts로 17 -> 18, AI-사용량줄 ai-usage.mjs·_shared/ai-prices.mjs로 15 -> 17, LIB-이전파일정리 library-prev-prune.mjs·_shared/library-prev-model.mjs·_shared/drive-trash.ts로 12 -> 15, 바구니 원문 제거로 9 -> 8, LIB-글자채우기야간 text-backfill.mjs·_shared/document-text.ts로 8 -> 10, LIB-스캔글자읽기 _shared/drive-ocr.ts·basket-ocr-text.mjs로 10 -> 12
   assert.ok(result.bundleBytes>0);
 });
 

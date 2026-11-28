@@ -6,7 +6,6 @@ import {createBasketReader} from './basket-read.mjs';
 import {createHtmlBudget} from './html-budget.mjs';
 import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, renderLedgerDocument, ledgerStatus, backupsToTrash, kstDate, backupName } from './ledger-export.mjs';
 import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
-import { runTextBackfill, textBackfillStatus, TextBackfillError, DONE_AT, DONE_COUNT, DISMISSED_AT } from './text-backfill.mjs';
 import { runLibraryPrevPrune, PrevPruneError } from './library-prev-prune.mjs';
 import { createCollectorPull } from './collector-pull.mjs';
 import { AI_USAGE_BODY_BYTES, parseAiUsageReport, readAiUsage, seoulDay, summarizeAiUsage, openAiPrice } from './ai-usage.mjs';
@@ -235,10 +234,8 @@ export function collectorStatus(appProperties) {
   return out;
 }
 
-// createTextReader(driveToken) → {extract(file)}: index.ts injects _shared/document-text.ts (LIB-글자채우기야간). Without it the
-// nightly text path answers SERVER_CONFIG_MISSING; every other path is unchanged.
-/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, createTextReader?: ((driveToken: () => Promise<string>) => { extract: (file: { fileId: string, name: string, mime: string, size: number | null }) => Promise<{ text: string, source: string, reason: string }> }) | null, driveTrash?: { inspect: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string>, trash: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string> } | null }} deps */
-export function createHandler({ env, fetcher = fetch, now = () => new Date(), createTextReader = null, driveTrash = null }) {
+/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, driveTrash?: { inspect: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string>, trash: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string> } | null }} deps */
+export function createHandler({ env, fetcher = fetch, now = () => new Date(), driveTrash = null }) {
   // No global cached tokens, database state, or caller-selected workspace/Drive IDs.
   async function checked(url, init, code) {
     let response;
@@ -527,9 +524,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       const aiUsagePromise = aiUsageSummary(req, workspaceId).catch(() => null);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
-      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null, ai_usage: await aiUsagePromise });
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), ai_usage: await aiUsagePromise });
       await assertPrivate(token, folder.id);
-      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties), ai_usage: await aiUsagePromise });
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), ai_usage: await aiUsagePromise });
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
@@ -623,12 +620,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
     }
   }
-  // LIB-글자채우기야간: POST ?action=text_backfill. The cron secret only (no JWT path: the nightly workflow has no user).
-  // Reads up to 5 unfinished documents of the fixed workspace with the same reader as document-actions and writes only the
-  // four text columns (service role, server side, workspace-scoped filters). When nothing is left it records the done time and
-  // the read count on the copy folder (its own keys only). Counts and stage codes only leave the server.
+  // Service-role REST for the cron-secret paths (library_prev_prune), workspace-scoped filters only.
   const service = () => ({ apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` });
-  const backfillDb = {
+  const serviceDb = {
     get: path => checked(`${env.SUPABASE_URL}/rest/v1/${path}`, { headers: service() }, 'DB_READ_FAILED'),
     async patch(path, body) {
       const rows = await checked(`${env.SUPABASE_URL}/rest/v1/${path}`, {
@@ -637,44 +631,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       if (!Array.isArray(rows)) throw new SummaryError('DB_WRITE_FAILED');
       return rows;
     },
-    async head(path) {
-      let response;
-      try { response = await fetcher(`${env.SUPABASE_URL}/rest/v1/${path}`, { method: 'HEAD', headers: { ...service(), Prefer: 'count=exact' }, signal: AbortSignal.timeout(30000) }); }
-      catch { throw new SummaryError('DB_READ_FAILED'); }
-      const total = /\/(\d{1,9})$/.exec(response.headers.get('Content-Range') || '');
-      if (!response.ok || !total) throw new SummaryError('DB_READ_FAILED');
-      return Number(total[1]);
-    },
   };
-  async function textBackfill(req) {
-    try {
-      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || typeof createTextReader !== 'function') throw new SummaryError('SERVER_CONFIG_MISSING');
-      if (req.headers.get('x-drive-summary-cron-secret') === null) throw new SummaryError('UNAUTHORIZED', 401);
-      const { workspaceId, ownerId } = await authorize(req);
-      if (ownerId) throw new SummaryError('UNAUTHORIZED', 401);
-      // Token first: a Drive outage stops here, before any document is marked (it is not the file's fault).
-      const token = await accessToken();
-      const result = await runTextBackfill({ db: backfillDb, reader: createTextReader(async () => token), workspaceId, now });
-      let doneAt = null, doneError = null;
-      if (result.remaining === 0) {
-        try {
-          const folder = await findFile(token, 'folder');
-          if (!folder) throw new SummaryError('COPY_FOLDER_MISSING', 409);
-          await assertPrivate(token, folder.id);
-          doneAt = textBackfillStatus(folder.appProperties)?.done_at || null;
-          if (!doneAt) {
-            doneAt = now().toISOString();
-            await recordStatus(token, folder, { [DONE_AT]: doneAt, [DONE_COUNT]: String(result.ready_total) });
-          }
-        } catch (error) { doneAt = null; doneError = error instanceof SummaryError ? error.message : 'DONE_RECORD_FAILED'; }
-      }
-      return json({ ok: true, asked: result.asked, ready: result.ready, error: result.error, gave_up: result.gave_up, skipped: result.skipped,
-        remaining: result.remaining, stop: result.stop, done_at: doneAt, ...(doneError ? { done_error: doneError } : {}) });
-    } catch (error) {
-      const known = error instanceof SummaryError || error instanceof TextBackfillError;
-      return json({ ok: false, error: known ? error.message : 'TEXT_BACKFILL_FAILED' }, known ? error.status : 502);
-    }
-  }
   // LIB-이전파일정리: POST ?action=library_prev_prune[&dry_run=1]. The cron secret only (the daily workflow has no user).
   // Moves the library's replaced "previous files" older than 30 days to the Drive TRASH (never a permanent delete) and hides them from the list;
   // dry_run=1 only counts (reads Drive metadata, writes nothing). Counts and stage codes only leave the server (library-prev-prune.mjs).
@@ -686,38 +643,18 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       if (ownerId) throw new SummaryError('UNAUTHORIZED', 401);
       const url = new URL(req.url), flag = url.searchParams.get('dry_run');
       if (flag !== null && flag !== '1') throw new SummaryError('BAD_REQUEST', 400);
-      const settings = await backfillDb.get(`app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=library_folder_id&limit=1`);
+      const settings = await serviceDb.get(`app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=library_folder_id&limit=1`);
       const folder = Array.isArray(settings) ? settings[0]?.library_folder_id : null;
       if (typeof folder !== 'string' || !/^[A-Za-z0-9_-]{1,255}$/.test(folder)) throw new SummaryError('LIBRARY_FOLDER_MISSING', 409);
       const token = await accessToken();
       const result = await runLibraryPrevPrune({
-        db: backfillDb, workspaceId, dryRun: flag === '1', now,
+        db: serviceDb, workspaceId, dryRun: flag === '1', now,
         drive: { inspect: id => driveTrash.inspect(fetcher, id, folder, token), trash: id => driveTrash.trash(fetcher, id, folder, token) },
       });
       return json({ ok: true, ...result });
     } catch (error) {
       const known = error instanceof SummaryError || error instanceof PrevPruneError;
       return json({ ok: false, error: known ? error.message : 'LIBRARY_PREV_PRUNE_FAILED' }, known ? error.status : 502);
-    }
-  }
-  // POST ?action=text_backfill_dismiss: the home line's ✕. Owner JWT only; records the dismissed time on the copy folder.
-  async function textBackfillDismiss(req) {
-    try {
-      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
-      if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
-      const { ownerId } = await authorize(req);
-      if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
-      const token = await accessToken();
-      const folder = await findFile(token, 'folder');
-      if (!folder) throw new SummaryError('COPY_FOLDER_MISSING', 409);
-      await assertPrivate(token, folder.id);
-      if (!textBackfillStatus(folder.appProperties)) throw new SummaryError('NOT_DONE', 409);
-      const dismissedAt = now().toISOString();
-      await recordStatus(token, folder, { [DISMISSED_AT]: dismissedAt });
-      return json({ ok: true, dismissed_at: dismissedAt });
-    } catch (error) {
-      const code = error instanceof SummaryError ? error.message : 'DISMISS_FAILED';
-      return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
     }
   }
   const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
@@ -736,9 +673,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     // A collector secret never reaches the copy rebuild path, even next to another credential.
     if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);
-    if (actionOf(req) === 'text_backfill') return textBackfill(req);
+    // S70-29(2026-11-25): LIB-글자채우기야간 text_backfill·text_backfill_dismiss는 일회용이라 지웠다. 옛 주소는 사본 다시 만들기로 흐르지 않게 410으로 끊는다.
+    if (actionOf(req) === 'text_backfill' || actionOf(req) === 'text_backfill_dismiss') return json({ ok: false, error: 'GONE' }, 410);
     if (actionOf(req) === 'library_prev_prune') return libraryPrevPrune(req);
-    if (actionOf(req) === 'text_backfill_dismiss') return textBackfillDismiss(req);
     let token, folder;
     const documents = {};
     try {

@@ -68,7 +68,7 @@ async function fixture(page,{width=1280,missing=false,empty=false,many=0}={}){
    }
    if(action==='status'){const at=pull.reported;const beat=at?{last_at:at,state:'ok',reported_at:at}:null;
     return r.fulfill({json:{ok:true,checked_at:'2026-10-06T01:00:00Z',copy:{state:'none',last_success_at:null,last_failure_at:null,last_failure_code:null},
-     collectors:{telegram:null,transcript:at?{last_at:'2026-10-06T00:55:00Z',count:null,reported_at:at}:null,telegram_send:beat,call_send:beat},text_backfill:null,ai_usage:null}});}
+     collectors:{telegram:null,transcript:at?{last_at:'2026-10-06T00:55:00Z',count:null,reported_at:at}:null,telegram_send:beat,call_send:beat},ai_usage:null}});}
    return r.fulfill({status:404,json:{ok:false}});
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));

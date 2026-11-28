@@ -39,6 +39,9 @@ for(const width of [1280,390])test(`shows each source, 확인 불가 for outside
   await expect(card).toBeVisible();
   // 옛 홈 경고 줄·메뉴 판 칸은 없다.
   await expect(page.locator('[data-home-collect-alert],[data-home-collect-ok],[data-menu-collect]')).toHaveCount(0);
+  // S70-29: '예전 자료 글자 읽기 끝남' 줄은 운영자에게도 없다(일회용 지움).
+  await expect(page.locator('[data-ps-text-done],.home-text-done')).toHaveCount(0);
+  await expect(page.locator('#psStatusPanel')).not.toContainText('글자 읽기 끝남');
   await expect(card.locator('h3')).toHaveText('마지막 수집 시각');
   await expect(card.locator('[data-collect="telegram"]')).toContainText('확인 불가');
   await expect(card.locator('[data-collect="call"]')).toContainText('확인 불가');
@@ -186,7 +189,7 @@ for(const width of [1280,412])test(`no operator feature: no collection, AI usage
   await page.waitForTimeout(300);
   await expect(page.locator('#psStatusPanel [data-ps-collect]')).toBeHidden();
   await expect(page.locator('#psStatusPanel [data-ps-ai-usage]')).toBeHidden();
-  await expect(page.locator('#psStatusPanel [data-ps-text-done]')).toBeHidden();
+  await expect(page.locator('#psStatusPanel [data-ps-text-done]')).toHaveCount(0);
   expect(calls.filter(c=>!c.table)).toEqual([]);
   expect(calls.filter(c=>c.table)).toEqual([]);
 });

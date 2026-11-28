@@ -126,7 +126,7 @@ export async function isOperator(rt) {
 }
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
-// drive-summary GET ?action=status is shared with the home "예전 자료 글자 읽기 끝남" line (text-backfill-notice.js):
+// drive-summary GET ?action=status is shared with the AI usage line (ai-usage-line.js):
 // one request per tab and owner scope for 10 minutes (memory only). A failure is cached as null like the card cache.
 let driveStatus = null; // {scope, at, promise}
 // fresh: 내가 방금 서버에 쓴 값(AI 비용 한도 저장)이 서버 계산에 들어간 답이 필요할 때만 10분 묶음을 건너뛰고 새로 묻는다.
@@ -136,11 +136,6 @@ export function readDriveStatus(rt, {fresh = false} = {}) {
   const promise = rt.api('/functions/v1/drive-summary?action=status', {refreshSession:false, singleFlight:false, timeoutMs:30000}).catch(() => null);
   driveStatus = {scope, at, promise};
   return promise;
-}
-// After a server write the caller already knows the new value (e.g. the dismissed time): keep the shared answer in step.
-export function updateDriveStatus(rt, change) {
-  if (!driveStatus || driveStatus.scope !== scopeOf(rt)) return;
-  driveStatus.promise = driveStatus.promise.then(data => (data && typeof data === 'object' ? change(data) : data));
 }
 
 // Each read failing (not deployed, 404, network) → null, never thrown.
