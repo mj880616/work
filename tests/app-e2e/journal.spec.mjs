@@ -14,6 +14,7 @@ import {answerAsk} from './helpers/small-notice.mjs';
 import {laidOutBox,pseudoContent} from './helpers/laid-out.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {editCell,cellMenu,holdCell,cellAct} from './helpers/cell-menu.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
 // 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -406,10 +407,11 @@ for(const width of [390,1280]){
   f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄\n셋째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
   await openJournal(page,width);
   await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄','셋째 줄']);
-  // 줄 끝 ⋯ 메뉴·팝업 없이 줄 자체가 버튼(PC는 줄마다 [수정][삭제]가 더 있다 — 아래 PC 모양 시험).
+  // 줄 자체가 버튼 + 줄 끝 ⋯ 하나(WEEKLY-화면정돈 ⑤: 안에 [수정][삭제], 폰·PC 같음 — 아래 '오늘 한 일 줄 끝 ⋯' 시험).
   await expect(page.locator('#journalRoot [data-journal-lines] [data-journal-edit]')).toHaveCount(3);
   await expect(page.locator('#journalRoot [data-journal-lines] [aria-haspopup]')).toHaveCount(0);
-  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(width<761?3:9);
+  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(3);
+  await expect(page.locator('#journalRoot [data-journal-lines] details.row-more > summary:visible')).toHaveCount(3);
   await page.locator('#journalRoot [data-journal-edit="1"]').click();
   const box=page.locator('#journalRoot [data-journal-edit-input]');
   await expect(box).toBeFocused();await expect(box).toHaveValue('둘째 줄');
@@ -843,7 +845,7 @@ const journalLook=page=>page.evaluate(()=>{
  const line=cs('#journalRoot [data-journal-lines] .journal-line-text'),item=cs('#journalRoot [data-journal-group] .journal-item-open');
  const soft=(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-journal-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})();
  return {heads,subs,line:{size:line.fontSize,bg:line.backgroundColor,left:line.borderLeftWidth,leftStyle:line.borderLeftStyle},item:item.fontSize,soft,
-  actions:cs('#journalRoot [data-journal-lines] .journal-line-actions').display};
+  more:document.querySelectorAll('#journalRoot [data-journal-lines] .journal-line-item > details.row-more').length};
 });
 test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일·주간 보고 재료) 같은 크기 굵게(15px), 칸 이름·내용 14px, 한 줄은 상자 없는 점 목록 1280',async({page})=>{
  const f=await fixture(page,{width:1280});
@@ -863,30 +865,27 @@ test('PC 하루 카드 모양: 큰 제목(그날 일정·할 일·오늘 한 일
  expect(await items(page).first().evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"•"');
  expect(f.errors).toEqual([]);
 });
-test('PC 한 줄 [수정][삭제]: 마우스를 올리거나 키보드 초점일 때만 보이고, 누르면 수정·삭제(5초 되돌리기) 1280',async({page})=>{
- const f=await fixture(page,{width:1280});
+// WEEKLY-화면정돈 ⑤(명진 11/28 '오늘 한 일 ㅇㅋ'): 줄마다 [수정][삭제] 글자 단추 대신 줄 끝 ⋯ 하나 — 폰·PC 같은 자리, 마우스를 올리지 않아도 늘 보인다.
+for(const width of [412,1280])test(`오늘 한 일 줄 끝 ⋯: 늘 보이고 [수정]·[삭제](5초 되돌리기), 줄 오른쪽 끝 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});
  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
- await openJournal(page,1280);
+ await openJournal(page,width);
  await expect(lineTexts(page)).toHaveText(['첫 줄','둘째 줄']);
- const acts=i=>items(page).nth(i).locator('.journal-line-actions'),opacity=i=>acts(i).evaluate(e=>getComputedStyle(e).opacity);
+ const more=i=>items(page).nth(i).locator('details.row-more');
  await page.mouse.move(5,5);
- expect(await opacity(0)).toBe('0');expect(await opacity(1)).toBe('0');
- await items(page).nth(1).hover();
- await expect.poll(()=>opacity(1)).toBe('1');expect(await opacity(0)).toBe('0');
- await page.mouse.move(5,5);await expect.poll(()=>opacity(1)).toBe('0');
- // 키보드: 줄 → [수정] → [삭제] 차례로 초점, 초점이 줄 안에 있으면 보인다.
- await page.locator('#journalRoot [data-journal-edit="0"]').focus();
- await expect.poll(()=>opacity(0)).toBe('1');
- await page.keyboard.press('Tab');await expect(items(page).nth(0).getByRole('button',{name:'1번째 줄 수정'})).toBeFocused();
- await page.keyboard.press('Tab');await expect(items(page).nth(0).getByRole('button',{name:'1번째 줄 삭제'})).toBeFocused();
- expect(await opacity(0)).toBe('1');
+ await expect(more(0)).toBeVisible();await expect(more(1)).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-lines] .journal-line-actions')).toHaveCount(0);
+ // ⋯ 는 줄 오른쪽 끝(줄 글자 바로 옆이 아님).
+ const gap=await items(page).nth(0).evaluate(li=>{const m=li.querySelector('details.row-more').getBoundingClientRect(),r=li.getBoundingClientRect();return r.right-m.right;});
+ expect(gap).toBeLessThan(4);
  // [수정] = 줄을 누른 것과 같은 고치기 칸.
- await page.keyboard.press('Shift+Tab');await page.keyboard.press('Enter');
+ await more(0).locator('summary').click();
+ await more(0).getByRole('button',{name:'1번째 줄 수정'}).click();
  const box=page.locator('#journalRoot [data-journal-edit-input]');
  await expect(box).toBeFocused();await expect(box).toHaveValue('첫 줄');
  await box.press('Escape');await expect(page.locator('#journalRoot [data-journal-edit-input]')).toHaveCount(0);
  // [삭제] = 바로 지우고 공용 5초 [되돌리기].
- await items(page).nth(1).hover();await items(page).nth(1).getByRole('button',{name:'2번째 줄 삭제'}).click();
+ await more(1).locator('summary').click();await more(1).getByRole('button',{name:'2번째 줄 삭제'}).click();
  await expect(items(page)).toHaveCount(1);
  expect(work(f,'2026-10-06').raw_text).toBe('첫 줄');
  const undo=page.locator('[data-undo-notice]');
@@ -897,7 +896,7 @@ test('PC 한 줄 [수정][삭제]: 마우스를 올리거나 키보드 초점일
  expect(f.writes.map(w=>w.method)).toEqual(['PATCH','PATCH']);
  expect(f.errors).toEqual([]);
 });
-test('폰 업무일지: 폭·1열 그대로, 모양은 PC와 같게(제목 15px 굵게, 내용 14px, 한 줄은 점 목록), [수정][삭제] 없음 390',async({page})=>{
+test('폰 업무일지: 폭·1열 그대로, 모양은 PC와 같게(제목 15px 굵게, 내용 14px, 한 줄은 점 목록), 줄 끝 ⋯ 하나 390',async({page})=>{
  const f=await fixture(page,{width:390});
  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await openJournal(page,390);
@@ -915,7 +914,7 @@ test('폰 업무일지: 폭·1열 그대로, 모양은 PC와 같게(제목 15px 
  expect(look.line.size).toBe('14px');expect(look.item).toBe('14px');
  expect(look.line.bg).toBe('rgba(0, 0, 0, 0)');expect(look.line.bg).not.toBe(look.soft);expect(look.line.leftStyle==='none'||look.line.left==='0px').toBe(true);
  expect(await items(page).first().evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"•"');
- expect(look.actions).toBe('none');
+ expect(look.more).toBe(1); // WEEKLY-화면정돈 ⑤: 폰도 줄 끝 ⋯ 하나(안에 수정·삭제)
  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(1);
  expect(f.errors).toEqual([]);
 });
@@ -1154,8 +1153,11 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);
  await expect(page.locator('#journalRoot')).not.toContainText('저장하지 않아요');
  await expect(page.locator('#journalRoot [data-hwpx-start]')).toHaveCount(0);
- const confirmRow=page.locator('#journalRoot [data-journal-weekly-chapter="calendar"] [data-weekly-flow-confirm]');
- await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 한글 파일 받기');
+ // WEEKLY-화면정돈 ④: 확정 칸은 5. 주요 일정 안이 아니라 본문 옆 칸(폰은 본문 아래).
+ await expect(page.locator('#journalRoot [data-journal-weekly-chapter="calendar"] [data-weekly-flow-confirm]')).toHaveCount(0);
+ const confirmRow=page.locator('#journalRoot [data-journal-weekly] > [data-weekly-flow-confirm]');
+ await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveText('확정하고 받기'); // WEEKLY-화면정돈 ② 막대 한 줄(읽기 이름은 '확정하고 한글 파일 받기')
+ await expect(confirmRow.locator('[data-hwpx-confirm]')).toHaveAccessibleName('확정하고 한글 파일 받기');
  await confirmRow.locator('details.row-more summary').focus();await page.keyboard.press('Enter');
  const copy=confirmRow.locator('[data-hwpx-copy]');
  await expect(copy).toBeVisible();await expect(copy).toHaveText('글로 복사');await expect(copy).toHaveAccessibleName('주간 보고 초안 글로 복사');
@@ -1356,6 +1358,9 @@ const cellLines=cell=>cell.locator('.weekly-flow-lines > li[data-flow-line] .wee
 const topLine=page=>page.locator('#journalRoot [data-weekly-flow-top]');
 const confirmRow=page=>page.locator('#journalRoot [data-weekly-flow-confirm]');
 const topMore=async(page,button)=>{const m=topLine(page).locator('details.row-more');if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await m.locator(button).click();};
+// WEEKLY-화면정돈 ③: 확정 칸은 탭 — 그 탭을 눌러 내용을 연다(고른 탭은 기기에 저장하지 않음).
+// WEEKLY-화면정돈 ②: 확정 막대 탭은 누르면 펼치고 다시 누르면 접는다 — 이 도우미는 펼친 채로 둔다(이미 펼쳐져 있으면 누르지 않음).
+async function confirmTab(page,key){const t=page.locator(`#journalRoot [data-weekly-confirm-tab="${key}"]`);if(await t.getAttribute('aria-selected')!=='true')await t.click();await expect(t).toHaveAttribute('aria-selected','true');}
 async function confirmMore(page,button){const m=page.locator('#journalRoot details[data-hwpx-more]');if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await m.locator(button).click();}
 // [주간 정리]를 열면 그 주 처음에는 바탕(자료실 최신 개인본, 없으면 팀 확정본)을 한 번 열어 칸을 만든다(위 상자·[시작] 없음).
 async function openDraft(page){
@@ -1396,6 +1401,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  await a1.locator('[data-flow-input]').fill('- 가-1 목요일 기록(수정됨)');await a1.locator('[data-flow-input]').press('Enter');
  await expect(cellLines(a1)).toHaveText(['- 지난주 가-1 진행','- 가-1 목요일 기록(수정됨)']);
  // 짝 없는 기록(남의 줄 가-2)은 바탕을 연 뒤 확정 줄 아래 '줄을 찾지 못한 이번 주 기록'에서 칸을 골라 붙인다.
+ await confirmTab(page,'suggest'); // WEEKLY-화면정돈 ②: 확정 막대 [기록 제안] 탭
  const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
  await expect(rest.locator('select option').first()).toHaveText('줄 선택');
  await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
@@ -1446,7 +1452,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  const saved=f.sent.library[0];
  expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 20261012 가상담당','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwp']);
  expect([...saved.file.bytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
  await expect.poll(()=>row().draft.confirmed?.document_id).toBe('doc-new');
  await expect.poll(()=>!!row().draft.feedback).toBe(true);
  // 같은 주 다시 누르면 확인 창 → 그 개인본을 새 판으로 교체(replace_document_id, 새 자료 안 만듦 — 명진 결정 ②).
@@ -1467,7 +1473,7 @@ for(const width of [390,1280])test(`[주간 정리] 한 흐름: 바탕 → 내 �
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // 주가 바뀌면 바탕을 닫고 그 주 것으로 다시.
  await page.locator('#journalRoot [data-journal-next]').click();
- await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
+ await expect(hwpx(page).locator('[data-weekly-confirm-pane] [data-hwpx-unmatched]')).toHaveCount(0); // 바탕을 닫으면 확정 칸 탭 내용도 비움
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -1616,6 +1622,7 @@ test('[주간 정리] 환류: AI 초안 → [학습 시험] 결과 → [확정] 
  await expect(cellLines(b1)).toHaveText(['- AI 나-1 줄']);
  // [확정하고 한글 파일 받기] → 고침 기록 저장 → 환류 보고 한 장(숫자·후보·제안). 개선 제안 [만들기]는 그 주 행에 남는다(S48-3b: [넣기] → [만들기]).
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ await confirmTab(page,'review');
  const card=hwpx(page).locator('[data-hwpx-review] [data-learn-review]');
  await expect(card.locator('[data-learn-review-head]')).toHaveText('이번 주 환류 보고 — AI 초안 줄 4개 중 4개 그대로(100%)');
  await expect(card.locator('[data-learn-review-counts]')).toHaveText('① 남김 4 · 수정됨 0 · 뺌 0 · 더함 0');
@@ -1727,6 +1734,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 
  await input.fill('없는 이름');await input.press('Enter');
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('없는 이름');
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveAttribute('title','담당 팀원 칸 이름을 직접 수정했어요.');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -1735,6 +1743,7 @@ test('[주간 정리] 담당 팀원 칸 이름: 확정본에서 표기를 못 �
  await openJournal(page,390);await openWeekly(page);
  await expect(topLine(page).locator('[data-hwpx-me]')).toHaveText('전혀 다른 사람');
  await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -2073,7 +2082,7 @@ for(const width of [390,1280])test(`[주간 정리] 한글(.hwp)로 못 바꾸�
  expect(f.sent.library[0].file.file).toBe('주간보고_20261012_가상담당.hwpx');
  await expect(st).toContainText('자료실에 "개인 확정본" 분류로 저장했어요');
  await expect(st).toContainText('한글(.hwp)로 바꾸지 못해 .hwpx로 받았어요(변환기를 불러오지 못함).');
- await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText('확정 · 다시 누르면 새 판');
+ await expect(confirmRow(page).locator('[data-hwpx-confirm-state]')).toContainText(/^\d+\/\d+ \d+:\d+ 확정$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -2450,6 +2459,7 @@ for(const width of [412,1280])test(`[주간 정리] 확정 뒤 '내가 수정한
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
  const row=()=>f.exec.rows.find(r=>r.week_start==='2026-10-05');
  await expect.poll(()=>row()?.draft?.confirmed?.document_id).toBe('doc-new');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(fin).toBeVisible();
  await expect(fin).toContainText('① WORK ON+가 만든 파일');
  await expect(fin.locator('[data-hwpx-final-mine]')).toContainText('② 내가 수정한 최종본 한글에서 수정한 파일을 끌어 놓거나');
@@ -2533,6 +2543,7 @@ for(const width of [390,1280])test(`[주간 보고 기억] [빼기]·이름 수�
  expect(f.profile.patches).toEqual([]);
  // [확정] → 다음 주에도 쓸까요? (체크된 채) → [기억하기]: 이 칸 하나만 PATCH.
  await Promise.all([page.waitForEvent('download'),confirmRow(page).locator('[data-hwpx-confirm]').click().then(()=>answerAsk(page,true))]);
+ await confirmTab(page,'memory');
  const ask=hwpx(page).locator('[data-hwpx-remember-ask]');
  await expect(ask.locator('summary')).toHaveText('다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 2개');
  await expect(ask.locator('[data-hwpx-remember-item]')).toHaveText([/가상 다음 주 회의 → 가상 점검 회의$/,/가상 수련회 → 빼기$/]);
@@ -3317,7 +3328,7 @@ for(const width of [390,884,1440])test(`[주간 정리] 2. 1) 사업요약(전�
  await expect(row('세부 과제 가-1').locator('.biz-hand-line')).toHaveText(['가상 지금 상황 가-1','가상 둘째 줄']);
  await expect(row('세부 과제 나-1').locator('.biz-now-empty')).toHaveText('—');
  // 화면에서 나-1 지금 상황을 쓰면(이번 주 행) 바로 파일에도.
- await row('세부 과제 나-1').locator('[data-bp-cell="progress"]').click();
+ await editCell(page,row('세부 과제 나-1').locator('[data-bp-cell="progress"]'));
  await row('세부 과제 나-1').locator('textarea[data-bp-field]').fill('가상 나-1 새 상황');
  await row('세부 과제 나-1').locator('[data-bp-edit-save]').click();
  await expect(row('세부 과제 나-1').locator('.biz-hand-line')).toHaveText(['가상 나-1 새 상황']);
@@ -3366,6 +3377,7 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 한글 파일: 양식 
  ]);
  // 확정 줄 아래 한 줄: 양식에 자리가 없는 사업영역만, 칸 고르기(내 양식 줄만 — 남의 칸 없음).
  const place=page.locator('#journalRoot [data-hwpx-place]');
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 확정 막대 [파일] 탭
  await expect(place.locator('[data-hwpx-place-row]')).toHaveCount(1);
  await expect(place).toContainText('사업영역 나: 양식에 자리가 없어 표 끝 새 줄로 넣었어요.');
  await expect(place.locator('select option')).toHaveText(['칸 선택','가상 묶음 › 사업영역 가','가상 묶음 › 가상 빈 자리','표 끝 새 줄로 두기']);
@@ -3406,22 +3418,16 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
  await expect(table.locator('tbody tr').nth(1).locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 나-1']);
  await page.screenshot({path:`docs/design/screens/s61-42/2-groups-${width}.png`});
- // [수정]: 수정할 칸(사업영역 자기 칸 · 세부 과제 칸) 고르기 → 가-2 칸에 쓰기.
- await ga.locator('[data-bp-cell="progress"]').click();
- const pick=ga.locator('select[data-bp-target]');
- await expect(pick.locator('option')).toHaveText(['사업영역 가','◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
- await pick.selectOption({label:'◦ 세부 과제 가-2'});
- await ga.locator('textarea[data-bp-field]').fill('가상 가-2 새 상황');
+ // [수정](WEEKLY-화면정돈 ② STD C10): 칸 전체가 글상자 하나(자기 칸 줄 + '◦ 세부 과제' 줄). 칸 고르기 상자·안내 줄 없음.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await expect(ga.locator('select[data-bp-target]')).toHaveCount(0);
+ await expect(ga.locator('textarea[data-bp-field]')).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황');
+ // '◦ 세부 과제 가-2' 줄을 더해 쓰면 그 칸에, 맨 위(소제목 앞) 줄은 사업영역 자기 칸에 저장된다.
+ await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸\n◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 세부 과제 가-2\n가상 가-2 새 상황');
  await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1','◦ 세부 과제 가-2']);
- expect(db.writes.at(-1)).toMatchObject({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'});
- // 자기 칸(글이 보이는 칸이 열리므로 수정할 칸에서 사업영역 칸을 고른다)
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('select[data-bp-target]').selectOption({label:'사업영역 가'});
- await ga.locator('textarea[data-bp-field]').fill('가상 가 자기 칸');
- await ga.locator('[data-bp-edit-save]').click();
  await expect(ga.locator('.biz-hand-line').first()).toHaveText('가상 가 자기 칸');
- expect(db.writes.at(-1)).toMatchObject({space_id:'wa',week_start:'2026-11-16',body:'가상 가 자기 칸'});
+ expect(db.writes.slice(-2)).toEqual([expect.objectContaining({space_id:'wa',week_start:'2026-11-16',body:'가상 가 자기 칸'}),expect.objectContaining({space_id:'wa2',week_start:'2026-11-16',body:'가상 가-2 새 상황'})]);
  await page.screenshot({path:`docs/design/screens/s61-42/2-groups-edited-${width}.png`});
  // 한글 파일도 같은 자리: 자기 칸 글이 맨 위, 세부 과제는 '◦ 이름' + 줄.
  const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
@@ -3432,8 +3438,9 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 화면 요약표 첫 �
 });
 
 // WEEKLY-수정열기·글지우기: 묶음 표 [수정]은 글이 보이는 칸을 기존 글 그대로 열고(자기 칸이 비고 세부 과제 칸에 글이 있어도), 저장하면 그 칸이 바뀌며,
-// 취소하면 원문 그대로. 글이 없는 줄의 [쓰기]는 빈 칸. [이 칸 글 삭제]는 확인 뒤 그 칸만 비우고 [되돌리기]로 살린다. 이름·글은 합성 값.
+// 취소하면 원문 그대로. WEEKLY-화면정돈 ②: [이 칸 글 삭제] 대신 칸 메뉴 [비우기](확인 뒤 비우고 [되돌리기]로 살린다). 이름·글은 합성 값.
 for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글을 채워 열고 글 칸을 지울 수 있다 ${width}`,async({page})=>{
+ test.setTimeout(90000);
  const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
  const f=await weekLinesFixture(page,{width,hwpx:true,team});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
@@ -3446,40 +3453,79 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) [수정]은 기존 글
  await expect(table).toBeVisible();
  const ga=table.locator('tbody tr').filter({has:page.locator('td',{hasText:/^사업영역 가$/})});
  const field=ga.locator('textarea[data-bp-field]');
- // 자기 칸은 비고 글은 세부 과제 가-1에만 있다 → [수정]은 그 글을 채워 연다(빈 칸이 뜨면 새로 쓰기).
- await ga.locator('[data-bp-cell="progress"]').click();
- await expect(field).toHaveValue('가상 가-1 상황');
- await expect(ga.locator('select[data-bp-target] option:checked')).toHaveText('◦ 세부 과제 가-1');
- expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([9,9]); // '가상 가-1 상황' 끝
+ // [수정]은 칸 전체 글('◦ 세부 과제 가-1' + 줄)을 채워 열고 커서는 글 끝.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황');
+ expect(await field.evaluate(el=>[el.selectionStart,el.selectionEnd,el.value.length])).toEqual([21,21,21]);
+ // 안내 줄·칸 고르기·[이 칸 글 삭제] 없음, [취소]는 글자 단추·[저장]은 작은 단추로 글상자 오른쪽 위.
+ await expect(ga.locator('.biz-write-hint,select[data-bp-target],[data-bp-edit-clear]')).toHaveCount(0);
+ const [cb,sb,tb]=await Promise.all([ga.locator('[data-bp-edit-cancel]').boundingBox(),ga.locator('[data-bp-edit-save]').boundingBox(),field.boundingBox()]);
+ expect(cb.x).toBeLessThan(sb.x);expect(sb.y+sb.height).toBeLessThanOrEqual(tb.y+1);expect(sb.x+sb.width).toBeGreaterThan(tb.x+tb.width-40);
+ // 바깥을 눌러도 닫히지 않고 쓰던 글이 남는다.
+ await field.fill('◦ 세부 과제 가-1\n가상 쓰던 글');
+ await table.locator('thead th').first().click();
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n가상 쓰던 글');
  // 취소하면 원문 그대로, 저장 요청도 없다.
  const writes=db.writes.length;
- await field.fill('가상 고친 글');
  await ga.locator('[data-bp-edit-cancel]').click();
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 상황']);
  expect(db.writes.length).toBe(writes);
- // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await field.fill('가상 가-1 고친 상황');
- await ga.locator('[data-bp-edit-save]').click();
+ // 저장하면 같은 칸(가-1)이 바뀐다 — 자기 칸에 새 줄이 생기지 않는다. Ctrl+Enter 저장.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'));
+ await field.fill('◦ 세부 과제 가-1\n가상 가-1 고친 상황');
+ await field.press('Control+Enter');
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
  await expect(ga.locator('.biz-sub-head')).toHaveText(['◦ 세부 과제 가-1']);
+ expect(db.writes.length).toBe(writes+1);
  expect(db.writes.at(-1)).toMatchObject({space_id:'wa1',body:'가상 가-1 고친 상황'});
- // 글이 없는 칸의 글상자는 빈 칸(새로 쓰기)이고 [이 칸 글 삭제]는 없다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('select[data-bp-target]').selectOption({label:'◦ 세부 과제 가-2'});
- await expect(field).toHaveValue('');
- await expect(ga.locator('[data-bp-edit-clear]')).toHaveCount(0);
- await ga.locator('[data-bp-edit-cancel]').click();
- // 삭제: 확인 → 그 칸만 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다.
- await ga.locator('[data-bp-cell="progress"]').click();
- await ga.locator('[data-bp-edit-clear]').click();
- await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 삭제할까요?');
+ // [비우기]: 확인 → 칸의 모든 줄을 비움(저장은 빈 글) → [되돌리기]로 원문이 다시 보인다. 빈 칸의 [비우기]는 흐림.
+ await cellAct(page,ga.locator('[data-bp-cell="progress"]'),'clear');
+ await expect(page.locator('.kptu-ask .kptu-ask-text')).toHaveText('이 칸의 글을 비울까요?');
  await page.locator('.kptu-ask .kptu-ask-actions .danger').click();
  await expect(ga.locator('.biz-hand-line')).toHaveCount(0);
  expect(db.writes.at(-1)).toMatchObject({body:''});
  await page.locator('.kptu-notice-undo').click();
  await expect(ga.locator('.biz-hand-line')).toHaveText(['가상 가-1 고친 상황']);
  expect(db.writes.at(-1)).toMatchObject({body:'가상 가-1 고친 상황'});
+ const own=await cellMenu(page,ga.locator('[data-bp-cell="owner"]'));
+ await expect(own.locator('[data-row-item="clear"]')).toHaveAttribute('aria-disabled','true');
+ await expect(own.locator('[data-row-item]')).toHaveText(['수정','비우기']);
+ await page.keyboard.press('Escape');
+ expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
+});
+
+// WEEKLY-화면정돈 ② 0순위(사용자 2026-11-28 09:12 "파란색 표시부분 수정 삭제 안됨"): 사업영역 자기 칸과 세부 과제 칸에 같은 글이 들어가 있으면
+// 화면에는 세부 과제 아래 한 번만 보이고, [수정] 글상자에도 한 번, 한글 파일에도 한 번. 글상자에서 지우면 두 칸 모두에서 빠진다(보이는 줄은 모두 고치고 지울 수 있음).
+// 폰은 칸을 꾹 눌러 같은 메뉴. 이름·글은 합성 값.
+for(const width of [412,1280])test(`C10 [주간 정리] 2. 1) 0순위: 자기 칸·세부 과제 칸에 같은 글 = 한 번만 보이고 지울 수 있다(화면·한글 파일) ${width}`,async({page})=>{
+ test.setTimeout(90000);
+ const team={summary:[{area:['가상 묶음'],rows:[{task:['사업영역 가'],progress:['- 지난 글'],owner:['가상 담당']},{task:['남의 칸'],progress:['- 남의 글'],owner:['다른 담당']}]}]};
+ const f=await weekLinesFixture(page,{width,hwpx:true,team});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_line_marks',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_report_snapshots',r=>r.request().method()==='GET'?r.fulfill({json:[]}):r.fulfill({status:405,json:{}}));
+ const now=(id,space,week,body)=>({id,workspace_id:'w',space_id:space,week_start:week,body,owner_text:'',updated_at:'2026-11-10T00:00:00Z'});
+ const db=await installBusinessNowServer(page,{now:[now('n0','wa','2026-11-09','- 가상 연구 착수'),now('n1','wa1','2026-11-09','- 가상 연구 착수')]});
+ await openJournal(page,width);await openWeekly(page);
+ for(let i=0;i<6;i++)await page.locator('#journalRoot [data-journal-next]').click();
+ const table=page.locator('#journalRoot [data-weekly-flow-cells="summary"] [data-biz-summary-box] table[data-bp-grouped]');
+ await expect(table).toBeVisible();
+ const ga=table.locator('tbody tr[data-bp-area="사업영역 가"]');
+ // 화면: 소제목 없는 맨 위 줄 없이 '◦ 세부 과제 가-1' 아래 한 번.
+ await expect(ga.locator('[data-bp-box="progress"] > p')).toHaveText(['◦ 세부 과제 가-1','- 가상 연구 착수']);
+ // 한글 파일도 한 번.
+ const [d1]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect((await savedReport(d1)).report.summary[0].rows[0].progress).toEqual(['◦ 세부 과제 가-1','- 가상 연구 착수']);
+ // 꾹 누르기(폰)·우클릭(PC) [수정] → 글상자에 보이는 줄 그대로. 줄을 지우고 저장하면 두 칸 모두 비워진다.
+ await editCell(page,ga.locator('[data-bp-cell="progress"]'),{hold:width<761});
+ const field=ga.locator('textarea[data-bp-field]');
+ await expect(field).toHaveValue('◦ 세부 과제 가-1\n- 가상 연구 착수');
+ await field.fill('');
+ await ga.locator('[data-bp-edit-save]').click();
+ await expect(ga.locator('.biz-now-empty')).toHaveText('—');
+ await expect.poll(()=>['wa','wa1'].map(sp=>db.now.filter(r=>r.space_id===sp).sort((a,b)=>b.week_start.localeCompare(a.week_start))[0]?.body)).toEqual(['','']);
+ const [d2]=await Promise.all([page.waitForEvent('download'),confirmMore(page,'[data-hwpx-build]')]);
+ expect((await savedReport(d2)).report.summary[0].rows[0].progress).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
@@ -3558,11 +3604,10 @@ for(const width of [412,1280])test(`[주간 정리] 2. 1) 칸 빼기·다시 넣
  expect(grid((await savedReport(d)).report)).toEqual([
   ['가상 묶음',[['사업영역 가',['◦ 세부 과제 가-1','가상 가-1 상황','◦ 사업영역 나 · 세부 과제 나-1','가상 나-1 상황']],['남의 칸',[]]]],
  ]);
- // [수정]의 수정할 칸에도 넣은 칸이 있고, 저장 자리는 원래 칸(wb1) 그대로.
- await row('사업영역 가').locator('[data-bp-cell="progress"]').click();
- await expect(row('사업영역 가').locator('select[data-bp-target] option')).toHaveText(['사업영역 가','◦ 세부 과제 가-1','◦ 세부 과제 가-2','◦ 사업영역 나','◦ 사업영역 나 · 세부 과제 나-1']);
- await row('사업영역 가').locator('select[data-bp-target]').selectOption({label:'◦ 사업영역 나 · 세부 과제 나-1'});
- await row('사업영역 가').locator('textarea[data-bp-field]').fill('가상 나-1 고친 상황');
+ // [수정] 글상자에도 넣은 칸이 '◦' 줄로 있고, 저장 자리는 원래 칸(wb1) 그대로.
+ await editCell(page,row('사업영역 가').locator('[data-bp-cell="progress"]'));
+ await expect(row('사업영역 가').locator('textarea[data-bp-field]')).toHaveValue('◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 사업영역 나 · 세부 과제 나-1\n가상 나-1 상황');
+ await row('사업영역 가').locator('textarea[data-bp-field]').fill('◦ 세부 과제 가-1\n가상 가-1 상황\n◦ 사업영역 나 · 세부 과제 나-1\n가상 나-1 고친 상황');
  await row('사업영역 가').locator('[data-bp-edit-save]').click();
  await expect.poll(()=>db.now.find(r=>r.space_id==='wb1'&&r.week_start==='2026-11-16')?.body).toBe('가상 나-1 고친 상황');
  // ② 따로 두기: 가 칸 ⋯ → 다시 두 줄.
@@ -3627,11 +3672,90 @@ for(const width of [390,1280])test(`[주간 정리] 투쟁 사업장: 더는 투
  await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveText(['- 지난 투쟁 소식']);
+ await confirmTab(page,'suggest'); // WEEKLY-화면정돈 ②: 비울 줄은 확정 막대 [기록 제안] 탭
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
  await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('삭제할까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
  await expect(cellLines(siteCell(page,'나 지역 모임'))).toHaveCount(0);await expect(siteCell(page,'나 지역 모임').locator('[data-flow-empty]')).toHaveText('빈 칸');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
+});
+// WEEKLY-화면정돈 ②(명진 11/28 09:09~09:23 결정, docs/design/approved/weekly-tidy.md ② 절 — 앞 '나'의 오른쪽 칸·탭 5개를 대신함):
+// 본문 한 칸(PC·폰) + 화면 아래 확정 막대 한 줄 [확정 전] [파일·기록 제안 N·환류·기억] [확정하고 받기] [⋯]. 처음엔 접힘, 탭 누르면 막대 위로 그 탭만,
+// 다시 누르거나 바깥·Esc면 접힘. 할 일 남은 탭은 숫자. 글자는 네 단계, 3·4번 같은 크기, 줄 입력 한 줄.
+for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막대 탭 4·숫자·펼치고 접기, 본문 한 칸, 글자 네 단계, 줄 입력 한 줄 ${width}`,async({page})=>{
+ await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const box=hwpx(page),tabs=box.locator('[data-weekly-confirm-tab]'),bar=box.locator('[data-weekly-confirm-bar]');
+ await expect(bar.locator('[data-hwpx-confirm-state]')).toHaveText('확정 전');
+ await expect(bar.locator('[data-hwpx-confirm]')).toHaveText('확정하고 받기');
+ await expect(tabs.locator('.weekly-confirm-tab-name')).toHaveText(['파일','기록 제안','환류','기억']);
+ await expect(tabs.locator('.weekly-confirm-tab-count')).toHaveText(['','4','','']); // 기록 제안 = 못 붙인 기록 3 + 비울 줄 1
+ await expect(tabs.nth(1)).toHaveAccessibleName('기록 제안 — 할 일 4개');
+ // 막대는 한 줄(확정 시각·탭·확정 버튼 같은 높이), 처음엔 모두 접힘.
+ const midY=b=>b.y+b.height/2;
+ const [bst,bt,bb]=await Promise.all([bar.locator('[data-hwpx-confirm-state]'),tabs.nth(0),bar.locator('[data-hwpx-confirm]')].map(l=>l.boundingBox()));
+ if(width>=761){expect(Math.abs(midY(bst)-midY(bt))).toBeLessThan(8);expect(Math.abs(midY(bb)-midY(bt))).toBeLessThan(8);}
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
+ // 탭 누르면 막대 위로 그 탭만.
+ await tabs.nth(1).click();
+ await expect(tabs.nth(1)).toHaveAttribute('aria-selected','true');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(1);
+ await expect(box.locator('[data-hwpx-stage-fix]')).toBeVisible();await expect(box.locator('[data-hwpx-unmatched]')).toBeVisible();
+ await expect(box.locator('[data-hwpx-unmatched] summary')).toContainText('기록 제안');
+ expect((await box.locator('[data-weekly-confirm-pane]:visible').boundingBox()).y).toBeLessThan((await bar.boundingBox()).y);
+ await box.locator('[data-hwpx-stage-clear]').click();
+ await expect(tabs.nth(1).locator('.weekly-confirm-tab-count')).toHaveText('3');
+ // 다시 누르면 접힘, 다른 탭은 그 탭만.
+ await tabs.nth(1).click();
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
+ await tabs.nth(0).click();
+ await expect(box.locator('[data-hwpx-ai-draft]')).toBeVisible(); // 이 시험의 AI 서버는 바쁨(500) — 초안 소식 한 줄은 파일 탭 맨 위(AI 초안 탭은 없앰)
+ // 바깥 누르기 = 접힘. Esc도.
+ await page.locator('#journalRoot [data-journal-weekly-chapter="requests"] > h4').click();
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
+ await tabs.nth(2).click();await expect(box.locator('[data-weekly-confirm-empty="review"]')).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(box.locator('[data-weekly-confirm-pane]:visible')).toHaveCount(0);
+ // 키보드: ← → 로 옆 탭.
+ await tabs.nth(1).focus();await page.keyboard.press('ArrowRight');
+ await expect(tabs.nth(2)).toBeFocused();await expect(tabs.nth(2)).toHaveAttribute('aria-selected','true');
+ await page.keyboard.press('Escape');
+ // 본문 한 칸: 확정 막대는 PC에서도 본문 오른쪽이 아니라 같은 폭.
+ const slot=await page.locator('#journalRoot [data-journal-weekly] > [data-weekly-flow-confirm]').boundingBox();
+ const one=await page.locator('#journalRoot [data-journal-weekly-chapter="requests"]').boundingBox();
+ expect(Math.abs(slot.x-one.x)).toBeLessThan(24);expect(slot.width).toBeGreaterThan(one.width-48);
+ // 아래에 붙는다: 본문 맨 위에 있을 때도 막대는 화면 안(아래 메뉴 막대 위).
+ await page.evaluate(()=>scrollTo(0,0));
+ const vb=await bar.boundingBox(),vh=page.viewportSize().height;
+ expect(vb.y+vb.height).toBeLessThanOrEqual(vh);expect(vb.y).toBeGreaterThan(vh/2);
+ // 글자 네 단계: 보이는 글자 크기는 큰 제목·줄 글자(소제목 포함)·날짜 값뿐. 3·4번 제목 같은 크기, 칸 이름도 같은 크기.
+ const look=await page.evaluate(()=>{
+  const px=v=>{const e=document.createElement('span');e.style.fontSize=`var(${v})`;document.body.append(e);const r=getComputedStyle(e).fontSize;e.remove();return r;};
+  const root=document.querySelector('#journalRoot [data-journal-weekly]'),sizes=new Set();
+  for(const e of root.querySelectorAll('*')){if(!e.getClientRects().length||e.closest('.row-more summary'))continue;if(![...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()))continue;sizes.add(getComputedStyle(e).fontSize);}
+  const fs=sel=>[...root.querySelectorAll(sel)].filter(e=>e.getClientRects().length).map(e=>getComputedStyle(e).fontSize);
+  return {sizes:[...sizes],allowed:[px('--ds-text-head'),px('--ds-text-row'),px('--ds-text-meta'),px('--ds-compact-text')],
+   heads:fs('[data-journal-weekly-chapter] > h4'),subs:fs('.journal-weekly-sub'),siteName:fs('[data-weekly-flow-cells="sites"] .weekly-flow-label b'),
+   siteLine:fs('[data-weekly-flow-cells="sites"] .weekly-flow-text'),row:px('--ds-text-row'),head:px('--ds-text-head')};
+ });
+ for(const size of look.sizes)expect(look.allowed).toContain(size);
+ expect(new Set(look.heads)).toEqual(new Set([look.head]));
+ expect(new Set([...look.subs,...look.siteName,...look.siteLine])).toEqual(new Set([look.row]));
+ // 줄 입력: 입력칸·[취소](글자 단추)·[저장](작은 버튼)이 한 줄.
+ const c=flowCell(page,'사업영역 가 › 세부 과제 가-1');
+ await c.getByRole('button',{name:'사업영역 가 › 세부 과제 가-1 칸에 줄 추가'}).click();
+ const form=c.locator('.weekly-flow-edit'),input=form.locator('[data-flow-input]'),cancel=form.getByRole('button',{name:'취소'}),save=form.getByRole('button',{name:'저장'});
+ await expect(input).toBeVisible();
+ const [bi,bc,bs]=await Promise.all([input,cancel,save].map(l=>l.boundingBox()));
+ const mid=b=>b.y+b.height/2;
+ expect(Math.abs(mid(bi)-mid(bs))).toBeLessThan(8);expect(Math.abs(mid(bc)-mid(bs))).toBeLessThan(2);
+ expect(bc.x).toBeGreaterThan(bi.x);expect(bs.x).toBeGreaterThan(bc.x);
+ const st=await Promise.all([cancel,save].map(l=>l.evaluate(e=>{const c=getComputedStyle(e);return {h:c.height,bg:c.backgroundColor,border:c.borderTopColor};})));
+ const compact=await page.evaluate(()=>{const e=document.createElement('span');e.style.height='var(--ds-compact-height)';e.style.display='block';document.body.append(e);const r=getComputedStyle(e).height;e.remove();return r;});
+ expect(st[1].h).toBe(compact); // [저장] = 작은 채운 버튼
+ await expect(cancel).toHaveClass(/\brow-act\b/); // [취소] = 공용 글자 단추(③)
+ expect(st[0].bg).toBe('rgba(0, 0, 0, 0)');expect(st[1].bg).not.toBe('rgba(0, 0, 0, 0)');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
 // ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
 const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
@@ -4363,7 +4487,7 @@ for(const width of [412,1440])test(`[주간 정리] 투쟁 사업장 현황: ⋯
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
  // 다음 주: 그 주 구성이 없으니 지난주 구성을 이어 쓴다(매주 다시 빼지 않아도 됨).
  await page.locator('#journalRoot [data-journal-next]').click();
- await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
+ await expect(hwpx(page).locator('[data-weekly-confirm-pane] [data-hwpx-unmatched]')).toHaveCount(0); // 바탕을 닫으면 확정 칸 탭 내용도 비움
  await openDraft(page);
  await expect(siteNames(page)).toHaveText(['나 지역 모임']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -4482,9 +4606,15 @@ for(const width of [412,1280])test(`[주간 정리] 5. 주요 일정 [수정]: �
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const calRow=title=>page.locator('#journalRoot [data-journal-weekly="calendar"] tbody tr').filter({hasText:title}).first();
  const row=calRow('가상 수련회');
- await row.scrollIntoViewIfNeeded();await page.evaluate(()=>window.scrollBy(0,-200));
+ // 줄을 화면 가운데에(WEEKLY-화면정돈 ④: PC는 확정 칸이 오른쪽으로 옮겨 5. 주요 일정이 페이지 맨 끝 — 아래 여유가 없으면 열린 칸의 입력칸에
+ // 초점이 가며 브라우저가 화면을 내린다. 이 시험은 다시 그리기 때문의 튐만 보므로 시험 안에서만 페이지 아래에 빈 자리를 둔다).
+ await page.evaluate(()=>{document.querySelector('#journalRoot').style.paddingBottom='70vh';});
+ await row.evaluate(e=>e.scrollIntoView({block:'center'}));
  const top0=await row.evaluate(e=>e.getBoundingClientRect().top),y0=await page.evaluate(()=>scrollY);
- await pressMore(row,'[data-journal-schedule-fix]');
+ // ⋯ 를 열고 [수정]을 누른다. 줄이 페이지 끝 가까이면 메뉴가 화면 아래로 넘쳐 시험 도구가 누르려고 화면을 내리므로, 메뉴 단추는 화면을 움직이지 않고 누른다.
+ const more=row.locator('details.row-more').filter({has:page.locator('[data-journal-schedule-fix]')}).first();
+ await more.locator('summary').click();await expect(more).toHaveJSProperty('open',true);
+ await more.locator('[data-journal-schedule-fix]').evaluate(b=>b.click());
  await expect(schedForm(page)).toBeVisible();
  await page.waitForTimeout(400);
  // 화면이 위로 튀지 않는다: 연 칸 줄이 누르기 전 그 줄 자리 그대로.
@@ -4784,10 +4914,12 @@ for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정
 // 3. 투쟁 사업장 현황과 같은 글자 크기·굵기, 한 줄(넘치면 끝 …, 올리면 전체 이름), '· 빈 칸'·⋯ 는 같은 줄 오른쪽 끝, [조직현황] 글도 3장 줄과 같은 크기.
 // [조직] 칸 폭은 가장 긴 이름 줄에 맞추고(표 폭 45%까지), 머리 칸 경계를 끌어 바꾸면 서버(view_prefs.col_widths.weekly)에 화면 종류별로 남는다. 가짜 이름만.
 const LONG_ORG='나 지역 아주 긴 이름의 가상 산하 조직 모임';
+// WEEKLY-화면정돈 ④: PC는 확정 칸이 오른쪽으로 가 4장 칸이 넓어졌다 — 칸 폭(45%)을 넘는 이름은 더 길게.
+const LONGER_ORG='나 지역 아주 아주 긴 이름의 가상 산하 조직 연합 모임 본부';
 for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
  const prefs=await installViewPrefsServer(page);
  const f=await weekLinesFixture(page,{width,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
- for(const o of f.more.orgs)if(o.id===OB)o.name=LONG_ORG;
+ for(const o of f.more.orgs)if(o.id===OB)o.name=width>=1200?LONGER_ORG:LONG_ORG;
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
  // ORG-기록하나로 O-6: 옛 주 4.도 조직보고 창(읽기 전용) — 이름 줄은 이름만(⋯·'· 빈 칸' 없음), 줄 없는 조직 칸은 '—'.
@@ -4804,7 +4936,7 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   const mid=parts.map(p=>(p.t+p.b)/2);expect(Math.max(...mid)-Math.min(...mid)).toBeLessThan(6);
  }
  const name=b.locator('.wl-org');
- await expect(name).toHaveAttribute('title',LONG_ORG);
+ await expect(name).toHaveAttribute('title',width>=1200?LONGER_ORG:LONG_ORG);
  expect(await name.evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
  if(width>=1200){ // 표 모양은 4장 칸이 넓은 PC만(S52-42: 폴드 펼침은 3장·4장이 나란해 칸이 좁아 폰처럼 쌓는다)
   expect(await name.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true); // 넘치는 이름은 끝 …
@@ -4975,6 +5107,7 @@ for(const [width,label] of [[1280,'pc-1280'],[412,'phone-412']])test(`[주간 �
  await expect(again).toHaveText('초안 다시 쓰기');
  await expect(page.locator('#journalRoot').getByRole('button',{name:/AI 초안 다시 쓰기/})).toHaveCount(0);
  await m.locator('summary').click();
+ await confirmTab(page,'file'); // WEEKLY-화면정돈 ②: 안내 줄은 확정 막대 [파일] 탭 맨 위(AI 초안 탭은 없앰)
  await note.scrollIntoViewIfNeeded();
  if(process.env.KPTU_SHOTS==='1'){await page.waitForTimeout(250);await page.screenshot({path:`docs/design/screens/s59-22/${label}-weekly-draft-again-button.png`})}
 });

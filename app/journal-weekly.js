@@ -603,7 +603,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     const input = lineField(doc, {value: fileUi.value ?? item.text, maxLength: FILE_EDIT_MAX}); input.dataset.journalFileEditInput = item.file.id;
     input.setAttribute('aria-label', '자료 줄 수정(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
     const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalFileEditSave = item.file.id; save.disabled = !!fileUi.saving;
-    const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
+    const cancel = el('button', 'row-act', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
     if (item.file.edited) { const origin = el('span', 'journal-muted journal-hwpx-origin', `원래: ${item.file.original}`); origin.dataset.journalFileOrigin = ''; box.append(origin, ' '); }
     box.append(input, ' ');
     if (item.file.edited) { const reset = el('button', 'mini', '되돌리기'); reset.type = 'button'; reset.dataset.journalFileEditReset = item.file.id; reset.disabled = !!fileUi.saving; box.append(reset); }
@@ -815,9 +815,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (c.noCalendar) { const p = muted(`'${c.calendar}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     // S48-33(WEEKLY-화면디자인정리 2): 늘 보이던 안내 한 줄('참석자 칸은 한글 파일에서…')은 없앴다 — 당연한 안내 문구 삭제.
   }
-  // [확정하고 한글 파일 받기] 줄 자리(journal-hwpx.js 마디를 journal.js 가 붙임).
+  // 확정 칸 자리(journal-hwpx.js 마디를 journal.js 가 붙임). WEEKLY-화면정돈 ④(명진 11/28 시안 '나'): 5. 주요 일정 안이 아니라 본문 옆 칸 —
+  //   PC(넓은 화면)는 오른쪽 칸, 폰은 본문 아래 한 칸(journal.css). 머리 '이번 주 확정 · 시각' → 탭 → 맨 아래 [확정하고 한글 파일 받기].
   const confirmSlot = slotEl('weekly-flow-confirm-slot', 'data-weekly-flow-confirm');
-  five.append(cal, confirmSlot);
+  five.append(cal);
 
   // WEEKLY-주간정리다듬기 ④(명진 11/13 16:57 '밑에 있는 내용은 필요 없을 것 같아, 지저분하기만', 시안 docs/design/mockups/weekly-tidy.html ③):
   //   '참고 — 보고서 칸 밖 재료' 묶음은 없앴다(재료 자료는 그대로, 화면에서만 뺌). 주간보고 기억·규칙·환류는 확정 버튼 옆 ⋯ [배운 것 보기]를 누르면 열리는 한 칸.
@@ -836,7 +837,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   // S67-31: only = 'ask' — 1) 임원 배정 요청 칸만(줄 [수정]·[+ 추가] 칸 열기·닫기·저장 중·저장됨). 그 칸 안에는 다른 모듈이 채우는 자리가 없다.
   const oldAsk = only === 'ask' ? host.querySelector?.('[data-journal-weekly="ask"]') : null;
   if (oldAsk) { oldAsk.replaceWith(ask); fitAll(ask); return true; }
-  host.replaceChildren(when, one, two, three, four, five, learned);
+  host.replaceChildren(when, one, two, three, four, five, confirmSlot, learned);
   putBack();
   fitAll(host); // UI-줄입력늘어나기: 자료 줄·요청 표 고치기 칸은 열자마자 글 전체가 보이게
 }
@@ -973,7 +974,7 @@ function execEditRow(doc, el, ui, item) {
   }
   const actions = el('div', 'journal-edit-actions save-row');
   const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
-  const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
+  const cancel = el('button', 'row-act', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
   actions.append(cancel, save);
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);

@@ -8,6 +8,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {editCell,cellMenu,holdCell,cellAct} from './helpers/cell-menu.mjs';
 import {reportPeriodSelect} from './helpers/report-week.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {openReportBoxes} from './helpers/report-boxes.mjs'; // S67-75: 폰 폭이면 고르기 상자는 칩이 여는 창 안
@@ -43,13 +44,13 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   // ① 이번 주(오늘이 든 월~일), 보고 0건이어도 지난주로 가지 않는다.
   await expect(label(page)).toHaveText('11.9~11.15');
   await expect(page.locator('#reportCount .report-week-count')).toHaveText('0건');
-  // ② 이번 주 주간보고: 펼친 칸, 칸마다 [쓰기]. BIZ-주간보고접기(11/09): 주 단위에서도 제목 줄이 접고 펴는 버튼(처음엔 펼침).
+  // ② 이번 주 주간보고: 펼친 칸, 칸마다 쓸 수 있음(WEEKLY-화면정돈 ② STD C10: 빈 칸은 '—', 우클릭·꾹 누르기 [수정]). BIZ-주간보고접기(11/09): 주 단위에서도 제목 줄이 접고 펴는 버튼(처음엔 펼침).
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveText('이번 주 주간 보고');
   await expect(box.locator('.biz-week-title [data-bw-fold]')).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
   const write=box.locator('[data-bp-cell="progress"]').first();
-  await expect(write).toHaveText('쓰기');
-  await write.click();
+  await expect(write).toHaveText('—');
+  await editCell(page,write);
   await expect(box.locator('textarea[data-bp-field]')).toBeFocused();
   await box.locator('[data-bp-edit-cancel]').click();
   // ③ ‹ 지난주(전환 주 앞)는 그때 글을 읽기만.
@@ -71,7 +72,7 @@ for(const width of [390,884,1280])test(`${width}: 월요일에 열면 이번 주
   await fold.click();
   await expect(fold).toHaveAttribute('aria-expanded','true');
   await expect(box.locator('.biz-sum-table')).toBeVisible();
-  await expect(box.locator('[data-bp-cell="progress"]').first()).toHaveText('쓰기'); // 이번 주라 쓸 수 있다
+  await expect(box.locator('[data-bp-cell="progress"]').first()).toHaveText('—'); // 이번 주라 쓸 수 있는 칸(고칠 칸 표시)
   await fold.click();
   await expect(box.locator('[data-bw-body]')).toBeHidden();
   // S56-13 BIZ-주간보고접힘기억(요청함 11/10, 앞 규칙 '기간 보기를 바꾸면 잊음'을 바꿈): 손으로 접은 것은 기억해 주 단위로 돌아와도 접힌 채.
@@ -104,21 +105,25 @@ test.use({hasTouch:true});
 for(const width of [390,884])test(`${width}: 표 위에서 밀어도 화면 전체가 위아래로 스크롤되고, 표 칸은 따로 스크롤하지 않는다`,async({page})=>{
   const box=await open(page,width,520);
   await expect(box.locator('.biz-sum-table')).toBeVisible();
+  await expect(box.locator('[data-bp-cell="progress"]').first()).toBeVisible(); // 표 모양 자리가 아니라 다 그린 표
   // 표 칸은 스크롤 칸이 아니다(가로·세로 넘침 없음, 높이 제한 없음).
   const body=await box.locator('[data-bw-body]').evaluate(el=>{const cs=getComputedStyle(el);return {ox:cs.overflowX,oy:cs.overflowY,max:cs.maxHeight,extra:el.scrollHeight-el.clientHeight,wide:el.scrollWidth-el.clientWidth}});
   expect(body).toMatchObject({ox:'visible',oy:'visible',max:'none'});
   expect(body.wide).toBeLessThanOrEqual(1);
-  // 폰 폭에 맞춰 줄바꿈하되 낱말은 글자 사이에서 꺾이지 않는다('사업영역' 머리·'쓰기' 버튼이 한 줄).
+  // 폰 폭에 맞춰 줄바꿈하되 낱말은 글자 사이에서 꺾이지 않는다('사업영역' 머리·빈 칸 '—'이 한 줄).
   const lines=await box.locator('.biz-sum-table').evaluate(t=>{const n=el=>{const r=document.createRange();r.selectNodeContents(el);return new Set([...r.getClientRects()].map(x=>Math.round(x.top))).size};return {head:n(t.querySelector('thead th')),owner:n(t.querySelector('[data-bp-cell="owner"]')),progress:n(t.querySelector('[data-bp-cell="progress"]'))}});
-  expect(lines).toEqual({head:1,owner:1,progress:1});
+  expect(lines.head).toBe(1);expect(lines.progress).toBe(1);expect(lines.owner).toBeLessThanOrEqual(1); // 빈 담당 칸은 글이 없다(전에는 [쓰기] 단추)
   // 표 위에서 손가락으로 위로 밀면(터치 스크롤) 화면이 내려간다.
   const t=await box.locator('.biz-sum-table tbody td').first().boundingBox();
   const cdp=await page.context().newCDPSession(page);
   const before=await page.evaluate(()=>scrollY),x=Math.round(t.x+t.width/2),y=Math.round(t.y+Math.min(t.height/2,20));
+  const room=await page.evaluate(()=>document.documentElement.scrollHeight-innerHeight-scrollY);
+  expect(room).toBeGreaterThan(10);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
   for(let i=1;i<=15;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-i*10}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(before+50);
+  // 칸 [쓰기] 단추가 없어져(WEEKLY-화면정돈 ② STD C10) 화면이 짧아질 수 있다 — 끝까지 50px이 안 남으면 끝까지 내려갔는지 본다.
+  await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(before+Math.min(50,room-2));
   // 화면 끝까지 내리면 표 끝이 아래 탭에 가리지 않는다(UI-보기탭드롭다운 11/10: 아래 떠 있던 [목록|달력|사진] 줄은 없앰).
   await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
   const end=await box.locator('.biz-sum-table').evaluate(el=>el.getBoundingClientRect().bottom);

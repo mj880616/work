@@ -109,9 +109,25 @@ export const TOOL_LABELS = Object.freeze({
 export const STATUS_LABELS = Object.freeze({ok: '읽음', limited: '잠깐 멈춤', denied: '막음', error: '오류'});
 // MCP-Claude쓰기(설계 docs/design/mcp-claude-write.md 5.2): 최근 Claude가 수정한 것 한 줄(종류·동작·글자 수만, 내용은 기록에 없다).
 export const WRITE_KIND_LABELS = Object.freeze({note: '노트', update: '업데이트', work: '업무일지', org_record: word('담당조직 기록'), business_record: '사업 기록'});
-export const WRITE_ACTION_LABELS = Object.freeze({create: '새로 씀', edit: '수정', trash: '휴지통으로', append: '한 줄 더함'});
+export const WRITE_ACTION_LABELS = Object.freeze({create: '새로 씀', edit: '수정', trash: '휴지통으로', append: '한 줄 더함', attach: '파일 첨부'});
 export const writeLabel = r => `${WRITE_KIND_LABELS[r?.kind] || '기록'} ${WRITE_ACTION_LABELS[r?.action] || ''}`.trim();
+// ③ 첨부 줄(설계 11.6): 파일 수·크기만(이름은 기록에 없다). 붙이지 못한 시도는 '첨부 못 함'.
+export const isAttachRow = r => r?.action === 'attach';
+export const attachDone = r => isAttachRow(r) && Array.isArray(r?.files) && r.files.length > 0;
+export function fileSize(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  if (n < 1024) return `${n.toLocaleString('ko-KR')} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024).toLocaleString('ko-KR')} KB`;
+  return `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+export function writeFiles(r) {
+  if (!attachDone(r)) return '첨부 못 함';
+  const size = fileSize(r.file_bytes ?? r.files.reduce((sum, f) => sum + Number(f?.size_bytes || 0), 0));
+  return `${r.files.length.toLocaleString('ko-KR')}개${size ? ` · ${size}` : ''}`;
+}
 export function writeChars(r) {
+  if (isAttachRow(r)) return writeFiles(r);
   const b = Number(r?.chars_before), a = Number(r?.chars_after);
   if (!Number.isFinite(a)) return '';
   if (r?.action === 'create' || !Number.isFinite(b)) return `${a.toLocaleString('ko-KR')}자`;
@@ -120,6 +136,7 @@ export function writeChars(r) {
 // 되돌리기 실패 문구(DB 거절 코드 → 일상어).
 export function undoError(err) {
   const text = String(err?.message || err?.body?.message || err?.payload?.message || err || '');
+  if (/STILL_ATTACHED/.test(text)) return '파일을 아직 떼지 못했어요. 잠시 뒤 다시 해 주세요.';
   if (/CHANGED|TRASH_NOT_FOUND/.test(text)) return '그 뒤에 또 바뀌어서 되돌리지 않았어요.';
   if (/NOT_FOUND/.test(text)) return '이미 되돌렸거나 찾을 수 없어요.';
   return '되돌리지 못했어요. 잠시 뒤 다시 해 주세요.';
