@@ -40,8 +40,8 @@ async function sameButtons(region,height,quickHeight=height){
    const r='8px';
    // UI-보기탭한모양(S52-17): 공용 ⑤ 보기 바꾸기 — 칸은 연한 알약(32px) 안의 26px 알약(누른 직후 눌림 움직임으로 조금 작게 잴 수 있음).
    if(seg)return {min:24,max:26,radius:'999px'};
-   // UI-창아래버튼통일(11/07): 창 아래 줄(.save-row) 안 저장·보조·지우기는 한 가족 36px.
-   if(el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger)'))return {min:36,max:36,radius:'8px'};
+   // UI-창아래버튼통일(11/07): 창 아래 줄(.save-row) 안 저장·보조·지우기는 한 가족 — DESIGN-단추정리 ③(2026-11-28 사용자 선택 B)부터 28px.
+   if(el.matches(':is(.modal-action-footer,.save-row) button:is(.primary,.secondary,.ghost,.danger)'))return {min:28,max:28,radius:'8px'};
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    return null;

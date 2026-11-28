@@ -147,9 +147,9 @@ for (const viewport of [{ width: 412, height: 915 }, { width: 1280, height: 900 
     const att = page.locator('#gtEditAttach');
     await expect(att.locator('.gt-att-row .gt-att-name')).toHaveText(['옛 안건.pdf', '뺄 자료.pdf']);
     await page.locator('#gtEditNotes').fill('고친 메모');
-    await att.locator('[data-gt-att-swap="old1"]').click();
+    await att.locator('[data-gt-att-swap="old1"]').locator('xpath=ancestor::details[1]/summary').click();await att.locator('[data-gt-att-swap="old1"]').click(); // DESIGN-단추정리 ①: 교체·빼기는 줄 끝 ⋯ 안
     await att.locator('[data-gt-att-swap-input]').setInputFiles([txt('새 안건.txt')]);
-    await att.locator('[data-gt-att-remove="old2"]').click();
+    await att.locator('[data-gt-att-remove="old2"]').locator('xpath=ancestor::details[1]/summary').click();await att.locator('[data-gt-att-remove="old2"]').click(); // DESIGN-단추정리 ①: 교체·빼기는 줄 끝 ⋯ 안
     await att.locator('[data-gt-att-add-input]').setInputFiles([txt('더할 자료.txt')]);
     const release = gate();
     await page.locator('#gtSaveBtn').click();
