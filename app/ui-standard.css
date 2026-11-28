@@ -2131,7 +2131,7 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 }
 
 /* ===== DESIGN-단추정리 ① 줄 끝 동작 자리(2026-11-28 14:05 사용자 결정 "반복될 때는 이런 방식의 버튼은 지양", 15:37 시안 ①, 조사 docs/design/button-audit.md 공통 원인 A·B) =====
-   목록 줄·카드마다 되풀이되는 동작은 공용 '줄 끝 동작 자리' .row-acts 하나에 담는다. 화면마다 따로 정하던 자리(.journal-line-actions·.rn-send margin 등)를 대신한다.
+   목록 줄·카드마다 되풀이되는 동작은 공용 '줄 끝 동작 자리' .row-acts 하나에 담는다. 화면마다 따로 정하던 자리(.rn-send margin·.so-unarchive 크기 등)를 대신한다.
    자리: 줄 오른쪽 끝(margin-left:auto), 줄어들지 않고(flex:none) 줄바꿈하지 않는다 — 폭이 모자라면 앞 글이 줄고 단추는 아래로 떨어지지 않는다(폰에서도 한 줄 기록이 한 줄).
    안의 단추는 ③ 글자 버튼(button.row-act) 한 가지 — 선·바탕 없음, 글자 --ds-text-meta, 톤다운 회색(--kptu-muted).
    누르면 바로 일이 생기는 것(복구·꺼내기·되살리기·보내기 등)은 .is-now — 진한 글자 + 밑줄. 상태를 나타내는 글자(보냄 등)는 흐린 글자 그대로.
