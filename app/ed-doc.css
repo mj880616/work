@@ -23,7 +23,8 @@
 .ed-hl{padding:0 1px;border-radius:2px;color:inherit}
 .ed-hl-yellow{background:var(--ds-project-yellow-soft)}.ed-hl-green{background:var(--ds-project-green-soft)}.ed-hl-blue{background:var(--ds-project-blue-soft)}
 .ed-hl-pink{background:var(--ds-project-pink-soft)}.ed-hl-orange{background:var(--ds-project-orange-soft)}
-.ed-doc .ed-quote{margin:.4em 0 .8em;padding:2px 0 2px 14px;border-left:3px solid var(--kptu-border-strong);color:var(--kptu-muted)}
+/* NOTE-인용해서쓰기: 메신저 인용 답장처럼 왼쪽 세로 줄 + 옅은 바탕(모든 노트 인용이 같은 모양). */
+.ed-doc .ed-quote{margin:.4em 0 .8em;padding:4px 10px 4px 12px;border-left:3px solid var(--kptu-border-strong);border-radius:0 var(--ds-radius-control,8px) var(--ds-radius-control,8px) 0;background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
 .ed-doc .ed-ul,.ed-doc .ed-ol{margin:0 0 .6em;padding-left:1.5em}
 .ed-doc .ed-ol{padding-left:1.9em}
 /* ED-서식줄펼침: 목록 모양. 저장된 모양(marker)은 클래스 ed-ul-<이름>·ed-ol-<이름>, 저장된 모양이 없으면 ed-ul-auto·ed-ol-auto로
@@ -182,6 +183,9 @@
 .ed-ctx-cols span{margin-right:2px;white-space:nowrap}
 .ed-ctx-cols button{padding:0 8px}
 .ed-ctx button:disabled{opacity:.4;cursor:default}
+/* NOTE-인용해서쓰기: 고른 글 바로 아래 작은 메뉴 [인용] — 표 칸 메뉴와 같은 작은 상자·단추(높이는 .ed-ctx 공용 값). */
+.ed-qmenu{min-width:0;padding:2px}
+.ed-qmenu button{padding:0 var(--ds-compact-pad-x,12px)}
 .ProseMirror{position:relative;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces;-webkit-font-variant-ligatures:none;font-variant-ligatures:none;font-feature-settings:"liga" 0}
 .ProseMirror pre{white-space:pre-wrap}
 .ProseMirror li{position:relative}

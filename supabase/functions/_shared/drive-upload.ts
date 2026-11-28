@@ -386,6 +386,73 @@ export function createDriveUpload(
       throw e;
     }
   }
+  // MCP-Claude쓰기 ③(설계 docs/design/mcp-claude-write.md 11.2 나): 붙일 Drive 파일이 '내 드라이브의 내 소유 보통 파일'인지만 읽는다.
+  // 원본은 읽기만 한다(이름·위치·권한·내용을 바꾸는 요청 없음). 공유 드라이브·남의 파일·공유받은 파일·폴더·Google 문서 원본은 거절.
+  async function ownedFileInfo(
+    id: string,
+    token: string,
+    maxBytes: number,
+  ): Promise<{ id: string; name: string; mimeType: string; size: number }> {
+    if (!validId(id)) throw new UploadError(400, "drive_file_invalid", "drive_file");
+    const r = await driveFetch(
+      "drive_file",
+      `https://www.googleapis.com/drive/v3/files/${
+        encodeURIComponent(id)
+      }?fields=id,name,mimeType,size,ownedByMe,trashed,driveId`,
+      { headers: auth(token) },
+    );
+    if (r.status === 404 || r.status === 403) {
+      throw new UploadError(404, "drive_file_not_found", "drive_file");
+    }
+    if (!r.ok) throw unavailable("drive_file");
+    const f = await bodyJson(r);
+    if (f.id !== id || f.trashed !== false) {
+      throw new UploadError(404, "drive_file_not_found", "drive_file");
+    }
+    if (f.ownedByMe !== true || f.driveId) {
+      throw new UploadError(403, "drive_file_not_owned", "drive_file");
+    }
+    const mime = typeof f.mimeType === "string" ? f.mimeType : "";
+    if (
+      !mime || mime.startsWith("application/vnd.google-apps.") ||
+      !/^[^/\s]{1,127}\/[^/\s]{1,127}$/.test(mime)
+    ) throw new UploadError(400, "drive_file_type", "drive_file");
+    const size = Number(f.size);
+    if (!/^[0-9]{1,12}$/.test(String(f.size ?? "")) || size <= 0) {
+      throw new UploadError(400, "drive_file_type", "drive_file");
+    }
+    if (size > maxBytes) throw new UploadError(413, "file_too_large", "drive_file");
+    const name = typeof f.name === "string" ? f.name : "";
+    if ([...name].length < 1 || [...name].length > 255) {
+      throw new UploadError(400, "file_metadata_invalid", "drive_file");
+    }
+    return { id, name, mimeType: mime, size };
+  }
+  // 복사본 하나를 Web2 첨부 폴더에 만든다(원본은 그대로). 실패 정리는 upload와 같은 discardUploadedFile.
+  async function copyInto(
+    id: string,
+    name: string,
+    folder: string,
+    token: string,
+  ): Promise<string> {
+    if (!validId(id) || !validId(folder)) {
+      throw new UploadError(400, "drive_file_invalid", "drive_copy");
+    }
+    const r = await driveFetch(
+      "drive_copy",
+      `https://www.googleapis.com/drive/v3/files/${
+        encodeURIComponent(id)
+      }/copy?fields=id`,
+      {
+        method: "POST",
+        headers: { ...auth(token), "Content-Type": "application/json; charset=UTF-8" },
+        body: JSON.stringify({ name, parents: [folder] }),
+      },
+    );
+    const d = await bodyJson(r);
+    if (!r.ok || !validId(d.id) || d.id === id) throw unavailable("drive_copy");
+    return d.id;
+  }
   return {
     driveToken,
     createFolder,
@@ -394,5 +461,7 @@ export function createDriveUpload(
     boardPhotoFolder,
     upload,
     discardUploadedFile,
+    ownedFileInfo,
+    copyInto,
   };
 }

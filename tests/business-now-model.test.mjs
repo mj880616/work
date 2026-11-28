@@ -91,7 +91,8 @@ test('구조: 사업요약 칸은 지금 상황 표·사업 기록 표만 쓰고
   assert.doesNotMatch(data, /'progress'/); // 옮긴 줄(progress)은 SQL만
   // 전환 주 앞 주는 옛 임시저장 읽기만, 전환 주부터 지금 상황.
   assert.match(table, /const fresh=isWeek\(from,to\)&&!kit\.NM\.isOldWeek\(from\);/);
-  assert.match(table, /if\(state\.now\)return saveNowEdit\(ed,field,ref\);/);
+  // WEEKLY-화면정돈 ②: 묶음 칸(사업영역 자기 칸 + 세부 과제 칸)은 칸 전체 글상자 저장(saveAreaCell), 그 밖은 칸 하나(saveNowEdit) — 둘 다 지금 상황 표만.
+  assert.match(table, /if\(state\.now\)return ed\.kind==='progress'&&state\.groupRefs\?\.get\(ed\.row\)\?saveAreaCell\(ed,field\):saveNowEdit\(ed,field,ref\);/);
   // 업데이트 [사업]: 확정 연결이 된 뒤 같은 저장에서 사업 기록 한 줄(source_kind update, 원래 메모 id).
   assert.match(upd, /if \(!linkError\) await addBusinessRecord\(note, list, text, rt\);/);
   assert.match(upd, /source_kind:'update', source_id:note\.id/);

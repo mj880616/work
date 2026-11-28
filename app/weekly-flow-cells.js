@@ -234,7 +234,7 @@ export function paintFlowCells(slot, ctx) {
   function editForm(cell, value, data, aria) {
     const f = el('span', 'journal-file-edit weekly-flow-edit');
     const input = lineField(doc, {value, maxLength: CELL_LINE_MAX}); input.dataset.flowInput = cell; input.setAttribute('aria-label', aria); input.disabled = !!ui.busy;
-    const cancel = btn('취소', {flowCancel:cell}); const save = btn('저장', data, 'mini primary'); cancel.disabled = save.disabled = !!ui.busy;
+    const cancel = btn('취소', {flowCancel:cell}, 'row-act'); const save = btn('저장', data, 'mini primary'); cancel.disabled = save.disabled = !!ui.busy;
     f.append(input, ' ', cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return f;
   }

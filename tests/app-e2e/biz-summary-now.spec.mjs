@@ -7,6 +7,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {installBusinessNowServer} from './helpers/business-now-server.mjs';
+import {editCell,cellMenu,holdCell,cellAct} from './helpers/cell-menu.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',NOW='2026-11-17T01:00:00Z',FROM='2026-11-09',W='2026-11-16';
@@ -75,7 +76,7 @@ for(const width of [390,884,1280])test(`${width}px: 사업요약표 지금 상�
   await expect(list).toContainText('- 11.18. 합성 사업 기록 줄');
   await expect(list).not.toContainText('지난주');
   // ② 이번 주에 고치면 이번 주 행이 새로 생기고(담당은 앞 행에서 이어 받음), 전환 주 행은 그대로.
-  await task.locator('[data-bp-cell="progress"]').click();
+  await editCell(page,task.locator('[data-bp-cell="progress"]'));
   const field=task.locator('textarea[data-bp-field]');
   await expect(field).toBeFocused();
   await expect(field).toHaveValue('- 합성 지난 상황');
@@ -86,7 +87,7 @@ for(const width of [390,884,1280])test(`${width}px: 사업요약표 지금 상�
   expect(db.writes.at(-1)).toMatchObject({m:'POST',workspace_id:s.workspace.id,space_id:'child-a1',week_start:W,body:'합성 이번 주 상황',owner_text:'합성 담당'});
   expect(db.now.find(r=>r.space_id==='child-a1'&&r.week_start===FROM).body).toBe('- 합성 지난 상황');
   // 같은 주 담당만 고치면 이번 주 행만 고친다.
-  await task.locator('[data-bp-cell="owner"]').click();
+  await editCell(page,task.locator('[data-bp-cell="owner"]'));
   await task.locator('input[data-bp-field]').fill('합성 새 담당');
   await task.locator('input[data-bp-field]').press('Enter');
   await expect(task.locator('[data-bp-box="owner"]')).toContainText('합성 새 담당');
