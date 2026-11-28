@@ -345,7 +345,8 @@ begin
   -- 부른 사람(basket-files가 Auth로 확인한 사용자)이 그 기록 작업공간의 owner, 허용·스위치가 아직 켜져 있음.
   if not exists (select 1 from public.app_workspace_members m
                   where m.workspace_id = v_log.workspace_id and m.user_id = p_user_id and m.role = 'owner')
-     or not private.app_workspace_has_feature(v_log.workspace_id, 'mcp_write') then
+     -- 서버 키 호출이라 auth.uid()가 없다: 운영자 기능은 허용 표를 직접 본다(private.app_workspace_has_feature는 부른 사람 owner 확인을 겸함).
+     or not exists (select 1 from public.app_operator_features f where f.workspace_id = v_log.workspace_id and f.feature = 'mcp_write') then
     raise exception using errcode = 'PT403', message = 'NOT_ALLOWED';
   end if;
   select s.* into v_s from public.app_mcp_settings s where s.workspace_id = v_log.workspace_id for update;
