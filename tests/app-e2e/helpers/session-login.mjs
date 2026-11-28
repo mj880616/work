@@ -11,6 +11,8 @@ export async function signInWithSession(page,email='qa@example.org'){
     data.expires_at=data.expires_at||Math.floor(Date.now()/1000)+(data.expires_in||3600);
     window.KPTURuntime.session.write(data);
     const target=window.KPTUAuth.safeReturn(new URLSearchParams(location.search).get('return'));
-    location.replace(target);
+    // 이동은 이 호출이 값을 돌려준 다음 틱에 한다 — 같은 호출 안에서 바로 이동하면 이동이 먼저 확정될 때
+    // 'Execution context was destroyed'로 호출 자체가 실패한다(STAB-로그인이동경합, 시험이 겹쳐 돌 때 간헐).
+    setTimeout(()=>location.replace(target),0);
   },email);
 }
