@@ -61,7 +61,6 @@ const SHORT_OR_OTHER = {
   'markdown-render.mjs': '글 안 할 일 표시(읽기 전용)',
   'suborganizations.js': '일정의 관련 담당조직은 내 담당만(짧음), 담당자 선택은 사람 몇 명',
   'task-row-view.js': '할 일 완료 체크',
-  'now-detail.js': '읽을 거리 원문 [수정] 칸(S71-68 ②): 원문 문단마다 지울지 선택(선택한 문단 삭제) — 고르는 목록이 아니라 그 글 문단 목록 자체',
   'settings-list.mjs': "공용 설정 줄(UI-설정줄, S71-36)의 스위치 한 칸 — 설정 화면의 켜기·끄기(알림 종류·홈 칸·백업할 것·Claude 연결)이지 고르는 목록이 아님",
 };
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? walk(p) : [p]; });
