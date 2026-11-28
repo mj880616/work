@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { pickInSheet } from './helpers/folder-sheet.mjs';
 
@@ -110,31 +110,12 @@ for (const width of WIDTHS) test(`노트 입력 줄: 입력칸·폴더 아이콘
 });
 
 // 같은 부품을 쓰는 다른 입력 줄: 칸 밖 단추와 입력칸이 같은 높이, 클립은 칸 안.
-for (const width of WIDTHS) test(`같은 입력 줄(홈·잊지 말기·[할 일])도 같은 높이 ${width}`, async ({ page }) => {
+for (const width of WIDTHS) test(`같은 입력 줄([할 일])도 같은 높이 ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
-  // 홈: 글을 쓰면 [추가]가 보인다(폰은 [종류 ▾]도 같은 줄).
-  const home = '#homeView [data-home-quick]';
-  await page.locator(`${home} [data-quick-input]`).fill('가상 메모');
-  let b = await rowBoxes(page, home);
-  sameHeight(b, width < 761 ? ['input', 'save', 'kind'] : ['input', 'save']);
-  expect(b.outsideClip).toBe(false); expect(inside(b.clip, b.input)).toBe(true);
-  await page.locator(`${home} [data-quick-input]`).fill('');
-  // 홈 [할 일] 모드.
-  await pickQuickMode(page, 'task');
-  await page.locator(`${home} [data-quick-input]`).fill('가상 할 일');
-  b = await rowBoxes(page, home);
-  sameHeight(b, ['input', 'save']);
-  await page.locator(`${home} [data-quick-input]`).fill('');
-  // 잊지 말기.
-  await page.evaluate(() => window.KPTURouter.go('basket'));
-  await chooseBasketKind(page, 'memo');
-  const forget = '#basketView .home-quick[data-home-quick]';
-  await expect(page.locator(`${forget} [data-quick-input]`).first()).toBeVisible();
-  b = await rowBoxes(page, forget);
-  sameHeight(b, ['input', 'save']);
-  expect(b.outsideClip).toBe(false); expect(inside(b.clip, b.input)).toBe(true);
+  // QUICK-입력정리(2026-11-28): 홈·잊지 말기 손 입력칸은 지웠다 — [할 일] 화면 입력 줄을 본다.
+  let b;
   // [할 일] 화면.
   await page.evaluate(() => window.KPTURouter.go('tasks'));
   const tasks = '#tasksView .home-quick[data-home-quick]';

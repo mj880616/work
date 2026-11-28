@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { openHome, pickQuickMode } from './helpers/home-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UPD-그림붙여넣기: Ctrl+V of a picture and dropping a file take the same road as the clip in every input with attachments.
 // A paste/drop only fills the file list (preview rows with ×); nothing is saved until [추가].
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -28,7 +29,11 @@ for (const width of [412, 1440]) test(`paste and drop fill the attach list in ev
   await openHome(page, {beforeLoad: () => page.route('**/rest/v1/app_task_attachments**', r => r.fulfill({json: []}))});
   await page.route(SB + '/rest/v1/app_notes**', r => r.request().method() === 'GET' ? r.fulfill({json: []}) : r.fallback());
 
-  const home = page.locator('#homeView [data-home-quick]');
+  // QUICK-입력정리(2026-11-28): 홈·잊지 말기 손 입력칸은 지웠다 — 같은 고르기 부품의 노트 입력칸(20개까지)으로 본다.
+  await page.evaluate(() => window.KPTURouter.go('basket'));
+  await chooseBasketKind(page, 'note');
+  const home = page.locator('#basketView [data-note-list] [data-home-quick]');
+  await expect(home).toBeVisible();
   const input = home.locator('[data-quick-input]');
   const rows = home.locator('[data-basket-file]');
   // 1. a picture alone: goes in the list, no letters, named by the minute.
@@ -63,20 +68,6 @@ for (const width of [412, 1440]) test(`paste and drop fill the attach list in ev
   await expect(home.locator('[data-quick-status]')).toContainText('20개');
 
   while (await rows.count()) await rows.first().locator('[data-basket-remove]').click();
-  // 8. the 할 일 mode of the same box (task-file table answered empty) takes it too.
-  await pickQuickMode(page,'task');
-  await expect(home.locator('[data-quick-file-picker]')).toBeVisible();
-  await pasteInto(input, {files: [shot]});
-  await expect(home.locator('[data-basket-file]')).toHaveCount(1);
-
-  // 9. the 노트 입력 on the basket note list.
-  await page.evaluate(() => window.KPTURouter.go('basket'));
-  const basket = page.locator('#basketView [data-home-quick]:visible').first();
-  await pasteInto(basket.locator('[data-quick-input]'), {files: [shot]});
-  await expect(basket.locator('[data-basket-file]')).toHaveCount(1);
-  await expect(basket.locator('[data-basket-file] b')).toHaveText(NAME);
-
-  await basket.locator('[data-basket-remove]').click();
   // 10. the [할 일] screen's own input.
   await page.evaluate(() => window.KPTURouter.go('tasks'));
   const tasks = page.locator('#tasksView .home-quick[data-home-quick]');
