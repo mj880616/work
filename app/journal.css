@@ -139,6 +139,9 @@
 #appView #homeView [data-journal-weekly-chapter] .weekly-flow-label b{ font-weight:var(--ds-weight-strong); color:inherit; }
 #appView #homeView [data-journal-weekly-chapter] .weekly-flow-cell > .weekly-flow-lines{ padding-left:var(--ds-weekly-indent); }
 #appView #homeView [data-journal-weekly-chapter] .journal-weekly-table thead th{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-strong); color:var(--ds-weekly-h3-ink); }
+/* 4. 산하조직 현황 표(weekly-org-lines.css .wl-weekly)의 조직 이름·머리 칸도 같은 (1) 단계 — 3. 사업장 이름과 같은 모양(WEEKLY-조직이름한줄 '3장과 같은 글자 눈금'). */
+#appView #homeView [data-journal-weekly-chapter] .wl-table.wl-weekly .wl-org,
+#appView #homeView [data-journal-weekly-chapter] .wl-table.wl-weekly thead th{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-strong); color:var(--ds-weekly-h3-ink); }
 #appView #homeView .journal-weekly-part{ display:flex; flex-direction:column; gap:4px; }
 /* WEEKLY-화면정돈 ①(명진 11/28 '폰트크기 들쑥날쑥', docs/design/approved/weekly-tidy.md): 주간 보고 글자는 네 단계뿐 — 큰 제목(1.~5.) --ds-text-head,
    소제목(1) 요약 등) --ds-text-row 굵게·흐린 색, 줄 글자 --ds-text-row, 날짜·보조 --ds-text-meta. 칸 이름(사업장·조직·사업영역 › 세부 과제)은 줄 글자 크기·흐린 색. */

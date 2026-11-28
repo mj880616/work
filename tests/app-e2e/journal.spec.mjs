@@ -5091,15 +5091,18 @@ for(const width of [390,884,1280])test(`WEEKLY-손잡이왼쪽: 2) 주요 일정
 const LONG_ORG='나 지역 아주 긴 이름의 가상 산하 조직 모임';
 // WEEKLY-화면정돈 ④: PC는 확정 칸이 오른쪽으로 가 4장 칸이 넓어졌다 — 칸 폭(45%)을 넘는 이름은 더 길게.
 const LONGER_ORG='나 지역 아주 아주 긴 이름의 가상 산하 조직 연합 모임 본부';
+// WEEKLY-제목서식 ②: PC에서 4장이 전체 폭이 되어 [조직] 칸(표 폭 45% 안)이 넓어졌다 — 넘치는 이름 확인은 더 긴 가짜 이름으로.
+const LONGEST_ORG=`${LONGER_ORG} 상설 협의 위원회 사무처 지원단 가상 분과`;
 for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 이름은 3장과 같은 작은 글자 한 줄, 칸 폭 끌기는 서버 저장 ${width}`,async({page})=>{
  const prefs=await installViewPrefsServer(page);
  const f=await weekLinesFixture(page,{width,hwpx:true,team:{sites:[{org:['가상 노동조합'],status:['- 지난주 현황 줄']}]}});
- for(const o of f.more.orgs)if(o.id===OB)o.name=width>=1200?LONGER_ORG:LONG_ORG;
+ const longName=width>=1200?LONGEST_ORG:width>=761?LONGER_ORG:LONG_ORG;
+ for(const o of f.more.orgs)if(o.id===OB)o.name=longName;
  await openJournal(page,width);await openWeekly(page);await openDraft(page);
  const a=orgRow(page,OA),b=orgRow(page,OB);
  // ORG-기록하나로 O-6: 옛 주 4.도 조직보고 창(읽기 전용) — 이름 줄은 이름만(⋯·'· 빈 칸' 없음), 줄 없는 조직 칸은 '—'.
  await expect(b.locator('.wl-empty')).toHaveCount(1);
- const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-name').first();
+ const siteName=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-label b').first(); // WEEKLY-제목서식: 둘 다 (1) 단계 모양
  const siteLine=page.locator('#journalRoot [data-weekly-flow-cells="sites"] .weekly-flow-lines > li').first();
  const look=l=>l.evaluate(e=>{const s=getComputedStyle(e);return {size:s.fontSize,weight:s.fontWeight};});
  // ① 글자 눈금: 조직 이름 = 3장 사업장 이름, 조직현황 글 = 3장 줄.
@@ -5111,9 +5114,9 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   const mid=parts.map(p=>(p.t+p.b)/2);expect(Math.max(...mid)-Math.min(...mid)).toBeLessThan(6);
  }
  const name=b.locator('.wl-org');
- await expect(name).toHaveAttribute('title',width>=1200?LONGER_ORG:LONG_ORG);
+ await expect(name).toHaveAttribute('title',longName);
  expect(await name.evaluate(e=>getComputedStyle(e).whiteSpace)).toBe('nowrap');
- if(width>=1200){ // 표 모양은 4장 칸이 넓은 PC만(S52-42: 폴드 펼침은 3장·4장이 나란해 칸이 좁아 폰처럼 쌓는다)
+ if(width>=761){ // 표 모양은 4장 칸이 넓을 때(PC·폴드 펼침). WEEKLY-제목서식 ②: 3장·4장이 위아래 한 칸이 되어 폴드 펼침도 4장 칸이 넓다(옛 S52-42는 나란해 좁았음)
   expect(await name.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(true); // 넘치는 이름은 끝 …
   expect(await name.evaluate(e=>getComputedStyle(e).textOverflow)).toBe('ellipsis');
   // ③ 칸 폭: 처음엔 가장 긴 이름 줄에 맞춘 폭(표 폭 45% 안), 짧은 이름 줄은 다 보임.
@@ -5137,7 +5140,7 @@ for(const width of [390,884,1280])test(`WEEKLY-조직이름한줄: 4장 조직 �
   // 5. 주요 일정 표는 보고 캘린더가 정해진 때만 있다(이 흉내 서버는 설정 없음) — 표가 있으면 [일] 손잡이도 있다.
   await expect(page.locator('#journalRoot [data-col-grip="cal_day"]')).toHaveCount(await page.locator('#journalRoot table.journal-weekly-schedule').count());
  }else{
-  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰·폴드(좁은 4장 칸)는 머리줄 없음 — 끌기 없음
+  await expect(orgTable(page).locator('[data-col-grip]')).toBeHidden(); // 폰(좁은 4장 칸)은 머리줄 없음 — 끌기 없음
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
@@ -5170,14 +5173,14 @@ for(const width of [412,884,1440])test(`WEEKLY-조직현황폰다시: 폰은 조
  const geo=()=>orgTable(page).evaluate((t,[oa,ob])=>{const r=s=>{const e=t.querySelector(s);if(!e)return null;const b=e.getBoundingClientRect();return {l:b.left,r:b.right,w:b.width};};
   const A=`[data-wl-org-row="${oa}"]`,B=`[data-wl-org-row="${ob}"]`;
   return {line:r(`${A} .wl-org-line`),lineB:r(`${B} .wl-org-line`),cell:r(`${A} td.wl-c-rows`),sug:r(`${A} .wl-line`),head:r('thead th.wl-c-org')};},[OA,OB]);
- if(width<1200){
-  // 폰·폴드 펼침(3장·4장이 나란해 4장 칸이 좁음): 표 대신 쌓기. 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음).
+ if(width<761){
+  // 폰(4장 칸이 좁음): 표 대신 쌓기. WEEKLY-제목서식 ②: 폴드 펼침은 3장·4장이 위아래 한 칸이라 4장 칸이 넓어 표(아래). 이름 줄 = 소식 줄 폭·같은 들여쓰기(저장된 290px·이름 맞춤 폭에 갇히지 않음).
   await expect.poll(async()=>{const g=await geo();return g.line&&g.cell&&g.sug&&g.line.w>0?Math.max(Math.abs(g.line.w-g.cell.w),Math.abs(g.line.l-g.sug.l),Math.abs(g.lineB.w-g.cell.w)):99;}).toBeLessThan(4);
   // 긴 이름도 화면 폭 안에 들면 … 없음(넘칠 때만 …).
   for(const row of [a,b])expect(await row.locator('.wl-org').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
  }else{
-  // PC: 표 그대로 — [조직] 칸은 저장된 폭(PC 180), 오른쪽 [조직현황] 칸은 따로.
-  await expect.poll(async()=>Math.round((await geo()).head?.w??0)).toBe(180);
+  // PC·폴드 펼침: 표 그대로 — [조직] 칸은 그 화면 종류에 저장된 폭(PC 180·폴드 290), 오른쪽 [조직현황] 칸은 따로.
+  await expect.poll(async()=>Math.round((await geo()).head?.w??0)).toBe(width>=1200?180:290);
   await expect.poll(async()=>{const g=await geo();return g.cell&&g.line&&g.cell.w>0?g.cell.l-g.line.r:-1;}).toBeGreaterThan(0);
  }
  await page.screenshot({path:info.outputPath(`weekly-org-again-${width}.png`),fullPage:true});
