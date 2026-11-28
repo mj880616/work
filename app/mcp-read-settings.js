@@ -5,9 +5,10 @@
 // - 기록: app_mcp_read_log SELECT만(owner). 최근 10줄(언제·어떤 도구·결과)과 이번 달 호출 수. 검색어·내용은 기록에 없다.
 // - MCP-Claude쓰기(설계 docs/design/mcp-claude-write.md 5.2): 서버 허용 표에 mcp_write가 있는 계정만 [Claude 쓰기] 스위치(write_enabled 하나만 저장)와
 //   접힌 '최근 Claude가 수정한 것'(app_mcp_write_log, 읽기 줄 빼고 20줄: 언제·무엇·글자 수)을 그린다. 줄을 누르면 되돌리기(app_mcp_write_undo, 일반 로그인만 통과).
+//   ③ 첨부 줄(파일 수·크기)의 되돌리기는 첨부 [삭제] 서버 길(document-actions trash-file) → app_mcp_attach_undone(일반 로그인만).
 //   허용 확인은 DB 문지기가 한다 — 칸을 그리는 것은 편의다. 쓰기 칸 자료를 못 읽으면(DB 적용 전 등) 쓰기 칸만 없다.
 // - 기기에는 아무것도 남기지 않는다(모두 서버 저장).
-import {settingsState, toolLabel, statusLabel, monthStartIso, COUNT_CAP, countText, AREAS, AREA_COLUMNS, writeLabel, writeChars, undoError} from './mcp-read-model.mjs';
+import {settingsState, toolLabel, statusLabel, monthStartIso, COUNT_CAP, countText, AREAS, AREA_COLUMNS, writeLabel, writeChars, undoError, isAttachRow, attachDone} from './mcp-read-model.mjs';
 import {hasFeature} from './my-features.js';
 import {formatSeoulTime} from './meeting-time.js';
 import {waitHtml, failHtml, emptyHtml} from './wait-state.js';
@@ -18,6 +19,10 @@ const SETTINGS = '/rest/v1/app_mcp_settings';
 const LOG = '/rest/v1/app_mcp_read_log';
 const WLOG = '/rest/v1/app_mcp_write_log';
 const UNDO = '/rest/v1/rpc/app_mcp_write_undo';
+// ③ 첨부 되돌리기: 기존 첨부 [삭제] 서버 길(document-actions trash-file — 그 노트에서 떼고 이 앱 파일이면 Drive 휴지통)을 부른 뒤 되돌림 표시.
+const FILE_TRASH = '/functions/v1/document-actions';
+const ATTACH_UNDONE = '/rest/v1/rpc/app_mcp_attach_undone';
+const WFIELDS = 'id,called_at,kind,action,chars_before,chars_after,undone_at';
 const WRECENT = 20;
 const RECENT = 10;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -46,8 +51,8 @@ export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () =>
       if (writesFailed) wlog = failHtml({retry: 'data-mw-retry'});
       else if (!writes) wlog = waitHtml({rows: 2});
       else if (!writes.length) wlog = emptyHtml();
-      else wlog = `<ol class="mr-log">${writes.map(r => r.undone_at
-        ? infoRow({label: writeLabel(r), desc: `${when(r.called_at)} · ${writeChars(r)}`, sum: '되돌림'})
+      else wlog = `<ol class="mr-log">${writes.map(r => r.undone_at || (isAttachRow(r) && !attachDone(r))
+        ? infoRow({label: writeLabel(r), desc: `${when(r.called_at)} · ${writeChars(r)}`, sum: r.undone_at ? '되돌림' : ''})
         : actionRow({label: writeLabel(r), desc: `${when(r.called_at)} · ${writeChars(r)}`, sum: '되돌리기', disabled: busy, attrs: {'data-mw-undo': r.id}})).map(row => `<li>${row}</li>`).join('')}</ol>`;
     }
     host.innerHTML = groupHtml([
@@ -102,9 +107,23 @@ export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () =>
     if (undoBtn) {
       const id = undoBtn.getAttribute('data-mw-undo');
       if (busy || !write || !id) return;
-      if (!(await askConfirm(undoBtn, {text: 'Claude가 한 이 일을 되돌릴까요?', note: '새로 쓴 노트·업데이트는 휴지통으로, 수정한 글은 수정 전으로 돌아가요.', ok: '되돌리기'}))) return;
+      const row = (writes || []).find(r => r.id === id);
+      const attach = isAttachRow(row);
+      if (attach && !attachDone(row)) return;
+      if (!(await askConfirm(undoBtn, attach
+        ? {text: 'Claude가 붙인 파일을 뺄까요?', note: '노트에서 떼고 파일은 Drive 휴지통으로 가요(30일 안에 되살릴 수 있어요).', ok: '되돌리기'}
+        : {text: 'Claude가 한 이 일을 되돌릴까요?', note: '새로 쓴 노트·업데이트는 휴지통으로, 수정한 글은 수정 전으로 돌아가요.', ok: '되돌리기'}))) return;
       busy = true; error = ''; render();
-      try { await rt.api(UNDO, {method: 'POST', body: {p_log_id: id}, singleFlight: false}); } catch (err) { error = undoError(err); }
+      try {
+        if (attach) {
+          // 파일마다 첨부 [삭제] 길로 떼기(이미 빠졌으면 그 거절은 넘어감) → 서버가 '더는 안 붙어 있음'을 확인하고 되돌림 표시.
+          for (const f of row.files) {
+            try { await rt.api(FILE_TRASH, {method: 'POST', body: {action: 'trash-file', target: 'note', id: row.target_id, drive_file_id: f.drive_file_id}, refreshSession: false, singleFlight: false}); }
+            catch { /* 이미 뗀 파일 — 아래 확인이 판정한다 */ }
+          }
+          await rt.api(ATTACH_UNDONE, {method: 'POST', body: {p_log_id: id}, singleFlight: false});
+        } else await rt.api(UNDO, {method: 'POST', body: {p_log_id: id}, singleFlight: false});
+      } catch (err) { error = undoError(err); }
       busy = false;
       await loadWrites();
       return;
@@ -133,7 +152,10 @@ export function mountMcpReadSettings(host, {rt = window.KPTURuntime, now = () =>
   async function loadWrites() {
     writesFailed = false; writes = null; render();
     try {
-      const rows = await rt.api(`${WLOG}?select=id,called_at,kind,action,chars_before,chars_after,undone_at&action=neq.read&order=called_at.desc&limit=${WRECENT}`, {singleFlight: false});
+      const list = fields => rt.api(`${WLOG}?select=${fields}&action=neq.read&order=called_at.desc&limit=${WRECENT}`, {singleFlight: false});
+      // ③ 첨부 칸(files·file_bytes·target_id)이 아직 없으면(DB 적용 전) 1판 칸만 읽는다.
+      let rows;
+      try { rows = await list(`${WFIELDS},target_id,files,file_bytes`); } catch { rows = await list(WFIELDS); }
       writes = Array.isArray(rows) ? rows : [];
     } catch { writesFailed = true; }
     render();

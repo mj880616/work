@@ -75,11 +75,11 @@ async function readCapped(req: Request, max: number): Promise<string | null> {
   return new TextDecoder().decode(all);
 }
 
-function decodeBase64(text: string): Uint8Array | null {
+function decodeBase64(text: string): Uint8Array<ArrayBuffer> | null {
   if (!B64.test(text) || text.length % 4 !== 0) return null;
   try {
     const bin = atob(text);
-    const out = new Uint8Array(bin.length);
+    const out = new Uint8Array(new ArrayBuffer(bin.length));
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   } catch {
