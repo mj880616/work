@@ -608,7 +608,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       onTextAdd:text => boardLinks.addText(text), onTextChange:(id, patch) => { void boardLinks.updateText(id, patch); }, onTextsChange:list => { void boardLinks.updateTexts(list); },
       onTextRemove:id => { void boardLinks.removeText(id); },
       // S70-03 고른 것 한 번에 지우기(Delete·Backspace·우클릭 [삭제]): 상자(아래 가지째)·선·카드(보드에서 빼기).
-      // 화면이 바뀌는 그 자리에서 {undo, saved}를 바로 돌려준다(못 하면 null) — 서버 답을 기다렸다가 되돌리기를 올리면 그사이 누른 Ctrl+Z가 버려진다(#3313).
+      // 화면이 바뀌는 그 자리에서 {undo, saved}를 바로 돌려준다(못 하면 null) — 서버 답을 기다렸다가 되돌리기를 올리면 그사이 누른 Ctrl+Z가 버려진다(이슈 3313).
       // undo는 서버 지우기가 끝난 뒤 되살린다. saved = 서버 지우기 성공 여부(실패면 이미 다시 불러왔으니 알림·되돌리기를 거둔다).
       onRemoveItems:({texts:textIds = [], links:linkIds = [], cards = []}) => {
         if (pick.active) return null;

@@ -600,7 +600,7 @@ export function mountNoteBoard(box, {esc, cardText, moreIcon, onMenu = () => {},
     if (textSel && ts.includes(textSel)) { textSel = null; closeBar(); }
     if (lineSel && ls.includes(lineSel)) closeLineMenu();
     multi = new Set(); if (selected && cards.some(c => c.id === selected)) select(null); paintSel();
-    // 화면이 바뀌는 그 자리에서 알림·되돌리기(Ctrl+Z)를 함께 올린다 — 서버 답을 기다리는 동안 누른 Ctrl+Z도 받는다(#3313).
+    // 화면이 바뀌는 그 자리에서 알림·되돌리기(Ctrl+Z)를 함께 올린다 — 서버 답을 기다리는 동안 누른 Ctrl+Z도 받는다(이슈 3313).
     // 서버 지우기가 실패하면(부르는 쪽이 이미 알리고 다시 불러옴) 알림과 되돌리기 기록을 거둔다.
     const asked = onRemoveItems({cards, texts:ts, links:ls});
     if (!asked) return false;
