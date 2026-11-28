@@ -127,6 +127,18 @@
 #appView #homeView .journal-weekly-body{ display:flex; flex-direction:column; gap:14px; }
 #appView #homeView .journal-weekly-chapter{ display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .journal-weekly-chapter > h4.journal-heading{ margin:0; font-size:var(--ds-text-head); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
+/* WEEKLY-제목서식(2026-11-28 사용자 결정 시안 A, docs/design/approved/weekly-tidy.md ③ — 앞 ①의 '글자 네 단계'를 고침): 제목 세 단계는 한글 양식처럼
+   색·크기로 — 1.(큰 제목) 붉은 갈색 굵게 가장 큼 / 1)(중간 제목) 네이비 굵게 / (1)(작은 제목 = 칸 이름·표 머리) 초록 약간 굵게 / 본문은 줄 글자(--ds-text-row).
+   선은 더하지 않는다. 단계마다 살짝 들여쓰기(--ds-weekly-indent): 1) 묶음은 1. 아래로 한 칸, 묶음 안 내용은 1) 아래로 한 칸, 칸 줄은 칸 이름 아래로 한 칸.
+   값은 theme-tokens.css 한 곳(--ds-weekly-*), 한글 파일로 내보내는 내용·서식은 그대로(화면 모양만). */
+#appView #homeView [data-journal-weekly-chapter] > h4.journal-heading{ font-size:var(--ds-weekly-h1-text); font-weight:700; color:var(--ds-weekly-h1-ink); }
+#appView #homeView [data-journal-weekly-chapter] > :not(h4){ margin-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] > .journal-weekly-part{ padding-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub{ margin-left:calc(-1 * var(--ds-weekly-indent)); font-size:var(--ds-weekly-h2-text); font-weight:700; line-height:1.4; color:var(--ds-weekly-h2-ink); }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-label{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-medium); color:var(--ds-weekly-h3-ink); }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-label b{ font-weight:var(--ds-weight-strong); color:inherit; }
+#appView #homeView [data-journal-weekly-chapter] .weekly-flow-cell > .weekly-flow-lines{ padding-left:var(--ds-weekly-indent); }
+#appView #homeView [data-journal-weekly-chapter] .journal-weekly-table thead th{ font-size:var(--ds-weekly-h3-text); font-weight:var(--ds-weight-strong); color:var(--ds-weekly-h3-ink); }
 #appView #homeView .journal-weekly-part{ display:flex; flex-direction:column; gap:4px; }
 /* WEEKLY-화면정돈 ①(명진 11/28 '폰트크기 들쑥날쑥', docs/design/approved/weekly-tidy.md): 주간 보고 글자는 네 단계뿐 — 큰 제목(1.~5.) --ds-text-head,
    소제목(1) 요약 등) --ds-text-row 굵게·흐린 색, 줄 글자 --ds-text-row, 날짜·보조 --ds-text-meta. 칸 이름(사업장·조직·사업영역 › 세부 과제)은 줄 글자 크기·흐린 색. */
@@ -354,19 +366,10 @@
   #appView #homeView .journal-weekly-schedule .journal-weekly-owner:has(.row-more){ display:block; position:absolute; right:0; top:4px; padding:0; }
   #appView #homeView .journal-weekly-schedule .journal-weekly-what{ padding-right:28px; }
 }
-/* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
-@media(min-width:761px){
-  #appView #homeView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
-  /* S52-34 UI-전체정리(주간 정리): '■ 일시 … ⋯' 줄이 두 칸 중 왼쪽 칸에만 있어 ⋯이 화면 가운데에 떠 있던 것 → 두 칸 폭 전체, ⋯은 오른쪽 끝. */
-  #appView #homeView .journal-weekly-body > .weekly-flow-top{ grid-column:1 / -1; }
-  /* WEEKLY-처음시작고르기: 바탕 없는 사람의 상자(처음 고르기·양식 수정·내 양식 초안)는 왼쪽 칸에만 붙어 오른쪽이 비던 것 → 두 칸 폭 전체. */
-  #appView #homeView .journal-weekly-body > .journal-weekly-blank{ grid-column:1 / -1; }
-  #appView #homeView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
-  #appView #homeView .journal-weekly-date{ grid-column:1/-1; }
-  #appView #homeView .journal-weekly-body > .weekly-flow-confirm-slot{ grid-column:1/-1; }
-}
+/* WEEKLY-제목서식 ②(2026-11-28 사용자 결정 "3번과 4번 좌우 말고 위아래로 해줘"): PC(761px부터)에서 3·4·5번을 두 칸 격자로 나란히 두던 배치를 없앴다 —
+   본문은 PC·폰 모두 한 칸(전체 폭, 위 .journal-weekly-body 세로 쌓기). weekly-tidy.md ② 결정 3번 '본문 한 칸'과 같다. 격자 밑에 남아 있던 닫는 괄호 하나
+   (옛 오른쪽 확정 칸 묶음의 짝 잃은 '}')도 함께 지웠다 — 그 괄호 때문에 바로 뒤 '.journal-tasks' 규칙이 통째로 무시되고 있었다. */
 /* WEEKLY-화면정돈 ②(명진 11/28 결정): 본문은 PC·폰 모두 한 칸(전체 폭). 앞 ④의 PC 오른쪽 확정 칸은 없앴다 — 확정은 화면 아래 고정 막대(아래 '확정 막대'). */
-}
 
 /* JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): 하루 카드 = 오늘 한 줄 → 할 일 / 한 일 → 챙길 것(todo-radar.css) → 주간보고 재료
    (회의·활동 결과 → 사업 소식 → 조직 소식) → 그 밖의 기록(접힘, 개수 한 줄). 할 일 / 한 일은 761px부터 좌우, 폰은 위아래.

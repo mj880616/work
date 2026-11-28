@@ -3729,19 +3729,21 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  await page.evaluate(()=>scrollTo(0,0));
  const vb=await bar.boundingBox(),vh=page.viewportSize().height;
  expect(vb.y+vb.height).toBeLessThanOrEqual(vh);expect(vb.y).toBeGreaterThan(vh/2);
- // 글자 네 단계: 보이는 글자 크기는 큰 제목·줄 글자(소제목 포함)·날짜 값뿐. 3·4번 제목 같은 크기, 칸 이름도 같은 크기.
+ // 글자 단계(WEEKLY-제목서식이 '네 단계'를 고침): 보이는 글자 크기는 1.·1)·(1) 제목·줄 글자·날짜 값뿐. 3·4번 제목 같은 크기, 칸 이름도 같은 크기.
  const look=await page.evaluate(()=>{
   const px=v=>{const e=document.createElement('span');e.style.fontSize=`var(${v})`;document.body.append(e);const r=getComputedStyle(e).fontSize;e.remove();return r;};
   const root=document.querySelector('#journalRoot [data-journal-weekly]'),sizes=new Set();
   for(const e of root.querySelectorAll('*')){if(!e.getClientRects().length||e.closest('.row-more summary'))continue;if(![...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()))continue;sizes.add(getComputedStyle(e).fontSize);}
   const fs=sel=>[...root.querySelectorAll(sel)].filter(e=>e.getClientRects().length).map(e=>getComputedStyle(e).fontSize);
-  return {sizes:[...sizes],allowed:[px('--ds-text-head'),px('--ds-text-row'),px('--ds-text-meta'),px('--ds-compact-text')],
-   heads:fs('[data-journal-weekly-chapter] > h4'),subs:fs('.journal-weekly-sub'),siteName:fs('[data-weekly-flow-cells="sites"] .weekly-flow-label b'),
-   siteLine:fs('[data-weekly-flow-cells="sites"] .weekly-flow-text'),row:px('--ds-text-row'),head:px('--ds-text-head')};
+  return {sizes:[...sizes],allowed:[px('--ds-weekly-h1-text'),px('--ds-weekly-h2-text'),px('--ds-weekly-h3-text'),px('--ds-text-row'),px('--ds-text-meta'),px('--ds-compact-text')],
+   heads:fs('[data-journal-weekly-chapter] > h4'),subs:fs('[data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub'),siteName:fs('[data-weekly-flow-cells="sites"] .weekly-flow-label b'),
+   siteLine:fs('[data-weekly-flow-cells="sites"] .weekly-flow-text'),row:px('--ds-text-row'),h1:px('--ds-weekly-h1-text'),h2:px('--ds-weekly-h2-text'),h3:px('--ds-weekly-h3-text')};
  });
  for(const size of look.sizes)expect(look.allowed).toContain(size);
- expect(new Set(look.heads)).toEqual(new Set([look.head]));
- expect(new Set([...look.subs,...look.siteName,...look.siteLine])).toEqual(new Set([look.row]));
+ expect(new Set(look.heads)).toEqual(new Set([look.h1]));
+ expect(new Set(look.subs)).toEqual(new Set([look.h2]));
+ expect(new Set(look.siteName)).toEqual(new Set([look.h3]));
+ expect(new Set(look.siteLine)).toEqual(new Set([look.row]));
  // 줄 입력: 입력칸·[취소](글자 단추)·[저장](작은 버튼)이 한 줄.
  const c=flowCell(page,'사업영역 가 › 세부 과제 가-1');
  await c.getByRole('button',{name:'사업영역 가 › 세부 과제 가-1 칸에 줄 추가'}).click();
@@ -3757,6 +3759,73 @@ for(const width of [412,1280])test(`WEEKLY-화면정돈 ②: 아래 확정 막�
  await expect(cancel).toHaveClass(/\brow-act\b/); // [취소] = 공용 글자 단추(③)
  expect(st[0].bg).toBe('rgba(0, 0, 0, 0)');expect(st[1].bg).not.toBe('rgba(0, 0, 0, 0)');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+// WEEKLY-제목서식(2026-11-28 사용자 결정 시안 A, docs/design/approved/weekly-tidy.md ③): 1.(큰 제목) 붉은 갈색 굵게 > 1)(중간 제목) 네이비 굵게 >
+// (1)(작은 제목 = 칸 이름·표 머리) 초록 > 본문 줄 글자. 색은 테마와 관계없이 고정(어두운 바탕은 밝은 판), 대비 4.5:1 이상. 단계마다 살짝 들여쓰기.
+// ② "3번과 4번 좌우 말고 위아래로": PC에서도 3·4(와 나머지 모든 장)는 같은 왼쪽·같은 폭으로 위아래.
+const HEAD_RGB={light:{h1:'rgb(138, 59, 42)',h2:'rgb(36, 64, 107)',h3:'rgb(61, 107, 58)'},dark:{h1:'rgb(232, 164, 147)',h2:'rgb(169, 194, 234)',h3:'rgb(156, 204, 149)'}};
+async function headLook(page){
+ return page.evaluate(()=>{
+  const root=document.querySelector('#journalRoot [data-journal-weekly]');
+  const vis=sel=>[...root.querySelectorAll(sel)].filter(e=>e.getClientRects().length);
+  const rgb=s=>{const m=s.match(/[\d.]+/g).map(Number);return {c:m.slice(0,3),a:m.length>3?m[3]:1};};
+  const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b);};
+  const ratio=e=>{let n=e,under=null;while(n&&!under){const bg=rgb(getComputedStyle(n).backgroundColor);if(bg.a>0)under=bg.c;n=n.parentElement;}
+   const [a,b]=[lum(rgb(getComputedStyle(e).color).c),lum(under||[255,255,255])].sort((x,y)=>y-x);return (a+0.05)/(b+0.05);};
+  const one=(sel,key)=>vis(sel).map(e=>{const c=getComputedStyle(e);return {key,size:parseFloat(c.fontSize),weight:Number(c.fontWeight),color:c.color,ratio:ratio(e),x:e.getBoundingClientRect().left};});
+  return {
+   h1:one('[data-journal-weekly-chapter] > h4.journal-heading','h1'),
+   h2:one('[data-journal-weekly-chapter] > .journal-weekly-part > .journal-weekly-sub','h2'),
+   h3:[...one('[data-journal-weekly-chapter] .weekly-flow-label','h3'),...one('[data-journal-weekly-chapter] .journal-weekly-table thead th','h3')],
+   body:one('[data-journal-weekly-chapter] .weekly-flow-text','body'),
+   chapters:vis('[data-journal-weekly-chapter]').map(e=>{const r=e.getBoundingClientRect();return {key:e.dataset.journalWeeklyChapter,x:r.left,w:r.width,top:r.top,bottom:r.bottom};}),
+   bodyW:root.getBoundingClientRect().width,
+   overflow:document.documentElement.scrollWidth-innerWidth,
+  };
+ });
+}
+for(const [width,zoom] of [[412,1],[412,1.3],[884,1],[1280,1],[1440,1]])test(`WEEKLY-제목서식: 1.·1)·(1) 색·크기 순서·대비(테마 10개·어두운 바탕), 3·4 위아래 한 칸 ${width}${zoom>1?' 큰 글자':''}`,async({page})=>{
+ await stageFixture(page,width,{history:[hist('o1','stage-3','2026-10-07'),hist('o2','stage-10','2026-09-28')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ if(zoom>1)await page.evaluate(z=>{document.documentElement.style.zoom=String(z);},zoom);
+ await expect(siteCell(page,'가상 노동조합')).toBeVisible();
+ const look=await headLook(page);
+ for(const k of ['h1','h2','h3','body'])expect(look[k].length,`${k} 보임`).toBeGreaterThan(0);
+ // 크기 순서: 1. > 1) > (1) > 본문, 단계마다 한 크기.
+ const size=k=>{const s=new Set(look[k].map(x=>x.size));expect(s.size,`${k} 크기 하나`).toBe(1);return [...s][0];};
+ const [s1,s2,s3,s4]=['h1','h2','h3','body'].map(size);
+ expect(s1).toBeGreaterThan(s2);expect(s2).toBeGreaterThan(s3);expect(s3).toBeGreaterThan(s4);
+ // 굵기: 1.·1) 굵게(700), (1) 약간 굵게(본문보다 굵음, 1)보다 가늘거나 같음).
+ for(const x of [...look.h1,...look.h2])expect(x.weight).toBeGreaterThanOrEqual(700);
+ for(const x of look.h3){expect(x.weight).toBeGreaterThanOrEqual(500);expect(x.weight).toBeLessThan(700);}
+ // 색: 단계마다 양식 색 하나.
+ for(const k of ['h1','h2','h3'])for(const x of look[k])expect(x.color,`${k} 색`).toBe(HEAD_RGB.light[k]);
+ // 들여쓰기: 1) 은 1. 보다 안쪽, 칸 이름(1)은 1) 보다 안쪽(같은 장 안).
+ expect(Math.min(...look.h2.map(x=>x.x))).toBeGreaterThan(Math.min(...look.h1.map(x=>x.x)));
+ const sumLabel=await page.locator('#journalRoot [data-weekly-flow-cells="summary"] .weekly-flow-label').first().boundingBox();
+ const sumSub=await page.locator('#journalRoot [data-journal-weekly="summary"] > .journal-weekly-sub').boundingBox();
+ expect(sumLabel.x).toBeGreaterThan(sumSub.x);
+ // ② 모든 장(3·4 포함)이 같은 왼쪽·같은 폭으로 위아래(좌우 두 칸 없음).
+ const ch=look.chapters,x0=ch[0].x,w0=ch[0].w;
+ for(const c of ch){expect(Math.abs(c.x-x0),`${c.key} 왼쪽`).toBeLessThanOrEqual(1);expect(Math.abs(c.w-w0),`${c.key} 폭`).toBeLessThanOrEqual(1);}
+ expect(w0).toBeGreaterThan(look.bodyW-4);
+ const three=ch.find(c=>c.key==='sites'),four=ch.find(c=>c.key==='orgs');
+ expect(three&&four).toBeTruthy();expect(four.top).toBeGreaterThanOrEqual(three.bottom-1);
+ for(let i=1;i<ch.length;i++)expect(ch[i].top).toBeGreaterThanOrEqual(ch[i-1].bottom-1);
+ expect(look.overflow).toBeLessThanOrEqual(1);
+ // 테마 10개 × 밝은·어두운 바탕: 색은 고정(테마와 무관), 대비 4.5:1 이상.
+ for(const scheme of ['light','dark']){
+  await page.emulateMedia({colorScheme:scheme});
+  for(const theme of BAR_THEMES){
+   await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);
+   const l=await headLook(page);
+   for(const k of ['h1','h2','h3'])for(const x of l[k]){
+    expect(x.color,`${scheme} ${theme} ${k} 색`).toBe(HEAD_RGB[scheme][k]);
+    expect(x.ratio,`${scheme} ${theme} ${k} 대비`).toBeGreaterThanOrEqual(4.5);
+   }
+  }
+ }
+ await page.evaluate(()=>{delete document.documentElement.dataset.theme;});await page.emulateMedia({colorScheme:'light'});
 });
 // WEEKLY-막대한줄(2026-11-28 사용자 신고 — 폰 412·큰 글자에서 막대가 두 줄, [확정하고 받기] 글자가 채운 바탕에 묻힘):
 // 막대는 어느 폭·큰 글자에서도 한 줄(줄바꿈 대신 탭 칸만 옆으로 밀기, 탭은 공용 ⑤ 작은 판), [확정하고 받기]는 작은 채운 버튼이고 모든 테마·바쁨(흐리게 하지 않음)에서 글자 대비 4.5:1 이상.
