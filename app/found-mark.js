@@ -44,7 +44,7 @@ export async function revealFound(words, {also = [], view = '', timeoutMs = 2500
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {
     await frame();
-    const root = topLayer() || (view ? document.getElementById(`${view}View`) : null);
+    const root = topLayer() || (view ? (window.KPTURouter?.panelOf?.(view) || document.getElementById(`${view}View`)) : null);
     if (root && markFound(root, words, {also})) {
       const first = canHighlight() ? [...(window.CSS.highlights.get(NAME) || [])][0] : null;
       first?.startContainer?.parentElement?.scrollIntoView?.({block: 'nearest'});

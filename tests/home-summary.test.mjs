@@ -23,7 +23,7 @@ test('홈 순서: 날짜 줄 → 업데이트 입력줄(머리 줄에 잊지 말
   const order = ['data-journal-days', 'home-quick-placeholder', 'data-journal-day>', 'data-journal-schedule', 'data-journal-tasks', 'data-journal-done-day', 'data-journal-materials'].map(at);
   assert.deepEqual([...order].sort((a, b) => a - b), order);
   assert.doesNotMatch(src, /mountRadar|data-journal-radar/);
-  assert.match(read('index.html'), /<section id="homeView" class="view-panel hidden">\s*<div id="journalRoot" class="journal"><\/div>/);
+  assert.match(read('index.html'), /<section id="homeView" class="view-panel hidden">\s*(?:<!--[^>]*-->\s*)?<div data-orgbiz-tabs="weekly" hidden><\/div>\s*<div id="journalRoot" class="journal"><\/div>/);
   assert.doesNotMatch(read('index.html'), /id="journalView"|data-view="journal"|data-home-cards/);
 });
 
@@ -33,7 +33,9 @@ test('메뉴: [일정] 묶음에 업무일지가 없고, 옛 journal 주소·이
   assert.deepEqual(cal.group, ['calendar', 'tasks', 'diary']);
   assert.deepEqual(cal.pc, ['tasks', 'diary']);
   assert.match(read('app-router.js'), /VIEW_ALIAS=\{[^}]*journal:'home'[,}]/);
-  assert.match(read('app-router.js'), /home:\['day','mode'\]/);
+  // NAV-조직사업합침: 주간 쪽은 [조직·사업] › [주간 보고](weekly, 같은 칸). 옛 ?mode=week는 weekly로 연다.
+  assert.match(read('app-router.js'), /home:\['day'\],weekly:\['day'\]/);
+  assert.match(read('app-router.js'), /const PANEL_OF=\{weekly:'home'\};/);
   assert.match(read('view-loader.js'), /VIEW_ALIAS=\{[^}]*journal:'home'[,}]/);
   assert.match(read('view-loader.js'), /async function home\(\)\{ await module\('\.\/journal\.js'\)/);
 });

@@ -10,7 +10,7 @@ const box = loc => loc.evaluate(e => { const b = e.getBoundingClientRect(); retu
 // 첫 줄(날짜 제목과 같은 높이)에 있는 것들.
 const firstRow = page => page.evaluate(() => {
   const head = document.querySelector('#homeView .journal-head'), b = e => e?.getBoundingClientRect();
-  const parts = { mark: head.querySelector('.head-mark'), title: head.querySelector('[data-journal-title]'), sw: head.querySelector('.journal-mode-switch'), find: head.querySelector('[data-journal-find]') };
+  const parts = { mark: head.querySelector('.head-mark'), title: head.querySelector('[data-journal-title]'), sw: head.querySelector('.journal-mode-switch'), /* NAV-조직사업합침: 없어야 함 */ find: head.querySelector('[data-journal-find]') };
   const out = {};
   for (const [k, e] of Object.entries(parts)) { const r = b(e); out[k] = r && r.width > 0 ? { x: r.x, right: r.right, mid: r.y + r.height / 2, top: r.top, bottom: r.bottom } : null; }
   out.headRight = b(head).right;
@@ -18,7 +18,7 @@ const firstRow = page => page.evaluate(() => {
   out.docW = document.documentElement.scrollWidth; out.vw = innerWidth;
   return out;
 });
-for (const width of [344, 390, 690]) test(`폰 틀 ${width}: 홈 첫 줄 한 줄 = 날짜 · [하루|주간 보고] · 돋보기, 따로 된 검색 줄 없음`, async ({ page }) => {
+for (const width of [344, 390, 690]) test(`폰 틀 ${width}: 홈 첫 줄 한 줄 = 날짜 · 돋보기, 따로 된 검색 줄 없음`, async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width, height: 900 });
@@ -30,17 +30,19 @@ for (const width of [344, 390, 690]) test(`폰 틀 ${width}: 홈 첫 줄 한 줄
   await expect(page.locator('#appView > .mobile-shell-header')).toBeHidden();
   await expect(page.locator('#gsHeadInput')).toBeHidden();
   expect(await page.locator('input[type="search"]:visible').count()).toBe(0);
-  for (const mode of ['day', 'week']) {
-    await page.locator(`button[data-journal-mode="${mode}"]`).click();
-    await expect(page.locator(`button[data-journal-mode="${mode}"]`)).toHaveAttribute('aria-pressed', 'true');
+  // NAV-조직사업합침(2026-11-28): 홈은 [하루]뿐 — 머리 줄 [하루|주간 보고] 전환은 없고 주간 보고는 [조직·사업] 큰 탭이다.
+  await expect(page.locator('#homeView .journal-head :is(.journal-mode-switch,[data-journal-mode])')).toHaveCount(0);
+  {
+    const mode = 'day';
     const r = await firstRow(page);
-    // 한 줄: 아이콘·날짜·[하루|주간 보고]·돋보기 가운데 높이가 같고, 돋보기가 오른쪽 끝, 순서대로 겹치지 않음.
-    for (const k of ['mark', 'sw', 'find']) expect(Math.abs(r[k].mid - r.title.mid), `${mode} ${k}`).toBeLessThanOrEqual(2);
+    // 한 줄: 아이콘·날짜·돋보기 가운데 높이가 같고, 돋보기가 오른쪽 끝, 순서대로 겹치지 않음.
+    expect(r.sw, '전환 칸 없음').toBe(null);
+    for (const k of ['mark', 'find']) expect(Math.abs(r[k].mid - r.title.mid), `${mode} ${k}`).toBeLessThanOrEqual(2);
     expect(Math.abs(r.find.right - r.headRight), mode).toBeLessThanOrEqual(1);
-    expect(r.title.right, mode).toBeLessThanOrEqual(r.sw.x + 1);
-    expect(r.sw.right, mode).toBeLessThanOrEqual(r.find.x + 1);
+    expect(r.mark.right, mode).toBeLessThanOrEqual(r.title.x + 1);
+    expect(r.title.right, mode).toBeLessThanOrEqual(r.find.x + 1);
     // 첫 줄 높이는 한 줄(44px 안쪽).
-    expect(Math.max(r.sw.bottom, r.find.bottom, r.title.bottom) - Math.min(r.sw.top, r.find.top, r.title.top), mode).toBeLessThanOrEqual(44);
+    expect(Math.max(r.find.bottom, r.title.bottom) - Math.min(r.find.top, r.title.top), mode).toBeLessThanOrEqual(44);
     // 날짜는 다 보이거나(짧은 꼴로) 잘리지 않는다 — 390 이상은 잘리지 않음.
     if (width >= 390) expect(r.cut, `${mode} ${r.text}`).toBe(false);
     expect(r.docW, mode).toBeLessThanOrEqual(r.vw);

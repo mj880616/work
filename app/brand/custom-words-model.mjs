@@ -16,11 +16,16 @@ export const WORD_BASE_FEATURES = Object.freeze({nojo_words: 'nojo'});
 // kind: true면 활동 분류 칸(word(글자,'kind') 자리에만 — 문장 안 '회의'·'교육' 같은 낱말은 건드리지 않는다).
 // hint: 화면에서 이 칸이 무엇인지 보여 주는 작은 글자(노조 색 없음).
 // menu: 이 칸이 이름을 맡는 메뉴 항목 id(app/menu-model.mjs ITEMS). '메뉴 수정' 창이 그 줄에서 이름을 바로 바꾼다(S67-71, 같은 칸·같은 저장).
+//   (NAV-조직사업합침 2026-11-28부터 menu가 있는 칸은 없다 — 이름을 고치던 두 메뉴가 [조직·사업] 하나로 합쳐졌다.)
+// tab: [조직·사업] 큰 탭 이름 칸(org-biz-tabs.mjs). 메뉴 수정 창 '다른 이름'에서 고친다.
 export const SLOTS = Object.freeze([
-  {id: 'menu_biz', hint: '메뉴', menu: 'meetings', keys: ['사업 관리', '사업 관리#title']},
+  // NAV-조직사업합침(2026-11-28): menu_biz·menu_org는 [조직·사업] 메뉴 안 큰 탭 [사업 관리]·[조직 관리]의 이름 칸이다(메뉴 줄 이름이 아님 → menu 없음,
+  // 메뉴 수정 창의 '다른 이름'에서 고친다). 첫 열쇠 '#tab'이 기본 이름이라 WORK ON+ 기본에서도 '조직 관리'·'사업 관리'(girok-words.mjs).
+  // 칸 id는 그대로라(DB 검사 같음) 옛 메뉴 이름을 고쳐 둔 사람은 그 이름이 큰 탭 이름으로 이어진다.
+  {id: 'menu_biz', hint: '큰 탭', tab: true, keys: ['사업 관리#tab', '사업 관리', '사업 관리#title']},
   {id: 'report', hint: '기록 한 건', keys: ['사업 보고', '사업보고']},
   {id: 'area', hint: '큰 묶음', keys: ['사업영역', '사업 영역']},
-  {id: 'menu_org', hint: '메뉴', menu: 'team', keys: ['조직 관리', '조직 관리#title']},
+  {id: 'menu_org', hint: '큰 탭', tab: true, keys: ['조직 관리#tab', '조직 관리', '조직 관리#title']},
   {id: 'org_one', hint: '대상 한 곳', keys: ['담당조직', '담당 조직']},
   {id: 'org_report', hint: '대상 기록', keys: ['조직 보고', '조직보고']},
   {id: 'workplace', hint: '중요 대상', keys: ['투쟁사업장', '투쟁 사업장']},
@@ -92,7 +97,10 @@ export function buildSaveValue(face, inputs) {
  */
 export function applyCustomWords(face, custom) {
   // 칸의 첫 열쇠(대표 글자)가 얼굴 기본값과 같으면 그 칸은 바꾸지 않는다(붙여 쓴 꼴 같은 딸린 열쇠도 그대로 — 고친 이름이 기본과 같으면 화면 한 글자도 안 바뀜).
-  const changed = SLOTS.filter(slot => Object.hasOwn(custom || {}, slot.id) && defaultName(face, slot) !== custom[slot.id]);
+  // NAV-조직사업합침: 큰 탭 칸(tab)은 열쇠마다 얼굴 글자가 다를 수 있다(큰 탭 '조직 관리' / 화면 글자 '거래처·직원'). 그 칸은 한 열쇠라도
+  // 고친 이름과 다르면 바꾼다 — 옛 기본(거래처·직원)일 때 '조직 관리'로 고쳐 둔 사람의 화면 글자가 새 기본과 같아졌다고 되돌아가지 않게. 다른 칸은 그대로.
+  const differs = slot => slot.tab ? slot.keys.some(key => faceText(face, key) !== custom[slot.id]) : defaultName(face, slot) !== custom[slot.id];
+  const changed = SLOTS.filter(slot => Object.hasOwn(custom || {}, slot.id) && differs(slot));
   if (!changed.length) return face;
   const words = {...face.words};
   const mine = {};

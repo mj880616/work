@@ -486,12 +486,11 @@
 #appView #homeView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #homeView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
 
-/* HOME-업무일지홈(2026-10-30 명진 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주 · (오른쪽 끝) [하루|주간 정리].
+/* HOME-업무일지홈(2026-10-30 사용자 시안 v2): 이 화면이 홈. 머리줄 한 줄 = 날짜 제목 · ‹ 날짜 숫자 7개 › · 이번 주(NAV-조직사업합침: 오른쪽 끝 [하루|주간 정리]는 없앰).
    날짜 숫자는 작은 칸(요일 글자는 숨김, 읽기 이름에는 있음), 오늘(네모 선)·고른 날(옅은 바탕)은 공용 표시(ui-standard.css .ds-today·.ds-day-sel). 폰은 제목이 한 줄, 아래 날짜 줄. */
 #appView #homeView .journal-head{ justify-content:flex-start; gap:6px 10px; }
 #appView #homeView .journal-day-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; white-space:nowrap; }
 #appView #homeView .journal-head .journal-week-nav{ gap:2px; min-width:0; }
-#appView #homeView .journal-head .journal-mode-switch{ margin-left:auto; }
 #appView #homeView .journal-head .journal-days{ display:flex; gap:2px; }
 #appView #homeView .journal-head .journal-date{ flex:0 0 auto; width:auto; min-width:32px; min-height:32px; height:32px; padding:0 4px 2px; flex-direction:column; justify-content:flex-start; align-items:center; gap:0; border-color:transparent; background:transparent; }
 /* HOME-날짜줄고른날(S60-2, 명진 11/12 "그리고 일 요일 지금 방식 어색", 시안 #2431이 S57-16 한 줄 '수 11'을 대체): 요일은 위에 작게, 날짜는 아래 두 줄(폰·폴드·PC 모두). 높이는 옆 단추와 같은 32px 그대로.
@@ -500,15 +499,14 @@
 #appView #homeView .journal-head .journal-num{ min-width:18px; width:18px; height:18px; padding:0; }
 @media(min-width:761px){ #appView #homeView .journal-head .journal-date{ min-width:44px; } }
 #appView #homeView .journal-head .journal-dot{ top:3px; bottom:auto; left:calc(50% + 8px); width:4px; height:4px; margin-left:0; }
-/* 폰: 첫 줄 = 날짜 제목 + [하루|주간 정리], 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
+/* 폰: 첫 줄 = 날짜 제목(+ 찾기), 둘째 줄 = ‹ 날짜 7칸 › 이번 주(폭에 맞춰 줄어듦, 가로 넘침 없음). */
 @media(max-width:760px){
   #appView #homeView .journal-day-title{ flex:1 1 0; order:-2; } /* S71-41: 바탕 폭 0 — 날짜가 길어도 첫 줄이 꺾이지 않고(돋보기가 아래로 안 감) 날짜가 줄어든다 */
-  #appView #homeView .journal-head .journal-mode-switch{ order:-1; margin-left:auto; }
   #appView #homeView .journal-head .journal-week-nav{ flex:1 1 100%; }
   #appView #homeView .journal-head .journal-days{ flex:1 1 auto; min-width:0; justify-content:space-between; }
   #appView #homeView .journal-head .journal-date{ min-width:0; flex:1 1 0; padding:0; }
 }
-/* S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀 첫 줄 = [아이콘] 날짜 · (빈 칸) · [하루|주간 보고] · 찾기.
+/* S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀 첫 줄 = [아이콘] 날짜 · (빈 칸) · 찾기(NAV-조직사업합침: [하루|주간 보고]는 없앰).
    돋보기는 다른 화면 머리 줄 찾기 돋보기(topbar-actions.css .mobile-shell-find .sf-open)와 같은 36px·20px 아이콘·흐린 색. 누르면 전체 검색(journal.js openFind).
    PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 있어 돋보기를 그리지 않는다. */
 #appView #homeView .journal-head .journal-find{ display:none; }
@@ -800,3 +798,7 @@
   border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--ds-radius-control,6px); box-shadow:none; cursor:pointer; }
 .hrt-modal .ni-row input,.hrt-modal .ni-add input{ flex:1 1 auto; min-width:0; max-width:20em; height:var(--ds-compact-height); box-sizing:border-box; font-size:var(--ds-text-row); }
 .hrt-modal .ni-add{ display:flex; gap:6px; align-items:center; padding-top:4px; }
+
+/* NAV-조직사업합침(2026-11-28): [조직·사업] › [주간 보고](라우터 weekly)는 이 칸의 주간 쪽. 폰 틀은 앱 머리줄('조직·사업')과 큰 탭 줄이 위에 있어
+   머리줄 아이콘(홈 가기)·전체 검색 돋보기는 [하루](홈)에만 둔다 — 주간 쪽 머리줄은 그 주 범위 · ‹ › 이번 주. */
+#appView #homeView .journal[data-journal-mode="week"] .journal-head :is(.head-mark,.journal-find){ display:none; }

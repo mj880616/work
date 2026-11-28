@@ -138,7 +138,7 @@ const menuQuery=mobileQuery;
 const appNav=document.querySelector('#appView>.app-nav');
 // BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','reading','calendar','note','meetings','library','files','brief','team','photos','outside','calls','telegram','arsenal']; // S71-61: HWP 편집은 메뉴가 아니다(노트 안)
+const ALL_KEYS=['home','basket','reading','calendar','note','library','files','brief','team','photos','outside','calls','telegram','arsenal']; // S71-61: HWP 편집은 메뉴가 아니다(노트 안)
 const keyButton=key=>appNav?.querySelector(key==='note'?'.nav-btn[data-basket-kind-nav="note"]':`.nav-btn[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 // UI-폴드PC틀: each left-menu row carries the same line picture as the phone tabs (menu-model.mjs icon). At 761~1023px the menu is a
@@ -292,7 +292,7 @@ window.addEventListener('kptu:view-changed',event=>{
   // APP-위여백: 홈은 본문 맨 위 날짜가 제목이라 폰 머리줄에 쓸 이름이 없다. 이름이 없으면 머리줄 전체가 자리를 비운다(빈 44px+12px 칸이 남지 않게).
   // S71-41 HOME-머리한줄(사용자 요청 11/26): 홈은 머리줄을 두지 않는다 — '전체 검색' 입구는
   // 본문 날짜 줄 끝 돋보기(journal.js). 전체 검색 화면은 이름('검색')이 있어 머리줄(그 칸)이 보인다(이름 글자는 topbar-actions.css가 뺀다).
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:'조직·사업',meetings:'조직·사업',weekly:'조직·사업',library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -565,9 +565,11 @@ paintSteps();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 // MTG-프로젝트합치기 3단계: 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이다(사업 보고 › 사업영역 관리).
 // S71-61 HWP-노트안으로: HWP 편집은 노트 안 화면이다(노트 › HWP 편집, [노트]를 누르면 노트로).
-const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',projects:'reports',hwp:'note'};
-const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:word('조직 관리'),view:'team'},reports:{name:word('사업 관리'),view:'meetings'},note:{name:'노트',view:'note'}};
-const VIEW_NAMES={home:'홈',basket:'잊지 말기',reading:'저장한 글',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','title'),team:word('조직 관리','title'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리'};
+// NAV-조직사업합침: [조직·사업] 안 큰 탭 셋(조직 관리·사업 관리·주간 보고)은 '조직·사업 › 탭 이름'(머리 글자를 누르면 맨 앞 [조직 관리]).
+// 폰 머리줄 이름은 세 탭 모두 메뉴 이름 '조직·사업'(탭 이름은 바로 아래 큰 탭 줄이 보여 준다).
+const GROUPS={calendar:'schedule',tasks:'schedule',diary:'schedule',projects:'reports',hwp:'note',team:'orgbiz',meetings:'orgbiz',weekly:'orgbiz'};
+const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},orgbiz:{name:'조직·사업',view:'team'},reports:{name:word('사업 관리','tab'),view:'meetings'},note:{name:'노트',view:'note'}};
+const VIEW_NAMES={home:'홈',basket:'잊지 말기',reading:'저장한 글',calendar:'달력',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),library:'자료실',files:'파일',meetings:word('사업 관리','tab'),team:word('조직 관리','tab'),weekly:word('주간 보고','tab'),hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리'};
 const whereList=topline?.querySelector('[data-topline-where]');
 // APP-올인원다이어리 단계 2: 앱 이름·노조 색 화면 이름은 얼굴(app/brand/brand.mjs)에서. WORK ON+ 얼굴은 글자 그대로.
 const APP_TITLE=APP_NAME;

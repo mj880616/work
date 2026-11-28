@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openWeeklyTab, openDayHome, expectWeeklyTab } from './helpers/weekly-tab.mjs';
 import { openHome, defaultStageRows } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
 import { servePagesCors } from './helpers/hwp-editor.mjs';
@@ -19,13 +20,13 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. WEEKLY-한흐름확정 ②: 초안 복사는 [주간 정리]
 // 5. 주요 일정 맨 아래 [확정하고 한글 파일 받기] 옆 ⋯ 안 [글로 복사]다. 이 도우미는 [주간 정리]로 가서 ⋯ → [글로 복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
 async function copyDraft(page){
- await page.locator('#journalRoot [data-journal-mode="week"]').click();
+ await openWeeklyTab(page);
  const more=page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more');await expect(more).toBeVisible();
  await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
  await more.locator('summary').click();
  await more.locator('[data-hwpx-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
- await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await openDayHome(page);
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
 }
 // JOURNAL-일지 2단계: [일정] [달력|할 일|일지|일기] → [일지]. The clock is 2026-10-06 10:00 KST (Tuesday); the week is
@@ -1072,16 +1073,17 @@ async function openRecords(page,key){const d=page.locator(`#journalRoot [data-jo
 async function settleBase(page){const slot=page.locator('#journalRoot [data-weekly-flow-cells="summary"]');await expect(slot.locator('[data-flow-cell]').or(slot.locator('[data-flow-no-base]').filter({hasText:'바탕을 열지 못해'})).first()).toBeVisible();await expect(page.locator('#journalRoot [data-weekly-flow-top]')).not.toContainText('바탕 여는 중');}
 async function pressMore(scope,button){const m=scope.locator('details.row-more').filter({has:scope.page().locator(button)}).first();if(!(await m.evaluate(e=>e.open)))await m.locator('summary').click();await expect(m).toHaveJSProperty('open',true);await m.locator(button).click();}
 async function openWeekly(page){
- await page.locator('#journalRoot [data-journal-mode="week"]').click();
- await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed','true');
+ await openWeeklyTab(page);
+ await expectWeeklyTab(page);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible();
 }
 for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 요청사항 재료 없음·주요 일정 안내 → 2. 요약 표·회의 → 4. 조직 → 5. 주요 일정 2주 → 참고), 하루 카드로 돌아오기 ${width}`,async({page},info)=>{
  const f=await weeklyFixture(page,{width});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,width);
- await expect(page.locator('#journalRoot [data-journal-mode]')).toHaveText(['하루','주간 보고']);
- await expect(page.locator('#journalRoot [data-journal-mode="day"]')).toHaveAttribute('aria-pressed','true');
+ // NAV-조직사업합침: 홈 머리줄에 [하루|주간 보고] 전환이 없고(홈 = 하루), 주간 보고는 [조직·사업] 큰 탭.
+ await expect(page.locator('#journalRoot [data-journal-mode], #journalRoot .journal-mode-switch')).toHaveCount(0);
+ await expect(page.locator('#journalRoot')).toHaveAttribute('data-journal-mode','day');
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
  // S49-12: 하루 카드에도 옮긴 노트가 없다(주간 정리에도 없다).
  await expect(page.locator('#journalRoot')).not.toContainText('옮긴 합성 노트');
@@ -1171,7 +1173,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  expect(lines).toContain('- 10월 5일(월) 세부 과제 나-1: 나-1 월요일 기록');
  expect(lines).toContain('- 10.13.(화) 10:30 / 가상 다음 주 회의 / 가상 회의실');
  // [하루]로 돌아오면 날짜 줄·하루 카드 그대로.
- await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await openDayHome(page);
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
  await expectJournalDay(page,'10월 6일 화요일');
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);
@@ -1201,7 +1203,7 @@ test('[주간 정리] 한 줄: 개인 줄(미술 학원)은 빠지고 업무 줄
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  expect(text).toContain('- 10월 7일(수) 가상 교섭 준비');expect(text).not.toContain('미술 학원');
  // 다시 그려도 같은 줄이면 다시 묻지 않는다.
- await page.locator('#journalRoot [data-journal-mode="day"]').click();await openWeekly(page);
+ await openDayHome(page);await openWeekly(page);
  expect(asked).toHaveLength(1);
  expect(f.errors).toEqual([]);
 });
@@ -1274,14 +1276,14 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  const metrics=await page.evaluate(()=>{
   const token=n=>{const e=document.createElement('i');e.style.cssText=`display:block;height:var(${n})`;document.body.append(e);const v=e.getBoundingClientRect().height;e.remove();return v};
   const root=document.querySelector('#journalRoot'),pick=s=>[...root.querySelectorAll(s)].filter(b=>b.getBoundingClientRect().width>0).map(b=>{const seg=b.matches('[data-journal-mode]'),p=getComputedStyle(b.parentElement),r=(seg?b.parentElement:b).getBoundingClientRect(),c=getComputedStyle(b);/* UI-보기탭한모양(S52-17): [하루|주간 정리]는 공용 ⑤ — 보이는 알약 높이(누르는 범위 여백 제외), 고른 칸만 굵게 */return {name:(b.getAttribute('aria-label')||b.textContent).trim(),h:Math.round((r.height-(seg?parseFloat(p.paddingTop)+parseFloat(p.paddingBottom):0))*10)/10,size:c.fontSize,weight:Number(c.fontWeight),on:seg&&b.getAttribute('aria-pressed')==='true'}});
-  return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
+  return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
  });
- // HOME-업무일지홈: 머리줄은 날짜 제목 · ‹ 날짜 줄 › · 이번 주 · (오른쪽 끝) [하루|주간 정리] 순서다.
- expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주','하루','주간 보고']);
+ // HOME-업무일지홈: 머리줄은 날짜 제목 · ‹ 날짜 줄 › · 이번 주 순서다(NAV-조직사업합침: 오른쪽 끝 [하루|주간 정리]는 없앰).
+ expect(metrics.bar.map(b=>b.name)).toEqual(['이전 주','다음 주','이번 주']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(b.on?600:500)}
  // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
- await page.locator('#journalRoot [data-journal-mode="week"]').click();
+ await openWeeklyTab(page);
  await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-confirm]')).toBeVisible(); // WEEKLY-한흐름확정 ②: [글로 복사]는 확정 버튼 옆 ⋯ 안
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
@@ -2676,7 +2678,7 @@ for(const width of [390,1280])test(`[주간 정리] 회의 종류: 내부 정례
  // '주간보고 기억'에도 회의 종류 목록·[다시 올리기]는 없다.
  await expect(page.locator('#journalRoot [data-journal-memory-kind],#journalRoot [data-journal-memory-part="회의 종류 빼기"]')).toHaveCount(0);
  // 하루 카드에서는 빼지 않고 흐리게 '보고 안 함'(운영자 목록의 내부 정례 회의).
- await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await openDayHome(page);
  await page.locator('#journalRoot [data-journal-date="2026-10-05"]').click();
  await expect(itemTexts(page,'activities')).toHaveText(['10:00 궤도 집행국 회의 12차 보고 안 함']);
  await expect(group(page,'activities').locator('li[data-journal-report-off]')).toHaveCount(1);
@@ -4819,7 +4821,7 @@ for(const width of [390,1440])test(`WEEKLY-입력줄없애기: [주간 정리]�
   expect(gap.pad).toBeLessThan(80);
   expect(gap.bottom).toBeLessThanOrEqual(gap.limit+1);
  }
- await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await openDayHome(page);
  await expect(page.locator('#homeView [data-home-quick]')).toBeVisible();
  await expect(page.locator('#homeView [data-quick-input]')).toHaveValue('합성 입력 글');
  // 원래 자리(상태 줄 다음, 하루 카드 앞) 그대로.

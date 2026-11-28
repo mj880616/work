@@ -58,8 +58,7 @@
     <a class="nav-btn" data-view="photos" href="./?view=photos">사진</a>
     <a class="nav-btn" data-view="basket" href="./?view=basket">잊지 말기</a>
     <a class="nav-btn" data-view="reading" href="./?view=reading">저장한 글</a>
-    <a class="nav-btn" data-view="team" href="./?view=team">조직 관리</a>
-    <a class="nav-btn" data-view="meetings" data-nav-group="meetings projects" href="./?view=reports">사업 관리</a>
+    <a class="nav-btn" data-view="team" data-nav-group="team meetings projects weekly" href="./?view=team">조직·사업</a>
     <a class="nav-btn" data-view="files" href="./?view=files">파일</a>
     <a class="nav-btn" data-view="brief" href="./?view=brief">브리핑 룸</a>
     <a class="nav-btn" data-view="outside" href="./?view=news">읽을 거리</a>
@@ -100,8 +99,7 @@
       <nav aria-label="더 보기">
         <button type="button" data-view="basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>잊지 말기</span></button>
         <button type="button" data-view="reading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4zM9 8h6M9 11h4"/></svg><span>저장한 글</span></button>
-        <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>조직 관리</span></button>
-        <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 관리</span></button>
+        <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>조직·사업</span></button>
         <button type="button" data-view="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3zM3 10h18"/></svg><span>파일</span></button>
         <button type="button" data-view="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2"/></svg><span>브리핑 룸</span></button>
         <button type="button" data-view="outside"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11v14H4zM15 8h5v9a2 2 0 0 1-2 2h-3M7 9h5M7 12h5M7 15h3"/></svg><span>읽을 거리</span></button>
@@ -115,6 +113,8 @@
 
   <!-- HOME-업무일지홈: 홈 = 업무일지(journal.js가 #journalRoot의 유일한 renderer). 업데이트 입력줄은 home-quick.js가 #journalRoot 안 자리에 붙인다. -->
   <section id="homeView" class="view-panel hidden">
+    <!-- NAV-조직사업합침: [조직·사업] › [주간 보고](라우터 weekly)는 이 칸의 주간 쪽이다. 큰 탭 줄(org-biz-tabs.js)은 그때만 보인다. -->
+    <div data-orgbiz-tabs="weekly" hidden></div>
     <div id="journalRoot" class="journal"></div>
   </section>
 
@@ -163,12 +163,13 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
+    <div data-orgbiz-tabs="meetings"></div>
     <div class="report-top"><div id="reportTop" class="toolbar report-top-line"><span class="report-filter-slot"><button id="reportFilterChip" class="report-filter-chip" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="reportFilterBar" hidden><span class="report-filter-chip-text">전체</span></button></span><div id="reportFilterBar" class="toolbar report-kind-bar"><span class="report-filter-name" data-filter-name="kind" aria-hidden="true">종류</span><select id="reportKindSelect" class="report-top-select" aria-label="종류" aria-controls="meetingList"></select><span class="report-filter-name" data-filter-name="area" aria-hidden="true">사업영역</span><select id="reportAreaSelect" class="report-top-select" aria-label="사업영역" aria-controls="meetingList" hidden></select><span id="reportPeriodPick" class="report-period-host"></span><select id="reportViewSelect" class="report-top-select" aria-label="보기" aria-controls="meetingList"></select></div><span id="reportCount" class="report-top-count" aria-live="polite" hidden></span><div class="report-head-actions"><button id="newMeetingBtn" class="primary" type="button" data-ctx-screen-item="추가" aria-haspopup="true" aria-expanded="false" aria-label="사업 관리 추가"></button></div></div>
     <div class="toolbar report-week-bar" hidden><div id="reportWeekFilter" role="group" aria-label="기간" aria-controls="meetingList"></div></div></div>
     <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2 class="a11y-only">사업 관리</h2></div><div id="recPendingLine" class="rec-pending" hidden></div><div id="areaUntaggedLine" class="area-untagged" hidden></div><section id="bizWeekBox" class="biz-week" aria-label="이번 주 주간 보고" hidden><h3 class="biz-week-title"><button type="button" class="row-act biz-week-fold" data-bw-fold aria-expanded="true">이번 주 주간 보고 <i class="kptu-chev is-open" aria-hidden="true"></i></button></h3><div data-bw-body></div></section><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 
-  <section id="teamView" class="view-panel hidden"></section>
+  <section id="teamView" class="view-panel hidden"><div data-orgbiz-tabs="team"></div></section>
 </section>
 </main>
 </div>

@@ -54,6 +54,9 @@ test('칸 목록: 15칸, id는 DB 검사와 같고 뜻(열쇠)이 겹치지 않�
 test('기록+ 기본 이름(고친 이름 없음)에는 노조 색 단어가 없다 — 금지어 검사는 기본값에만', () => {
   for (const slot of SLOTS) {
     const def = defaultName(girok, slot);
+    // NAV-조직사업합침(2026-11-28 사용자 "조직·사업으로 하고 운영자 외 사용자에게도 그렇게 해줘 거래처 활동 말고"): [조직·사업] 큰 탭 이름 칸(tab)은
+    // 모든 사람 기본이 '조직 관리'·'사업 관리'다(이 메뉴에 한한 결정). 다른 칸은 그대로 노조 색 단어 없음.
+    if (slot.tab) { assert.equal(def, {menu_org: '조직 관리', menu_biz: '사업 관리'}[slot.id], slot.id); continue; }
     assert.ok(def && !UNION_WORDS.test(def), `${slot.id}: ${def}`);
   }
   assert.equal(applyCustomWords(girok, {}), girok, '고친 이름이 없으면 얼굴 그대로');
@@ -296,15 +299,25 @@ test('기록+ 빌드 + 바탕 nojo + 명진 15칸 = 노동조합+ 화면 글자(
   assert.notEqual(say(applyCustomWords(girok, OPERATOR), '조직 선택'), '조직 선택');
 });
 
-test('S67-71 메뉴 이름 칸: 메뉴 항목과 이어진 칸은 사업 관리·조직 관리 둘뿐이고, 그 메뉴 글자와 기본 이름이 같다', async () => {
+test('NAV-조직사업합침: 메뉴 줄 이름 칸은 없고(두 메뉴가 [조직·사업] 하나), 옛 메뉴 이름 칸 둘은 큰 탭 이름 칸으로 이어진다', async () => {
   const {slotOfMenu} = await import('../app/brand/custom-words-model.mjs');
-  const menuSlots = SLOTS.filter(slot => slot.menu);
-  assert.deepEqual(menuSlots.map(slot => [slot.menu, slot.id]), [['meetings', 'menu_biz'], ['team', 'menu_org']]);
-  assert.equal(slotOfMenu('meetings')?.id, 'menu_biz');
-  assert.equal(slotOfMenu('team')?.id, 'menu_org');
-  for (const id of ['home', 'note', 'calendar', 'library', '', undefined]) assert.equal(slotOfMenu(id), null, String(id));
-  const menu = read('app/menu-model.mjs');
-  assert.match(menu, /id: 'meetings', label: word\('사업 관리'\)/);
-  assert.match(menu, /id: 'team', label: word\('조직 관리'\)/);
-  for (const slot of menuSlots) assert.equal(slot.keys[0], slot.menu === 'meetings' ? '사업 관리' : '조직 관리');
+  assert.deepEqual(SLOTS.filter(slot => slot.menu), [], '메뉴 줄에서 바로 고치는 이름 칸 없음');
+  for (const id of ['team', 'meetings', 'home', 'note', '', undefined]) assert.equal(slotOfMenu(id), null, String(id));
+  const tabs = SLOTS.filter(slot => slot.tab);
+  assert.deepEqual(tabs.map(slot => [slot.id, slot.keys[0]]), [['menu_biz', '사업 관리#tab'], ['menu_org', '조직 관리#tab']]);
+  for (const slot of tabs) assert.equal(slot.hint, '큰 탭');
+  // 칸 id는 그대로(DB 검사 app_profiles_custom_words_check와 같음) → 옛 메뉴 이름을 고쳐 둔 사람은 그 이름이 큰 탭 이름이다.
+  for (const face of [nojo, girok]) {
+    const mine = applyCustomWords(face, {menu_org: '거래처', menu_biz: '활동'});
+    assert.equal(wordIn(mine, '조직 관리', 'tab'), '거래처');
+    assert.equal(wordIn(mine, '사업 관리', 'tab'), '활동');
+    assert.equal(wordIn(mine, '조직 관리'), '거래처', '탭 안 화면 글자도 전처럼 고친 이름');
+  }
+  // 옛 기본(거래처·직원)일 때 '조직 관리'로 고쳐 둔 기록+ 사람: 큰 탭 기본과 같아져도 화면 글자는 고친 그대로(되돌아가지 않음).
+  const kept = applyCustomWords(girok, {menu_org: '조직 관리'});
+  assert.equal(wordIn(kept, '조직 관리'), '조직 관리');
+  assert.equal(wordIn(kept, '조직 관리', 'title'), '조직 관리');
+  // 메뉴 수정 창 '다른 이름' 묶음에 두 칸이 있다(메뉴 줄 이름 입력은 없음).
+  assert.match(read('app/menu-edit.js'), /const OTHER_SLOTS = SLOTS\.filter\(slot => !slot\.menu\);/);
+  assert.match(read('app/org-biz-tabs.js'), /word\(tab\.text, 'tab'\)/);
 });

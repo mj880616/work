@@ -47,7 +47,9 @@ test('정리한 화면 ③ 홈: 머리 줄·빠른 입력 전환은 6가지 부�
   assert.match(journal, /class="icon-btn" data-journal-prev[^>]*>‹/);
   assert.match(journal, /class="icon-btn" data-journal-next[^>]*>›/);
   assert.match(journal, /class="secondary" data-journal-today>이번 주/);
-  assert.match(journal, /class="journal-mode-switch ds-seg"[^>]*><button type="button" class="ds-seg-btn" data-journal-mode="day"/);
+  // NAV-조직사업합침(2026-11-28): 홈 머리 줄의 [하루|주간 보고] 전환은 없앴다 — 주간 쪽은 [조직·사업] 큰 탭(공용 ⑤, org-biz-tabs.js).
+  assert.doesNotMatch(journal, /journal-mode-switch|data-journal-mode=/);
+  assert.match(readFileSync('app/org-biz-tabs.js', 'utf8'), /<button type="button" class="ds-seg-btn" data-view="\$\{esc\(tab\.view\)\}" aria-pressed=/);
   assert.match(quick, /class="home-quick-modes ds-seg"[^>]*><span class="home-quick-update-split ds-seg-group"><button type="button" class="ds-seg-btn" data-quick-mode="update">/);
   assert.match(quick, /<button type="button" class="ds-seg-btn" data-quick-mode="task">/);
   const css = ['journal.css', 'ui-standard.css', 'quick-controls.css'].map(f => readFileSync(`app/${f}`, 'utf8')).join('\n');

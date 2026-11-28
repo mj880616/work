@@ -60,6 +60,7 @@ const routeStyles={
 // PERF-첫로딩 P4: 화면 프로그램을 처음 부를 때(첫 화면은 이 도구가 실행되는 즉시 — loader-v2.js) 그 화면 첫 프로그램의 정적 사슬 전체를
 // 받기만 먼저 걸어 둔다(실행 순서는 아래 loaders 그대로). 사슬은 Pages 빌드가 채운다(/*static-chain*/, scripts/build-pages.mjs).
 // 담당조직은 목록만 — 조직 상세는 목록이 보인 뒤 받는다(P5, organization-detail-deferred 시험).
+routeStyles.weekly=routeStyles.home;
 const firstModules={team:/*static-chain*/['./suborganizations.js']};
 async function prepare(view){
   const key=normalize(view);
@@ -178,6 +179,8 @@ async function organizations(){
 }
 // HOME-업무일지홈: 홈은 업무일지 화면이다(journal.js가 #homeView 안 #journalRoot의 유일한 renderer). 옛 홈 칸 화면은 코드째 삭제.
 async function home(){ await module('./journal.js'); return {ok:true} }
+// NAV-조직사업합침: [조직·사업] › [주간 보고](weekly)는 업무일지 칸의 주간 쪽이라 같은 프로그램(journal.js)·같은 모양을 쓴다.
+const weekly=home;
 async function basket(){ await module('./basket.js'); return {ok:true} }
 // HWP-편집기(S71-61부터 노트 화면 ⋯ [HWP 편집]·노트 ⋯ [이 노트를 HWP로]·자료실 [편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
 async function diary(){ await module('./diary.js'); return {ok:true} }
@@ -224,7 +227,7 @@ async function reading(){ await screen('./reading.js','__KPTU_READING_READY__');
 // SEC-기능PIN잠금 ②: [잠금](?view=lock, 계정 메뉴) — 잠긴 기능을 열 때도 문지기(feature-lock.js)가 이 화면으로 보낸다. 열 때만 불러온다(모듈이 #lockView를 만든다).
 async function lock(){ await module('./lock-ui.js'); return {ok:true} }
 async function help(){ await module('./help.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
+const loaders={home,weekly,basket,calendar,tasks,diary,projects,library,meetings,team:organizations,hwp:hwpLab,profile,search,photos,calls,telegram,arsenal,outside,files,updates,whatsnew,feedback,signups,brief,reading,help,lock};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 // NOTE-게시 ③: 옛 [공유 페이지] 화면(?view=pages)은 없앴다 — 노트(정리함 노트 쪽, 라우터 ALIAS_SUB)를 연다.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library',news:'outside',now:'outside',journal:'home',pages:'basket'};
@@ -266,6 +269,7 @@ const warmModules={
   calendar:/*static-chain*/['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js','./calendar-interactions-v2.js','./calendar-mobile-ui.js','./calendar-day-overflow.js','./calendar-persistence.js'],
   tasks:/*static-chain*/['./project-catalog.js','./organization-order.js','./google-tasks.js'],
   home:/*static-chain*/['./journal.js'],
+  weekly:/*static-chain*/['./journal.js'],
   diary:/*static-chain*/['./diary.js'],
   projects:/*static-chain*/['./project-system-v3.js'],
   library:/*static-chain*/['./library-upload.js'],

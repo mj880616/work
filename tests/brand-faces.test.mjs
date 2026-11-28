@@ -11,8 +11,9 @@ const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'
 
 // 얼굴 기능 전(main 7e50408) 메뉴 이름 그대로. 노동조합+ 얼굴에서는 한 글자도 달라지면 안 된다.
 const NOJO_MENU_LABELS = Object.freeze({
-  home: '홈', basket: '잊지 말기', reading: '저장한 글', calendar: '일정', note: '노트', meetings: '사업 관리', library: '자료실', files: '파일',
-  brief: '브리핑 룸', team: '조직 관리', photos: '사진', outside: '읽을 거리', // S68-34(11/23 사용자): News → 읽을 거리, 읽을 거리 → 저장한 글
+  // NAV-조직사업합침(2026-11-28 사용자 결정): 옛 [사업 관리]·[조직 관리] 두 메뉴는 [조직·사업] 하나(id team)다.
+  home: '홈', basket: '잊지 말기', reading: '저장한 글', calendar: '일정', note: '노트', library: '자료실', files: '파일',
+  brief: '브리핑 룸', team: '조직·사업', photos: '사진', outside: '읽을 거리', // S68-34(11/23 사용자): News → 읽을 거리, 읽을 거리 → 저장한 글
   calls: '통화', telegram: '텔레그램 소식', arsenal: '아스날'
 });
 
@@ -28,8 +29,8 @@ test('저장소의 얼굴은 nojo(지금 운영) 한 줄이고, 단어표가 비
 
 test('노동조합+ 메뉴 이름은 얼굴 기능 전과 같다', () => {
   assert.deepEqual(Object.fromEntries(ITEMS.map(item => [item.id, item.label])), NOJO_MENU_LABELS);
-  assert.equal(labelOf('meetings'), '사업 관리');
-  assert.equal(labelOf('team'), '조직 관리');
+  assert.equal(labelOf('meetings'), '', '사업 관리는 메뉴가 아니라 [조직·사업] 안 큰 탭');
+  assert.equal(labelOf('team'), '조직·사업');
 });
 
 test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 지금 있는 것 안에서만 고른다', () => {
@@ -51,7 +52,7 @@ test('얼굴 두 벌은 같은 칸을 모두 갖고, 켜진 메뉴·화면은 �
   for (const off of ['outside', 'brief', 'arsenal', 'calls', 'telegram']) {
     assert.ok(!FACES.girok.menu.includes(off) && !FACES.girok.views.includes(off), `기록+에서 빠지는 ${off}`);
   }
-  for (const kept of ['home', 'basket', 'reading', 'calendar', 'note', 'meetings', 'library', 'files', 'team', 'photos']) {
+  for (const kept of ['home', 'basket', 'reading', 'calendar', 'note', 'library', 'files', 'team', 'photos']) {
     assert.ok(FACES.girok.menu.includes(kept), `기록+에 남는 ${kept}`);
   }
 });
@@ -69,7 +70,17 @@ test('기록+ 단어표: 2026-11-20 명진 결정 단어, 표에 없는 글자�
   assert.equal(wordIn(girok, '조직 관리', 'title'), '거래처·부서·직원', '화면 제목');
   assert.equal(wordIn(girok, '자료실'), '자료실');
   assert.equal(wordIn(girok, '자료실', 'title'), '자료실', '자리 열쇠가 없으면 글자 그대로');
+  // NAV-조직사업합침(2026-11-28 사용자 "조직·사업으로 하고 운영자 외 사용자에게도 그렇게 해줘 거래처 활동 말고"): [조직·사업] 메뉴·큰 탭 이름만
+  // WORK ON+ 기본에서도 글자 그대로 두는 열쇠(낱말 바꾸기에 걸리지 않게 통째·자리 열쇠). 이 넷 밖에는 노조 색 단어가 남지 않는다.
+  const KEEP = ['조직·사업', '조직 관리#tab', '사업 관리#tab', '주간 보고#tab'];
+  for (const key of KEEP) assert.equal(girok.words[key], key.split('#')[0], key);
+  assert.equal(wordIn(girok, '조직·사업'), '조직·사업');
+  assert.equal(wordIn(girok, '조직 관리', 'tab'), '조직 관리');
+  assert.equal(wordIn(girok, '사업 관리', 'tab'), '사업 관리');
+  assert.equal(wordIn(girok, '주간 보고', 'tab'), '주간 보고');
+  assert.equal(wordIn(girok, '조직·사업영역 이름 검색'), '대상·프로젝트 이름 검색', '통째 열쇠가 더 긴 말의 앞부분을 잡지 않는다');
   for (const [from, to] of Object.entries(girok.words)) {
+    if (KEEP.includes(from)) continue;
     assert.ok(from && to && from !== to, from);
     assert.ok(!/노동조합|노조|조직|사업 ?보고|사업영역|투쟁|교섭|상집|조합원/.test(to.replace(/="[^"]*"/g, "")), `${from} → ${to}에 노조 색 단어가 남음`);
     assert.ok(!/[•∙・]/.test(to), `${to}: 가운데점은 '·'만`);
@@ -137,9 +148,11 @@ test('노조 색 화면 이름은 단어표를 거쳐 나온다(글자를 곧바
   assert.match(top, /import \{APP_NAME,word\} from '\.\/brand\/brand\.mjs';/);
   assert.match(top, /const APP_TITLE=APP_NAME;/);
   for (const name of ['사업 관리', '조직 관리', '사업영역 관리']) assert.ok(!top.includes(`'${name}'`) || top.split(`'${name}'`).length - 1 === top.split(`word('${name}'`).length - 1, `topbar-actions.js의 '${name}'`);
+  // NAV-조직사업합침: 메뉴 이름 '조직·사업'은 모든 사람 같은 글자(단어표 밖), 큰 탭 이름은 단어표의 'tab' 자리를 거친다.
   const menu = read('app/menu-model.mjs');
-  assert.match(menu, /label: word\('사업 관리'\)/);
-  assert.match(menu, /label: word\('조직 관리'\)/);
+  assert.match(menu, /\{id: 'team', label: '조직·사업',/);
+  assert.doesNotMatch(menu, /label: word\(/);
+  assert.match(read('app/org-biz-tabs.js'), /export const tabLabel = tab => word\(tab\.text, 'tab'\);/);
   assert.match(read('app/basket-note-tasks.js'), /projects:word\('사업영역'\),team:word\('조직 관리'\)/);
 });
 

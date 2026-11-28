@@ -113,7 +113,7 @@ async function onClick(e){
   // RECORD-한줄: 사업 기록은 한 줄만 보이고, 한 줄이 원문과 다르면 누르면 원문이 그대로(작은 창, 읽기만).
   const raw=e.target.closest('[data-bp-raw]');if(raw){const r=findRec(raw.dataset.bpRaw);if(!r)return;const mod=await import('./record-raw-view.js');return mod.openRawRecord({text:r.full,day:state.kit.NM.dayText(r.day,r.end_day),line:r.text,trigger:raw})}
   const open=e.target.closest('[data-bp-open]');if(open){const mod=await import('./report-open.js');return mod.openReport(open.dataset.bpOpen)}
-  if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('journal',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
+  if(e.target.closest('[data-bw-journal]')){const day=state.from;window.KPTURouter?.go?.('weekly',{source:'delegated'});return waitJournal().then(j=>j?.showWeek?.(day))}
   // 칸 한 번 누르기는 아무 일도 하지 않는다(WEEKLY-화면정돈 ② — 고치기는 칸 메뉴·두 번 누르기·Enter).
 }
 // 업무일지 부품이 아직 안 불러와졌으면 잠깐(최대 5초) 기다린다.
