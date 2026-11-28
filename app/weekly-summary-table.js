@@ -452,7 +452,7 @@ async function saveAreaCell(ed,field){
   const changed=list.filter(x=>x.body!==NM.nowView(state.now.rows,x.ref.space,state.from).body);
   if(!changed.length){state.editing=null;renderPaper();return}
   const ok=await writeBodies(changed);
-  if(ok)say(unknown.length?`저장했어요. ◦ ${unknown.join(', ')} 칸을 찾지 못해 사업영역 칸에 그대로 넣었어요(확인 필요).`:'저장했어요.');
+  if(ok)say(unknown.length?word(`저장했어요. ◦ ${unknown.join(', ')} 칸을 찾지 못해 사업영역 칸에 그대로 넣었어요(확인 필요).`):'저장했어요.');
 }
 // 칸 글 여러 개를 차례로 쓴다(성공하면 글상자를 닫고 다시 그림). 실패하면 글상자·쓰던 글 그대로.
 async function writeBodies(changed,{close=true}={}){
