@@ -1898,7 +1898,8 @@ function enter(detail, want = 'day') {
   const place = window.KPTURouter?.place?.(view) || {}, shownStart = start;
   if (/^\d{4}-\d{2}-\d{2}$/.test(place.day || '')) { selected = place.day; start = weekStart(place.day); }
   // HOME-업무일지홈: 홈 메뉴·로고·하단 탭으로 들어오면(주소에 날짜 없음) 오늘(주간 보고는 이번 주). 뒤로 가기로 돌아올 때는 보던 날 그대로.
-  else if (!['popstate', 'back'].includes(detail?.source)) { selected = todayKey(); start = weekStart(selected); }
+  // 홈 ↔ 주간 보고만 오간 것(fromSide)도 보던 날·주 그대로(옛 [하루|주간 정리] 전환과 같음 — 예: 사업 보고 [주간 보고에서 보기]가 고른 주).
+  else if (!fromSide && !['popstate', 'back'].includes(detail?.source)) { selected = todayKey(); start = weekStart(selected); }
   if (switched && fromSide && start === shownStart && owner === ownerScope(rt) && linesState === 'ok') {
     startWeekReads(); writePlace(); renderMode();
     if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }

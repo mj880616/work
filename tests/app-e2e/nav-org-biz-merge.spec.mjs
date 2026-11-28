@@ -125,7 +125,7 @@ test('폰 412: 큰 탭은 좌우로 밀어 옮기고(왼쪽 = 다음), 끝에서
 
 for (const [query, id, url] of [
   ['?view=team', 'team', /[?&]view=team(?:&|$)/],
-  ['?view=meetings', 'meetings', /[?&]view=reports(?:&|$)/],
+  ['?view=meetings', 'meetings', /[?&]view=(?:meetings|reports)(?:&|$)/], // 옛 주소 글자는 지금처럼 그대로 둔다
   ['?view=reports', 'meetings', /[?&]view=reports(?:&|$)/],
   ['?view=weekly', 'weekly', /[?&]view=weekly(?:&|$)/],
   ['?mode=week', 'weekly', /[?&]view=weekly(?:&|$)/],
