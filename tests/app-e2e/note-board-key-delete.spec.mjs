@@ -97,3 +97,25 @@ test('PC: 카드·주제 함께 고르고 Delete = 주제는 지우고 카드는
   expect(textRows.some(t => t.body === '첫 주제')).toBe(true);
   expect(errors).toEqual([]);
 });
+
+// #3313 main 시험 깨짐: 지운 화면은 바로 바뀌는데 되돌리기 기록은 서버 답 뒤에야 올라가, 그사이 누른 Ctrl+Z가 버려졌다.
+// 서버 지우기 답을 붙잡아 둔 채 Ctrl+Z → 답이 오면 그대로 되살아나야 한다(입력 버림 없음).
+test('PC: 서버 지우기 답이 오기 전에 누른 Ctrl+Z도 되돌린다 (1280)', async ({ page }) => {
+  const { errors, textRows } = await boardFixture(page, 1280, { bid: BID, seed: SEED.filter(t => t.id !== 'T3') });
+  let release; const gate = new Promise(r => { release = r; }); let held = 0;
+  await page.route(u => u.pathname === '/rest/v1/app_note_board_texts', async r => {
+    if (r.request().method() !== 'DELETE') return r.fallback();
+    held++; await gate; return r.fallback();
+  });
+  await pickTwo(page);
+  await page.keyboard.press('Delete');
+  await expect(nbNode(page, '첫 주제')).toHaveCount(0);
+  await expect.poll(() => held).toBe(2);
+  await page.locator('[data-nb-scroll]').focus().catch(() => {});
+  await page.keyboard.press('Control+z');
+  release();
+  await expect(nbNode(page, '첫 주제')).toHaveCount(1);
+  await expect(nbNode(page, '둘째 주제')).toHaveCount(1);
+  await expect.poll(() => textRows.map(t => t.body).sort()).toEqual(['남는 주제', '둘째 주제', '첫 주제']);
+  expect(errors).toEqual([]);
+});
