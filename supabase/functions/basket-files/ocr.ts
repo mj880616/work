@@ -19,11 +19,13 @@ type Note = {
   updated_at: string;
   attachments: File[];
 };
-// S69-98 NOTE-에버노트 ④: a note's files live in the private child folder "노트 첨부" inside the basket root (handler.ts upload,
-// chosen from the stored row's kind). OCR reads a note photo there and puts its temporary document there too. It only looks the
-// folder up (existingOnly): OCR never creates a folder, and the same private-folder check as the upload refuses a shared one.
-// A note photo still in the root (the note was an update before) is read in the root as before.
-export const NOTE_FILES_FOLDER = "노트 첨부";
+// S69-98 NOTE-에버노트 ④: a note's files live in a private child folder "노트 첨부" (handler.ts upload, chosen from the stored
+// row's kind). NOTE-첨부폴더(2026-11-28): new files go to "노트 첨부" inside the top app folder; files uploaded before stay in
+// "노트 첨부" inside the basket root. OCR reads a note photo in whichever of the two holds it and puts its temporary document there
+// too. It only looks folders up (existingOnly): OCR never creates a folder, and the same private-folder check as the upload refuses
+// a shared one. A note photo still in the root (the note was an update before) is read in the root as before.
+export { NOTE_FILES_FOLDER_NAME as NOTE_FILES_FOLDER } from "../_shared/brand-folders.mjs";
+import { NOTE_FILES_FOLDER_NAME as NOTE_FILES_FOLDER } from "../_shared/brand-folders.mjs";
 const RPC = "app_basket_update_attachment_ocr";
 const uuid = (v: unknown): v is string =>
   typeof v === "string" &&
@@ -422,8 +424,22 @@ export function createOcrHandler(
           return null;
         }
       };
-      const found = child ? await inFolder(child) : null;
-      if (found) {
+      // NOTE-첨부폴더: a note photo uploaded from now on is in "노트 첨부" inside the top app folder — looked up first, found only
+      // (existingOnly, null when missing, not the caller's own or shared), never created.
+      let top: string | null = null;
+      if (note.kind === "note") {
+        try {
+          top = await upload.noteFilesFolder(workspace, token, { existingOnly: true });
+        } catch {
+          throw new OcrError("OCR_FOLDER_UNAVAILABLE", 409);
+        }
+      }
+      const inTop = top ? await inFolder(top) : null;
+      const found = inTop ? null : child ? await inFolder(child) : null;
+      if (inTop) {
+        source = inTop;
+        folder = top!;
+      } else if (found) {
         source = found;
         folder = child!;
       } else {
