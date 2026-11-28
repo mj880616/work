@@ -49,7 +49,7 @@
 
 - 태그는 따로 칸이 없다(사실: 본문의 `#태그`가 원본). 태그를 고치는 것 = 본문 고치기.
 - 노트·업데이트 본문을 고치면 편집기 서식(`doc`)은 비운다(화면은 서식 없는 노트를 옛 방식으로 읽음 — 사실 `app/note-body.js`). 옛 서식은 되돌리기 자료에 남아 [되돌리기]로 돌아온다.
-- 고치기·휴지통은 **읽은 판 확인**이 필수다: 먼저 `web2_record_get`으로 지금 글 전체와 `updated_at`을 받고, 고칠 때 그 값을 `base_updated_at`으로 보낸다. 그사이 바뀌었으면 `CHANGED`로 거절(화면 저장과 같은 낙관적 잠금). 그래서 Claude가 요지(앞 200~300자)만 보고 전체를 덮어쓰는 일이 없다.
+- 고치기·휴지통은 **읽은 판 확인**이 필수다: 먼저 `web2_record_get`으로 지금 글 전체와 판(`version`)을 받고, 고칠 때 그 값을 `base_version`으로 보낸다. 그사이 바뀌었으면 `CHANGED`로 거절(화면 저장과 같은 낙관적 잠금). 그래서 Claude가 요지(앞 200~300자)만 보고 전체를 덮어쓰는 일이 없다.
 
 ### 3.2 쓰지 않는 것 (서버가 거절, 시험으로 지킴)
 
@@ -82,15 +82,15 @@
 | --- | --- | --- | --- |
 | `web2_record_get` | `kind`(note·update·work·org_record·business_record), `id` 또는 `day`(업무일지), `page` | 고치기 전 지금 글 전체(8,000자 쪽 나눔)·`updated_at` | 읽기 |
 | `web2_note_create` | `title`(200), `body`(20,000), `folder`(50, 있는 폴더 이름) | 새 노트(마크다운 표시) | 쓰기 |
-| `web2_note_edit` | `note_id`, `base_updated_at`, `title`·`body`·`folder` 중 하나 이상 | 노트 고치기 | 쓰기 |
+| `web2_note_edit` | `note_id`, `base_version`, `title`·`body`·`folder` 중 하나 이상 | 노트 고치기 | 쓰기 |
 | `web2_update_create` | `body`(20,000), `day`(선택) | 새 업데이트 | 쓰기 |
-| `web2_update_edit` | `item_id`, `base_updated_at`, `body` | 업데이트 고치기 | 쓰기 |
-| `web2_trash` | `kind`(note·update), `id`, `base_updated_at` | 휴지통으로(되살리기 가능) | 지우기(되돌릴 수 있음) |
+| `web2_update_edit` | `item_id`, `base_version`, `body` | 업데이트 고치기 | 쓰기 |
+| `web2_trash` | `kind`(note·update), `id`, `base_version` | 휴지통으로(되살리기 가능) | 지우기(되돌릴 수 있음) |
 | `web2_work_line_add` | `day`, `line`(300) | 그날 업무일지에 한 줄 | 쓰기 |
 | `web2_org_record_add` | `organization`(이름·ID), `text`(4,000), `day`(선택) | 조직 기록 한 건 | 쓰기 |
-| `web2_org_record_edit` | `record_id`, `base_updated_at`, `text` | 조직 기록 글 고치기 | 쓰기 |
+| `web2_org_record_edit` | `record_id`, `base_version`, `text` | 조직 기록 글 고치기 | 쓰기 |
 | `web2_business_record_add` | `project`(이름·ID), `body`(300), `day`(선택) | 사업 기록 한 줄 | 쓰기 |
-| `web2_business_record_edit` | `record_id`, `base_updated_at`, `body` | 사업 기록 글 고치기 | 쓰기 |
+| `web2_business_record_edit` | `record_id`, `base_version`, `body` | 사업 기록 글 고치기 | 쓰기 |
 
 - 이름으로 고를 때(폴더·조직·사업) 정확히 같은 이름이 하나여야 한다. 없으면 `NOT_FOUND`, 둘 이상이면 `AMBIGUOUS`(Claude가 사용자에게 다시 묻게).
 - 응답: `{ok, kind, id, updated_at, action}` + 서버가 만든 Web2 주소 없음(글 없음). `web2_record_get`만 글을 돌려주고 읽기 봉투 안내(`notice`, `untrusted_text`)를 붙인다.
@@ -110,7 +110,7 @@
 - 새 표 `app_mcp_write_log`(호출 기록): 언제·도구·종류·대상 id·동작(read·create·edit·trash·append)·글자 수 전/후·쓴 뒤 `updated_at`·되돌린 시각. **내용 없음**(검색어·글 없음). owner 읽기만. 넣기는 DEFINER 도우미만.
 - 새 표 `app_mcp_write_undo`(되돌리기 자료): 고치기 전 칸 값(제목·본문·서식·폴더 표시). 사용자 자기 작업공간 안 자료이고 owner 읽기만, 위임 열쇠로는 못 읽는다(L1이 표 REST를 막고, 쓰기 함수는 이 표를 돌려주지 않음). **30일 뒤 지움**(쓰기 때마다 오래된 것 정리).
 - 기존 판 기록 재사용: 노트·조직 기록·사업 기록에는 이력 표가 없다(사실, 조사). 휴지통 되살리기(`app_trash_restore('note', id)`)는 그대로 재사용하고, 고치기 되돌리기만 새 표로 한다.
-- 화면: 내 프로필 'Claude 연결' 칸에 [쓰기] 스위치와 접힌 "최근 Claude가 고친 것"(최근 20건: 언제·무엇을·종류·글자 수, [되돌리기]).
+- 화면: 내 프로필 'Claude 연결' 칸에 [쓰기] 스위치와 접힌 "최근 Claude가 수정한 것"(최근 20건: 언제·무엇을·종류·글자 수, [되돌리기]).
   - [되돌리기]는 일반 로그인만(함수가 위임 열쇠 거절). 그 뒤 사용자가 또 고쳤으면(`updated_at`이 다르면) `CHANGED`로 거절 — 사용자 글을 덮지 않는다.
   - 만들기 되돌리기: 노트·업데이트는 휴지통으로, 업무일지 줄은 그 줄 빼기(그날 행을 새로 만들었으면 행 지움), 조직·사업 기록은 지움(사용자가 화면에서 지우는 것과 같은 길).
   - 고치기 되돌리기: 고치기 전 칸으로. 휴지통 되돌리기: 휴지통에서 되살리기.
@@ -160,7 +160,7 @@
 
 1. Web2 → 내 프로필 → 'Claude 읽기 연결' 칸 → [쓰기] 켜기.
 2. claude.ai → 설정 → 커넥터 → WORK ON+ → 도구 권한에서 쓰기 도구(`web2_note_create` 등)는 **"매번 묻기"**로 둔다.
-3. 새 대화에서 "노트 하나 만들어 줘: 제목 시험"으로 시험 → Web2 노트에서 확인 → 'Claude가 고친 것'에서 [되돌리기].
+3. 새 대화에서 "노트 하나 만들어 줘: 제목 시험"으로 시험 → Web2 노트에서 확인 → 'Claude가 수정한 것'에서 [되돌리기].
 
 ## 10. 사용자 결정
 
