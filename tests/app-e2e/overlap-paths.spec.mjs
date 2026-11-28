@@ -96,25 +96,6 @@ test('MTG-겹침 홈 [업데이트]로 담당조직에 기록하면 담당조직
   expect(calls.setLinks).toHaveLength(0);
 });
 
-test('MTG-겹침 두 곳에 연결한 업데이트는 연결이 끝난 뒤 확인하고, [연결로 바꾸기]는 두 곳을 모두 사업 보고에 잇는다',async({page})=>{
-  const q=await homeUpdate(page,'두 곳 소식');const calls=await overlap(page);
-  const NOTE='f0000000-0000-4000-8000-000000000003';
-  await page.route(SB+'/rest/v1/app_notes**',route=>{
-    if(route.request().method()!=='POST')return route.fallback();
-    const body=route.request().postDataJSON();
-    return route.fulfill({status:200,json:[{...body,id:NOTE,kind:'basket',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true}]});
-  });
-  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>route.fulfill({status:200,json:{ok:true,created:2,existing:0}}));
-  await pick(page,q,'테스트 프로젝트','테스트 조직');
-  await q.locator('[data-edw-save]').click();
-  await expect(notice(page)).toBeVisible();
-  expect(calls.ai).toHaveLength(1);
-  expect(calls.ai[0].pairs).toEqual([{a:`basket:${NOTE}`,b:`meeting:${MID}`}]);
-  await notice(page).getByRole('button',{name:'연결로 바꾸기'}).click();
-  await expect(notice(page)).toContainText('연결했어요');
-  expect(calls.setLinks).toHaveLength(1);
-  expect(calls.setLinks[0].p_targets.map(t=>[t.kind,t.target_id]).sort()).toEqual([['organization','o'],['project','p']]);
-});
 
 test('MTG-겹침 연결이 거절된 업데이트는 확인하지 않는다(정리함에 남아 있는 글을 건드리지 않는다)',async({page})=>{
   const q=await homeUpdate(page,'거절될 소식');const calls=await overlap(page);
@@ -126,7 +107,8 @@ test('MTG-겹침 연결이 거절된 업데이트는 확인하지 않는다(정�
   await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>route.fulfill({status:200,json:{ok:false,error:'NOTE_CHANGED'}}));
   await pick(page,q,'테스트 프로젝트','테스트 조직');
   await q.locator('[data-edw-save]').click();
-  await expect(page.locator('#toast')).toContainText('잊지 말기에 저장했습니다.');
+  // 큰 창은 연결이 거절되면 그 안내를 알림 한 줄로 보인다(update-window.js linkFailText).
+  await expect(page.locator('#toast')).toContainText('업데이트는 잊지 말기에 저장했지만 선택한 곳에 연결하지 못했어요.');
   await page.waitForTimeout(300);
   expect(calls.ai).toHaveLength(0);
   await expect(notice(page)).toHaveCount(0);

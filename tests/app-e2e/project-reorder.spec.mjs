@@ -155,7 +155,7 @@ const taskLinkIds=async page=>{
  await page.keyboard.press('Escape');await expect(page.locator(SHEET)).toBeHidden();
  await page.keyboard.press('Escape');await expect(body).toBeHidden();return ids;
 };
-test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list projects in the order set on the project screen',async({page})=>{
+test('PC 1280: 기록할 곳 (큰 쓰기 창) and 할 일 연결 list projects in the order set on the project screen',async({page})=>{
  const {errors}=await fixture(page);
  // 할 일 연결 read once before the move (its list is kept for the visit): it must not keep the old order.
  expect(await taskLinkIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
@@ -169,6 +169,7 @@ test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list proje
  expect(ids).toEqual(['pe','pa','pc','pd','pg','pb']);
  if(SHOT)await page.screenshot({path:SHOT+'/prj-order-place-sheet-1280.png'});
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
+ await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  expect(await taskLinkIds(page)).toEqual(['pe','pa','pc','pd','pg','pb']);
  expect(errors).toEqual([]);
 });
