@@ -98,6 +98,13 @@ export const SHOW_N = 3;
 export const GIST_TITLE = '요지';
 export const QUOTES_TITLE = '원문 인용';
 export const OURS_TAG = '우리 관련';
+// BRIEF-품질올리기('더 깊게', 운영자 기능 brief_plus): 새 칸 이름. 칸이 없는 브리핑(지금 것·다른 사람)은 그리지 않는다.
+export const PLUS_TITLES = Object.freeze({ core: '짜임', issues: '쟁점', mismatches: '문서 안 불일치·확인 필요', background: '배경 지식' });
+export const CHECK_TAG = '확인 필요';
+export const LENS_LABEL = '쟁점 관점';
+export const LENS_HINT = '브리핑의 쟁점을 어떤 눈으로 볼지 적어요. 비우면 기본 관점으로 봐요.';
+/** 불일치 한 줄: '시행일: 공포 후 6개월(주요 내용) ↔ 공포 후 1년(부칙 제1조)'. */
+export const mismatchLine = mm => `${mm.what}: ${mm.a.value}${mm.a.ref ? `(${mm.a.ref})` : ''} ↔ ${mm.b.value}${mm.b.ref ? `(${mm.b.ref})` : ''}`;
 export const moreLabel = n => `+ ${n}개 더 보기`;
 const strs = v => (Array.isArray(v) ? v.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim()) : []);
 const str = v => (typeof v === 'string' ? v.trim() : '');
@@ -122,7 +129,7 @@ export function briefView(brief) {
   if (!legacy) {
     sections = (Array.isArray(b.sections) ? b.sections : []).map(sec => ({
       title: str(sec?.title),
-      items: (Array.isArray(sec?.items) ? sec.items : []).filter(it => it && str(it.text)).map(it => ({ text: str(it.text), page: pageOf(it.page), ours: it.ours === true })),
+      items: (Array.isArray(sec?.items) ? sec.items : []).filter(it => it && str(it.text)).map(it => ({ text: str(it.text), page: pageOf(it.page), ours: it.ours === true, ...(str(it.ref) ? { ref: str(it.ref) } : {}) })),
     })).filter(sec => sec.items.length);
   } else if (b.v === 2) {
     const objs = v => (Array.isArray(v) ? v.filter(o => o && typeof o === 'object') : []);
@@ -137,7 +144,20 @@ export function briefView(brief) {
   const quotes = (Array.isArray(b.quotes) ? b.quotes : [])
     .filter(q => q && typeof q.text === 'string' && q.text)
     .map(q => ({ text: q.text, speaker: str(q.speaker), heading: str(q.heading), page: pageOf(q.page) }));
-  return { gist, sections, quotes, legacy };
+  return { gist, sections, quotes, legacy, plus: legacy ? null : plusView(b.plus) };
+}
+
+/** '더 깊게' 칸(서버가 검사한 값). 없거나 모두 비면 null. */
+export function plusView(p) {
+  if (!p || typeof p !== 'object') return null;
+  const objs = v => (Array.isArray(v) ? v.filter(o => o && typeof o === 'object') : []);
+  const side = s => (s && typeof s === 'object' && str(s.value) ? { value: str(s.value), ref: str(s.ref) } : null);
+  const core = str(p.core);
+  const issues = objs(p.issues).filter(o => str(o.text)).map(o => ({ text: str(o.text), why: str(o.why), ref: str(o.ref) }));
+  const mismatches = objs(p.mismatches).map(o => ({ what: str(o.what), a: side(o.a), b: side(o.b), note: str(o.note) })).filter(o => o.what && o.a && o.b);
+  const background = objs(p.background).filter(o => str(o.text)).map(o => ({ text: str(o.text) }));
+  if (!core && !issues.length && !mismatches.length && !background.length) return null;
+  return { core, issues, mismatches, background };
 }
 
 const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
@@ -289,10 +309,15 @@ export function archiveNote({ doc, row, marks = [] } = {}) {
   const meta = [fileBadge(doc.file_name, doc.mime_type), row.page_count ? `${row.page_count}쪽` : ''].filter(Boolean).join(' · ');
   if (meta) out[0] += ` (${meta})`;
   if (v.gist.length) out.push(`## ${GIST_TITLE}\n\n${v.gist.join('\n\n')}`);
+  if (v.plus?.core) out.push(`${PLUS_TITLES.core}: ${v.plus.core}`);
   for (const sec of v.sections) {
-    const lines = sec.items.map(it => `- ${it.text}${it.ours ? ` (${OURS_TAG})` : ''}${it.page ? ` · ${it.page}쪽` : ''}`).join('\n');
+    const lines = sec.items.map(it => `- ${it.text}${it.ours ? ` (${OURS_TAG})` : ''}${it.ref ? ` · ${it.ref}` : ''}${it.page ? ` · ${it.page}쪽` : ''}`).join('\n');
     out.push(sec.title ? `## ${sec.title}\n\n${lines}` : lines);
   }
+  // BRIEF-품질올리기: '더 깊게' 칸도 화면 순서 그대로 보관한다.
+  if (v.plus?.issues.length) out.push(`## ${PLUS_TITLES.issues}\n\n${v.plus.issues.map((it, i) => `${i + 1}. ${it.text}${it.ref ? ` · ${it.ref}` : ''}${it.why ? `\n   - ${it.why}` : ''}`).join('\n')}`);
+  if (v.plus?.mismatches.length) out.push(`## ${PLUS_TITLES.mismatches}\n\n${v.plus.mismatches.map(mm => `- ${mismatchLine(mm)}${mm.note ? `\n  - ${mm.note}` : ''}`).join('\n')}`);
+  if (v.plus?.background.length) out.push(`## ${PLUS_TITLES.background} (${CHECK_TAG})\n\n${v.plus.background.map(it => `- ${it.text}`).join('\n')}`);
   if (v.quotes.length) {
     out.push(`## ${QUOTES_TITLE}\n\n${v.quotes.map(q => {
       const tail = [q.speaker, q.page ? `${q.page}쪽` : '', q.heading].filter(Boolean).join(' · ');

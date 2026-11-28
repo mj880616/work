@@ -30,7 +30,7 @@
 //   다시 만들기(brief-start)는 고친 브리핑이면 먼저 묻는다(취소가 기본 — 지금 다 된 브리핑을 다시 만드는 단추는 없어(S70-29) 막아 두는 몫만). 밑줄은 글자 대조(locate)라 고친 뒤 못 찾은 밑줄은 칠하지 않을 뿐 남는다.
 //   PC 요약 글 우클릭(Shift+F10·메뉴 키) = 공용 줄 메뉴(row-menu.js) [고치기] + 고른 글 막대와 같은 항목(text-select-bar selectBarActs).
 //   글을 골라 두었으면 그 고른 글에, 아니면 누른 줄 글에. 고치는 칸·입력 칸 위에서는 브라우저 기본 메뉴 그대로.
-import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,OURS_TAG,QUOTES_TITLE,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
+import {ARCHIVE_LABEL,BRIEF_GONE,archiveNote,briefSource,BRIEF_FOLDER,BRIEF_POLL_MS,BRIEF_SELECT,BRIEF_SELECT_EDIT,DELETE_KINDS,PICK_SECTIONS,PICK_VIEWS,GIST_TITLE,OURS_TAG,QUOTES_TITLE,PLUS_TITLES,CHECK_TAG,LENS_LABEL,LENS_HINT,mismatchLine,RETRY_LABEL,SHOW_N,briefView,canRetry,doneDate,deleteConfirm,deleteResult,fileBadge,isStalled,latestByDocument,libraryPickRows,listRows,partialLine,pickResult,sourceUrl,startError} from './brief-room-model.mjs';
 import {createMovePicker} from './library-move-picker.js';
 import {readLibraryFolders} from './library-folder-data.js';
 import {waitHtml,failHtml,emptyEl} from './wait-state.js';
@@ -51,7 +51,8 @@ import {KIND,dayText} from './files-model.mjs';
 import {iconSvg} from './tree-icons.js';
 import {ftFolderRowHtml,ftEmptyRowHtml,ftIconHtml} from './folder-tree-ui.mjs';
 import {nextSort,headCellHtml,sortSelectHtml,parseSortValue,bindHeadSort} from './head-sort.mjs';
-import {viewPrefs} from './view-prefs.js';
+import {viewPrefs,BRIEF_LENS_MAX} from './view-prefs.js';
+import {myFeaturesOrNull} from './my-features.js';
 import {SPLIT_QUERY} from './screen-width.mjs';
 import {mountSplitResize} from './split-resize.js';
 import {followPane} from './follow-pane.js';
@@ -253,8 +254,20 @@ const addMenu=createAnchoredMenu({id:'brAddMenu',className:'topline-add-menu br-
 const topMenu=createAnchoredMenu({id:'brTopMenu',className:'topline-add-menu br-top-menu',label:'브리핑 룸 메뉴',historyKey:'kptuBriefTopMenu',key:()=>'top',boxWidth:220,
   render:()=>(split()?'':`<div class="br-menu-line"><span class="br-menu-tx">정렬</span>${sortSelectHtml({keys:BRIEF_SORT_KEYS,names:BRIEF_SORT_NAME,cur:sortNow(),label:'정렬',className:'fx-sort br-sort',attrs:'data-br-sort'})}</div>`)
     +(detailShown()?'':`<div class="br-menu-line" data-br-menu-size><span class="br-menu-tx">글자 크기</span>${textSizeHtml()}</div>`)
+    +(state.plusOn?`<button type="button" class="row-act" data-br-top-act="lens" aria-haspopup="dialog">${LENS_LABEL}…</button>`:'')
     +'<button type="button" class="row-act" data-br-top-act="help">쓰는 법</button>',
-  onAction:button=>{if(button.dataset.brTopAct==='help')void import('./help-link.js').then(m=>m.openHelp('brief'))}});
+  onAction:button=>{const a=button.dataset.brTopAct;if(a==='help')void import('./help-link.js').then(m=>m.openHelp('brief'));else if(a==='lens')void editLens()}});
+// BRIEF-품질올리기: [⋯] [쟁점 관점…] — 운영자 기능 brief_plus가 켜진 계정만(서버 app_my_features 답, 화면 판단은 편의일 뿐 — 서버가 다시 본다).
+// 글은 내 프로필 서버 화면 기억(view_prefs.brief_lens)에만 둔다. 다음에 만드는 브리핑부터 쓰인다.
+async function editLens(){
+  const at=tools.querySelector('[data-br-top-more]');
+  const v=await askText(at,{text:`${LENS_LABEL} — ${LENS_HINT}`,value:viewPrefs.getBriefLens?.()||'',ok:'저장',max:BRIEF_LENS_MAX,placeholder:'예: 비용이 늘어나는 조항, 권한이 줄어드는 대목'});
+  if(v===null)return;
+  const s=String(v).replace(/\s+/g,' ').trim();
+  if(/[<>]/.test(s)){toast('꺾쇠(<, >)는 쓸 수 없어요',true);return}
+  try{await viewPrefs.setBriefLens(s);toast(s?'관점을 저장했어요 · 다음 브리핑부터':'기본 관점으로 돌렸어요')}catch{toast('관점을 저장하지 못했어요',true)}
+}
+void myFeaturesOrNull().then(f=>{state.plusOn=Array.isArray(f)&&f.includes('brief_plus')}).catch(()=>{});
 {
   const panel=document.getElementById('brTopMenu');
   // 글자 크기 단추는 메뉴를 닫지 않고 그 자리에서 한 단계씩(공용 메뉴는 단추를 누르면 닫히므로 여기서 먼저 받는다).
@@ -294,8 +307,29 @@ function itemNode(it,doc,key){
   const li=el('li','br-it');li.dataset.brLine=key;li.tabIndex=-1;
   li.append(el('span','br-tx',it.text));
   if(it.ours)li.append(el('span','br-ours',OURS_TAG));
+  if(it.ref)li.append(el('span','br-art',it.ref)); // BRIEF-품질올리기: 근거 위치(조문·부칙·표)
   if(it.page)li.append(pageNode(doc,it.page,'br-ref'));
   return li;
+}
+// BRIEF-품질올리기('더 깊게'): 쟁점·불일치·배경 지식 한 줄 = 한 문장(늘 보임) + 이유·확인할 것(작은 둘째 줄). 고치는 칸이 아니다(p: 줄).
+function plusNode(text,{ref='',sub='',tag='',key}){
+  const li=el('li','br-it br-it-plus');li.dataset.brLine=key;li.tabIndex=-1;
+  li.append(el('span','br-tx',text));
+  if(tag)li.append(el('span','br-ours br-check',tag));
+  if(ref)li.append(el('span','br-art',ref));
+  if(sub)li.append(el('span','br-why',sub));
+  return li;
+}
+function plusParts(plus){
+  const out=[];if(!plus)return out;
+  const sec=(key,title,nodes,open)=>{if(!nodes.length)return;
+    const s=el('details','br-sec br-sec-plus');s.dataset.brKey=key;s.dataset.brSec=key;
+    const sum=el('summary'),h=el('h3',null,title);h.append(el('small',null,` ${nodes.length}`));sum.append(h);
+    const list=el(key==='issues'?'ol':'ul','br-items');list.append(...nodes);s.append(sum,list);s.open=open;out.push(s)};
+  sec('issues',PLUS_TITLES.issues,plus.issues.map((it,i)=>plusNode(it.text,{ref:it.ref,sub:it.why,key:`p:issues:${i}`})),true);
+  sec('mismatches',PLUS_TITLES.mismatches,plus.mismatches.map((mm,i)=>plusNode(mismatchLine(mm),{sub:mm.note,key:`p:mismatches:${i}`})),true);
+  sec('background',`${PLUS_TITLES.background} · ${CHECK_TAG}`,plus.background.map((it,i)=>plusNode(it.text,{key:`p:background:${i}`})),false);
+  return out;
 }
 // 원문 인용 한 줄: 원문 그대로(누르면 원문 그 자리) + 발언자 · 쪽 · 소제목.
 function quoteNode(it,doc){
@@ -342,6 +376,7 @@ function drawDetail(){
   if(v.gist.length){
     const g=el('section','br-gist');g.setAttribute('aria-label',GIST_TITLE);
     v.gist.forEach((line,i)=>{const p=el('p',null,line);p.dataset.brLine=`g:${i}`;p.tabIndex=-1;g.append(p)});
+    if(v.plus?.core){const p=el('p','br-core');p.append(el('span','br-core-k',PLUS_TITLES.core),document.createTextNode(` ${v.plus.core}`));p.dataset.brLine='p:core';p.tabIndex=-1;g.append(p)}
     parts.push(g);
   }
   v.sections.forEach((sec,i)=>{
@@ -353,6 +388,7 @@ function drawDetail(){
     s.append(sum,list);if(i<SHOW_N)s.open=true;
     parts.push(s);
   });
+  parts.push(...plusParts(v.plus));
   if(v.quotes.length){
     const s=el('details','br-sec br-sec-quotes');s.dataset.brKey='quotes';s.dataset.brSec='quotes';
     const sum=el('summary'),h=el('h3',null,QUOTES_TITLE);h.append(el('small',null,` ${v.quotes.length}`));sum.append(h);
@@ -456,7 +492,7 @@ function onContextMenu(e){
     at=appMenuPoint(e,line);if(!at)return;
   }
   const picked=selectedIn(zone),range=picked?window.getSelection().getRangeAt(0).cloneRange():null;
-  const items=lineMenuItems(selectBarActs(zone),state.editable&&!!line);
+  const items=lineMenuItems(selectBarActs(zone),state.editable&&!!line&&!String(line.dataset.brLine||'').startsWith('p:'));
   if(!items.length)return;
   e.preventDefault();
   const docId=zone.dataset.brZone;

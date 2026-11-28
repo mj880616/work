@@ -183,7 +183,10 @@ const NOTE_BOARD_ID_RE = /^b[0-9a-z]{6,12}$/;
 // 보드 바탕색 이름(note-boards-model.mjs BOARD_BGS와 같음 — tests/note-board-bg.test.mjs가 둘과 DB 검사를 맞춘다).
 export const NOTE_BOARD_BGS = Object.freeze(['sand', 'sage', 'sky', 'lilac', 'peach', 'mint', 'rose', 'gray']);
 const noteBoardName = v => typeof v === 'string' && v.length > 0 && [...v].length <= 20 && !/[\p{Cc}]/u.test(v);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'note_board_bg']);
+// BRIEF-품질올리기: 쟁점 관점 글 검사(DB app_profiles_view_prefs_check의 brief_lens 규칙과 같음).
+export const BRIEF_LENS_MAX = 200;
+export const briefLensOk = v => typeof v === 'string' && [...v].length >= 1 && [...v].length <= BRIEF_LENS_MAX && v.trim() !== '' && !/[\u0000-\u001f\u007f-\u009f<>]/.test(v);
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards', 'photo_cols', 'photo_cols_wide', 'diary_view', 'diary_onedrive', 'photo_view', 'quiet_weeks', 'note_view', 'note_boards', 'note_board', 'photo_hint', 'photo_sources', 'org_tab', 'tg_view', 'phone_folders_off', 'album_view', 'link_hidden_on', 'ed_more', 'phone_folders_known', 'now_tab', 'photo_sources_phone', 'photo_sources_pc', 'photo_level', 'col_widths', 'report_period', 'files_sources', 'files_dest_recent', 'files_two', 'note_sort', 'photo_zoom', 'org_order', 'report_calendar', 'news_tab', 'news_font', 'files_look', 'recent_folded', 'files_panes', 'box_shut', 'files_tree', 'files_pins', 'files_last', 'category_roles', 'org_row_order', 'library_two', 'biz_week_open', 'note_zoom', 'record_backup', 'home_off', 'drive_import_folder', 'files_sort', 'note_blocks', 'row_size', 'note_list_sort', 'note_cols', 'files_prev_shut', 'brief_sort', 'note_board_bg', 'brief_lens']);
 export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
 // S51-22 '최근' 상자 접기: recent_folded = 접은 화면 이름 배열(4개까지, 값은 아래 셋). migration 20261106233000. 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 접힌다(알림 없음).
 export const RECENT_FOLD_SCREENS = Object.freeze(['files', 'notes', 'library']);
@@ -255,6 +258,9 @@ export function validValue(key, value) {
     case 'files_prev_shut': return typeof value === 'boolean';
     // S70-84 BRIEF-두칸폴더: brief_sort = 브리핑 룸 목록 정렬 {key: 이름·넣은 날·크기·종류, dir: 오름·내림}(모든 기기 같음, files_sort와 같은 모양). migration 20261126120000.
     // 적용 전에는 쓰기가 400이라 rejectable로 보내 이번 접속만 기억한다. 기본(이름 오름)은 지운다(null).
+    // BRIEF-품질올리기: brief_lens = 브리핑 '쟁점을 볼 관점' 글(1~200자, 제어 문자·꺾쇠 없음, 빈 글 아님 — DB 검사와 같은 규칙). migration 20261128130100.
+    // 운영자 기능 brief_plus가 켜진 작업공간의 브리핑 합치기 지시에만 쓰인다(서버가 읽음). 적용 전에는 쓰기가 400이라 rejectable로 보내 되돌리고 알린다.
+    case 'brief_lens': return briefLensOk(value);
     case 'brief_sort': return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2
       && FILES_SORT_KEYS.includes(value.key) && (value.dir === 'asc' || value.dir === 'desc');
     // S70-35 NOTE-목록표머리 ①-2: note_list_sort = 노트 [목록] 정렬 {key: 제목·폴더·수정일·작성일·첨부·메모·글자 수, dir: 오름·내림}(모든 기기 같음). files_sort와 같은 모양.
@@ -572,6 +578,9 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     setFilesPrevShut: on => set('files_prev_shut', on ? true : null, {rejectable: true}),
     getFilesSort: () => prefs.files_sort ?? null,
     getBriefSort: () => prefs.brief_sort ?? null,
+    getBriefLens: () => (typeof prefs.brief_lens === 'string' ? prefs.brief_lens : ''),
+    // 비우면(공백만이면) 칸을 지운다 = 기본 관점. 앞뒤·겹친 공백은 줄여서 보낸다.
+    setBriefLens: text => { const s = String(text ?? '').replace(/\s+/g, ' ').trim(); return set('brief_lens', s ? s : null, {rejectable: true}); },
     setBriefSort: value => set('brief_sort', value && !(value.key === 'name' && value.dir === 'asc') ? {key: value.key, dir: value.dir} : null, {rejectable: true}),
     getNoteListSort: () => prefs.note_list_sort ?? null,
     getNoteCols: () => prefs.note_cols ?? null,

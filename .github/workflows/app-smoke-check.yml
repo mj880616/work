@@ -226,6 +226,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-folders-model.test.mjs'
       - 'tests/brief-run.test.mjs'
+      - 'tests/brief-plus.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
@@ -546,6 +547,7 @@ on:
       - 'tests/brief-room-model.test.mjs'
       - 'tests/brief-folders-model.test.mjs'
       - 'tests/brief-run.test.mjs'
+      - 'tests/brief-plus.test.mjs'
       - 'tests/brief-room-ui-model.test.mjs'
       - 'tests/brief-edit-model.test.mjs'
       - 'tests/brief-marks-model.test.mjs'
@@ -951,7 +953,7 @@ jobs:
         run: node --test tests/s59-20-small-fixes.test.mjs
 
       - name: BRIEF-브리핑룸 시험(조각 나누기·원문 대조·단계 실행기)
-        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs tests/brief-folders-model.test.mjs
+        run: node --test tests/brief-room-model.test.mjs tests/brief-run.test.mjs tests/brief-room-ui-model.test.mjs tests/brief-edit-model.test.mjs tests/brief-read-slices.test.mjs tests/brief-marks-model.test.mjs tests/brief-folders-model.test.mjs tests/brief-plus.test.mjs
 
       - name: S67-39 사업 보고·조직 보고 자료실에서 선택·빼기 규칙
         run: node --test tests/report-library-pick-model.test.mjs

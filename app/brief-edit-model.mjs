@@ -51,14 +51,16 @@ export function applyEdits(brief, values) {
   const gist = v.gist.map((t, i) => pick(`g:${i}`, t)).filter(Boolean);
   const sections = v.sections.map((sec, s) => ({
     title: pick(`t:${s}`, sec.title),
-    items: sec.items.map((it, j) => ({ text: pick(`i:${s}:${j}`, it.text), page: it.page, ours: it.ours })).filter(it => it.text),
+    items: sec.items.map((it, j) => ({ text: pick(`i:${s}:${j}`, it.text), page: it.page, ours: it.ours, ...(it.ref ? { ref: it.ref } : {}) })).filter(it => it.text),
   })).filter(sec => sec.items.length);
   // 옛 형식은 고치는 순간 새 모양으로 바뀌므로, 글이 같아도 저장할 것이 있다(바뀐 칸이 하나라도 있을 때만 저장한다 — 위 changed).
   if (!changed) return null;
   const b = isObj(brief) ? brief : {};
   const lead = gist[0] || (typeof b.lead === 'string' ? b.lead.trim() : '') || sections[0]?.items[0]?.text || '';
-  const out = { v: 3, lead, gist, sections: sections.map(sec => ({ title: sec.title, items: sec.items.map(it => ({ text: it.text, page: it.page, ours: it.ours })) })), quotes: v.quotes.map(q => ({ ...q })) };
+  const out = { v: 3, lead, gist, sections: sections.map(sec => ({ title: sec.title, items: sec.items.map(it => ({ text: it.text, page: it.page, ours: it.ours, ...(it.ref ? { ref: it.ref } : {}) })) })), quotes: v.quotes.map(q => ({ ...q })) };
   if (b.partial === 'preview') out.partial = 'preview';
+  // BRIEF-품질올리기: '더 깊게' 칸(짜임·쟁점·불일치·배경 지식)은 고치는 칸이 아니라 그대로 옮긴다(손으로 고쳐도 사라지지 않게).
+  if (v.plus) out.plus = structuredClone(v.plus);
   return out;
 }
 

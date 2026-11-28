@@ -13,6 +13,7 @@ import {
   BRIEF_CHUNK_CHARS, BRIEF_MAX_CHUNKS, BRIEF_MIN_TEXT, BRIEF_TEXT_MAX, CHUNK_INSTRUCTIONS, MERGE_INSTRUCTIONS,
   chunkInput, chunkWithPages, foldForMatch, mergeInput, pageStarts, pagesKnown, parseChunkNote,
   quoteCandidates, SCOPE_UNKNOWN_TEXT, scopeNames, scopeText, splitChunks, stepTotal, tidyBriefText, verifyBrief,
+  CHUNK_PLUS_INSTRUCTIONS, lensText, mergeInputPlus, mergePlusInstructions, parseChunkNotePlus, verifyBriefPlus,
 } from '../_shared/brief-room.mjs';
 
 export const BRIEF_TABLE = 'app_document_briefs';
@@ -24,6 +25,12 @@ export const BRIEF_MAX_DEATHS = 3;               // 같은 단계·같은 위치
 export const BRIEF_STALE_MS = 30 * 1000;          // 화면이 '멈춘 작업'으로 보고 이어 달라고 하는 기준(lease가 지난 뒤)
 export const CHUNK_MAX_TOKENS = 1800;  // S68-56: points 12개 안 + 인용 3개
 export const MERGE_MAX_TOKENS = 3000;  // S68-56: 본문 요약(항목 40개 안)이 들어가 2000 → 3000
+// BRIEF-품질올리기('더 깊게', 운영자 기능 brief_plus): 조각 메모에 근거 위치·숫자 목록이 더해져 출력 상한을 늘린다(모델은 그대로).
+// 합치기 상한·생각 수준은 _shared/ai-model.ts BRIEF_PLUS_MERGE 한 곳(brief.ts가 그 값으로 부른다).
+export const CHUNK_PLUS_MAX_TOKENS = 2800;
+export const BRIEF_PLUS_FEATURE = 'brief_plus';
+// '더 깊게' 합치기는 오래 걸릴 수 있어(생각 수준 high), 앞 일로 이 시간 넘게 쓴 부름에서는 시작하지 않고 다음 부름(새 시간)으로 넘긴다.
+export const PLUS_MERGE_FRESH_MS = 15 * 1000;
 // 화면·응답에 돌려주는 칸(글 원문·조각 메모는 빼고).
 export const BRIEF_PUBLIC = 'id,document_id,status,stage,step_no,step_total,page_count,brief,error_code,created_at,updated_at,finished_at,lease_until';
 
@@ -49,6 +56,50 @@ export const MERGE_SCHEMA = Object.freeze({
     quotes: { type: 'array', items: OBJ({ id: S }) },
   },
 });
+
+// '더 깊게' 스키마(strict json_schema: 칸은 모두 필수). 기본 스키마는 위 그대로다.
+export const CHUNK_PLUS_SCHEMA = Object.freeze({
+  type: 'object', additionalProperties: false, required: ['lead', 'points', 'facts', 'quotes'],
+  properties: {
+    lead: S,
+    points: { type: 'array', items: OBJ({ heading: S, text: S, ref: S }) },
+    facts: { type: 'array', items: OBJ({ what: S, value: S, ref: S }) },
+    quotes: { type: 'array', items: OBJ({ text: S, heading: S, speaker: S, why: S }) },
+  },
+});
+const SIDE = OBJ({ value: S, ref: S });
+export const MERGE_PLUS_SCHEMA = Object.freeze({
+  type: 'object', additionalProperties: false, required: ['core', 'gist', 'sections', 'issues', 'mismatches', 'background', 'quotes'],
+  properties: {
+    core: S,
+    gist: LINES,
+    sections: { type: 'array', items: OBJ({ title: S, items: { type: 'array', items: OBJ({ text: S, page: { type: 'integer' }, ours: { type: 'boolean' }, ref: S }) } }) },
+    issues: { type: 'array', items: OBJ({ text: S, why: S, ref: S }) },
+    mismatches: { type: 'array', items: OBJ({ what: S, a: SIDE, b: SIDE, note: S }) },
+    background: { type: 'array', items: OBJ({ text: S }) },
+    quotes: { type: 'array', items: OBJ({ id: S }) },
+  },
+});
+
+/**
+ * 이 작업공간이 '더 깊게'인지 + 관점 글. 로그인 토큰 REST(userDb)로 app_my_features()(서버 허용 표)를 읽는다 — 화면이 보낸 값은 쓰지 않는다.
+ * 못 읽으면 지금 방식(on=false, 닫힌 쪽 — 비용이 늘지 않음). 관점은 내 프로필 view_prefs.brief_lens(못 읽거나 비면 기본 관점).
+ * 관점 글은 돌려주기만 하고 로그에 남기지 않는다.
+ */
+export async function readBriefPlus(userDb, userId) {
+  let features = null;
+  try { features = await userDb('rpc/app_my_features', { method: 'POST', body: {} }); } catch { features = null; }
+  if (!Array.isArray(features) || !features.includes(BRIEF_PLUS_FEATURE)) return { on: false, lens: '' };
+  let lens = '';
+  try {
+    if (isUuid(String(userId))) {
+      const rows = await userDb(`app_profiles?user_id=eq.${encodeURIComponent(userId)}&select=view_prefs&limit=1`);
+      const vp = Array.isArray(rows) ? rows[0]?.view_prefs : null;
+      lens = vp && typeof vp === 'object' ? vp.brief_lens : '';
+    }
+  } catch { lens = ''; }
+  return { on: true, lens: lensText(lens) };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const isUuid = v => typeof v === 'string' && UUID.test(v);
@@ -84,6 +135,7 @@ export class BriefError extends Error {
  *  ai: (name: string, instructions: string, input: string, schema: object, maxTokens: number) => Promise<{ok: true, text: string|null, model: string} | {ok: false, code: string}>,
  *  capCheck: () => Promise<{ok: boolean, status?: number, code?: string}>,
  *  scope: () => Promise<{orgs: string[], areas: string[]}>,
+ *  plus?: () => Promise<{on: boolean, lens: string}>,   // BRIEF-품질올리기: 없으면 지금 방식
  *  now: () => number,
  *  log?: (code: string) => void,
  *  budgetMs?: number,
@@ -210,14 +262,14 @@ export function createBriefRunner(deps) {
   }
 
   // AI 한 번. 한도·호출 실패는 코드로 돌려준다(던지지 않음).
-  async function callAi(name, instructions, input, schema, maxTokens) {
+  async function callAi(name, instructions, input, schema, maxTokens, opts) {
     const cap = await deps.capCheck();
     if (!cap.ok) return { ok: false, code: cap.code === 'ai_monthly_cap' ? 'ai_monthly_cap' : 'usage_unavailable', final: cap.code === 'ai_monthly_cap' };
-    const r = await deps.ai(name, instructions, input, schema, maxTokens);
+    const r = opts ? await deps.ai(name, instructions, input, schema, maxTokens, opts) : await deps.ai(name, instructions, input, schema, maxTokens);
     return r.ok ? r : { ok: false, code: r.code, final: r.code === 'ai_not_configured' };
   }
 
-  async function stepChunk(row, title) {
+  async function stepChunk(row, title, plus) {
     const text = row.source_text;
     if (typeof text !== 'string' || !text) { await fail(row, 'no_text'); return 'stop'; }
     const starts = pageStarts(text);
@@ -226,9 +278,12 @@ export function createBriefRunner(deps) {
     if (i >= chunks.length) { await save(row, { stage: 'merge' }); return 'next'; }
     const chunk = chunks[i];
     const body = chunkWithPages(text, starts, chunk);
-    const r = await callAi('brief_chunk', CHUNK_INSTRUCTIONS, chunkInput({ index: i, total: chunks.length, title, body }), CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
+    const input = chunkInput({ index: i, total: chunks.length, title, body });
+    const r = plus.on
+      ? await callAi('brief_chunk', CHUNK_PLUS_INSTRUCTIONS, input, CHUNK_PLUS_SCHEMA, CHUNK_PLUS_MAX_TOKENS)
+      : await callAi('brief_chunk', CHUNK_INSTRUCTIONS, input, CHUNK_SCHEMA, CHUNK_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const note = parseChunkNote(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
+    const note = (plus.on ? parseChunkNotePlus : parseChunkNote)(r.text ?? '', { folded: foldForMatch(text), starts, chunk })
       ?? { lead: '', points: [], quotes: [], skipped: true };
     if (note.skipped) log('brief_chunk_bad_answer');
     const notes = [...notesOf(row.parts), note];
@@ -238,13 +293,20 @@ export function createBriefRunner(deps) {
     return 'next';
   }
 
-  async function stepMerge(row, scope, title) {
+  async function stepMerge(row, scope, title, plus, fresh) {
     const notes = notesOf(row.parts).filter(n => !n.skipped);
     if (!notes.length) { await fail(row, 'ai_bad_answer'); return 'stop'; }
     const candidates = quoteCandidates(notes);
-    const r = await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope: scope.text, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
+    // '더 깊게': 앞 일로 시간을 많이 쓴 부름이면 다음 부름(새 시간)에서 합친다(오래 걸리는 합치기가 실행 시간 한도에 걸리지 않게).
+    if (plus.on && !fresh()) return 'pause';
+    const r = plus.on
+      ? await callAi('brief_merge', mergePlusInstructions(plus.lens), mergeInputPlus({ title, scope: scope.text, notes, candidates }), MERGE_PLUS_SCHEMA, 0, { plus: true })
+      : await callAi('brief_merge', MERGE_INSTRUCTIONS, mergeInput({ title, scope: scope.text, notes, candidates }), MERGE_SCHEMA, MERGE_MAX_TOKENS);
     if (!r.ok) { if (r.final) { await fail(row, r.code); return 'stop'; } log(`brief_${r.code}`); return 'pause'; }
-    const checked = verifyBrief(r.text ?? '', { candidates, pageCount: row.page_count ?? null, names: scope.names });
+    const ctx = { candidates, pageCount: row.page_count ?? null, names: scope.names };
+    const checked = plus.on
+      ? verifyBriefPlus(r.text ?? '', { ...ctx, folded: foldForMatch(typeof row.source_text === 'string' ? row.source_text : '') })
+      : verifyBrief(r.text ?? '', ctx);
     if (!checked) { await fail(row, 'ai_bad_answer'); return 'stop'; }
     const brief = ctlOf(row.parts).partial === 'preview' ? { ...checked, partial: 'preview' } : checked;
     await save(row, { status: 'done', stage: 'done', brief, step_no: row.step_total, model: r.model ?? row.model ?? null });
@@ -268,12 +330,20 @@ export function createBriefRunner(deps) {
       try { const s = await deps.scope(); return { text: scopeText(s.orgs, s.areas), names: scopeNames(s.orgs, s.areas) }; }
       catch { log('brief_scope_unavailable'); return { text: SCOPE_UNKNOWN_TEXT, names: null }; }
     })();
+    // BRIEF-품질올리기: '더 깊게'인지는 부를 때마다 서버 허용 표로 다시 본다(못 읽으면 지금 방식). 조각 단계에 들어갈 때만 읽는다.
+    let plusInfo = null;
+    const plus = async () => plusInfo ??= (async () => {
+      if (!deps.plus) return { on: false, lens: '' };
+      try { const p = await deps.plus(); return p && p.on === true ? { on: true, lens: lensText(p.lens) } : { on: false, lens: '' }; }
+      catch { log('brief_plus_unavailable'); return { on: false, lens: '' }; }
+    })();
+    const fresh = () => deps.now() - started <= PLUS_MERGE_FRESH_MS;
     try {
       while (deps.now() - started < (deps.budgetMs ?? BRIEF_BUDGET_MS)) {
         let step;
         if (row.stage === 'read') step = await stepRead(row, doc);
-        else if (row.stage === 'chunk') step = await stepChunk(row, title);
-        else if (row.stage === 'merge') step = await stepMerge(row, await scope(), title);
+        else if (row.stage === 'chunk') step = await stepChunk(row, title, await plus());
+        else if (row.stage === 'merge') step = await stepMerge(row, await scope(), title, await plus(), fresh);
         else step = 'stop';
         if (step === 'stop') break;
         if (step === 'pause') break;
