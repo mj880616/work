@@ -1411,6 +1411,9 @@ jobs:
       - name: UI-목록밀기 폰 목록 줄 밀기 셈·연결, UI-메뉴잘림
         run: node --test tests/row-swipe-model.test.mjs
 
+      - name: HOME-읽을거리평가 좋아요·별로예요 누름 셈·칸·메뉴·서버 길 한 곳
+        run: node --test tests/read-ratings-model.test.mjs
+
       - name: MTG-결과마크다운 사업 보고 결과 원문 마크다운 보기·쓰기 창 글자 보존
         run: node --test tests/report-result-markdown.test.mjs tests/record-links.test.mjs
 
