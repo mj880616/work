@@ -24,7 +24,7 @@ const { REVIEW_SCOPES } = await import('../supabase/functions/_shared/google-oau
 function requestedUserScopes() {
   for (const file of walk('supabase/functions').filter(f => /\.(ts|mjs|js)$/.test(f) && !f.includes('_shared/fcm-send'))) {
     for (const m of read(file).matchAll(/https:\/\/www\.googleapis\.com\/auth\/[a-z.]+/g)) {
-      const checkOnly = m[0] === 'https://www.googleapis.com/auth/drive' && file.endsWith('library-files/drive-import.mjs');
+      const checkOnly = m[0] === 'https://www.googleapis.com/auth/drive' && file.endsWith('library-files/drive-auto.mjs');
       assert.ok(REVIEW_SCOPES.includes(m[0]) || checkOnly, `${file}: 목록 밖 권한 글자 ${m[0]}`);
     }
   }

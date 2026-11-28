@@ -96,10 +96,10 @@ test('저장소 전체에서 drive 전체 권한을 요청하는 곳은 명진 �
   const files = ['supabase/functions', 'app', 'scripts', 'android'].flatMap(d => { try { return walk(d); } catch { return []; } });
   // 1) 구글 동의 화면 주소를 만드는 곳은 공용 도우미 하나.
   assert.deepEqual(files.filter(f => read(f).includes('accounts.google.com/o/oauth2')), ['supabase/functions/_shared/google-oauth-clients.mjs']);
-  // 2) drive 전체 권한 글자(…/auth/drive 뒤에 .이나 글자 없음)는 받은 토큰 확인용 한 곳(자료실 가져오기)에만 남는다. 요청 주소는 만들지 않는다.
+  // 2) drive 전체 권한 글자(…/auth/drive 뒤에 .이나 글자 없음)는 받은 토큰 확인용 한 곳(자료실 드라이브 자동 등록)에만 남는다. 요청 주소는 만들지 않는다.
   const literal = /googleapis\.com\/auth\/drive(?![.\w])/;
   const has = files.filter(f => literal.test(read(f)));
-  assert.deepEqual(has, ['supabase/functions/library-files/drive-import.mjs']);
+  assert.deepEqual(has, ['supabase/functions/library-files/drive-auto.mjs']);
   assert.doesNotMatch(read(has[0]), /accounts\.google\.com|oauth2\/v2\/auth/);
   // 3) 도우미 안에서 drive 전체를 주소에 넣는 길은 fullDriveAuthUrl 하나, 그 함수를 부르는 곳은 public-policy-drive 시작 하나.
   const helper = read('supabase/functions/_shared/google-oauth-clients.mjs');
