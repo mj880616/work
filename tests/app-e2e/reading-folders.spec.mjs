@@ -276,7 +276,7 @@ for (const [width, height, touch] of [[1280, 900, false], [412, 915, true]]) {
       const C = await newChild(page, s, P, '하위 자료', touch);
       expect(s.folderWrites.find(w => w[0] === 'add' && w[1].name === '하위 자료')[1].parent_id).toBe(P);
       await expect(frow(page, C)).toBeVisible();
-      expect(await depthOf(frow(page, C))).toBe('1');
+      await expect.poll(() => depthOf(frow(page, C))).toBe('1');
       await expect(frow(page, P).locator('.ft-num')).toHaveText('폴더 1 · 글 1');
       if (!touch) {
         // PC: 꺾쇠 = 펼치기·접기만(고른 곳·주소 그대로 — 표준 T10).
@@ -306,7 +306,7 @@ for (const [width, height, touch] of [[1280, 900, false], [412, 915, true]]) {
       }
       // C 안 C2(두 단).
       const C2 = await newChild(page, s, C, '더 아래', touch);
-      expect(await depthOf(frow(page, C2))).toBe('2');
+      await expect.poll(() => depthOf(frow(page, C2))).toBe('2');
       // 글 2를 C로(⋯ [폴더로 옮기기] — 옮길 곳 창 나무에 하위 폴더가 보임).
       await list(page).locator(`[data-rd-more="${id(2)}"]`).click();
       await page.locator('#rdRowMenu [data-rd-act="folder"]').click();
@@ -345,18 +345,18 @@ for (const [width, height, touch] of [[1280, 900, false], [412, 915, true]]) {
       await expect(frow(page, Q).locator('.ft-num')).toHaveText('폴더 1');
       // 고른 C2가 Q 안으로 갔으니 그 위 폴더들은 펼쳐 보인다(T2).
       await expect(frow(page, C2)).toBeVisible();
-      expect(await depthOf(frow(page, C2))).toBe('3');
+      await expect.poll(() => depthOf(frow(page, C2))).toBe('3');
       // C 삭제: 안의 글 2는 화면이 먼저 한 단 위(P)로, 안의 폴더 C2는 서버가 한 단 위(P)로. [되돌리기]로 그대로.
       await press(frow(page, C).locator('[data-rd-folder-more]'));
       await page.locator('#rdFolderMenu [data-rd-fact="delete"]').click();
       await expect.poll(() => s.folderWrites.filter(w => w[0] === 'delete').length).toBe(1);
       expect(s.moves.at(-1)).toEqual({ ids: [id(2)], folder_id: P });
       await expect(frow(page, C)).toHaveCount(0);
-      expect(await depthOf(frow(page, C2))).toBe('2');
+      await expect.poll(() => depthOf(frow(page, C2))).toBe('2');
       await expect(page.locator('.kptu-notice')).toContainText("폴더 1개·글 1개는 '교섭 자료'로");
       await page.locator('.kptu-notice-undo', { hasText: '되돌리기' }).click();
       await expect(frow(page, C)).toBeVisible();
-      expect(await depthOf(frow(page, C2))).toBe('3');
+      await expect.poll(() => depthOf(frow(page, C2))).toBe('3');
       expect(s.folders.find(f => f.id === C2).parent_id).toBe(C);
       expect(s.rows.find(r => r.id === id(2)).folder_id).toBe(C);
       expect(await noSideScroll(page)).toBe(true);
@@ -397,7 +397,7 @@ test('폴더 안 폴더 PC 1280: 폴더 줄을 끌어 다른 폴더에 놓으면
   await frow(page, C).dragTo(frow(page, 'all'));
   await expect.poll(() => s.folderWrites.filter(w => w[0] === 'move').length).toBe(2);
   expect(s.folderWrites.at(-1)[1].parent_id).toBe(null);
-  expect(await depthOf(frow(page, C))).toBe('0');
+  await expect.poll(() => depthOf(frow(page, C))).toBe('0');
   // 이름 두 번 누르기 = 그 폴더 + 펼치기/접기(T10).
   await frow(page, Q).locator('[data-rd-folder]').dblclick();
   await expect(frow(page, Q)).toHaveClass(/ft-current/);
