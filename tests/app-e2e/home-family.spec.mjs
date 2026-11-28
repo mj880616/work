@@ -67,7 +67,7 @@ test('운영자 기능 family가 없으면 가족 줄도 표 읽기도 없다',a
   expect(reads).toEqual([]);
 });
 
-test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함] ×, 예정만 작은 글자, [기억만]·[기억] 없음, 글은 글자로만',async({page})=>{
+test('한 목록의 가족 줄: [할 일로][일정으로][가족 노트에][이미 함] ×, 예정만 작은 글자, [기억만]·[기억] 없음, 글은 글자로만',async({page})=>{
   const {reads}=await fixture(page);
   await expect(box(page).locator('[data-forget-src="family"]')).toHaveCount(2);
   expect(reads[0]).toMatchObject({status:'eq.new',select:'id,kind,body,said_when,firmness,origin,origin_day,status,created_at'});
@@ -76,9 +76,9 @@ test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함
   const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
   await expect(first.locator('.nbx-tag')).toHaveText('예정');
   await expect(first.locator('.nbx-meta')).toHaveText('가족말한 때: 토요일 저녁 · 텔레그램 · 10/5');
-  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','노트로','이미 함','×','⋯']);
-  // UI-잊지말기줄단추: 폰은 [할 일로][이미 함] ⋯ 만 보이고, 나머지는 ⋯ 메뉴 안에 같은 이름(가족 줄은 조직·사업 없음).
-  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','이미 함','⋯']);
+  await expect(first.locator('.nbx-acts button')).toHaveText(['할 일로','일정으로','가족 노트에','이미 함','×','⋯']);
+  // UI-잊지말기줄단추: 폰은 [할 일로] + 노트 갈래(FORGET-업무노트: 가족 줄은 [가족 노트에]만) + [이미 함] ⋯ 만 보이고, 나머지는 ⋯ 메뉴 안에 같은 이름(가족 줄은 조직·사업 없음).
+  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','가족 노트에','이미 함','⋯']);
   const second=box(page).locator(`[data-nbx-row="f:${id(2)}"]`);
   await expect(second.locator('.nbx-tag')).toHaveCount(0);
   await expect(second.locator('b')).toHaveCount(0);
@@ -89,10 +89,10 @@ test('한 목록의 가족 줄: [할 일로][일정으로][노트로][이미 함
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('접은 폰 폭(344): 줄 버튼 [할 일로][이미 함] ⋯ 가 한 줄(공용 줄 버튼, UI-잊지말기줄단추), 가로 넘침 없음',async({page})=>{
+test('접은 폰 폭(344): 줄 버튼 [할 일로][가족 노트에][이미 함] ⋯ 가 한 줄(공용 줄 버튼, UI-잊지말기줄단추), 가로 넘침 없음',async({page})=>{
   await fixture(page,{width:344});
   const first=box(page).locator(`[data-nbx-row="f:${id(1)}"]`);
-  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','이미 함','⋯']);
+  await expect(first.locator('.nbx-acts button:visible')).toHaveText(['할 일로','가족 노트에','이미 함','⋯']);
   const mids=await first.locator('.nbx-acts button:visible').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2;}));
   expect(Math.max(...mids)-Math.min(...mids)).toBeLessThanOrEqual(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
