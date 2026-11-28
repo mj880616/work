@@ -2,7 +2,7 @@
 // SHARE-바로넣기(2026-10-30 사용자 결정): 확인 줄·메모 칸·[넣기]·[취소] 없이 공유가 들어오면 바로 넣는다.
 // SHARE-노트로(2026-11-28 사용자 결정 "노트로 보내는 걸로 바꿔서 쓰자, 잊지 말기와는 별개로"): 기본 공유(앱 공유 창 'WORK ON+ 노트로 보내기')는
 // 잊지 말기가 아니라 노트 새 노트 하나로 넣는다. 공유한 글 = 본문(주소는 링크), 사진·파일 = 그 노트 첨부(노트 첨부 서버 길 basket-files 그대로).
-// 폴더는 '폴더 밖'(노트 전체). 결과는 위쪽 공용 작은 알림(small-notice.js) 한 줄 '노트에 넣었어요 [열기]', 실패면 '넣지 못했어요 [다시]'.
+// 폴더는 '공유한 글'(19:01 사용자 결정, share-folder.js — 처음 공유 때 한 번 만들고 그 id를 사람별 서버 화면 기억에 둔다. 못 정하면 폴더 밖). 결과는 위쪽 공용 작은 알림(small-notice.js) 한 줄 '노트에 넣었어요 [열기]', 실패면 '넣지 못했어요 [다시]'.
 // 잊지 말기(자동 추천)는 이 길과 따로 그대로다.
 // 폰 앱(KPTUAndroid)에서만 동작한다. 앱은 다른 앱의 [공유]로 받은 항목을 메모리에만 들고 있고,
 // 이 화면은 PR 1414의 바 색 다리(KPTUAppShell, 허용 Origin의 최상위 화면에만 보임)로 목록(이름·종류·크기·글)만 묻는다.
@@ -170,7 +170,11 @@ function start() {
       // 새 노트 하나(노트 화면과 같은 저장 길). [다시]로 두 번 만들지 않게 만든 노트를 기억한다.
       if (!share.made) {
         const draft = noteDraft({subject:share.subject, text:share.text, files});
-        share.made = await createNoteDoc({title:draft.title, raw_text:draft.body, doc:linkedNoteDoc(draft.body)});
+        // '공유한 글' 폴더(없으면 한 번 만듦). 폴더를 못 정해도 공유는 막지 않고 폴더 밖에 넣는다.
+        const folder = await import('./share-folder.js').then(m => m.shareFolder()).catch(() => null);
+        if (scope() !== owner) { share.lost = true; throw new Error('로그인 계정이 바뀌어 넣지 않았어요. 다시 공유해 주세요.'); }
+        share.made = await createNoteDoc({title:draft.title, raw_text:draft.body, doc:linkedNoteDoc(draft.body), ...(folder ? {folder} : {})});
+        share.folder = folder?.name || '';
       }
       noteId = share.made?.id || '';
       if (!noteId) throw new Error('저장한 노트를 확인하지 못했어요.');
@@ -192,7 +196,7 @@ function start() {
     files = null;
     release();
     refresh();
-    saved(noteId, status, behind);
+    saved(noteId, status, behind, share.folder);
   }
 
   function failed(message, canRetry) {
@@ -201,13 +205,13 @@ function start() {
   }
 
   // '노트에 넣었어요 [열기]': 그 노트를 노트 화면에서 연다(노트 목록과 같은 열기 길).
-  function saved(noteId, status, behind) {
+  function saved(noteId, status, behind, folderName = '') {
     const open = {label:SHARE_NOTE_TEXT.open, run:async ({close}) => {
       close();
       try { const {requestNoteDocOpen} = await import('./basket-note-tasks.js'); requestNoteDocOpen(noteId); } catch { /* 노트 목록은 열린다. */ }
       window.KPTURouter?.go?.('basket', {source:'delegated'});
     }};
-    notify(SHARE_NOTE_TEXT.done, {ms:SAVED_MS, note:[status, behind ? '첨부는 아래 줄에서 올라가요.' : ''].filter(Boolean).join(' '), actions:[open]});
+    notify(SHARE_NOTE_TEXT.done, {ms:SAVED_MS, note:[folderName ? `‘${folderName}’ 폴더` : '', status, behind ? '첨부는 아래 줄에서 올라가요.' : ''].filter(Boolean).join(' · '), actions:[open]});
   }
 
   // 앱이 이미 열린 화면 위로 새 공유를 넘길 때 부른다(MainActivity의 arrive). 다시 불러오지 않고 목록만 묻는다.

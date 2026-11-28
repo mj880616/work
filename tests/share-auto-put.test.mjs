@@ -37,7 +37,14 @@ test('공유 받기는 새 노트 길(createNoteDoc + 노트 첨부 sendNoteBehi
   for (const gone of ['data-share-put', 'data-share-cancel', 'data-share-memo', 'share-intake-memo', "'넣기'", "'취소'", '>취소<',
     'uploadBatch(', 'createNote({', 'updateNote(', 'deleteNoteOriginal', '메모 달기', 'SEND_NOTE', 'photo-menu-items', "go?.('basket', {allowUnloaded"]) assert.equal(src.includes(gone), false, gone);
   assert.match(src, /import \{notify\} from '\.\/small-notice\.js'/);
-  assert.match(src, /createNoteDoc\(\{title:draft\.title, raw_text:draft\.body, doc:linkedNoteDoc\(draft\.body\)\}\)/);
+  assert.match(src, /createNoteDoc\(\{title:draft\.title, raw_text:draft\.body, doc:linkedNoteDoc\(draft\.body\), \.\.\.\(folder \? \{folder\} : \{\}\)\}\)/);
+  // '공유한 글' 폴더(19:01 사용자 결정)는 share-folder.js 한 곳: 기존 노트 폴더 길·기존 화면 기억만, 이름으로 찾지 않음, 기기 저장 없음.
+  assert.match(src, /import\('\.\/share-folder\.js'\)\.then\(m => m\.shareFolder\(\)\)\.catch\(\(\) => null\)/);
+  const folderSrc = read('../app/share-folder.js');
+  assert.match(folderSrc, /import\('\.\/note-folders-data\.js'\)/);
+  assert.match(folderSrc, /import\('\.\/view-prefs\.js'\)/);
+  assert.doesNotMatch(folderSrc, /\/rest\/v1\/|\/functions\/v1\/|\.name === SHARE_FOLDER_NAME|name === '공유한 글'/);
+  for (const word of ['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB']) assert.equal(folderSrc.includes(word), false, word);
   assert.match(src, /void sendNoteBehind\(noteId, batch\)/);
   assert.match(src, /done:'노트에 넣었어요', open:'열기'/);
   assert.match(src, /notify\(SHARE_NOTE_TEXT\.done,/);

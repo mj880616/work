@@ -10,7 +10,7 @@
       "buttonHeight": 0
     },
     "app/base-ui.css": {
-      "fontSize": 56,
+      "fontSize": 55,
       "buttonHeight": 11
     },
     "app/basket-picker.css": {
