@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { toggleKeys } from './helpers/area-org-picker.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // QUICK-입력정리(2026-11-28): 홈 빠른 입력 막대는 지웠다(그 시험도 지움). 남은 두 시험은 막대와 같은 저장 길을 쓰던 다른 화면(조직 상세·할 일 창)을 본다.
 test('organization detail retains the existing shared inbox save payload and failure draft',async({page})=>{
