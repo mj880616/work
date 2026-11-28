@@ -185,7 +185,7 @@ export async function saveSharedReading(url, {title = '', isCurrent = () => true
 // 표가 아직 없으면(DB 적용 전, 404/PGRST205/42P01) readFolders가 {ready:false} — 화면은 '폴더 없음' 한 줄만 보이고 만들기·옮기기를 두지 않는다.
 // 기기 저장 없음. 글이 어느 폴더에 있나는 저장한 글 한 줄의 folder_id(moveItems)가 적는다. 폴더를 지우면 서버가 그 글들의 칸만 비운다.
 const FT = '/rest/v1/app_reading_folders';
-const F_COLS = 'id,name,sort_order,created_at';
+const F_COLS = 'id,parent_id,name,sort_order,created_at';
 const oneRow = rows => { if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 저장하지 못했어요.'); return rows[0]; };
 export async function readFolders() {
   const w = ws();
@@ -198,9 +198,9 @@ export async function readFolders() {
     return {ready: false, folders: [], missing: /404|PGRST205|42P01|app_reading_folders/.test(text)};
   }
 }
-// id(선택): 지운 폴더 되돌리기에서 같은 id로 다시 만든다.
-export async function createFolder({id, name, sort_order = 0}) {
-  const body = {workspace_id: ws(), name, sort_order, ...(id ? {id} : {})};
+// id(선택): 지운 폴더 되돌리기에서 같은 id로 다시 만든다. parent_id(선택): 폴더 안 폴더(비면 맨 위).
+export async function createFolder({id, name, parent_id = null, sort_order = 0}) {
+  const body = {workspace_id: ws(), parent_id: parent_id || null, name, sort_order, ...(id ? {id} : {})};
   const row = oneRow(await api(`${FT}?select=${F_COLS}`, {method: 'POST', prefer: 'return=representation', body}));
   emit({id: row.id, kind: 'folder'});
   return row;
@@ -210,6 +210,14 @@ export async function renameFolder(id, name) {
   emit({id, kind: 'folder'});
   return row;
 }
+// 폴더 옮기기(parentId null = 맨 위). 자기 자신·자기 아래로는 서버 트리거가 거절한다(23514 READING_FOLDER_CYCLE).
+export async function moveFolder(id, parentId, sort_order) {
+  const body = {parent_id: parentId || null, ...(Number.isFinite(sort_order) ? {sort_order} : {})};
+  const row = oneRow(await api(`${FT}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws())}&select=${F_COLS}`, {method: 'PATCH', prefer: 'return=representation', body}));
+  emit({id, kind: 'folder'});
+  return row;
+}
+// 지우면 DB 트리거가 안의 폴더를 한 단 위로 올린다. 글은 부르는 쪽이 먼저 한 단 위로 옮긴다(남은 글은 서버가 칸만 비움).
 export async function deleteFolder(id) {
   const rows = await api(`${FT}?id=eq.${enc(id)}&workspace_id=eq.${enc(ws())}&select=id`, {method: 'DELETE', prefer: 'return=representation'});
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('폴더를 삭제하지 못했어요.');
