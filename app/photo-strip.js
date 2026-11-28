@@ -267,9 +267,8 @@ export function openPhotoStrip(opts) {
     shareFrom(trigger, {video:!!item.video, count:1, note,
       getFiles:() => photoFilesFor(el, nameOf, {alive, note}),
       native:() => sharePhotoElement(el, nameOf, {alive, note}),
-      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]·[업데이트로 보내기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치·[정리함 보기])으로.
+      // PHOTO-아래줄정돈(S49-34): 사진 화면(acts)의 [받기]는 아래 줄이 예전에 부르던 같은 동작(앱 받기·알림 위치)으로.
       download:acts && !item.video ? () => acts.run('down', item, trigger) : item.video && download ? () => download(item) : null,
-      basket:acts && !item.video ? () => acts.run('basket', item, trigger) : undefined,
       // S49-9 PHOTO-메뉴항목통일: 부르는 화면이 diary(item, trigger)를 주면 [일기에 넣기](그 사진 찍은 날 일기)도 보인다.
       diary:diary && !item.video ? () => diary(item, trigger) : undefined}, menu ? {wide:true} : {});
   }

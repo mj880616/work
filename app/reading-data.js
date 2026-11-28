@@ -150,7 +150,7 @@ window.addEventListener('kptu:session-changed', () => { running.clear(); chain =
 // 주소 하나를 읽을 거리에 넣고(같은 주소면 그 줄), 원문은 뒤에서 받는다. 창 없이 위쪽 작은 알림: '읽을 거리에 넣었어요 [열기]'.
 // 발송·공유·삭제로 이어지는 흐름은 없다. 기기 저장 없음.
 export const SHARE_NOTE = Object.freeze({busy: '저장한 글에 넣는 중…', done: '저장한 글에 넣었어요', dup: '이미 저장한 글에 있어요', open: '열기',
-  noUrl: '읽을 글 주소가 없어요', toBasket: '잊지 말기로 넣기', fail: '저장한 글에 넣지 못했어요', retry: '다시'});
+  noUrl: '읽을 글 주소가 없어요', toNote: '노트로 넣기', fail: '저장한 글에 넣지 못했어요', retry: '다시'});
 export async function saveSharedReading(url, {title = '', isCurrent = () => true, notify} = {}) {
   const working = notify(SHARE_NOTE.busy, {ms: 60000, record: false});
   let out = null;

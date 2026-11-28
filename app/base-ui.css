@@ -300,7 +300,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-notice.error{background:var(--kptu-danger)}
 /* S48-52(요청함 11/03 07:43·07:44 ①): 글과 버튼·[✕]는 한 줄(글 왼쪽, 버튼 오른쪽). 글이 길면 글 칸 안에서 낱말 단위로 줄바꿈(한글 keep-all).
    작은 설명(note)·입력칸이 있는 알림만 다음 줄로 내린다. 폭은 폰 양쪽 16px까지. */
-.kptu-notice:has(.kptu-notice-note,.kptu-notice-input){flex-wrap:wrap}
+.kptu-notice:has(.kptu-notice-note){flex-wrap:wrap}
 .kptu-notice-text{flex:1 1 auto;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
 .kptu-notice>button{flex:0 0 auto;white-space:nowrap}
 .kptu-notice-undo,.kptu-notice-close{border:0;background:transparent;color:inherit;font:inherit;font-weight:700;padding:2px 4px;min-height:24px;cursor:pointer}
@@ -362,7 +362,6 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 :is(#appView,.modal) .kptu-selbar button.kptu-sb-act.kptu-sb-folded{position:absolute;top:0;right:0;visibility:hidden;pointer-events:none}
 .kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
 /* SHARE-바로넣기: 알림 안 한 줄 입력칸([메모 달기]). 알림 글처럼 촘촘하게, 눌러서 쓸 수 있게(바탕 알림은 누르기를 통과시킴). */
-.kptu-notice input.kptu-notice-input{pointer-events:auto;flex:1 1 160px;min-width:0;height:28px;box-sizing:border-box;margin:0;padding:0 8px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:0;border-radius:var(--kptu-radius-sm,6px)}
 .kptu-ask{position:fixed;z-index:61;box-sizing:border-box;padding:10px 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);font-size:13px;overflow:auto}
 .kptu-ask.kptu-ask-center{left:50%;transform:translateX(-50%);width:min(92vw,300px);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + var(--kptu-keyboard-inset,0px) + 12px)}
 .kptu-ask-text{margin:0 0 4px;line-height:1.45;white-space:pre-line}

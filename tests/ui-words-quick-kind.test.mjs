@@ -14,12 +14,13 @@ test("남은 빠른 입력칸(할 일·노트)에는 '업데이트'·'잊지 말
   assert.doesNotMatch(src, /data-quick-mode=|kind-update|toBasket|basketOnly/);
 });
 
-test("같은 곳으로 가는 글자: 큰 쓰기 창 안내·폰 앱 공유 창도 '잊지 말기', [+ 추가] 목록에는 '잊지 말기' 없음", () => {
+test("같은 곳으로 가는 글자: 큰 쓰기 창 안내는 '잊지 말기', [+ 추가] 목록에는 '잊지 말기' 없음, 폰 앱 공유 창은 '노트로 보내기'(SHARE-노트로)", () => {
   const win = readFileSync('app/update-window.js', 'utf8');
   assert.match(win, /placeholder:'남길 것을 입력하세요'/);
   assert.match(win, /placeholder:'잊지 말기에 남길 것'/);
   assert.doesNotMatch(readFileSync('app/topbar-actions.js', 'utf8'), /\['update','잊지 말기'\]/);
   const manifest = readFileSync('android-app/app/src/main/AndroidManifest.xml', 'utf8');
-  assert.equal((manifest.match(/android:label="WORK ON\+ 잊지 말기로 보내기"/g) || []).length, 2);
+  assert.equal((manifest.match(/android:label="WORK ON\+ 노트로 보내기"/g) || []).length, 2);
+  assert.doesNotMatch(manifest, /잊지 말기로 보내기/);
   assert.doesNotMatch(manifest, /android:label="노동조합\+ 업데이트로 보내기"/);
 });

@@ -19,8 +19,9 @@ function setup({ua = 'Mozilla/5.0 KPTUAndroid/0.3.4', href = 'https://bokdoong.c
 }
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
-test('종류는 업데이트·할 일·노트 셋만', () => {
-  assert.equal(writeKind('update'), 'update');
+test('종류는 할 일·노트 둘만(SHARE-노트로: 위젯 [업데이트] 칸 없앰)', () => {
+  assert.equal(writeKind('update'), null);
+  assert.equal(bridgeKind('write:open:update'), null);
   assert.equal(writeKind('task'), 'task');
   assert.equal(writeKind('note'), 'note');
   assert.equal(writeKind('photo'), null);
@@ -68,14 +69,23 @@ test('떠 있는 화면은 다리 write:open으로 연다(다시 불러오지 �
 });
 
 test('작업공간이 준비될 때까지 기다렸다 연다', async () => {
-  const s = setup({href: 'https://bokdoong.com/work/app/?write=update', ready: 'loading'});
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=note', ready: 'loading'});
   startWidgetWrite(s.win, {wait: async () => { s.win.__KPTU_TEAM_READY_STATE__ = 'workspace'; }});
   await tick(); await tick();
-  assert.deepEqual(s.opened, ['update']);
+  assert.deepEqual(s.opened, ['note']);
+});
+
+test('옛 앱이 보낸 [업데이트] 쓰기는 열지 않고 주소에서만 지운다', async () => {
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=update'});
+  startWidgetWrite(s.win, {wait: tick});
+  s.message('write:open:update');
+  await tick(); await tick();
+  assert.deepEqual(s.opened, []);
+  assert.deepEqual(s.replaced, ['https://bokdoong.com/work/app/']);
 });
 
 test('준비되지 않으면(로그인 안 됨) 열지 않는다', async () => {
-  const s = setup({href: 'https://bokdoong.com/work/app/?write=update', ready: 'auth'});
+  const s = setup({href: 'https://bokdoong.com/work/app/?write=note', ready: 'auth'});
   startWidgetWrite(s.win, {wait: tick, tries: 3});
   for (let i = 0; i < 6; i++) await tick();
   assert.deepEqual(s.opened, []);

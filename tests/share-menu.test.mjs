@@ -1,18 +1,19 @@
-// PC공유메뉴(요청함 10/30): 넓은 화면 [공유] → Web2 작은 메뉴. 줄 고르기·사진 복사(image/png)·정리함 넣기(기존 저장 길)·좁은 화면은 기기 공유 창 그대로.
+// PC공유메뉴(요청함 10/30): 넓은 화면 [공유] → Web2 작은 메뉴. 줄 고르기·사진 복사(image/png)·좁은 화면은 기기 공유 창 그대로.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {shareRows, copyImage, putInBasket, wideShare, WIDE_SHARE_QUERY, SHARE_ROW_TEXT, shareFrom} from '../app/share-menu.js';
+import * as shareMenu from '../app/share-menu.js';
+import {shareRows, copyImage, wideShare, WIDE_SHARE_QUERY, SHARE_ROW_TEXT, shareFrom} from '../app/share-menu.js';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const blob = (type = 'image/jpeg') => new Blob([new Uint8Array([1, 2, 3])], {type});
 
-test('메뉴 줄: 사진 4줄, 동영상은 복사·정리함 없음, 여러 장은 복사 없음, 기기 공유 창이 없으면 그 줄 없음', () => {
-  assert.deepEqual(shareRows({native: true}), ['copy', 'basket', 'download', 'native']);
-  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '업데이트로 보내기', '받기', '다른 앱으로 공유…']);
+test('메뉴 줄: 사진 3줄, 동영상은 복사 없음, 여러 장은 복사 없음, 기기 공유 창이 없으면 그 줄 없음(SHARE-노트로: 업데이트로 보내기 없음)', () => {
+  assert.deepEqual(shareRows({native: true}), ['copy', 'download', 'native']);
+  assert.deepEqual(shareRows({native: true}).map(r => SHARE_ROW_TEXT[r]), ['사진 복사', '받기', '다른 앱으로 공유…']);
   assert.deepEqual(shareRows({video: true, native: true}), ['download', 'native']);
-  assert.deepEqual(shareRows({count: 3, native: true}), ['basket', 'download', 'native']);
-  assert.deepEqual(shareRows({native: false}), ['copy', 'basket', 'download']);
+  assert.deepEqual(shareRows({count: 3, native: true}), ['download', 'native']);
+  assert.deepEqual(shareRows({native: false}), ['copy', 'download']);
 });
 
 test('넓은 화면 기준은 761px(폰 ≤760px은 기기 공유 창 그대로)', () => {
@@ -39,22 +40,16 @@ test('사진 복사: clipboard.write에 image/png 한 장, PNG가 아니면 바�
   assert.equal(await copyImage(async () => blob(), {nav: {clipboard: {write: async () => { throw new Error('denied'); }}}, Item, toPng}), 'failed');
 });
 
-test('업데이트로 보내기: 기존 basket-upload uploadBatch 한 번(파일마다 대기 줄), 끝나면 정리함 새로고침 알림', async () => {
-  const calls = [], events = [];
-  const load = async () => ({createUploadBatch: () => ({note_id: null, attachments: [], entries: [], blocked: null}),
-    uploadBatch: async (batch, opts) => { calls.push({n: batch.entries.length, kinds: batch.entries.map(e => e.kind), raw: opts.raw_text}); batch.note_id = 'n1'; return {ok: true}; }});
-  const files = [new File([blob()], 'a.jpg', {type: 'image/jpeg'}), new File([blob()], 'b.jpg', {type: 'image/jpeg'})];
-  const out = await putInBasket(files, {load, emit: name => events.push(name)});
-  assert.deepEqual(out, {ok: true, count: 2, note_id: 'n1'});
-  assert.deepEqual(calls, [{n: 2, kinds: ['pending', 'pending'], raw: ''}]);
-  assert.deepEqual(events, ['kptu:basket-note-created']);
-  assert.deepEqual(await putInBasket([], {load}), {ok: false, code: 'none'});
+test('SHARE-노트로: 사진 공유 메뉴에는 잊지 말기로 보내는 길이 없다', () => {
+  assert.equal(shareMenu.putInBasket, undefined);
+  assert.equal(SHARE_ROW_TEXT.basket, undefined);
+  const menu = read('app/share-menu.js');
+  assert.doesNotMatch(menu, /basket-upload|uploadBatch|kptu:basket-note-created|'basket'/);
 });
 
 test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 사진 보기·사진 여러 장) 같은 메뉴, 공용 anchored-menu, 기기 저장 없음', () => {
   const menu = read('app/share-menu.js');
   assert.match(menu, /createAnchoredMenu\(\{id:'shareMenu'/);
-  assert.match(menu, /import\('\.\/basket-upload\.js'\)/, '정리함 기존 저장 길');
   const deviceStores = new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'caches' + '\\.'].join('|'));
   assert.ok(!deviceStores.test(menu), '기기 저장 없음');
   assert.match(read('app/photo-strip.js'), /shareFrom\(trigger, \{video:!!item\.video/);
@@ -67,6 +62,6 @@ test('화면 연결: [공유]가 있는 곳 모두(사진 크게 보기·문서 
 
 test('S48-56: [일기에 넣기]는 부르는 쪽이 diary()를 줄 때만, 동영상은 없음', async () => {
   const {shareRows, SHARE_ROW_TEXT} = await import('../app/share-menu.js');
-  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['하루 기록에 넣기', '업데이트로 보내기', '받기']);
+  assert.deepEqual(shareRows({count:2, diary:true}).map(r => SHARE_ROW_TEXT[r]), ['하루 기록에 넣기', '받기']);
   assert.deepEqual(shareRows({video:true, diary:true}), ['download']);
 });

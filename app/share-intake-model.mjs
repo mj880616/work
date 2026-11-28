@@ -2,8 +2,6 @@
 // 화면·네트워크를 쓰지 않는다(단위 시험 tests/share-intake-model.test.mjs). 한도는 basket-upload.js·basket-data.js와 같다.
 export const SHARE_MAX_FILES = 20;
 export const SHARE_MAX_BYTES = 100 * 1024 * 1024;
-export const SHARE_MAX_TEXT = 20000;
-export const SHARE_MEMO_MAX = 500;
 const ID = /^[A-Za-z0-9_-]{22,64}$/;
 const MIME = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/;
 
@@ -70,34 +68,6 @@ export function skippedText(skipped = {}) {
 }
 
 export const sizeText = size => size >= 1048576 ? `${(size / 1048576).toFixed(1)}MB` : size >= 1024 ? `${(size / 1024).toFixed(1)}KB` : `${size}B`;
-
-/** CRLF로 바꿔 셀 때(basket-upload.js validateBatch)도 20,000자 안에 들도록 자른다. */
-export function fitText(value, max = SHARE_MAX_TEXT) {
-  const chars = [...String(value ?? '')];
-  let used = 0, end = 0;
-  for (; end < chars.length; end++) {
-    const cost = chars[end] === '\n' ? 2 : 1;
-    if (used + cost > max) break;
-    used += cost;
-  }
-  return {text:chars.slice(0, end).join(''), cut:end < chars.length};
-}
-
-/** 저장할 바구니 글: 메모 한 줄 → 제목(글에 이미 없을 때) → 받은 글. */
-export function shareRawText({memo = '', subject = '', text = ''}) {
-  const line = clean(memo, SHARE_MEMO_MAX).replace(/\n+/g, ' ').trim();
-  const body = String(text ?? '').trim();
-  const title = subject && !body.includes(subject) ? subject : '';
-  return fitText([line, title, body].filter(Boolean).join('\n'));
-}
-
-/** 공유로 넣은 뒤 [메모 달기]: 한 줄 메모를 기존 글 맨 앞에 붙인 새 글. 메모가 비면 null. 기존 글은 그대로 둔다. */
-export function withMemo(memo, existing = '') {
-  const line = clean(memo, SHARE_MEMO_MAX).replace(/\n+/g, ' ').trim();
-  if (!line) return null;
-  const body = String(existing ?? '');
-  return fitText(body.trim() ? `${line}\n${body}` : line);
-}
 
 // S62-22 APP-공유로뉴스보관: 공유된 글(본문 먼저, 그다음 제목)에서 기사 주소(http·https) 하나. 없으면 ''.
 // 브라우저 [공유]는 보통 '제목\n주소' 또는 주소 하나를 넘긴다. 끝에 붙은 문장부호·닫는 괄호는 뗀다. 서버(news-feed save_url)가 다시 검사한다.

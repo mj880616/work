@@ -18,7 +18,7 @@ test('share-news: only the save_url address goes to the server, no device storag
   // S63-03 NEWS-운영자만: 'outside' 키가 있거나 답을 모를 때만 News 보관, 키가 없으면 정리함 길(target basket).
   assert.match(basket, /if \(list\.target === 'news'\) \{[\s\S]*?myFeaturesOrNull[\s\S]*?if \(!Array\.isArray\(features\) \|\| features\.includes\('outside'\)\) \{ await openNews\(list, picked\); return; \}\s*list = \{\.\.\.list, target:'basket'\};/);
   assert.match(basket, /import\('\.\/share-news\.js'\)/);
-  assert.match(basket, /label:NEWS_NOTE\.toBasket, run:\(\{close\}\) => \{ close\(\); if \(share === one\) void put\(\); \}/);
+  assert.match(basket, /label:NEWS_NOTE\.toNote, run:\(\{close\}\) => \{ close\(\); if \(share === one\) void put\(\); \}/);
 });
 
 test('share-news words follow the request text; refusals have no retry', () => {
@@ -28,7 +28,7 @@ test('share-news words follow the request text; refusals have no retry', () => {
   assert.equal(NEWS_NOTE.open, '열기');
   assert.equal(NEWS_NOTE.noBody, '본문을 못 가져왔어요(원문 링크로 보기)');
   assert.equal(NEWS_NOTE.noUrl, '기사 주소가 없어요');
-  assert.equal(NEWS_NOTE.toBasket, '잊지 말기로 넣기');
+  assert.equal(NEWS_NOTE.toNote, '노트로 넣기'); // SHARE-노트로
   assert.equal(saveFailNote(400), NEWS_NOTE.refused);
   assert.equal(saveFailNote(429), NEWS_NOTE.limit);
   assert.equal(saveFailNote(409), NEWS_NOTE.unavailable);

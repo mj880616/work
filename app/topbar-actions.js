@@ -295,8 +295,8 @@ window.addEventListener('kptu:view-changed',event=>{
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.textContent=home?'':({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'잊지 말기',calendar:'일정',tasks:'할 일',diary:'하루 기록',projects:word('사업영역 관리'),team:word('조직 관리','title'),meetings:word('사업 관리','title'),library:'자료실',files:'파일',hwp:'HWP 편집',profile:'내 프로필',updates:'업데이트 기록',whatsnew:'업데이트 소식',help:'쓰는 법',lock:'잠금',feedback:'받은 의견',signups:'가입자 현황',search:'검색',photos:'사진',calls:'통화',telegram:'텔레그램 소식',arsenal:'아스날',outside:'읽을 거리',reading:'저장한 글',brief:'브리핑 룸'})[event.detail?.view]||'';const head=name.closest('.mobile-shell-header');if(head)head.hidden=!name.textContent}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): openWriter('update') opens the update's big window (update-window.js) with no place
-// (= the basket). QUICK-입력정리: [+ 추가] no longer offers it; only the phone app's home widget [업데이트] still opens it (KPTUQuickWrite) —
-// left in place until the widget's own change is decided (PR 본문 보고).
+// (= the basket). QUICK-입력정리: [+ 추가] no longer offers it. SHARE-노트로(2026-11-28): the phone widget [업데이트] cell is gone too, so no
+// screen calls KPTUQuickWrite.open('update') now; it stays only because the browser tests open the update window through it (PR 본문 '범위 밖 발견사항').
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
 // note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for the next time only
 // (never in browser storage).
@@ -640,7 +640,7 @@ async function openEventWindow(task){
     if(task)document.querySelector('#eventModal [data-event-mode="task"]')?.click();
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
-// WIDGET-여러개 ①: 폰 앱 홈 위젯 [업데이트]·[할 일]·[노트] 칸은 이 [+ 추가]와 같은 창을 연다(phone-widget-write.js가 부름). 새 저장 길 없음.
+// WIDGET-여러개 ①: 폰 앱 홈 위젯 [할 일]·[노트] 칸은 이 [+ 추가]와 같은 창을 연다(phone-widget-write.js가 부름). 새 저장 길 없음.
 window.KPTUQuickWrite={open(kind){
   if(kind==='update'||kind==='note')return openWriter(kind);
   if(kind==='task')return openEventWindow(true);

@@ -1,5 +1,5 @@
-// ED③ 업데이트: the update's big window (#edWindow, app/update-window.js). QUICK-입력정리(2026-11-28): [+ 추가] no longer lists it; the one
-// entrance left is the phone app's home widget [업데이트] (phone-widget-write.js → window.KPTUQuickWrite.open('update')).
+// ED③ 업데이트: the update's big window (#edWindow, app/update-window.js). QUICK-입력정리(2026-11-28): [+ 추가] no longer lists it, and
+// SHARE-노트로(2026-11-28) removed the phone widget [업데이트] cell; the window still opens through window.KPTUQuickWrite.open('update').
 // - openWriteFromEntry: that same entrance (nothing else is faked) and waits for the new editor.
 export async function openWriteFromEntry(page,width){
   // Below 761px the old way went through the basket screen first, and callers expect to start from there.

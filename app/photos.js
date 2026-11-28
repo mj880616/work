@@ -55,7 +55,7 @@ import {openPhotoStrip, closePhotoStrip, photoStripOpen, photoStripNote, photoSt
 import {UNDO_MS, shareFileName} from './photo-viewer-model.mjs';
 import {photoFile} from './photo-share.js';
 import {shareFrom, wideShare} from './share-menu.js';
-import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, basketDoneText, releaseAfter, FOLDER_DELETE_OFF, folderDeleteOff, photoOffWhy} from './photo-menu-items.mjs';
+import {PHOTO_ACT_TEXT, PHOTO_MENUS, PHOTO_BAR_MENUS, SEND_NOTE, diaryDoneText, releaseAfter, FOLDER_DELETE_OFF, folderDeleteOff, photoOffWhy} from './photo-menu-items.mjs';
 import {openBarMenu} from './photo-bar-menu.js'; // PHOTO-아래줄정돈(S49-34): [더보기] 글자 메뉴
 import {photoActButtons} from './photo-act-bar.mjs'; // PHOTO-크게보기메뉴통일(S49-23): 아래 버튼줄 그리기 하나(고르기·크게 보기)
 import {appShare} from './app-share.js';
@@ -1536,7 +1536,7 @@ function phoneEdited() {
 function runStripAct(id, item, btn) {
   switch (id) {
     case 'down': return downloadOne(item);
-    case 'diary': case 'basket': return sendItemsTo(id, [item], btn);
+    case 'diary': return sendItemsTo(id, [item], btn);
     case 'move': return openPick(btn, {kind:'photos', ids:[item.id]});
     case 'tag': return openPick(btn, {kind:'tag', items:[item]});
     case 'untag': return untagPicked([item]);
@@ -1615,7 +1615,7 @@ function actAvail(id, group, on = true) {
     case 'restore': return {hidden: !(on && !inTrash && phone.canRestore() && group.some(x => x.kept)), disabled: busy || restoring};
     case 'rename': return {hidden: !(on && group.length === 1 && group[0].kind === 'gdrive'), disabled: busy || !gdUsable(), ...off('rename', !gdUsable())};
     case 'star': case 'down': return {disabled: none};
-    case 'share': return {disabled: none}; // PHOTO-아래줄정돈: [공유 ▾] 메뉴에 받기·일기·업데이트가 있어 늘 보인다
+    case 'share': return {disabled: none}; // PHOTO-아래줄정돈: [공유 ▾] 메뉴에 받기·일기가 있어 늘 보인다
     case 'move': { const blocked = !group.some(ownable); return {disabled: none || busy || blocked, ...off('move', blocked)}; }
     case 'tag': return {disabled: none || busy};
     case 'info': return {hidden: !(on && canInfo(group)), disabled: none || busy};
@@ -1721,18 +1721,14 @@ async function itemFile(item) {
   const blob = item.kind === 'phone' ? await phone.blob(item, 'large') : item.kind === 'gdrive' ? await gdThumbBlob(rt, item.gdId, 'large') : await odPhotoBlob(rt, item.id, 'large');
   return blob ? photoFile(blob, shareFileName(item, blob.type)) : null;
 }
-// S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 사진(동영상 빼고 20장까지) → [일기에 넣기] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기)
-// 또는 [업데이트로 보내기] 사진만 든 업데이트 하나. 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js)·정리함(share-menu.js putInBasket) 것 그대로.
+// S48-56 PHOTO-업데이트·일기로(요청함 11/03 00:36·10:46): 사진(동영상 빼고 20장까지) → [일기에 넣기] 찍은 날 일기(여러 날이면 날별로, 먼저 표로 묻기).
+// 사진 원본·이 화면은 그대로(복사). 저장 길은 일기(diary-send.js). SHARE-노트로(2026-11-28): 옛 [업데이트로 보내기](잊지 말기)는 없앴다.
 // S49-9 PHOTO-보낸뒤선택풀기(요청함 11/03 17:07): 고른 사진에서 보냈으면(fromPick) 다 들어간 뒤 고르기를 끝내고 알림 한 줄
 // ('11.3 일기에 넣었어요 [일기 보기]' / '업데이트로 보냈어요'). 하나라도 못 넣으면 고른 것을 그대로 두고 [다시](못 넣은 장만 다시).
 // 크게 보기 한 장의 [공유] 메뉴도 같은 함수(그 한 장, 고르기와 상관없음).
 let sendBusy = false;
 const sendablePicked = () => pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
 function sendPickedTo(where, trigger) { return sendItemsTo(where, sendablePicked(), trigger, {fromPick:true}); }
-function openBasketView() {
-  if (photoStripOpen()) closePhotoStrip({restore:false});
-  window.KPTURouter?.go?.('basket', {source:'delegated'});
-}
 function openDiaryDay(day) {
   if (!day) return;
   requestDiaryDay(day);
@@ -1751,19 +1747,6 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
   sendBusy = true;
   try {
     notify('사진 받는 중…', {ms:30000});
-    if (where === 'basket') {
-      const got = await Promise.all(list.map(item => itemFile(item).catch(() => null)));
-      const files = got.filter(Boolean), missed = list.filter((_, i) => !got[i]);
-      if (!files.length) { notify('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', {error:true, actions:[retry(list)]}); return; }
-      notify(SEND_NOTE.basketBusy, {ms:30000});
-      const {putInBasket} = await import('./share-menu.js');
-      try { await putInBasket(files); }
-      catch (error) { notify(error?.message || SEND_NOTE.basketFail, {error:true, ms:8000, actions:[retry(list)]}); return; }
-      if (missed.length) { notify(basketDoneText(files.length, list.length), {error:true, ms:8000, actions:[retry(missed)]}); return; }
-      release();
-      notify(basketDoneText(files.length), {ms:6000, actions:[{label:SEND_NOTE.basketOpen, run:({close}) => { close(); openBasketView(); }}]});
-      return;
-    }
     const done = [], missed = [], failedItems = [];
     for (const g of groups) {
       const got = await Promise.all(g.items.map(item => itemFile(item).catch(() => null)));
@@ -1785,10 +1768,10 @@ async function sendItemsTo(where, list, trigger, {fromPick = false, ask = true} 
 // [⇪ 공유]: 넓은 화면은 누른 자리 작은 메뉴(share-menu.js — 한 장이면 [사진 복사]도), 좁은 화면은 지금처럼 기기 공유 창.
 function shareButton(trigger) {
   const list = sendablePicked();
-  // PHOTO-아래줄정돈: [공유 ▾]는 좁은 화면(폰)도 항상 작은 메뉴(받기·일기에 넣기·업데이트로 보내기·다른 앱으로 공유). 동영상만 골랐으면 받기만.
+  // PHOTO-아래줄정돈: [공유 ▾]는 좁은 화면(폰)도 항상 작은 메뉴(받기·일기에 넣기·다른 앱으로 공유). 동영상만 골랐으면 받기만.
   if (!list.length) { if (pickedItems().length) shareFrom(trigger, {video:true, count:0, download:downloadPicked}, {wide:true}); return; }
   shareFrom(trigger, {count:list.length, getFiles:() => pickedFiles(list), native:canShare() ? sharePicked : null, download:downloadPicked,
-    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true}), basket:() => sendItemsTo('basket', list, trigger, {fromPick:true})}, {wide:true});
+    diary:() => sendItemsTo('diary', list, trigger, {fromPick:true})}, {wide:true});
 }
 async function sharePicked() {
   const list = pickedItems().filter(x => !x.video).slice(0, SHARE_MAX);
@@ -3471,7 +3454,7 @@ const gdMenu = createAnchoredMenu({id:'photosGdMenu', className:'od-link-menu', 
 function sendMenuBtns(id) {
   const it = (shownList() || []).find(x => x.id === id);
   if (tab === 'trash' || !it || it.video) return [];
-  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', PHOTO_ACT_TEXT.star), canShare() || wideShare() ? menuBtn('data-pm-share', PHOTO_ACT_TEXT.share) : '', menuBtn('data-pm-diary', PHOTO_ACT_TEXT.diary), menuBtn('data-pm-basket', PHOTO_ACT_TEXT.basket)];
+  return [String(id).startsWith('gd:') ? '' : menuBtn('data-pm-star', PHOTO_ACT_TEXT.star), canShare() || wideShare() ? menuBtn('data-pm-share', PHOTO_ACT_TEXT.share) : '', menuBtn('data-pm-diary', PHOTO_ACT_TEXT.diary)];
 }
 const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-menu', label:'사진 메뉴', historyKey:'kptuPhotosPhotoMenu',
   key:t => t.dataset.photosId || '',
@@ -3490,12 +3473,13 @@ const photoMenu = createAnchoredMenu({id:'photosPhotoMenu', className:'od-link-m
     // 고른 사진 위에서 연 메뉴는 고른 것 모두, 아니면 그 사진 하나.
     const group = select.active && select.has(it.id) ? pickedItems() : [it];
     if (b.matches('[data-pm-select]')) { if (!select.active) startSelect(it); else { select.add(it.id); paintSelect(); } return; }
-    // S48-56: 우클릭 [별표]·[공유]·[일기에 넣기]·[업데이트로 보내기] = 고른 사진 아래 줄과 같은 동작(고르지 않은 사진이면 그 한 장만 골라서).
-    if (b.matches('[data-pm-star],[data-pm-share],[data-pm-diary],[data-pm-basket]')) {
+    // S48-56: 우클릭 [별표]·[공유]·[일기에 넣기] = 고른 사진 아래 줄과 같은 동작(고르지 않은 사진이면 그 한 장만 골라서).
+    // SHARE-노트로(2026-11-28 사용자 결정): 사진 '업데이트로 보내기'(잊지 말기로 보냄)는 없앴다.
+    if (b.matches('[data-pm-star],[data-pm-share],[data-pm-diary]')) {
       if (!select.active || !select.has(it.id)) { select.stop(); select.start([it.id], it.id); paintSelect(); }
       if (b.matches('[data-pm-star]')) return starPicked();
       if (b.matches('[data-pm-share]')) return shareButton(trigger);
-      return sendPickedTo(b.matches('[data-pm-diary]') ? 'diary' : 'basket', trigger);
+      return sendPickedTo('diary', trigger);
     }
     if (b.matches('[data-pm-rename]')) return gdRenamePhoto(it);
     if (b.matches('[data-pm-move]')) return openPick(trigger, {kind:'photos', ids:group.map(x => x.id)});
