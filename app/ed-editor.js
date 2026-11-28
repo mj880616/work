@@ -297,6 +297,8 @@ const toolIcon = key => {
   for (const [tag, attrs] of ICON_PATHS[key]) svg.append(svgEl(tag, attrs));
   return svg;
 };
+// NOTE-인용해서쓰기: a right click on chosen letters opens [인용] only wider than a phone (a phone keeps its own long-press menu).
+const WIDE_PC = typeof matchMedia === 'function' ? matchMedia('(min-width: 761px)') : {matches: true};
 // A 정렬 icon: four lines, each as long and as far over as the alignment puts it.
 const ALIGN_LINES = {left: [[1, 13], [1, 9], [1, 13], [1, 7]], center: [[1, 13], [3, 11], [1, 13], [4, 10]], right: [[1, 13], [5, 13], [1, 13], [7, 13]], justify: [[1, 13], [1, 13], [1, 13], [1, 13]]};
 const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: '14', height: '12', 'aria-hidden': 'true', focusable: 'false'}); ALIGN_LINES[v].forEach(([a, b], i) => svg.append(svgEl('path', {d: `M${a} ${1.5 + i * 3}H${b}`, stroke: 'currentColor', 'stroke-width': '1.3', 'stroke-linecap': 'round'}))); return svg; };
@@ -488,6 +490,13 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = btn(text, {edColw: key}, aria); b.setAttribute('role', 'menuitem'); colRow.append(b);
   }
   ctx.append(colRow);
+  // NOTE-인용해서쓰기: chosen letters (a drag, Shift+arrows, a phone's long press) get a small menu right under them — [인용]. It sits
+  // under the letters because a phone's own cut/copy bar is above them. PC: a right click on the chosen letters puts it at the pointer
+  // (in a table cell the cell menu gets [인용] on top instead).
+  const qmenu = document.createElement('div');
+  qmenu.className = 'ed-ctx ed-qmenu'; qmenu.hidden = true; qmenu.setAttribute('role', 'menu'); qmenu.setAttribute('aria-label', '선택한 글 메뉴');
+  const qbtn = btn('인용', {edQuote: '1'}, '선택한 글 인용'); qbtn.setAttribute('role', 'menuitem'); qmenu.append(qbtn);
+  const ctxQuote = btn('인용', {edQuote: '1'}, '선택한 글 인용'); ctxQuote.setAttribute('role', 'menuitem'); ctxQuote.hidden = true; ctx.prepend(ctxQuote);
   const measure = document.createElement('div');
   measure.className = 'ed-doc ed-measure'; measure.setAttribute('aria-hidden', 'true');
   const band = document.createElement('div'); band.className = 'ed-stick';
@@ -497,7 +506,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const leadSel = leadFocus && 'selectionStart' in leadFocus ? [leadFocus.selectionStart, leadFocus.selectionEnd] : null;
   band.append(...(lead ? [lead] : []), ...(showTools ? [bar] : []), ...(head ? [head] : []));
   if (!showTools) bar.removeChild(note);
-  root.append(band, ...(showTools ? [] : [note]), uploads, box, status, ctx, measure);
+  root.append(band, ...(showTools ? [] : [note]), uploads, box, status, ctx, qmenu, measure);
   host.append(root);
   if (leadFocus?.isConnected) { leadFocus.focus({preventScroll: true}); if (leadSel) try { leadFocus.setSelectionRange(...leadSel); } catch {} }
 
@@ -860,7 +869,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (fix) state = state.apply(fix.setMeta('addToHistory', false));
   if (!endsOpen(state.doc)) state = state.apply(state.tr.insert(state.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
 
-  let pendingPaste = null, pastingLetters = false, pointerHeld = false;
+  let pendingPaste = null, pastingLetters = false, pointerHeld = false, closeNext = false;
   // NOTE-붙여넣기문단사라짐: the paste being read (set by the paste event, before the reader; cleared by handlePaste).
   let outsidePaste = null;
   // The letters of a paste are only the names of the files that came with it (one per line, a path's last part counts).
@@ -955,7 +964,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       },
       contextmenu(v, event) {
         const cell = event.target.closest?.('td,th');
+        // NOTE-인용해서쓰기: a PC right click on chosen letters (a phone's long press keeps the phone's own menu).
+        syncSelection();
+        const quoting = canQuote(v.state) && event.pointerType !== 'touch' && WIDE_PC.matches;
+        if (quoting && !(cell && v.dom.contains(cell))) { event.preventDefault(); openQuoteMenu(event.clientX, event.clientY); return true; }
         if (!cell || !v.dom.contains(cell)) return false;
+        if (quoting) { ctxQuote.hidden = false; event.preventDefault(); openCtx(event.clientX, event.clientY); return true; }
         const pos = v.posAtDOM(cell, 0);
         // Right click inside a chosen group of cells keeps the group (to merge them); elsewhere the cursor goes there.
         const sel = v.state.selection;
@@ -967,6 +981,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       },
     },
     dispatchTransaction(tr) {
+      // NOTE-인용해서쓰기: the letters typed after [인용] are their own undo step (↶ once takes them, once more the quote).
+      if (closeNext && tr.docChanged) { closeNext = false; pm.closeHistory?.(tr); }
       const before = view.state.doc;
       const next = view.state.apply(tr);
       if (pendingPaste && tr.getMeta('paste') && tr.docChanged) {
@@ -1111,6 +1127,34 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const st = view.state;
     if (inNode(st, N.blockquote) > 0) return pm.lift(st, view.dispatch);
     return pm.wrapIn(N.blockquote)(st, view.dispatch);
+  }
+  // NOTE-인용해서쓰기 (2026-11-28 사용자 "드래그 해 가지고 인용해 가지고 이 문장에 대한 코멘트를 그 아래에"): letters can be quoted when
+  // some are chosen (not a group of table cells, not only spaces).
+  function canQuote(st) {
+    const sel = st.selection;
+    return sel instanceof pm.TextSelection && !sel.empty && /\S/.test(st.doc.textBetween(sel.from, sel.to, '\n', ''));
+  }
+  // [인용]: the text stays as it is; right under the top-level block that holds the chosen letters (a table or code block: under it)
+  // go a quote (the chosen letters, one line each, letters only) and an empty line, and the cursor moves to that line. One undo step.
+  function quoteSelection() {
+    const st = view.state, sel = st.selection;
+    if (!canQuote(st)) return false;
+    const lines = st.doc.textBetween(sel.from, sel.to, '\n', '').split('\n').map(l => l.replace(/\s+$/, '')).filter(l => /\S/.test(l));
+    const para = text => N.paragraph.create({style: DEFAULT_BODY}, text ? schema.text(text) : null);
+    const quote = N.blockquote.create(null, lines.map(para));
+    // A drag over a whole line ends at the start of the next one: that next line holds no chosen letter.
+    const $from = sel.$from, $to = sel.$to;
+    let last = $to.index(0);
+    if (last > $from.index(0) && $to.parentOffset === 0) last--;
+    let at = 0;
+    for (let i = 0; i <= last; i++) at += st.doc.child(i).nodeSize;
+    const tr = st.tr;
+    if (pm.closeHistory) pm.closeHistory(tr);
+    tr.insert(at, [quote, para('')]);
+    tr.setSelection(pm.TextSelection.create(tr.doc, at + quote.nodeSize + 1)).scrollIntoView();
+    view.dispatch(tr);
+    closeNext = true;
+    return true;
   }
   // Puts a block at the cursor. A table gets the cursor in its first cell; after a rule the cursor goes to the paragraph
   // that follows (one is added when none does), so typing goes on below it.
@@ -1722,7 +1766,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ED③-창: any open panel or the cell menu counts as a small box. Coalesced into one call per event so closing one box to open another
   // (a panel then the cell menu) reaches onBox as a single "open".
   let boxWas = false, boxQueued = false;
-  const boxOpen = () => !!openName || !ctx.hidden || !!blockPart?.isOpen() || !!noteLinkPart?.isOpen();
+  const boxOpen = () => !!openName || !ctx.hidden || !qmenu.hidden || !!blockPart?.isOpen() || !!noteLinkPart?.isOpen();
   const syncBox = () => {
     if (!onBox || boxQueued) return;
     boxQueued = true;
@@ -1765,20 +1809,81 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   function closeCtx(refocus = true) {
     if (ctx.hidden) return;
-    ctx.hidden = true;
+    ctx.hidden = true; ctxQuote.hidden = true;
     if (refocus) view.focus();
     ctxFrom = null;
     syncBox();
   }
   function closeBoxes() {
     if (!boxOpen()) return false;
-    closeCtx(false); closePanels(); blockPart?.close(); noteLinkPart?.close();
+    closeCtx(false); closeQuoteMenu(); closePanels(); blockPart?.close(); noteLinkPart?.close();
     return true;
   }
+  // ── chosen letters menu (NOTE-인용해서쓰기) ──
+  // Shown while letters are chosen in the focused text and no press is held; placed right under the last chosen letter (a phone leaves
+  // room for its selection handles), above the first one when there is no room below (the phone's bottom bar). Esc or the phone's
+  // back closes it for that choice; choosing other letters brings it back. A right click pins it at the pointer for that choice.
+  let quoteShut = null, quoteAt = null;
+  const quoteKey = st => `${st.selection.from}:${st.selection.to}`;
+  function placeQuoteMenu() {
+    const st = view.state;
+    const show = !view.isDestroyed && canQuote(st) && !pointerHeld && !view.composing && ctx.hidden && !openName && !blockPart?.isOpen() && !noteLinkPart?.isOpen()
+      && quoteShut !== quoteKey(st) && (view.hasFocus() || qmenu.contains(document.activeElement));
+    if (!show) { if (!qmenu.hidden) { qmenu.hidden = true; quoteAt = null; syncBox(); } return; }
+    if (quoteAt && quoteAt.key !== quoteKey(st)) quoteAt = null;
+    const was = qmenu.hidden;
+    qmenu.hidden = false;
+    const vv = window.visualViewport, vw = vv ? vv.width : innerWidth, vh = vv ? vv.height : innerHeight;
+    const bottomRoom = vw <= 760 ? 72 : 12, r = qmenu.getBoundingClientRect();
+    let x, y;
+    if (quoteAt) { x = quoteAt.x; y = quoteAt.y; }
+    else {
+      let end, start;
+      try { end = view.coordsAtPos(st.selection.to, -1); start = view.coordsAtPos(st.selection.from, 1); } catch { qmenu.hidden = true; return; }
+      const handles = matchMedia('(pointer:coarse)').matches ? 26 : 6;
+      x = end.left - r.width / 2;
+      y = end.bottom + handles;
+      if (y + r.height > vh - bottomRoom) y = start.top - r.height - 6;
+    }
+    qmenu.style.left = `${Math.max(8, Math.min(x, vw - r.width - 8))}px`;
+    qmenu.style.top = `${Math.max(8, Math.min(y, vh - r.height - bottomRoom))}px`;
+    if (was) syncBox();
+  }
+  function openQuoteMenu(x, y) {
+    closePanels();
+    quoteShut = null; quoteAt = {x, y, key: quoteKey(view.state)};
+    placeQuoteMenu();
+    if (!qmenu.hidden) qbtn.focus({preventScroll: true});
+  }
+  function closeQuoteMenu(refocus = false) {
+    if (qmenu.hidden) return;
+    quoteShut = quoteKey(view.state); quoteAt = null;
+    const inside = qmenu.contains(document.activeElement);
+    qmenu.hidden = true;
+    if (refocus || inside) view.focus();
+    syncBox();
+  }
+  const followQuote = () => { if (!qmenu.hidden) placeQuoteMenu(); };
+  qmenu.addEventListener('pointerdown', e => { syncSelection(); e.preventDefault(); });
+  qmenu.addEventListener('mousedown', e => e.preventDefault());
+  qmenu.addEventListener('click', e => {
+    if (!e.target.closest('button')) return;
+    quoteAt = null; qmenu.hidden = true; syncBox();
+    run(quoteSelection);
+  });
+  qmenu.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); closeQuoteMenu(true); }
+    else if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); }
+  });
+  view.dom.addEventListener('blur', () => queueMicrotask(() => { if (!qmenu.contains(document.activeElement)) placeQuoteMenu(); }));
+  view.dom.addEventListener('focus', () => placeQuoteMenu());
+  window.addEventListener('scroll', followQuote, true);
+  window.addEventListener('resize', followQuote);
   ctx.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
     closeCtx(false);
+    if (b.dataset.edQuote) { run(quoteSelection); return; }
     if (b.dataset.edColw) { run(() => columnWidthCmd(b.dataset.edColw)); return; }
     run(() => tableCmd(b.dataset.edTable));
   });
@@ -2051,6 +2156,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     suggest.hidden = !(offer ? !offer.auto : whole);
     suggestText.textContent = whole ? '이 글에 마크다운 기호가 보여요.' : '마크다운 기호가 보여요.';
     root.toggleAttribute('data-ed-empty', isEmpty());
+    placeQuoteMenu();
   }
 
   function getValue() { return cleanDoc({v: 'ed1', doc: view.state.doc.toJSON()}); }
@@ -2103,6 +2209,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       document.removeEventListener('keydown', escape, true);
       window.removeEventListener('pointerup', syncSelection, true);
       window.removeEventListener('scroll', followPop, true);
+      window.removeEventListener('scroll', followQuote, true);
+      window.removeEventListener('resize', followQuote);
       window.removeEventListener('resize', followPop);
       window.visualViewport?.removeEventListener('resize', followPop);
       window.visualViewport?.removeEventListener('scroll', followPop);

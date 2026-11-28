@@ -25,7 +25,7 @@ const rest = (calls) => calls.filter((c) => !c.url.includes('/auth/v1/'));
 test('도구 이름 고정: 읽기 17 + 쓰기 11, 쓰기는 모두 app_mcp_write, 이름 겹침 없음, 설명에 쓰기 규칙', () => {
   assert.equal(TOOLS.length, 17);
   assert.equal(WRITE_TOOLS.length, 11);
-  assert.equal(new Set([...TOOLS, ...WRITE_TOOLS].map((t) => t.name)).size, 28);
+  assert.equal(new Set([...TOOLS, ...WRITE_TOOLS].map((t) => t.name)).size, 28); // ③ 첨부 2개는 tests/security/mcp-attach.test.mjs
   for (const t of WRITE_TOOLS) {
     assert.equal(t.rpc, 'app_mcp_write');
     assert.ok(t.description.includes(WRITE_RULE), t.name);
@@ -59,11 +59,11 @@ test('허용 안 된 계정이 쓰기 도구를 불러도 DB 거절 문구만(NO
   }
 });
 
-test('허용된 계정: 목록 28개, 쓰기 호출은 같은 열쇠로 RPC 하나·입력 그대로, 결과는 서버 칸만', async () => {
+test('허용된 계정: 목록 30개(③ 첨부 2개 포함), 쓰기 호출은 같은 열쇠로 RPC 하나·입력 그대로, 결과는 서버 칸만', async () => {
   const calls = [];
   const handle = createHandler({ env, fetchImpl: fake(calls, { allowed: true, write: { status: 200, body: { result: { ok: true, kind: 'note', id: 'n1', version: 'v', action: 'edit', title: '비밀 제목', body: '숨은 글' }, records: undefined } } }) });
   const list = await (await handle(post({ jsonrpc: '2.0', id: 3, method: 'tools/list' }))).json();
-  assert.equal(list.result.tools.length, 28);
+  assert.equal(list.result.tools.length, 30);
   assert.equal(list.result.tools.find((t) => t.name === 'web2_trash').annotations.destructiveHint, true);
   assert.equal(list.result.tools.find((t) => t.name === 'web2_record_get').annotations.readOnlyHint, true);
   assert.equal('rpc' in list.result.tools[20], false);
@@ -112,6 +112,8 @@ test('서버 안내에 쓰기 규칙, 입구 코드에 서버 키·표 이름·�
   const init = await (await createHandler({ env, fetchImpl: fake([]) })(post({ jsonrpc: '2.0', id: 6, method: 'initialize', params: {} }))).json();
   assert.ok(init.result.instructions.includes(WRITE_RULE));
   const code = readFileSync(new URL('../../supabase/functions/mcp-read/core.mjs', import.meta.url), 'utf8') + readFileSync(new URL('../../supabase/functions/mcp-read/index.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(code, /SERVICE_ROLE|service_role|\/rest\/v1\/app_|\/storage\/v1|\/functions\/v1\/(?!mcp-read)/);
+  // ③ 첨부: 다른 Edge 함수 주소는 basket-files 첨부 길 하나만(같은 열쇠를 넘김, 서버 키 없음).
+  assert.doesNotMatch(code, /SERVICE_ROLE|service_role|\/rest\/v1\/app_|\/storage\/v1|\/functions\/v1\/(?!mcp-read|basket-files\?action=mcp-attach`)/);
+  assert.equal([...code.matchAll(/\/functions\/v1\/basket-files/g)].length, 1);
   assert.deepEqual([...new Set([...code.matchAll(/rpc\/(app_mcp_[a-z_]+)/g)].map((m) => m[1]))].sort(), ['app_mcp_write_tools']);
 });
