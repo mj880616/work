@@ -618,7 +618,8 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 #appView #basketView .note-meta-tags :is(.ntf-x,.ntf-add,.note-meta-tag), #appView #basketView .ntf-panel :is(.ntf-close,.ntf-item) { position:relative; min-height:0; height:auto; margin:0; border:0; background:transparent; box-shadow:none; font:inherit; font-size:12px; cursor:pointer; }
 #appView #basketView .note-meta-tags .ntf-x { padding:0 2px; color:var(--kptu-muted); line-height:1; }
 #appView #basketView .note-meta-tags .ntf-x::after { content:""; position:absolute; inset:-12px -4px; }
-#appView #basketView .note-meta-tags .ntf-add { padding:0 2px; color:var(--kptu-muted); }
+/* NOTE-태그단추키움(2026-11-28 사용자 "노트 수정시 태그+ 글자 너무 작음 좀 크게해서 누르기 용이하게"): 글자는 본문 단추 크기, 누르는 높이는 compact 이상. [+ 태그]는 note-tag-field.js 한 부품이라 읽기·고치기·큰 창이 같이 바뀐다. */
+#appView #basketView .note-meta-tags .ntf-add { display:inline-flex; align-items:center; min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-text-button); color:var(--kptu-muted); }
 #appView #basketView .note-meta-tags .ntf-add::after { content:""; position:absolute; inset:-12px -4px; }
 #appView #basketView .note-meta-tags .ntf-add[aria-expanded="true"] { color:var(--kptu-primary-ink,var(--kptu-primary)); }
 #basketView .note-edit-tags { display:flex; flex-direction:column; gap:4px; margin:6px 0 0; font-size:12px; }
@@ -774,6 +775,21 @@ html.nb-drag-on, html.nb-drag-on body { overscroll-behavior:none; }
 }
 .nl-head > .nl-cols-btn { display:none; }
 @media (min-width:600px) { [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nl-head > .nl-cols-btn { display:inline-grid; place-items:center; } }
+/* NOTE-폰머리줄(시안 '가', docs/design/approved/note-list-phone-head.md): 폰(600px 미만) [목록]·[폴더] 맨 위 얇은 머리 줄 하나 — 왼쪽 '노트 N', 오른쪽 '고친 날 순 ▾'·'칸'.
+   보기 탭이 아래 전환 줄로 내려가 비어 있던 .note-list-head(위아래 여백 8px씩)가 앱 위 줄과 첫 노트 사이 빈 띠였다 — 그 자리를 이 줄이 쓰고(여백은 줄 안으로), 다른 보기는 빈 머리가 자리를 먹지 않는다.
+   PC 머리 줄(.nl-head)과 같은 방식으로 목록을 내려도 위에 붙는다(--kptu-stick-top + 고르기 막대 높이). 높이·글자는 --ds-* 기준값. */
+.nl-ph { display:none; }
+@media (max-width:599px) {
+  #basketView .note-list-head { margin:0; }
+  #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .note-list-head { position:sticky; top:calc(var(--kptu-stick-top,0px) + var(--nx-bar-h,0px)); z-index:2; background:var(--kptu-bg); border-bottom:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border)); }
+  #basketView [data-note-list]:is([data-notes-view="list"],[data-notes-view="folder"]) .nl-ph { display:flex; flex:1; min-width:0; align-items:center; justify-content:space-between; gap:8px; box-sizing:border-box; height:var(--ds-compact-height-sm); padding:0 var(--ds-row-pad-x); font-size:var(--ds-text-meta); line-height:1; color:var(--kptu-muted); }
+  .nl-ph-count { flex:none; min-width:4.5em; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .nl-ph-acts { display:flex; flex:none; align-items:center; gap:12px; min-width:0; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn { position:relative; display:inline-flex; align-items:center; box-sizing:border-box; height:auto; min-height:0; margin:0; padding:0; border:0; border-radius:0; background:none; box-shadow:none; font:inherit; color:inherit; white-space:nowrap; cursor:pointer; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn::after { content:""; position:absolute; inset:-6px -6px; height:auto; }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:is(:hover,[aria-expanded="true"]) { color:var(--kptu-ink); }
+  #appView #basketView [data-note-list] .nl-ph .nl-ph-btn:focus-visible { outline:2px solid var(--kptu-primary-ink,var(--kptu-primary)); outline-offset:2px; }
+}
 /* '보일 칸' 메뉴 체크 줄: 왼쪽 고정 폭 체크 자리(켜진 칸만 ✓). */
 #noteDocMenu .nl-check { display:inline-block; width:1.2em; color:var(--kptu-primary-ink,var(--kptu-primary)); }
 .nl-cols .nl-pub { color:var(--kptu-link); }
