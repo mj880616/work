@@ -52,7 +52,7 @@ test('taskAttachments: link-table files first (their names win), then lines only
   assert.deepEqual(taskAttachments('메모만', []), []);
 });
 
-test('edit-window rows: icon, one-line name, [열기] [내려받기] using the shared file buttons', () => {
+test('edit-window rows: icon, one-line name (누르면 열기), ⋯ [내려받기] using the shared file buttons', () => {
   assert.equal(taskAttachHtml({base: []}), '');
   const html = taskAttachHtml({base: [{drive_file_id: 'f1', file_name: '<b>"x"</b>.pdf'}, {drive_file_id: 'f2', file_name: 'b.png'}]});
   assert.equal((html.match(/class="gt-att-row"/g) || []).length, 2);
@@ -60,8 +60,10 @@ test('edit-window rows: icon, one-line name, [열기] [내려받기] using the s
   assert.equal((html.match(/data-fa-menu="download"/g) || []).length, 2);
   assert.match(html, /data-fa-id="f1"/);
   assert.ok(!html.includes('<b>"x"'), 'names are escaped');
-  assert.match(html, />열기<\/button>/);
-  assert.match(html, />내려받기<\/button>/);
+  // DESIGN-단추정리 ①(조사표 #12): 줄마다 반복되던 [열기]·[내려받기] 테두리 단추 대신 이름 누르기 = 열기, 내려받기는 줄 끝 ⋯.
+  assert.match(html, /<span class="gt-att-name gt-att-open"[^>]*role="button"[^>]*data-fa-menu="open"/);
+  assert.match(html, /<details class="journal-kind-more row-more gt-att-more-menu">[^]*>내려받기<\/button>/);
+  assert.doesNotMatch(html, /class="ghost/);
   // Read-only (no link table yet): no 교체·빼기·붙이기.
   assert.doesNotMatch(html, /data-gt-att-(swap|remove|add)/);
 });

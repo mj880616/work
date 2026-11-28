@@ -40,8 +40,9 @@ function noteRow(item,current,words){
   // UI-반복단추줄이기(2026-11-28 14:05 사용자 "어떤 줄은 위, 어떤 줄은 아래 … 그냥 텍스트만 보여 줘도"): 줄마다 붙는 단추라 테두리 없는 ③ 글자 버튼(row-act)이고,
   // 자리는 줄마다 같은 곳 — 날짜 줄 오른쪽 끝(폰에서 첫 줄 글이 다음 줄로 내려가도 단추는 날짜 줄에 남는다, release-notes.css).
   if(news.admin){
+    // DESIGN-단추정리 ①: 자리는 공용 줄 끝 동작 자리(.row-acts) — 화면 전용 margin 규칙 대신.
     const send=el('button','rn-send row-act');send.type='button';send.dataset.rnSend=note.v;if(note.file)send.dataset.rnFile=note.file;paintSend(send);
-    head.append(send);
+    const acts=el('span','row-acts');acts.append(send);head.append(acts);
   }
   const body=el('div','rn-body');
   if(item.changes.length){
@@ -72,7 +73,7 @@ async function loadAdmin(){
 const noteOf=btn=>({v:btn.dataset.rnSend,file:btn.dataset.rnFile||''});
 function paintSend(btn){
   const v=btn.dataset.rnSend,state=noteState(news.admin?.items,noteOf(btn));
-  btn.textContent=state==='sent'?'보냄':state==='withdrawn'?'다시 보내기':'보내기';btn.classList.toggle('rn-sent',state==='sent');
+  btn.textContent=state==='sent'?'보냄':state==='withdrawn'?'다시 보내기':'보내기';btn.classList.toggle('rn-sent',state==='sent');btn.classList.toggle('is-now',state!=='sent');
   btn.setAttribute('aria-label',state==='sent'?`${v} 이용자에게 보냄 · 눌러서 거두기`:state==='withdrawn'?`${v} 거둔 소식 다시 보내기`:`${v} 이용자에게 보내기`);
 }
 // 거두기 하나: 소식 id들을 기존 서버 함수(app_update_news_withdraw, 운영자만)로 거두고 같은 afterWrite로 다시 그린다.
@@ -151,13 +152,15 @@ function paintNews(){
   for(const item of loose){
     const extra=[];
     if(item.withdrawn_at){
-      const again=el('button','row-act','다시 보내기');again.type='button';again.dataset.unResend=item.id;
-      extra.push(el('span','un-date','거둠'),again);
+      const again=el('button','row-act is-now','다시 보내기');again.type='button';again.dataset.unResend=item.id;
+      const acts=el('span','row-acts');acts.append(again);
+      extra.push(el('span','un-date','거둠'),acts);
     }else{
       extra.push(el('span','un-date',`읽음 ${item.reads??0}/${admin.users??0}`));
       const edit=el('button','row-act','수정');edit.type='button';edit.dataset.unEdit=item.id;
       const pull=el('button','row-act','거두기');pull.type='button';pull.dataset.unWithdraw=item.id;
-      extra.push(edit,pull);
+      const acts=el('span','row-acts');acts.append(edit,pull);
+      extra.push(acts);
     }
     const row=newsRow(item,extra);if(item.withdrawn_at)row.classList.add('is-withdrawn');
     list.append(row);

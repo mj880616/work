@@ -36,6 +36,9 @@ function wire(doc) {
   }, true);
 }
 
+// HTML 글자로 ⋯(<details class="journal-kind-more row-more">)를 그리는 화면(예: 할 일 첨부 줄)도 같은 닫기 처리를 쓰게 한다.
+export function wireRowMore(doc) { wire(doc); }
+
 // label: ⋯ 의 읽기 이름(예: '가상 안건 고치기·빼기'). items: [{text, data:{datasetKey:value}, aria, disabled, danger, onClick}].
 // data: <details> 자신에게 붙일 data-*. 반환 <details class="journal-kind-more row-more">.
 export function rowMore(doc, {label, items, data = {}}) {

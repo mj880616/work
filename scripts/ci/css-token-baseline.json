@@ -95,7 +95,7 @@
     },
     "app/google-tasks.css": {
       "fontSize": 23,
-      "buttonHeight": 5
+      "buttonHeight": 3
     },
     "app/help.css": {
       "fontSize": 0,

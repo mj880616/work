@@ -296,8 +296,9 @@ function renderList() {
     button.setAttribute('aria-label', `${text} (눌러서 수정)`);
     // PC: [수정][삭제] beside the line (hidden on the phone; shown on hover or keyboard focus — journal.css).
     const actions = document.createElement('span');
-    actions.className = 'journal-line-actions';
-    actions.innerHTML = `<button type="button" class="mini" data-journal-edit-open="${index}" aria-label="${index + 1}번째 줄 수정">수정</button><button type="button" class="mini journal-delete" data-journal-line-delete="${index}" aria-label="${index + 1}번째 줄 삭제">삭제</button>`;
+    // DESIGN-단추정리 ①: 줄마다 붙는 [수정][삭제]는 공용 줄 끝 동작 자리(.row-acts)의 ③ 글자 버튼(row-act) — 테두리 없음, 줄 오른쪽 끝.
+    actions.className = 'journal-line-actions row-acts';
+    actions.innerHTML = `<button type="button" class="row-act" data-journal-edit-open="${index}" aria-label="${index + 1}번째 줄 수정">수정</button><button type="button" class="row-act is-danger journal-delete" data-journal-line-delete="${index}" aria-label="${index + 1}번째 줄 삭제">삭제</button>`;
     actions.querySelectorAll('button').forEach(b => { b.disabled = saving || !!edit; });
     item.append(button, actions);
     return item;

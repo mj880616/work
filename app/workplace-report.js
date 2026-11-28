@@ -26,14 +26,15 @@ function install(){
   document.querySelector('#warFinalize').onclick=()=>saveReport(true);
   const style=document.createElement('style');
   style.id='warStyle';
-  style.textContent='.war-report{border:1px solid var(--kptu-border);border-radius:10px;padding:9px;margin-top:7px;background:var(--kptu-surface-subtle)}.war-report small{color:var(--kptu-muted)}.war-report p{white-space:pre-wrap;margin:5px 0 0;font-size:11px;line-height:1.5}.war-report button{margin-top:6px}';
+  // DESIGN-단추정리 ①(조사표 #11 '줄 누르기'): 보고 줄마다 붙던 [열기] 테두리 단추를 없애고 줄 전체가 여는 단추(native button — 키보드 Enter·Space 그대로).
+  style.textContent='.war-report{display:block;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:inherit;border:1px solid var(--kptu-border);border-radius:10px;padding:9px;margin-top:7px;background:var(--kptu-surface-subtle);cursor:pointer}.war-report small{display:block;color:var(--kptu-muted)}.war-report .war-report-sum{display:block;white-space:pre-wrap;margin:5px 0 0;font-size:11px;line-height:1.5}';
   document.head.appendChild(style);
 }
 
 function render(){
   const box=document.querySelector('#warReports');
   if(!box)return;
-  box.innerHTML=reports.length?reports.map(report=>`<div class="war-report"><small>${esc(report.week_of)} · ${report.status==='final'?'확정':'초안'}</small><p><b>${esc(report.summary||'요약 없음')}</b></p><button class="mini" type="button" data-war-detail="${esc(report.id)}">열기</button></div>`).join(''):(globalThis.KPTUWait?.emptyHtml?.()||'');
+  box.innerHTML=reports.length?reports.map(report=>`<button type="button" class="war-report" data-war-detail="${esc(report.id)}" aria-label="${esc(report.week_of)} 보고 열기"><small>${esc(report.week_of)} · ${report.status==='final'?'확정':'초안'}</small><span class="war-report-sum"><b>${esc(report.summary||'요약 없음')}</b></span></button>`).join(''):(globalThis.KPTUWait?.emptyHtml?.()||'');
 }
 
 function reportScope(){const epoch=rt.session?.epoch?.(),context=rt.context?.read?.(),owner=rt.session?.read?.()?.user?.id;return Number.isInteger(epoch)&&epoch>=0&&owner&&context?.user?.id===owner&&context?.workspace?.id?{owner,workspace:context.workspace.id,epoch}:null}

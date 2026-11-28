@@ -82,24 +82,25 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
     const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open', source = sourceText(c);
     // HOME-업무일지홈 C: 제안 기한은 할 일 줄 공용 기한 글자(task-due.mjs dueLabel, 작은 진회색 .task-due-text). 기한 없으면 안 씀.
     const meta = esc(dotDay(c.source_day) + ' 기록') + (open && dueLabel(c.due) ? ` · <span class="task-due-text" data-inbox-todo-due>${esc(dueLabel(c.due))}</span>` : '');
+    // DESIGN-단추정리 ①(조사표 #13): 후보 줄마다 붙는 단추는 테두리 없는 ③ 글자 버튼(row-act), 줄 끝 자리는 공용 .row-acts — 화면 전용 테두리 모양(inbox-todo-btn)은 없앴다.
     let right = '', below = '';
     if (!open) right = `<span class="inbox-todo-done">${esc(doneLabel(c))}</span>`;
-    else if (unknown.has(c.id)) below = `<button type="button" class="inbox-todo-btn" data-inbox-todo-tasks>할 일 화면에서 확인</button>`;
-    else if (unmarked.has(c.id)) below = `<button type="button" class="inbox-todo-btn" data-inbox-todo-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button>`;
+    else if (unknown.has(c.id)) below = `<button type="button" class="row-act inbox-todo-btn" data-inbox-todo-tasks>할 일 화면에서 확인</button>`;
+    else if (unmarked.has(c.id)) below = `<button type="button" class="row-act inbox-todo-btn" data-inbox-todo-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button>`;
     else if (linking.has(c.id)) {
       // ⋯ [이미 할 일에 있음]: 제목이 비슷한 열린 할 일 몇 개를 보여 주고 하나를 고르면 그 할 일과 이어 두고 챙길 것에서 뺀다. 새 할 일은 만들지 않는다.
       const l = linking.get(c.id), dis = isBusy ? ' disabled' : '';
       const picks = l.tasks === null ? waitInlineHtml()
-        : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
-        : `<span class="inbox-todo-status">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="inbox-todo-btn" data-inbox-todo-link-retry="${id}"${dis}>다시</button>` : ''}`;
-      below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 선택</p>${picks}<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
+        : l.tasks.length ? `<ul class="inbox-todo-link-list" aria-label="비슷한 할 일">${l.tasks.map(t => `<li><button type="button" class="row-act inbox-todo-btn inbox-todo-link-pick" data-inbox-todo-link-task="${esc(t.id)}" data-inbox-todo-link-for="${id}"${dis}>${esc(t.title)}</button></li>`).join('')}</ul>`
+        : `<span class="inbox-todo-status">${l.failed ? '할 일을 못 읽었어요.' : '비슷한 할 일을 못 찾았어요.'}</span>${l.failed ? `<button type="button" class="row-act inbox-todo-btn" data-inbox-todo-link-retry="${id}"${dis}>다시</button>` : ''}`;
+      below = `<div class="inbox-todo-link" data-inbox-todo-link="${id}"><p class="inbox-todo-link-head">이미 있는 할 일 선택</p>${picks}<span class="inbox-todo-actions"><button type="button" class="row-act inbox-todo-btn" data-inbox-todo-link-none="${id}"${dis}>그냥 빼기</button><button type="button" class="row-act inbox-todo-btn" data-inbox-todo-link-cancel="${id}"${dis}>취소</button></span></div>`;
     } else if (editing.has(c.id)) {
       // ⋯ [고쳐서 할 일로]: 제목·기한을 고쳐 넣는다. 고친 제목은 결과 기록에 남아 다음 찾기의 말투 예시가 된다.
       const e = editing.get(c.id), dis = isBusy ? ' disabled' : '';
-      below = `<form class="inbox-todo-edit" data-inbox-todo-edit="${id}" data-enter-save><textarea rows="1" class="inbox-todo-edit-title" data-inbox-todo-edit-title data-autogrow data-enter-field="single" maxlength="${TASK_TITLE_MAX}" aria-label="할 일 제목"${dis}>${esc(e.title)}</textarea><input type="date" class="inbox-todo-edit-due" data-inbox-todo-edit-due value="${esc(e.due)}" aria-label="기한"${dis}><button type="submit" class="inbox-todo-btn"${dis}>넣기</button><button type="button" class="inbox-todo-btn" data-inbox-todo-edit-cancel="${id}"${dis}>취소</button></form>`;
+      below = `<form class="inbox-todo-edit" data-inbox-todo-edit="${id}" data-enter-save><textarea rows="1" class="inbox-todo-edit-title" data-inbox-todo-edit-title data-autogrow data-enter-field="single" maxlength="${TASK_TITLE_MAX}" aria-label="할 일 제목"${dis}>${esc(e.title)}</textarea><input type="date" class="inbox-todo-edit-due" data-inbox-todo-edit-due value="${esc(e.due)}" aria-label="기한"${dis}><button type="submit" class="row-act inbox-todo-btn"${dis}>넣기</button><button type="button" class="row-act inbox-todo-btn" data-inbox-todo-edit-cancel="${id}"${dis}>취소</button></form>`;
     } else {
       const dis = isBusy ? ' disabled' : '';
-      right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-done="${id}"${dis}>이미 함</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button><button type="button" class="inbox-todo-btn inbox-todo-more" data-inbox-todo-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
+      right = `<span class="inbox-todo-actions row-acts"><button type="button" class="row-act is-now inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="row-act inbox-todo-btn" data-inbox-todo-done="${id}"${dis}>이미 함</button><button type="button" class="row-act inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button><button type="button" class="row-act inbox-todo-more" data-inbox-todo-more="${id}" aria-label="더 보기" title="더 보기" aria-haspopup="true" aria-expanded="false"${dis}><span class="more-dots" aria-hidden="true">⋯</span></button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="inbox-todo-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
     return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line">${hideSource ? '' : `<button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button>`}<div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(c.summary))}</span><span class="inbox-todo-meta">${meta}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
@@ -108,7 +109,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
   function promiseHtml(p, i) {
     const meta = esc(RADAR_SOURCE_LABEL[p.source_kind] || '') + (dueLabel(p.due) ? `${RADAR_SOURCE_LABEL[p.source_kind] ? ' · ' : ''}<span class="task-due-text">${esc(dueLabel(p.due))}</span>` : '');
     const label = copied.has(ledgerRequestText(p)) ? '복사함' : '원장으로';
-    return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(p.summary))}</span><span class="inbox-todo-meta">${meta}</span></div><span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
+    return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(plainText(p.summary))}</span><span class="inbox-todo-meta">${meta}</span></div><span class="inbox-todo-actions"><button type="button" class="row-act inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
   }
   // FILES-다시그리기메뉴자리: 메뉴가 열린 채 다시 그려도(재조회·다른 화면 알림) 열린 ⋯ 메뉴는 이 목록 안 같은 줄의 새 칸에 붙는다(공용 keepMenus).
   function paint() { return keepMenus(rowMenu ? [rowMenu] : [], {attrs:['data-inbox-todo-more'], root:host}, paintNow); }

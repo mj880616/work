@@ -8,11 +8,10 @@
  "app/meeting-from-files.js": 1,
  "app/now-highlights.js": 1,
  "app/od-settings.js": 2,
- "app/project-system-v3.js": 21,
+ "app/project-system-v3.js": 11,
  "app/release-notes-ui.js": 1,
  "app/report-area-tag.js": 1,
  "app/task-inline.js": 1,
  "app/team.js": 1,
- "app/weekly-learn-panel.js": 2,
- "app/workplace-report.js": 1
+ "app/weekly-learn-panel.js": 2
 }

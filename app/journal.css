@@ -107,10 +107,9 @@
 @media(hover:hover){ #appView #homeView .journal-line-text:not(:disabled):hover{ text-decoration:underline; } }
 @media(min-width:761px){
   #appView #homeView .journal-line-text{ flex:0 1 auto; padding:2px 0; }
-  #appView #homeView .journal-line-actions{ display:inline-flex; flex:0 0 auto; gap:4px; opacity:0; }
+  #appView #homeView .journal-line-actions{ display:inline-flex; opacity:0; }
   #appView #homeView .journal-line-item:hover .journal-line-actions,
   #appView #homeView .journal-line-item:focus-within .journal-line-actions{ opacity:1; }
-  #appView #homeView .journal-line-actions .journal-delete{ color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
 }
 @media(min-width:761px) and (hover:hover){ #appView #homeView .journal-line-text:not(:disabled):hover{ border-color:transparent; text-decoration:underline; } }
 @media(min-width:761px) and (hover:none){ #appView #homeView .journal-line-actions{ opacity:1; } }

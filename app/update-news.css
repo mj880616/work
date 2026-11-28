@@ -21,9 +21,7 @@
 .sf-tools .un-add::before{content:"";display:block;width:18px;height:18px;background:currentColor;-webkit-mask:var(--ds-fab-plus) center / 18px 18px no-repeat;mask:var(--ds-fab-plus) center / 18px 18px no-repeat}
 /* UI-반복단추줄이기(2026-11-28 14:05 사용자 결정): 줄마다 붙는 [보냄]·[보내기]·[다시 보내기]·[수정]·[거두기]는 테두리 없는 ③ 글자 버튼(row-act).
    글자는 --ds-text-meta, 색은 톤다운 — 상태인 '보냄'은 회색(row-act 기본), 아직 할 일([보내기]·[다시 보내기])만 진한 글자. 자리는 날짜 줄 오른쪽 끝. */
-#updatesView :is(.rn-send,.un-head .row-act){font-size:var(--ds-text-meta)}
-#updatesView .rn-send{margin-left:auto}
-#updatesView .rn-send:not(.rn-sent){color:var(--kptu-ink)}
+/* DESIGN-단추정리 ①: 모양·자리·글자 크기는 공용 '줄 끝 동작 자리'(.row-acts, ui-standard.css) 한 곳 — 여기는 따로 정하지 않는다. */
 .sfm .un-bundle{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .sfm .un-chips{display:contents}
 .sfm .un-adder{min-width:0;max-width:100%;height:32px;border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px)}
