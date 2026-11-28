@@ -98,9 +98,13 @@ const length = text => [...String(text ?? '')].length;
 //   → [그날 일정 | 할 일] 두 칸(PC 좌우, 폰 위아래) → 오늘 한 일(오늘 한 줄 + 끝낸 할 일) → 주간보고 재료.
 //   그날 나온 챙길 것 상자는 없앴다(요약 줄의 '챙길 것 n'이 정리함으로 간다). [하루 | 주간 정리]는 머리줄 오른쪽 끝.
 // S71-41 HOME-머리한줄(사용자 요청 11/26): 폰 틀(~760px)은 따로 있던 '전체 검색' 칸 줄이 없고,
-//   이 머리줄 맨 오른쪽 돋보기(…· [하루|주간 보고] · 찾기)를 누르면 전체 검색 화면의 머리 줄 칸(global-search.js openHere — 이 줄과 같은 첫 줄 자리)에 바로 입력.
+//   이 머리줄 맨 오른쪽 돋보기(… · 찾기)를 누르면 전체 검색 화면의 머리 줄 칸(global-search.js openHere — 이 줄과 같은 첫 줄 자리)에 바로 입력.
 //   PC 틀(761px~)은 맨 위 줄 '전체 검색' 칸이 그대로라 돋보기는 폰 틀에서만 보인다(journal.css).
-root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><div class="journal-mode-switch ds-seg" role="group" aria-label="홈 보기"><button type="button" class="ds-seg-btn" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" class="ds-seg-btn" data-journal-mode="week" aria-pressed="false">${word('주간 보고')}</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>
+// NAV-조직사업합침(2026-11-28 사용자 09:23 "주간보고 페이지를 홈화면에서 빼고", 10:55 "조직 사업 관리에 세 번째 탭으로"):
+//   머리줄의 [하루 | 주간 보고] 전환은 없앴다. 홈(라우터 home)은 [하루]뿐이고, 주간 쪽은 [조직·사업] › [주간 보고](라우터 weekly)다.
+//   두 화면은 이 칸(#homeView · #journalRoot)과 이 모듈(그리는 주인·상태 하나)을 같이 쓰고, 어느 쪽인지(mode)는 들어온 화면이 정한다(enter).
+//   주간 쪽 내용·확정 막대·동작은 그대로이고, 그 위 큰 탭 줄은 org-biz-tabs.js가 그린다(머리 아이콘·찾기는 폰 머리줄과 겹쳐 주간 쪽에서 뺀다, journal.css).
+root.innerHTML = `<div class="journal-head">${HEAD_MARK_HTML}<b class="journal-day-title" data-journal-title aria-live="polite"></b><div class="journal-week-nav"><button type="button" class="icon-btn" data-journal-prev aria-label="이전 주">‹</button><div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div><button type="button" class="icon-btn" data-journal-next aria-label="다음 주">›</button><button type="button" class="secondary" data-journal-today>이번 주</button></div><button type="button" class="journal-find" data-journal-find aria-label="전체 검색"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></svg></button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="home-quick-placeholder" aria-hidden="true"></div>
 <section class="journal-day" data-journal-day>
@@ -1000,25 +1004,21 @@ function placeQuick() {
   if (!quickSpot.parentNode) quickBox.before(quickSpot);
   if (mode === 'week') quickBox.remove(); else if (!quickBox.isConnected) quickSpot.after(quickBox);
 }
+let renderedMode = null; // 이 칸이 마지막으로 그린 쪽(돌아오기 길에서 쪽이 바뀌었으면 다시 그린다)
 function renderMode() {
+  renderedMode = mode;
   root.dataset.journalMode = mode;
   placeQuick();
-  root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
   days.hidden = mode === 'week';
   $('[data-journal-day]').hidden = mode === 'week';
   $('[data-journal-weekly-root]').hidden = mode !== 'week';
 }
-function setMode(next) {
-  if (next === mode || !['day', 'week'].includes(next)) return;
-  mode = next; editing = null;
-  startWeekReads();
-  writePlace(); renderMode();
-  if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
-}
-// NAV-새로고침제자리: the day shown (?day=, left out for today) and [주간 정리] (?mode=week) are written to the address (no history
-// entry of their own), so a reload opens the same day or the same weekly view; enter() reads them back.
+// NAV-새로고침제자리: the day shown (?day=, left out for today) is written to the address of the screen shown (no history entry of
+// its own) — 홈(?day=) or [주간 보고](?view=weekly&day=, left out for this week) — so a reload opens the same day or week; enter() reads it back.
+const viewOfMode = () => (mode === 'week' ? 'weekly' : 'home');
 function writePlace() {
-  window.KPTURouter?.setPlace?.('home', {day:selected === todayKey() ? null : selected, mode:mode === 'week' ? 'week' : null});
+  const day = mode === 'week' ? (start === weekStart(todayKey()) ? null : selected) : (selected === todayKey() ? null : selected);
+  window.KPTURouter?.setPlace?.(viewOfMode(), {day});
 }
 function render() { writePlace(); renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); }
 
@@ -1340,7 +1340,7 @@ async function deleteLine(index) {
 // history entry back closes. A basket update, a note and a task open on their screens as from the other screens.
 let pendingReturn = null;
 function rememberReturn(trigger) {
-  pendingReturn = {owner:ownerScope(rt), start, day:selected, scroll:window.scrollY, focus:trigger};
+  pendingReturn = {owner:ownerScope(rt), mode, start, day:selected, scroll:window.scrollY, focus:trigger};
 }
 // NAV-원문열기나머지(S56-14): the step goes through the router's openFrom, the one way from a line to another screen — the first detail
 // that screen opens (a task, a ledger promise, a calendar day) shares the step's history entry, so one back returns here.
@@ -1363,7 +1363,7 @@ function refocusAfter(modalSelector, trigger, onClosed = null) {
     watch.disconnect();
     onClosed?.();
     requestAnimationFrame(() => {
-      if (window.KPTURouter?.current !== 'home') return;
+      if (window.KPTURouter?.current !== viewOfMode()) return;
       // The project window writes ?project= into this screen's entry while it is open; once it is closed the journal's entry
       // must not keep it, or a later back to this entry would open the project again over the journal.
       const url = new URL(location.href);
@@ -1389,7 +1389,7 @@ async function openOriginal(target, trigger) {
   try {
     // An update or a note opens in the basket as "opened from 업무일지" (basket-note-tasks.js): no history entry of its own, a
     // "← 업무일지로 돌아가기" line, and one back returns here.
-    const from = {view:'home', id:selected, name:'홈'};
+    const from = mode === 'week' ? {view:'weekly', id:selected, name:word('주간 보고', 'tab')} : {view:'home', id:selected, name:'홈'};
     if (target.type === 'note') { rememberReturn(trigger); requestBasketNoteFrom(target.note, from, rt); goView('basket'); return; }
     if (target.type === 'notedoc') { rememberReturn(trigger); requestNoteDocFrom(target.note, from, rt); goView('basket'); return; }
     if (target.type === 'task') { rememberReturn(trigger); requestTaskOpen(target.id, rt); goView('tasks'); return; }
@@ -1763,7 +1763,6 @@ function openFind() {
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
-  if (button.matches('[data-journal-mode]')) return setMode(button.dataset.journalMode);
   if (button.matches('[data-journal-find]')) return openFind();
   if (button.matches('[data-journal-weekly-retry]')) {
     for (const key of button.dataset.journalWeeklyRetry.split(' ')) {
@@ -1869,17 +1868,26 @@ window.addEventListener('kptu:session-changed', () => {
   kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; pickUi = {busy:false, undo:null, status:'', error:false}; fileUi = freshFileUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); lineScope = {key:'', status:'idle', drop:null}; materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; taskMeetings = new Map();
   start = weekStart(todayKey()); selected = todayKey();
-  if (window.KPTURouter?.current === 'home') enter();
+  enterShown();
 });
 // Each visit reads again from the week and day last seen in this sign-in (this week on the first visit) — except a return by
 // back or the top line's ← from an original opened here (JOURNAL-하루개편 ⑥): then the card stays as it was, at the same scroll,
 // with the focus back on the line that was pressed.
-function enter(detail) {
+// NAV-조직사업합침: 홈(home)으로 들어오면 [하루], [조직·사업] › [주간 보고](weekly)로 들어오면 주간 쪽(want). 같은 칸·같은 상태를 쓴다.
+// 홈 ↔ 주간 보고만 오간 것(다른 화면에 다녀오지 않음, away=false)이면 옛 [하루|주간 정리] 전환처럼 쪽만 바꿔 그린다 — 같은 주는 다시 읽지 않는다
+// (주간 쪽 전용 읽기는 처음 열 때 한 번, startWeekReads). 다른 화면에서 들어오면 지금처럼 들어올 때마다 새로 읽는다.
+let away = true;
+window.addEventListener('kptu:view-changed', event => { const v = event.detail?.view; if (v !== 'home' && v !== 'weekly') away = true; });
+function enter(detail, want = 'day') {
   const back = pendingReturn; pendingReturn = null;
-  homeTop?.enter();
-  takeBasketReturn('home', rt); // an update/note opened from here has done its job once this screen shows again
-  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
-    renderMode(); renderFill(); // HOME-하루채우기: 홈을 떠나 있던 동안 건너뛴 사진 줄 읽기
+  const view = want === 'week' ? 'weekly' : 'home';
+  const switched = mode !== want, fromSide = !away; away = false;
+  if (switched) { mode = want; editing = null; }
+  if (want === 'day') homeTop?.enter();
+  takeBasketReturn(view, rt); // an update/note opened from here has done its job once this screen shows again
+  if (back && back.owner === ownerScope(rt) && back.mode === want && back.start === start && back.day === selected && ['popstate', 'back'].includes(detail?.source)) {
+    if (renderedMode === mode) renderMode(); else render();
+    renderFill(); // HOME-하루채우기: 홈을 떠나 있던 동안 건너뛴 사진 줄 읽기
     // NAV-원문열기나머지(S56-14): a return by back gets its scroll from the router (one scroll memory per history entry, app-router.js);
     // only the top line's ← that has no history step to go back (router back(), source 'back') is put back here.
     if (detail?.source === 'back') window.scrollTo({top:back.scroll, behavior:'instant'});
@@ -1887,37 +1895,47 @@ function enter(detail) {
     writePlace();
     return;
   }
-  const place = window.KPTURouter?.place?.('home') || {}, shownStart = start;
+  const place = window.KPTURouter?.place?.(view) || {}, shownStart = start;
   if (/^\d{4}-\d{2}-\d{2}$/.test(place.day || '')) { selected = place.day; start = weekStart(place.day); }
-  // HOME-업무일지홈: 홈 메뉴·로고·하단 탭으로 들어오면(주소에 날짜 없음) 오늘. 뒤로 가기로 돌아올 때는 보던 날 그대로.
+  // HOME-업무일지홈: 홈 메뉴·로고·하단 탭으로 들어오면(주소에 날짜 없음) 오늘(주간 보고는 이번 주). 뒤로 가기로 돌아올 때는 보던 날 그대로.
   else if (!['popstate', 'back'].includes(detail?.source)) { selected = todayKey(); start = weekStart(selected); }
-  if (place.mode === 'week') { mode = 'week'; editing = null; }
-  else if (!['popstate', 'back'].includes(detail?.source) && !place.day) { mode = 'day'; editing = null; }
+  if (switched && fromSide && start === shownStart && owner === ownerScope(rt) && linesState === 'ok') {
+    startWeekReads(); writePlace(); renderMode();
+    if (mode === 'week') { renderWeek(); renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); }
+    return;
+  }
   // 연 화면 유지: 같은 주로 돌아오면 기다림 표시 없이 보던 화면을 바로 그리고 뒤에서 새로 읽는다(다른 주·다른 주인이면 처음처럼).
   loadWeek({shared:true, quiet:start === shownStart});
 }
-window.KPTURouter?.on?.('home', enter);
+window.KPTURouter?.on?.('home', detail => enter(detail, 'day'));
+window.KPTURouter?.on?.('weekly', detail => enter(detail, 'week'));
+// 이 모듈이 늦게 온 뒤(첫 화면)나 로그인이 바뀐 뒤: 지금 보이는 쪽으로 한 번 들어온다.
+function enterShown() {
+  const now = window.KPTURouter?.current;
+  if (now === 'home') enter(undefined, 'day'); else if (now === 'weekly') enter(undefined, 'week');
+}
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
 window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderDay(); renderWeekly_(); } });
 // SEARCH-전체검색: a search result line of 업무일지 opens that day (its week, then the day).
 function showDay(day) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return;
-  if (mode !== 'day') setMode('day');
+  // 전체 검색은 홈(journal)을 연 뒤 부른다(그때 [하루]). 다른 화면이면 홈을 먼저 연다.
+  if (mode !== 'day' && !window.KPTURouter?.go?.('home', {source:'delegated'})) return;
   const week = weekStart(day);
   if (week === start) { selectDay(day); return; }
   start = week; selected = day; loadWeek();
 }
 // MTG-프로젝트합치기 2단계: 사업 보고 [사업요약표 미리보기]의 [HWP로 내려받기] — 그 주의 [주간 정리]를 열고 기존 주간보고 한글 파일 상자를 연다
-// (한글 양식·직전 주 확정본 담당 표기 규칙은 journal-hwpx.js 그대로, 결정 ③).
+// (한글 양식·직전 주 확정본 담당 표기 규칙은 journal-hwpx.js 그대로, 결정 ③). NAV-조직사업합침: 주간 쪽은 [조직·사업] › [주간 보고](weekly).
 function showWeek(day, {hwpx:openHwpx = false} = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return;
+  if (mode !== 'week' && !window.KPTURouter?.go?.('weekly', {source:'delegated'})) return;
   const week = weekStart(day);
   if (week !== start) { start = week; selected = day; loadWeek(); }
-  if (mode !== 'week') setMode('week');
   if (openHwpx) void weeklyKit().then(() => queueMicrotask(() => { const b = $('[data-journal-hwpx] [data-hwpx-confirm]'); b?.scrollIntoView({block:'center'}); b?.focus({preventScroll:true}); }), () => {});
 }
 window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay, showWeek};
-if (window.KPTURouter?.current === 'home') enter();
+enterShown();
 // 하루 화면으로 시작해도 첫 화면이 보인 뒤 쉬는 틈에 묶음을 받아 두어 [주간 정리]를 처음 눌러도 거의 바로 뜨게 한다.
 void weeklyKit().catch(() => {});
 })();

@@ -25,9 +25,10 @@ test("화면 글자 '주간 정리' → '주간 보고': 남은 자리가 늘지
   assert.deepEqual(grown, [], "화면 글자는 '주간 보고'(띄어 씀, 메뉴 '사업 보고'·'조직 보고'와 같은 꼴)");
 });
 
-test('홈 보기 전환·주간 제목·사업 보고 아래 버튼·한글 파일 안내가 주간 보고', () => {
+test('[조직·사업] 큰 탭·주간 제목·사업 보고 아래 버튼·한글 파일 안내가 주간 보고', () => {
   const journal = readFileSync('app/journal.js', 'utf8');
-  assert.match(journal, /data-journal-mode="week" aria-pressed="false">\$\{word\('주간 보고'\)\}<\/button>/);
+  // NAV-조직사업합침(2026-11-28): 홈 [하루|주간 보고] 전환 대신 [조직·사업] 큰 탭 [주간 보고](모든 사람 같은 이름, 고친 이름은 이어짐).
+  assert.match(readFileSync('app/org-biz-tabs.mjs', 'utf8'), /\{id: 'weekly', view: 'weekly', text: '주간 보고'\}/);
   assert.match(journal, /`\$\{word\('주간 보고'\)\} · \$\{longDay\(list\[0\]\)\}/);
   assert.match(readFileSync('app/weekly-summary-table.js', 'utf8'), /data-bw-journal>주간 보고에서 보기 ›/);
   const hwpx = readFileSync('app/journal-hwpx.js', 'utf8');

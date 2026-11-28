@@ -165,7 +165,9 @@
     import('./context-menu.js'),
     import('./select-menu.js'),
     import('./date-field.js'),
-    import('./team.js')
+    import('./team.js'),
+    // NAV-조직사업합침: [조직·사업] 큰 탭 줄(조직 관리·사업 관리·주간 보고 칸 맨 위)의 주인. 첫 화면을 열기 전에 붙여 탭 줄이 늦게 생기지 않게.
+    import('./org-biz-tabs.js')
   ]);
   // 시작 주소 → 첫 화면 이름(주소만 읽음, 부작용 없음). CSS 미리 받기와 아래 시작 순서가 같은 결과를 쓴다.
   const startRoute=viewLoader=>{
@@ -173,7 +175,9 @@
     const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
     // MTG-프로젝트합치기 ①: 사업영역 관리는 화면이 아니라 사업 보고 위의 창이다. 옛 주소(?view=projects, ?project=)는 사업 보고를 열고 창을 띄운다.
     const areasAtStart=viewLoader.normalize(rawRequested)==='projects'||(viewLoader.normalize(rawRequested)==='meetings'&&params.get('areas')==='1');
-    return {params,rawRequested,areasAtStart,requested:areasAtStart?'meetings':viewLoader.normalize(rawRequested)};
+    // NAV-조직사업합침: 옛 홈 [주간 정리] 주소(?mode=week)는 [조직·사업] › [주간 보고](weekly)로 연다 — 라우터 viewFromUrl과 같은 규칙.
+    const oldWeekly=viewLoader.normalize(rawRequested)==='home'&&params.get('mode')==='week'&&!params.get('project');
+    return {params,rawRequested,areasAtStart,requested:areasAtStart?'meetings':oldWeekly?'weekly':viewLoader.normalize(rawRequested)};
   };
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -238,7 +242,7 @@
   }
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','basket','calendar','tasks','diary','library','meetings','team']);
+  const staticShellViews=new Set(['home','weekly','basket','calendar','tasks','diary','library','meetings','team']);
   await viewLoader.prepare(requested);
   window.KPTURouter?.noteAlias?.(rawRequested);
   if(staticShellViews.has(requested)){

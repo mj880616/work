@@ -11,6 +11,7 @@ export const GUIDE_FILES = Object.freeze(['app/help-content.mjs', 'app/first-use
 export const GUIDE_FORBIDDEN = new RegExp(`${FORBIDDEN.source}|주간\\s?보고|집회|사측|분회|임금|사무장|단체협약|조직\\s?확대|운영위원회|사업별|이번 주 사업|사업\\s?만들기`);
 
 const OFF = '기록+에서 꺼진 화면(메뉴·경로 제거는 단계 3 다음 PR)';
+const NAV_ORGBIZ = '[조직·사업] 메뉴·큰 탭 이름은 모든 사람 같은 글자(2026-11-28 사용자 결정, NAV-조직사업합침)';
 
 export const GIROK_ALLOW = Object.freeze([
   // ── 꺼진 화면 ──
@@ -70,4 +71,18 @@ export const GIROK_ALLOW = Object.freeze([
   { file: 'app/ledger-import-model.mjs', text: '노조+연결ID', reason: '사용자 원장 시트의 칸 이름과 맞추는 읽기 값(원장 양식)' },
 
   // ── 묶음 D 끝 ──
+
+
+  // ── NAV-조직사업합침(2026-11-28 사용자 결정 "조직·사업으로 하고 운영자 외 사용자에게도 그렇게 해줘 거래처 활동 말고") ──
+  // [조직·사업] 메뉴 이름과 그 안 큰 탭 이름 [조직 관리][사업 관리]는 WORK ON+ 기본에서도 이 글자다(이 메뉴에 한해 2026-11-20
+  // '기본 화면에 노조 색 단어를 두지 않는다'를 바꿈, docs/design/allinone-diary-plan.md). 탭 안 화면 글자는 그대로 단어표를 거친다.
+  { file: 'app/index.html', text: '조직·사업', reason: NAV_ORGBIZ },
+  { file: 'app/menu-model.mjs', text: '조직·사업', reason: NAV_ORGBIZ },
+  { file: 'app/topbar-actions.js', text: '조직·사업', reason: NAV_ORGBIZ },
+  { file: 'app/org-biz-tabs.js', text: '조직·사업', reason: NAV_ORGBIZ },
+  { file: 'app/org-biz-tabs.mjs', text: '조직 관리', reason: `${NAV_ORGBIZ} — 큰 탭 글자는 word(글자, 'tab')를 거쳐 고친 이름이 있으면 그 이름` },
+  { file: 'app/org-biz-tabs.mjs', text: '사업 관리', reason: `${NAV_ORGBIZ} — 큰 탭 글자는 word(글자, 'tab')를 거쳐 고친 이름이 있으면 그 이름` },
+  { file: 'app/brand/girok-words.mjs', text: '조직·사업', reason: `${NAV_ORGBIZ} — 단어표의 글자 그대로 두는 값` },
+  { file: 'app/brand/girok-words.mjs', text: '조직 관리', reason: `${NAV_ORGBIZ} — 단어표의 큰 탭 자리('#tab') 값` },
+  { file: 'app/brand/girok-words.mjs', text: '사업 관리', reason: `${NAV_ORGBIZ} — 단어표의 큰 탭 자리('#tab') 값` },
 ].map(Object.freeze));

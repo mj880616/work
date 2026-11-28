@@ -1,4 +1,3 @@
-import {word} from './brand/brand.mjs';
 // MENU-HOME-편집: 메뉴 목록의 유일한 정의. PC 왼쪽 메뉴·폰 하단바·폰 [메뉴] 창이 모두 여기서 읽는다.
 // DOM·네트워크 없음. 화면 쪽(menu-layout.js)은 이 모듈이 돌려주는 순서대로 그리기만 한다.
 //
@@ -13,7 +12,8 @@ import {word} from './brand/brand.mjs';
 // view: 라우터 화면 이름(없으면 note처럼 정리함 노트 쪽). group: 이 메뉴가 대표하는 화면들(일정 = 달력·할 일·일기).
 // HOME-업무일지홈: [홈]은 업무일지 화면이다(라우터 이름 home, 옛 이름 journal은 라우터 별칭). 그래서 [일정] 묶음에 업무일지가 없다.
 // icon: 24칸 선 그림 한 줄(폰 하단바·[메뉴] 창이 같이 쓴다). pc: PC 왼쪽 메뉴에서 이 항목 밑에 같이 따라오는 작은 메뉴 이름.
-// APP-올인원다이어리 단계 2: 노조 색 메뉴 이름은 얼굴 단어표(app/brand/brand.mjs)를 거친다. 노동조합+ 얼굴은 글자 그대로.
+// APP-올인원다이어리 단계 2: 노조 색 메뉴 이름은 얼굴 단어표(app/brand/brand.mjs)를 거쳤다. NAV-조직사업합침(2026-11-28)으로 그런 메뉴가 없어져
+// 이 표는 얼굴 단어표를 부르지 않는다(메뉴 이름은 모두 글자 그대로, 고칠 수 있는 이름은 큰 탭 쪽 custom-words-model.mjs).
 export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
   {id: 'basket', label: '잊지 말기', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
@@ -22,7 +22,6 @@ export const ITEMS = Object.freeze([
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.
-  {id: 'meetings', label: word('사업 관리'), view: 'meetings', group: ['meetings', 'projects'], icon: 'M4 5h16v11H9l-5 4z'},
   {id: 'library', label: '자료실', view: 'library', icon: 'M4 4h16v5H4zM5 9v11h14V9M10 13h4'},
   // FILES-클라우드탐색기 ④: [파일](원드라이브·구글 드라이브 탐색기)은 처음 자리가 자료실 바로 아래(명진 결정 F5, 설계 docs/design/files-explorer.md).
   // S62-11 MULTI-구글드라이브사진모두(명진 11/14 22:18): [파일]은 모두에게 — 각자 자기 드라이브·자기 작업공간만(서버 cloud-files·RLS가 owner로 막음).
@@ -31,7 +30,11 @@ export const ITEMS = Object.freeze([
   {id: 'brief', label: '브리핑 룸', view: 'brief', icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h4M16 15l2 2-2 2'},
   // NOTE-게시 ③(명진 11/24 21:41 "별도 메뉴에서 공유 페이지 삭제"): [공유 페이지] 메뉴·화면은 없다. 공유는 노트 ⋯ [공유 링크 만들기]로 하고,
   // 옛 주소 ?view=pages는 라우터 별칭으로 노트를 연다. 저장된 메뉴 순서의 'pages'는 모르는 이름이라 버려진다. 표·데이터·받는 화면(share/)은 그대로.
-  {id: 'team', label: word('조직 관리'), view: 'team', icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
+  // NAV-조직사업합침(2026-11-28 사용자 결정 10:22~10:55): 옛 [조직 관리](team)·[사업 관리](meetings) 두 메뉴를 [조직·사업] 하나로 합쳤다.
+  // 안은 큰 탭 [조직 관리][사업 관리][주간 보고](org-biz-tabs.mjs). 누르면 늘 맨 앞 [조직 관리](view team), 묶음은 세 탭 화면 + 사업영역 관리 창.
+  // 이름은 모든 사람의 기본 '조직·사업'(WORK ON+ 기본 단어 '거래처'·'활동' 계열을 이 메뉴에는 쓰지 않음 — 얼굴 단어표를 거치지 않는 글자).
+  // id는 team 그대로라 저장된 메뉴 순서의 team 자리가 이어지고, 옛 meetings는 아래 OLD_IDS가 team으로 읽는다(둘 다 있으면 먼저 나온 자리).
+  {id: 'team', label: '조직·사업', view: 'team', group: ['team', 'meetings', 'projects', 'weekly'], icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2'},
   // S71-61 HWP-노트안으로(2026-11-26 사용자 결정 "노트 안에서만 열게 하자"): [HWP 편집]은 메뉴 항목이 아니다(PC 왼쪽 메뉴·폰 하단바·[메뉴] 창·메뉴 수정 어디에도 없음).
   // 노트 화면 ⋯ [HWP 편집]·노트 ⋯ [이 노트를 HWP로]와 자료실·파일의 한글 [편집]으로만 연다. 화면·주소 ?view=hwp는 그대로다.
   // 저장된 메뉴 순서의 'hwp'는 모르는 이름이라 버려진다(normalizeLayout — 저장값은 손대지 않음).
@@ -60,7 +63,8 @@ export const BAR_MAX = 5;
 // S68-37(명진 11/23 08:00·08:01 "자료실 사진"): 처음 하단바는 홈·노트·일정·자료실·사진. 빠진 조직 관리·사업 관리(얼굴 단어표 이름)는
 // 위 메뉴 잊지 말기·읽을 거리 다음. 저장된 순서가 있는 사람(운영자 포함)은 그대로다.
 export const DEFAULT_BAR = Object.freeze(['home', 'note', 'calendar', 'library', 'photos']);
-export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'meetings', 'files', 'brief', 'outside']);
+// NAV-조직사업합침: 위 메뉴의 [조직 관리]·[사업 관리] 두 칸 자리는 [조직·사업] 한 칸(team)이다.
+export const DEFAULT_REST = Object.freeze(['basket', 'reading', 'team', 'files', 'brief', 'outside']);
 export const DEFAULT_TAIL = Object.freeze(['calls', 'telegram', 'arsenal']);
 // 저장된 순서에 빠진 항목을 끼워 넣을 자리의 기준(placeMissing). S68-37 전 기본 위 메뉴 순서 그대로 둔다:
 // 처음 구성(DEFAULT_BAR·DEFAULT_REST)이 바뀌어도 저장값이 있는 사람의 메뉴 모양은 한 칸도 달라지지 않게(파일 = 자료실 바로 아래 F5 등).
@@ -93,7 +97,8 @@ function placeMissing(list, missing, order) {
   return out;
 }
 // 합쳐진 옛 메뉴 id → 지금 id. 저장된 순서에 옛 id만 있으면 그 자리에 지금 메뉴가 선다(둘 다 있으면 먼저 나온 자리, unique가 뒤 것을 버림).
-export const OLD_IDS = Object.freeze({news: 'outside'});
+// NAV-조직사업합침: 옛 [사업 관리](meetings) 칸은 [조직·사업](team) 칸으로 읽는다. 저장값은 손대지 않고 다음에 메뉴를 고쳐 저장할 때 한 칸으로 남는다.
+export const OLD_IDS = Object.freeze({news: 'outside', meetings: 'team'});
 const known = list => Array.isArray(list) ? list.map(id => OLD_IDS[id] || id).filter(id => typeof id === 'string' && KNOWN.has(id)) : [];
 const unique = list => [...new Set(list)];
 

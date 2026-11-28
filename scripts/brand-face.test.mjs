@@ -55,8 +55,11 @@ test('girok 빌드: 얼굴 한 줄·manifest·아이콘·제목이 WORK ON+고 �
   assert.match(girok['app/login/index.html'], /<title>로그인 · WORK ON\+<\/title>/);
   assert.match(index, /icons\/app-icon-180\.png/, '같은 아이콘이라 PNG 아이콘 줄 그대로');
   const seen = Object.keys(girok).filter(file => file.startsWith('app/') && file.endsWith('.html')).flatMap(file => visible(girok[file]));
-  for (const word of Object.keys(face.words).filter(key => !key.includes('#'))) assert.ok(!seen.some(text => text.includes(word)), `기록+ 화면 글자에 '${word}'가 남음`);
-  for (const word of ['활동 기록', '거래처·직원', 'WORK ON+']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
+  // NAV-조직사업합침(2026-11-28 사용자 결정): 글자 그대로 두는 열쇠(메뉴 이름 '조직·사업')는 화면에 남는 것이 맞다.
+  const kept = Object.keys(face.words).filter(key => !key.includes('#') && face.words[key] === key);
+  const plain = seen.map(text => kept.reduce((out, key) => out.split(key).join(''), text));
+  for (const word of Object.keys(face.words).filter(key => !key.includes('#') && !kept.includes(key))) assert.ok(!plain.some(text => text.includes(word)), `기록+ 화면 글자에 '${word}'가 남음`);
+  for (const word of ['조직·사업', 'WORK ON+']) assert.ok(seen.includes(word), `기록+ 화면 글자에 '${word}'`);
   const result = await checkBuild(girok);
   assert.deepEqual(result.errors, []);
   // 저장소 입력은 그대로(빌드 출력에서만 고침).
@@ -84,8 +87,9 @@ test('HTML 얼굴 입히기는 눈에 보이는 글자만 바꾼다(script·styl
 test('girok 앱 바탕: 바꾼 글자마다 원래 글자를 남기고, 다른 HTML은 남기지 않는다', () => {
   const index = girok['app/index.html'];
   assert.match(index, /<html data-word-faced lang="ko">/);
-  assert.match(index, /data-view="team" href="\.\/\?view=team"><!--word:조직 관리-->거래처·직원<\/a>/);
-  assert.match(index, /<span><!--word:사업 관리-->활동 기록<\/span>/);
+  // NAV-조직사업합침: 메뉴 이름 '조직·사업'은 모든 사람 같은 글자라 얼굴 입히기가 바꾸지 않는다(원래 글자 남길 일 없음).
+  assert.match(index, /data-view="team" data-nav-group="team meetings projects weekly" href="\.\/\?view=team">조직·사업<\/a>/);
+  assert.match(index, /<span>조직·사업<\/span>/);
   assert.match(index, /aria-label="활동 기록으로 돌아가기" data-word-aria-label="사업 관리로 돌아가기"/);
   // 이름 칸 밖 낱말(서식 등)도 남긴다(S67-62).
   assert.match(index, /<!--word:노조 양식으로 새 문서-->서식으로 새 문서</);

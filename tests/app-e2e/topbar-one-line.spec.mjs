@@ -47,8 +47,10 @@ async function open(page, query, { width = 390, dark = false, theme = null } = {
 const SCREENS = [
   { key: 'home', query: 'view=home', panel: '#homeView', name: '#journalRoot [data-journal-title]', mark: '#journalRoot .journal-head > .head-mark' },
   // S70-57: 사업 관리도 앱 머리 줄(아이콘·이름·찾기 돋보기 — 맨 위 칸 하나로)을 쓴다. 화면 첫 줄은 고르기·[+]·[⋯].
-  { key: 'meetings', query: 'view=meetings', panel: '#meetingsView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '사업 관리', mark: '#appView > .mobile-shell-header > .head-mark' },
-  { key: 'team', query: 'view=team', panel: '#teamView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '조직 관리', mark: '#appView > .mobile-shell-header > .head-mark' },
+  { key: 'meetings', query: 'view=meetings', panel: '#meetingsView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '조직·사업', mark: '#appView > .mobile-shell-header > .head-mark' },
+  // NAV-조직사업합침(2026-11-28): 사업 관리·조직 관리·주간 보고는 [조직·사업] 한 메뉴의 큰 탭 — 머리 줄 이름은 메뉴 이름, 탭 이름은 바로 아래 큰 탭 줄.
+  { key: 'team', query: 'view=team', panel: '#teamView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '조직·사업', mark: '#appView > .mobile-shell-header > .head-mark' },
+  { key: 'weekly', query: 'view=weekly', panel: '#homeView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '조직·사업', mark: '#appView > .mobile-shell-header > .head-mark' },
   { key: 'calendar', query: 'view=calendar', panel: '#calendarView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '일정', mark: '#appView > .mobile-shell-header > .head-mark' },
   { key: 'note', query: 'view=basket&pane=note', panel: '#basketView', name: '#appView > .mobile-shell-header [data-mobile-view-name]', text: '노트', mark: '#appView > .mobile-shell-header > .head-mark' },
 ];
@@ -90,12 +92,23 @@ for (const width of [390, 700]) {
         await expect(page.locator('#reportMore')).toHaveCount(0);
       }
       if (s.key === 'home') {
-        // 홈: [하루|주간 보고] · 찾기(돋보기)가 같은 줄, 돋보기가 오른쪽 끝(S71-41 HOME-머리한줄).
-        const seg = await box(page.locator('#journalRoot .journal-mode-switch')), find = await box(page.locator('#journalRoot [data-journal-find]'));
-        expect(Math.abs(seg.mid - n.mid)).toBeLessThanOrEqual(4);
+        // 홈: 날짜 · 찾기(돋보기)가 같은 줄, 돋보기가 오른쪽 끝(S71-41 HOME-머리한줄). NAV-조직사업합침: [하루|주간 보고] 전환은 없다.
+        await expect(page.locator('#journalRoot .journal-mode-switch, #journalRoot [data-journal-mode]')).toHaveCount(0);
+        const find = await box(page.locator('#journalRoot [data-journal-find]'));
         expect(Math.abs(find.mid - n.mid)).toBeLessThanOrEqual(4);
-        expect(seg.right).toBeLessThanOrEqual(find.left + 1);
+        expect(n.right).toBeLessThanOrEqual(find.left + 1);
         expect(find.right).toBeGreaterThan(width - 30);
+      }
+      if (['team', 'meetings', 'weekly'].includes(s.key)) {
+        // NAV-조직사업합침: 머리 줄 바로 아래 큰 탭 줄 [조직 관리][사업 관리][주간 보고] 한 줄, 이 화면 탭이 켜짐. 주간 보고 날짜 머리줄에는 아이콘·찾기가 없다.
+        const tabs = page.locator(`${s.panel} [data-orgbiz-tabs]`);
+        await expect(tabs).toBeVisible();
+        await expect(tabs.locator('button')).toHaveText(['조직 관리', '사업 관리', '주간 보고']);
+        await expect(tabs.locator(`[data-view="${s.key}"]`)).toHaveAttribute('aria-pressed', 'true');
+        const t = await box(tabs);
+        expect(t.top).toBeGreaterThanOrEqual(n.bottom - 1);
+        expect(t.height).toBeLessThanOrEqual(46);
+        if (s.key === 'weekly') for (const sel of ['.head-mark', '[data-journal-find]']) await expect(page.locator(`#journalRoot .journal-head ${sel}`)).toBeHidden();
       }
       if (s.key === 'team' && width < 600) {
         // 조직 관리: [⋯]는 같은 줄 오른쪽(S71-35: [+ 담당조직]은 ⋯ 안 '새 담당조직').

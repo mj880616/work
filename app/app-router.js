@@ -23,6 +23,11 @@
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
   // S51-17 NEWS P5: the News screen (#outsideView) is written as ?view=news; the old ?view=outside still opens it.
   const URL_NAME={meetings:'reports',outside:'news'};
+  // NAV-조직사업합침(2026-11-28 사용자 결정): [조직·사업] 메뉴의 세 번째 큰 탭 [주간 보고](라우터 이름 weekly, 주소 ?view=weekly)는
+  // 업무일지 칸(#homeView · journal.js #journalRoot)의 주간 쪽을 그대로 쓴다 — 화면 이름은 따로, 그리는 칸과 주인(journal.js)은 하나.
+  // 화면 → 칸이 다른 것은 이 표뿐이다(나머지는 '<이름>View'). 옛 홈 주간 주소(?view=home&mode=week·?mode=week)는 weekly로 연다(viewFromUrl).
+  const PANEL_OF={weekly:'home'};
+  const panelOf=view=>view?document.getElementById((PANEL_OF[view]||view)+'View'):null;
   const urlName=view=>URL_NAME[view]||view;
   // A screen's own sides that are not screens are written to the address as one more parameter (?view=basket&pane=note), like the 일정
   // sub screens are written as their own ?view=. The default side has no parameter. BASKET-정리함한화면: the old ?pane=todo still arrives
@@ -37,8 +42,10 @@
   // with setPlace (replaceState: no history entry of its own, so Back still goes to the previous screen); the screen reads them back
   // with place(view) when it is entered. A step to another screen or side drops them (each screen starts fresh), a reload keeps them.
   // Nothing is stored anywhere else (no device storage, no new server state).
-  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day','mode'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic'],reading:['tab']};
-  const PLACE_KEYS=[...new Set(Object.values(PLACE_PARAMS).flat())];
+  const PLACE_PARAMS={lock:['for','renew'],meetings:['areas','chip','report'],basket:['note','doc','folder'],library:['folder'],diary:['day'],home:['day'],weekly:['day'],calendar:['date'],tasks:['task'],team:['org'],calls:['box','call'],photos:['tab','pf'],telegram:['by','room','rday'],files:['at','shelf'],arsenal:['match'],outside:['item'],help:['topic'],reading:['tab']};
+  // 옛 자리 칸: 이제 어느 화면도 쓰지 않지만 옛 주소에 남아 있을 수 있는 이름(화면을 바꿀 때 지운다). mode = 옛 홈 [주간 정리](NAV-조직사업합침).
+  const RETIRED_PLACE_KEYS=['mode'];
+  const PLACE_KEYS=[...new Set([...Object.values(PLACE_PARAMS).flat(),...RETIRED_PLACE_KEYS])];
   const PLACE_VALUE=/^[A-Za-z0-9_.:-]{1,80}$/;
   const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
   const viewName=view=>VIEW_ALIAS[view]||view;
@@ -76,13 +83,15 @@
   }
 
   function viewExists(view){
-    return !!view&&!!document.getElementById(view+'View');
+    return !!panelOf(view);
   }
 
   function viewFromUrl(){
     if(!authenticatedShellReady())return null;
     const params=new URLSearchParams(location.search);
     const requested=params.get(VIEW_PARAM)&&viewName(params.get(VIEW_PARAM));
+    // NAV-조직사업합침: 옛 홈 [주간 정리] 주소(?view=home&mode=week, ?view=journal&mode=week, ?mode=week)는 [조직·사업] › [주간 보고].
+    if((!requested||requested==='home')&&params.get('mode')==='week'&&!params.get('project')&&viewExists('weekly'))return 'weekly';
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
     if(params.get('project')&&viewExists('meetings'))return 'meetings';
@@ -125,6 +134,7 @@
     else u.searchParams.set(VIEW_PARAM,urlName(view));
     for(const rule of Object.values(SUB_PARAMS))u.searchParams.delete(rule.param);
     if(!keepPlace)for(const key of PLACE_KEYS)u.searchParams.delete(key);
+    else for(const key of RETIRED_PLACE_KEYS)u.searchParams.delete(key);
     if(subName(view,sub))u.searchParams.set(SUB_PARAMS[view].param,sub);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
@@ -548,7 +558,7 @@
     scrollWatch?.();scrollWatch=null;
     const y=scrollAt.get(here()?.key);
     if(!y)return;
-    const panel=document.getElementById(view+'View');
+    const panel=panelOf(view);
     const apply=()=>window.scrollTo({top:y,behavior:'instant'});
     const settled=()=>Math.abs(window.scrollY-y)<2;
     // Counted in frames, not timers (route restoration is never a delayed overwrite): it ends once the position is reached and the
@@ -705,7 +715,7 @@
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
-    const target=document.getElementById(view+'View');
+    const target=panelOf(view);
     if(!target)return false;
     const entry=window.navigation?.currentEntry;
     const canRestoreHistory=!!(routeEntry&&entry&&Number.isInteger(entry.index)&&routeEntry.index!==entry.index);
@@ -763,8 +773,8 @@
     if(!view)return false;
     const written=new URLSearchParams(location.search).get(VIEW_PARAM);
     const sub=subFromUrl(view)||subName(view,ALIAS_SUB[written]);
-    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub,keepPlace:true});
-    const target=document.getElementById(view+'View');
+    if((written!==null&&written!==view&&written!==urlName(view))||(view==='weekly'&&written!=='weekly'))syncUrl(view,{replace:true,sub,keepPlace:true});
+    const target=panelOf(view);
     if(api.current===view&&target&&!target.classList.contains('hidden')){
       // A back/forward step inside one screen can only change its side (?pane=): the screen is told, the rest stays.
       if((api.sub||null)!==sub){api.sub=sub;window.dispatchEvent(new CustomEvent('kptu:sub-changed',{detail:{view,sub}}));}
@@ -786,6 +796,8 @@
 
   function detect(){
     const panel=[...document.querySelectorAll('#appView .view-panel')].find(x=>!x.classList.contains('hidden'));
+    // 칸 하나를 두 화면이 쓰면(PANEL_OF, 주간 보고 = 업무일지 칸) 지금 화면이 그 칸의 것일 때 그대로 둔다.
+    if(panel&&api.current&&panelOf(api.current)===panel)return api.current;
     return panel?.id?.replace(/View$/,'')||null;
   }
 
@@ -860,7 +872,7 @@
   // go() was asked meanwhile (then the late press must not take the screen back from it).
   const askGo=()=>++goSeq;
   const stillLatest=token=>token===goSeq;
-  const api={current:null,sub:null,go,leaveToBrowser,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},pick:{record:recordPick,on:onPick},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,panelOf,go,leaveToBrowser,askGo,stillLatest,setSub,place,setPlace,dropPlaces,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,forward,canBack,canForward,openFrom,adoptSourceWindow,layer:{open:openLayer},pick:{record:recordPick,on:onPick},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   // NAV-PC앞뒤통일: one notice after the history position or the screen changed, so the top line repaints ‹ › from canBack/canForward.
   let moveQueued=false;

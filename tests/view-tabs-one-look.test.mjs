@@ -17,6 +17,9 @@ const MORE = [
   // UI-보기탭드롭다운(11/10): 사진 [사진 ▾]·사업 보고 [목록 ▾]는 보기 탭이 아니라 위 줄 고르기 상자(select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   // LIB-위쪽한줄(11/09): 자료실 묶기는 보기 탭이 아니라 위 줄 고르기 상자 [폴더 ▾](select)라 ⑤ 탭이 아니다 — 탭으로 다시 그리지 않는다.
   ['app/home-quick.js', /class="home-quick-modes ds-seg"/],
+  // NAV-조직사업합침: [조직·사업] 큰 탭 줄은 자리(index.html [data-orgbiz-tabs])에 ⑤ 묶음 클래스를 붙이고 칸은 ds-seg-btn.
+  ['app/org-biz-tabs.js', /slot\.classList\.add\('orgbiz-tabs', 'ds-seg'\)/],
+  ['app/org-biz-tabs.js', /<button type="button" class="ds-seg-btn" data-view=/],
 ];
 
 test('⑤ 보기 바꾸기 한 모양: 연한 알약 바탕 + 고른 칸만 흰 알약·굵게, 선·밑줄 없음, 넘치면 옆으로 밀기', () => {
@@ -46,7 +49,7 @@ test('재발 방지: 화면의 보기 탭은 공용 ⑤ 부품만(일정·노트
   const odd = tabs.filter(t => !isOneLook(t) && !FILTERS[keyOf(t)]).map(keyOf);
   assert.deepEqual(odd, [], '보기 탭은 class="… ds-seg" 묶음 + class="ds-seg-btn" 칸으로 만드세요(docs/design-decisions.md UI-버튼기준 · UI-보기탭한모양).');
   for (const k of Object.keys(FILTERS)) assert.ok(tabs.some(t => keyOf(t) === k), `${k}가 없어졌으면 FILTERS에서 지우세요`);
-  for (const k of ['app/index.html schedule-switch', 'app/index.html calendar-view-switch', 'app/basket-notes.js nv-switch', 'app/journal.js journal-mode-switch',
+  for (const k of ['app/index.html schedule-switch', 'app/index.html calendar-view-switch', 'app/basket-notes.js nv-switch', // NAV-조직사업합침: 홈 journal-mode-switch는 없앴다 → [조직·사업] 큰 탭(org-biz-tabs.js, 아래 MORE)
     'app/diary.js diary-source', 'app/org-overview.js so-team-tabs', 'app/outside-statements.js os-tabs', 'app/telegram-feed.js feed-vsw'])
     assert.ok(tabs.some(t => keyOf(t) === k && isOneLook(t)), `${k}는 공용 ⑤`);
   for (const [f, re] of MORE) assert.match(readFileSync(f, 'utf8'), re, f);

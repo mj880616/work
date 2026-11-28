@@ -47,7 +47,9 @@ for (const [width, height] of WIDTHS) {
     await expect(root(page).locator('[data-journal-title]')).toHaveText('10월 6일 화요일');
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-current', 'date');
     await expect(date(page, '2026-10-06')).toHaveAttribute('aria-pressed', 'true');
-    await expect(root(page).locator('[data-journal-mode="day"]')).toHaveAttribute('aria-pressed', 'true');
+    // NAV-조직사업합침: 홈은 [하루]뿐(머리줄 [하루|주간 보고] 전환 없음, 주간 보고는 [조직·사업] 큰 탭).
+    await expect(root(page).locator('[data-journal-mode]')).toHaveCount(0);
+    await expect(root(page)).toHaveAttribute('data-journal-mode', 'day');
     // 순서: 날짜 줄 → 입력줄 → [하루] 카드 맨 위 '나한테 온 요청' 상자(S52-09) → [그날 일정 | 할 일] → 오늘 한 일 → 주간보고 재료.
     const order = await page.evaluate(() => ['[data-journal-days]', '[data-home-quick]', '[data-home-summary]', '[data-journal-top-cols]', '[data-journal-done-day]', '[data-journal-materials]']
       .map(sel => { const all = [...document.querySelectorAll('#journalRoot *')]; return all.indexOf(document.querySelector('#journalRoot ' + sel)); }));

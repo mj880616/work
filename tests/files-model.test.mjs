@@ -143,8 +143,9 @@ test('메뉴·화면 연결: [파일]은 자료실 바로 아래(F5), 화면은 
   // S68-37: 새 계정은 자료실이 하단바 칸이라 [파일]은 위 메뉴의 조직 관리·사업 관리 다음. 저장값이 있는 사람에게 빠진 [파일]이 자료실 바로 아래로
   // 들어가는 규칙(F5)은 그대로다(menu-model.test.mjs 'FILES-클라우드탐색기 ④'·'MULTI-하단바기본노트').
   const {bar, rest} = defaultLayout();
-  assert.ok(bar.includes('library')); assert.equal(rest[rest.indexOf('meetings') + 1], 'files');
-  assert.match(read('app/index.html'), /data-view="meetings" data-nav-group="meetings projects" href="\.\/\?view=reports">사업 관리<\/a>\n\s*<a class="nav-btn" data-view="files" href="\.\/\?view=files">파일<\/a>/);
+  // NAV-조직사업합침: 조직 관리·사업 관리 두 칸은 [조직·사업](team) 한 칸이다.
+  assert.ok(bar.includes('library')); assert.equal(rest[rest.indexOf('team') + 1], 'files');
+  assert.match(read('app/index.html'), /data-view="team" data-nav-group="team meetings projects weekly" href="\.\/\?view=team">조직·사업<\/a>\n\s*<a class="nav-btn" data-view="files" href="\.\/\?view=files">파일<\/a>/);
   // S69-62: '옮길 곳' 창 모양은 공용 folder-dest-sheet.css(자료실·노트·사진 폴더 고르기 창과 같은 파일).
   assert.match(read('app/view-loader.js'), /files:\['\.\/od-link\.css','\.\/folder-tree\.css','\.\/source-chips\.css','\.\/folder-dest-sheet\.css','\.\/files\.css'/);
   assert.match(read('app/view-loader.js'), /async function files\(\)\{ await screen\('\.\/files\.js','__KPTU_FILES_READY__'\)/);

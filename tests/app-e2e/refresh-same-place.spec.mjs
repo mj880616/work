@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openWeeklyTab } from './helpers/weekly-tab.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { bootLibrary, libFolder, menuButton, folderMenuItem, press } from './helpers/library-folder-server.mjs';
@@ -90,7 +91,7 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await day.click(); await expect(day).toHaveAttribute('aria-pressed', 'true'); await expect(page).toHaveURL(/[?&]day=2026-10-03(?:&|$)/);
     await reload(page);
     expect(await view(page)).toBe('diary'); await expect(day).toHaveAttribute('aria-pressed', 'true');
-    // 업무일지 = 홈(HOME-업무일지홈): 고른 날(?day=), [주간 정리](?mode=week). 주소에 view는 없다.
+    // 업무일지 = 홈(HOME-업무일지홈): 고른 날(?day=). 주소에 view는 없다. 주간 보고는 [조직·사업] 큰 탭(?view=weekly, NAV-조직사업합침).
     await page.evaluate(() => window.KPTURouter.go('home'));
     await expect(page).not.toHaveURL(/[?&]day=/);
     const date = page.locator('#journalRoot [data-journal-date="2026-10-08"]');
@@ -98,8 +99,8 @@ for (const width of [390, 1280]) test.describe(`새로고침 뒤 같은 화면 $
     await expect(page).not.toHaveURL(/[?&]view=/);
     await reload(page);
     expect(await view(page)).toBe('home'); await expect(date).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('#journalRoot [data-journal-mode="week"]').click();
-    await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible(); await expect(page).toHaveURL(/[?&]mode=week(?:&|$)/);
+    await openWeeklyTab(page);
+    await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible(); await expect(page).toHaveURL(/[?&]view=weekly(?:&|$)/); await expect(page).not.toHaveURL(/[?&]mode=/);
     await reload(page);
     await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeVisible();
     // 달력: 다음으로 넘긴 날짜(?date=)

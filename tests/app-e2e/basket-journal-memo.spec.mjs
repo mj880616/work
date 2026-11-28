@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openWeeklyTab, openDayHome } from './helpers/weekly-tab.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
 import { openBasketUpdate } from './helpers/forget-view.mjs';
@@ -65,13 +66,13 @@ const weekSettled = async (page, f) => {
   await expect(page.locator('#journalRoot [data-hwpx-status]')).not.toBeEmpty();
 };
 const copyDraft = async (page, width, f) => {
-  await press(page, page.locator('#journalRoot [data-journal-mode="week"]'), width);
+  await openWeeklyTab(page);
   await weekSettled(page, f);
   await page.locator('#journalRoot [data-journal-status]').evaluate(e => { e.textContent = ''; });
   await press(page, page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more summary'), width);
   await press(page, page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-copy]'), width);
   await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
-  await press(page, page.locator('#journalRoot [data-journal-mode="day"]'), width);
+  await openDayHome(page);
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
 };
 const rowMenu = page => page.locator('#basketRowMenu');
@@ -163,7 +164,7 @@ for (const width of [390, 1280]) {
     await expect.poll(() => f.writes.length).toBe(1);
     f.holdRereads();
     await openJournal(page, width);
-    await press(page, page.locator('#journalRoot [data-journal-mode="week"]'), width);
+    await openWeeklyTab(page);
     await weekSettled(page, f);
     await page.locator('#journalRoot [data-journal-status]').evaluate(e => { e.textContent = ''; });
     await press(page, page.locator('#journalRoot [data-weekly-flow-confirm] details.row-more summary'), width);

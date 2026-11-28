@@ -2105,3 +2105,8 @@ button.icon-btn{ border-color:transparent; background:transparent; box-shadow:no
 
 /* S67-25: '잠김' 한 줄(잊지 말기·밑줄 등 어디서든) — 테두리 칸 안에서 글자가 벽에 붙지 않게 안쪽 여백. */
 .forget-locked{margin:0;padding:.5em var(--ds-row-pad-x)}
+
+/* NAV-조직사업합침(2026-11-28 사용자 결정): [조직·사업] 큰 탭 줄 [조직 관리][사업 관리][주간 보고](org-biz-tabs.js가 그림). 모양은 공용 ⑤ 보기 바꾸기(.ds-seg)
+   그대로, 여기는 자리만 — 세 칸(조직 관리·사업 관리·주간 보고) 맨 위 첫 줄, 아래 화면 첫 줄과 단추 사이 간격(--ds-button-gap). 폰·PC 같은 자리(작은 탭 [목록|전체 표]는 폰 아래 전환 줄 그대로). */
+#appView .orgbiz-tabs{ margin-bottom:calc(var(--ds-seg-hit) * -1 + var(--ds-button-gap)); }
+#appView .orgbiz-tabs[hidden]{ display:none; }

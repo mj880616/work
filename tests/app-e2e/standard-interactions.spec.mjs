@@ -2419,3 +2419,46 @@ test.describe('S13 휴지통 줄 그림 단추·꾹 눌러 고르기', () => {
     expect(s.errors).toEqual([]);
   });
 });
+
+// ---------- P1 한 화면(메뉴) 안의 보기 전환은 좌우로 밀어 옮긴다 ----------
+// NAV-조직사업합침(2026-11-28): [조직·사업] 큰 탭 [조직 관리][사업 관리][주간 보고]. 새 보기 전환 화면은 이 표에 한 줄 더한다.
+// 화면을 열 때 큰 탭 줄이 칸과 함께 최종 모양(탭 셋)으로 나오고 그 뒤 바뀌지 않는지도 같이 본다(깜박임 없음).
+async function orgBizTabs(page) {
+  await openHome(page, { menuLayout: null, query: '?view=team' });
+  const strip = view => page.locator(`${{ team: '#teamView', meetings: '#meetingsView', weekly: '#homeView' }[view]} [data-orgbiz-tabs]`);
+  return {
+    views: ['team', 'meetings', 'weekly'],
+    strip,
+    async swipe(view, dx) {
+      const panel = { team: '#teamView', meetings: '#meetingsView', weekly: '#homeView' }[view];
+      await page.evaluate(({ panel, dx }) => {
+        const box = document.querySelector(`${panel} [data-orgbiz-tabs]`).getBoundingClientRect();
+        const x = Math.round(innerWidth / 2), y = Math.round(box.bottom + 2), target = document.elementFromPoint(x, y) || document.querySelector(panel);
+        const t = cx => new Touch({ identifier: 3, target, clientX: cx, clientY: y });
+        target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [t(x)], changedTouches: [t(x)] }));
+        target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [], changedTouches: [t(x + dx)] }));
+      }, { panel, dx });
+    },
+  };
+}
+const VIEW_SWIPE_SCREENS = [['조직·사업 큰 탭', orgBizTabs]];
+for (const [name, open] of VIEW_SWIPE_SCREENS) test(`P1 ${name} 폰 412: 왼쪽으로 밀면 다음 보기, 오른쪽이면 앞 보기, 끝에서는 그대로, 뒤로가기 = 앞 보기`, async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width: 412, height: 860 });
+  const s = await open(page);
+  const current = () => page.evaluate(() => window.KPTURouter?.current);
+  for (const [i, view] of s.views.entries()) {
+    await expect.poll(current).toBe(view);
+    await expect(s.strip(view).locator('button').nth(i)).toHaveAttribute('aria-pressed', 'true');
+    await expect(s.strip(view).locator('button')).toHaveCount(s.views.length);
+    if (i < s.views.length - 1) await s.swipe(view, -140);
+  }
+  await s.swipe(s.views.at(-1), -140);
+  await page.waitForTimeout(300);
+  expect(await current()).toBe(s.views.at(-1));
+  await s.swipe(s.views.at(-1), 140);
+  await expect.poll(current).toBe(s.views.at(-2));
+  await page.goBack();
+  await expect.poll(current).toBe(s.views.at(-1));
+  expect(errors).toEqual([]);
+});

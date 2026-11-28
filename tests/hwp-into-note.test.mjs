@@ -48,7 +48,7 @@ test('메뉴에서 빠짐: 처음 화면(index.html) 왼쪽 메뉴·[메뉴] 창
   assert.doesNotMatch(html, /<button type="button" data-view="hwp">/);
   assert.match(html, /<section id="hwpView"/, '화면은 그대로');
   const top = read('app/topbar-actions.js');
-  assert.match(top, /projects:'reports',hwp:'note'\}/);
+  assert.match(top, /projects:'reports',hwp:'note'[,}]/);
   assert.match(top, /note:\{name:'노트',view:'note'\}/);
   assert.match(top, /if\(go==='note'\)\{void openBasketKind\('note'\);return\}/);
   assert.doesNotMatch(top, /const ALL_KEYS=\[[^\]]*'hwp'/);

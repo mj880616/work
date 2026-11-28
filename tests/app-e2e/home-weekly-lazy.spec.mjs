@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openWeeklyTab, openDayHome, expectWeeklyTab } from './helpers/weekly-tab.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 
 // PERF-첫로딩 P2(docs/design/first-load.md 6절): 홈 [주간 정리]·한글 파일 상자 모듈(journal-weekly-kit.js)은
@@ -36,11 +37,11 @@ test('홈 첫 화면이 보이기 전에는 주간 정리 모듈을 받지 않�
   expect(readyAt).toBeGreaterThan(0);
   expect(before).toEqual([]);
   await page.waitForFunction(() => !!document.querySelector('#journalRoot') && window.KPTUJournal);
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openWeeklyTab(page);
   await expect(chapters(page)).toHaveText(['1. 요청사항', '2. 기본․영역․의제 사업', '3. 투쟁 사업장 현황', '4. 산하조직 현황', '5. 주요 일정']);
   await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
   await expect(page.locator('#journalRoot [data-weekly-flow-confirm] [data-hwpx-confirm]')).toBeVisible();
-  await page.locator('#journalRoot [data-journal-mode="day"]').click();
+  await openDayHome(page);
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -53,8 +54,8 @@ test('[주간 정리] 첫 클릭 때 모듈이 아직 오는 중이면 기다림
   await page.route(KIT, async route => { await held; await route.continue(); });
   await openHome(page);
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
-  await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
+  await openWeeklyTab(page);
+  await expectWeeklyTab(page);
   await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 보고 · 10월 5일 월요일 ~ 10월 11일 일요일');
   await expect(weekly(page).locator('[data-journal-kit-wait] [data-wait]')).toBeVisible();
   await expect(chapters(page)).toHaveCount(0);
@@ -69,27 +70,27 @@ test('[주간 정리] 모듈 받기에 실패하면 안내와 [다시], 누르�
   await page.route(KIT, route => (fail ? route.abort() : route.continue()));
   await openHome(page);
   await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openWeeklyTab(page);
   const retry = weekly(page).locator('[data-journal-kit-retry]');
   await expect(retry).toBeVisible();
   await expect(weekly(page).locator('[data-wait-fail]')).toBeVisible();
-  await expect(page).toHaveURL(/mode=week/);
+  await expect(page).toHaveURL(/[?&]view=weekly(?:&|$)/); // NAV-조직사업합침: [조직·사업] › [주간 보고]
   fail = false;
   await retry.click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); // openHome과 같은 첫 화면 기다림
-  await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
+  await expectWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
 });
 
-test('주소가 [주간 정리](?mode=week)면 새로고침 뒤에도 바로 그 화면을 그린다', async ({ page }) => {
+test('주소가 [주간 보고](?view=weekly)면 새로고침 뒤에도 바로 그 화면을 그린다', async ({ page }) => {
   const seen = watchScripts(page);
   await openHome(page);
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
-  await expect(page).toHaveURL(/mode=week/);
+  await expect(page).toHaveURL(/[?&]view=weekly(?:&|$)/); // NAV-조직사업합침: [조직·사업] › [주간 보고]
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 }); // openHome과 같은 첫 화면 기다림
-  await expect(page.locator('#journalRoot [data-journal-mode="week"]')).toHaveAttribute('aria-pressed', 'true');
+  await expectWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
   expect(seen.length).toBeGreaterThan(0);
 });
@@ -118,7 +119,7 @@ test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 �
   expect(weekOnly).toEqual([]);
   const dayEvents = events.length;
   expect(dayEvents).toBe(1); // 그 주 일정만(5. 주요 일정 두 주는 [주간 정리] 몫)
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
   await expect.poll(() => weekOnly.filter(u => /app_weekly_exec_requests/.test(u)).length).toBeGreaterThan(0);
   await expect.poll(() => events.length).toBe(dayEvents + 1);
@@ -128,8 +129,8 @@ test('하루 화면은 [주간 정리] 전용 자료를 읽지 않고, [주간 �
   const mine = () => weekOnly.filter(u => /app_weekly_org_summaries|select=weekly_schedule_memory|select=ledger_calendar/.test(u)).length;
   await page.waitForTimeout(1000);
   const after = mine(), eventsAfter = events.length;
-  await page.locator('#journalRoot [data-journal-mode="day"]').click();
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openDayHome(page);
+  await openWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
   await page.waitForTimeout(800);
   expect(mine()).toBe(after);
@@ -144,7 +145,7 @@ for (const width of [412, 880, 1280]) test(`[주간 정리] 맨 위에 다음 �
   page.on('pageerror', e => errors.push(e.message));
   await openHome(page);
   await page.waitForFunction(() => !!document.querySelector('#journalRoot') && window.KPTUJournal);
-  await page.locator('#journalRoot [data-journal-mode="week"]').click();
+  await openWeeklyTab(page);
   await expect(chapters(page)).toHaveCount(5);
   await expect(page.locator('#journalRoot [data-journal-next-week], #journalRoot .journal-next-week, #journalRoot [data-journal-next-make]')).toHaveCount(0);
   await expect(page.getByText('다음 주 준비')).toHaveCount(0);
