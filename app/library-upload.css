@@ -196,8 +196,8 @@
 #appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{min-height:var(--ft-row-h,44px);font-weight:700}
 #appView #libraryView #documentList .lu-node-head .lu-folder-shape{margin:0}
 #appView #libraryView #documentList .lu-node-head .lu-node-count{font-weight:var(--ds-weight-regular,400)}
-#appView #libraryView #documentList .lu-node-head > .lu-node-more{width:36px;height:32px;margin:0 2px 0 auto;border-radius:var(--kptu-radius-sm,6px);font-size:inherit;font-weight:400}
-#appView #libraryView #documentList .lu-node-head > .lu-node-more::after{inset:calc((32px - var(--kptu-touch-target,44px)) / 2) -4px}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more{width:28px;height:32px;margin:0 2px 0 auto;border-radius:var(--kptu-radius-sm,6px);font-size:inherit;font-weight:400}
+#appView #libraryView #documentList .lu-node-head > .lu-node-more::after{inset:calc((32px - var(--kptu-touch-target,44px)) / 2) -8px}
 #appView #libraryView #documentList .lu-node-body > .lu-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
 #appView #libraryView #documentList .lu-node-body > .ft-more-row{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
 #appView #libraryView #documentList .lu-node-body > .lu-node-empty{padding-left:calc(12px + (var(--lu-depth,0) + 1) * var(--ft-indent,22px))}
@@ -503,7 +503,7 @@
   #libraryFolderNav{float:left;box-sizing:border-box;width:var(--lu-fnav-w);margin-left:calc(-1 * var(--lu-fnav-w) - 12px)}
   #libraryFolderNav .lu-fnav-in{padding:0 6px 4px 0}
   /* S69-84: 나무·두 칸 칸 폴더 줄 ⋯(ft-dots)의 닿는 자리(::after)는 줄 높이 안으로만 — 위아래로 넓히면 맨 아래 줄 밖으로 나와 칸이 몇 px 굴러가고(스크롤 끝 자리가 흔들림) 옆 줄과 겹친다. */
-  #libraryFolderNav .ft-dots::after,#documentList .lu-pane-folder .ft-dots::after{inset:0 -4px}
+  #libraryFolderNav .ft-dots::after,#documentList .lu-pane-folder .ft-dots::after{inset:0 -8px}
 }
 
 /* ───────── LIB-위쪽한줄(요청함 11/09 11:01, 명진 PC 'B' 11:24 · 폰 '가안' 11:28, 시안 docs/design/mockups/library-top-pc.html·library-top-phone.html) ─────────

@@ -11,6 +11,9 @@ export const SWIPE_BTN = 64;
 export const SWIPE_START = 12;
 export const SWIPE_EDGE = 24;
 export const SWIPE_END_MAX = 3;
+// HOME-읽을거리평가(사용자 2026-11-28 07:04 "읽을 거리 왼쪽 스와이프 할 땐 엄지척 엄지다운 버튼 추가"): 평가 칸 하나(위 👍·아래 👎 두 단추를 한 칸에 포갬)는
+// 세 칸 [주 동작][수정][숨기기·삭제]와 따로 맨 왼쪽에 하나까지 더 둔다 — 그래서 한 줄 칸은 많아야 넷.
+export const SWIPE_CELLS_MAX = SWIPE_END_MAX + 1;
 
 // 'wait'(아직 모름) | 'scroll'(세로, 밀기 아님) | 'swipe'(가로가 세로의 1.5배를 넘고 12px 이상)
 export function swipeIntent(dx, dy) {
@@ -26,17 +29,20 @@ export function swipeIntent(dx, dy) {
 export const swipeEdge = x => !(Number(x) >= SWIPE_EDGE);
 // 삭제 칸인가(맨 오른쪽에 둔다).
 export const isDanger = a => !!a && (a.key === 'delete' || a.tone === 'danger');
-// 그 목록이 준 end 칸들 → 실제로 그릴 칸(최대 3, 빈 것 빼기, 위험한 것은 맨 오른쪽으로). 하나만 준 옛 모양({…})도 받는다.
+// 두 단추를 한 칸에 포갠 칸인가({key, pair:[{key,label,…},{key,label,…}]}).
+export const isPair = a => !!a && !!a.key && Array.isArray(a.pair) && a.pair.length === 2 && a.pair.every(p => p && p.key);
+// 그 목록이 준 end 칸들 → 실제로 그릴 칸(최대 3 + 평가 칸 하나, 빈 것 빼기, 위험한 것은 맨 오른쪽으로). 하나만 준 옛 모양({…})도 받는다.
 export function endCells(end) {
-  const list = (Array.isArray(end) ? end : end ? [end] : []).filter(a => a && a.key);
+  const given = (Array.isArray(end) ? end : end ? [end] : []).filter(a => a && a.key);
+  const pair = given.filter(isPair).slice(0, 1), list = given.filter(a => !isPair(a));
   const safe = list.filter(a => !isDanger(a)), danger = list.filter(isDanger);
   const out = [...safe, ...danger];
   // 3칸이 넘으면 위험한 칸(삭제)은 남기고 덜 중요한 뒤쪽 칸부터 뺀다.
   while (out.length > SWIPE_END_MAX) out.splice(out.length - 1 - (danger.length ? 1 : 0), 1);
-  return out;
+  return [...pair, ...out]; // 평가 칸(있으면)은 맨 왼쪽 — 가장 덜 위험한 일
 }
 // 줄에서 쓸 칸 수. has.start/has.end는 칸 수(옛 true/false도 받음: true = 1칸).
-const count = v => (v === true ? 1 : Math.max(0, Math.min(SWIPE_END_MAX, Number(v) || 0)));
+const count = v => (v === true ? 1 : Math.max(0, Math.min(SWIPE_CELLS_MAX, Number(v) || 0)));
 // UI-오른쪽밀기고르기(S70-64, 2026-11-26 07:44 명진 "오른쪽으로 밀면 선택이 되는데 이거는 복수선택 용이야"):
 // 오른쪽 밀기는 고르기 하나뿐이다. start 칸이 [선택](key 'select')이면 startPick — 반 칸(32px) 넘게 밀고 떼면 칸을 열어 두지 않고 바로 그 줄을 고른다.
 export const PICK_KEY = 'select';

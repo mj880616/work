@@ -10,7 +10,7 @@
 // 쓰는 법: bindRowSwipe(목록을 담은 고정 칸, {row:'줄 선택자', enabled:()=>bool,
 //   actions:row=>({start:PICK|{key,label,tone,icon}|null, end:[{key,label,tone,icon}, …]|{…}|null}), run:(key,row)=>void,
 //   select:{attr:'줄 id 속성', acts:()=>[{key,label,danger}], run:(key,ids)=>Promise, open?:row=>void(그 목록에 이미 있는 고르기를 여는 길)}})
-import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, cellWidth, endCells, sides, pickedLabel, SWIPE_BTN} from './row-swipe-model.mjs';
+import {swipeIntent, swipeEdge, rowOffset, rowSettle, openOffset, cellWidth, endCells, isPair, sides, pickedLabel, SWIPE_BTN} from './row-swipe-model.mjs';
 import {partStyles} from './part-styles.js';
 import {iconSvg} from './tree-icons.js';
 import {createSelectMode} from './select-mode.js';
@@ -53,9 +53,11 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
     const host = el.parentElement; host.classList.add('row-swipe-host');
     const layer = document.createElement(host.tagName === 'UL' || host.tagName === 'OL' ? 'li' : 'div');
     layer.className = 'row-swipe-acts'; layer.setAttribute('role', 'presentation');
-    const btn = (side, a) => `<button type="button" class="row-swipe-act row-swipe-${side} row-swipe-tone-${esc(a.tone || (side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span><span class="row-swipe-tx">${esc(a.label)}</span></button>`;
+    // 칸 단추는 이 한 벌로만 만든다. half: HOME-읽을거리평가의 포갠 칸 안 단추(위·아래 반씩, 그림만 — 이름은 aria-label, 누른 상태는 aria-pressed).
+    const btn = (side, a, half = false) => `<button type="button" class="row-swipe-act row-swipe-${half ? 'half' : side} row-swipe-tone-${esc(a.tone || (half ? 'muted' : side === 'end' ? 'danger' : 'info'))}" data-row-swipe-act="${side}" data-row-swipe-key="${esc(a.key)}" aria-label="${esc(a.aria || a.label)}"${half ? ` aria-pressed="${a.pressed ? 'true' : 'false'}"` : ''}><span class="row-swipe-ic" aria-hidden="true">${iconSvg(a.icon || ICON[a.key] || '', {size:18})}</span>${half ? '' : `<span class="row-swipe-tx">${esc(a.label)}</span>`}</button>`;
+    const cell = a => (isPair(a) ? `<span class="row-swipe-pair" role="group" aria-label="${esc(a.label || '')}">${a.pair.map(p => btn('end', p, true)).join('')}</span>` : btn('end', a));
     const ends = endCells(acts.end);
-    layer.innerHTML = (acts.start ? btn('start', acts.start) : '') + (ends.length ? `<span class="row-swipe-ends">${ends.map(a => btn('end', a)).join('')}</span>` : '');
+    layer.innerHTML = (acts.start ? btn('start', acts.start) : '') + (ends.length ? `<span class="row-swipe-ends">${ends.map(cell).join('')}</span>` : '');
     Object.assign(layer.style, {top:el.offsetTop + 'px', height:el.offsetHeight + 'px'});
     el.before(layer); el.classList.add('row-swipe-row');
     return layer;
@@ -63,7 +65,7 @@ export function bindRowSwipe(root, {row, enabled = () => true, actions, run, sel
   function paint(state, x) {
     state.x = x; state.el.style.transform = x ? `translateX(${x}px)` : '';
     for (const b of state.layer.querySelectorAll('[data-row-swipe-act="start"]')) b.style.width = Math.max(SWIPE_BTN, x) + 'px';
-    for (const b of state.layer.querySelectorAll('[data-row-swipe-act="end"]')) b.style.width = cellWidth(Math.min(0, x), state.has.end) + 'px';
+    for (const b of state.layer.querySelectorAll('.row-swipe-ends > *')) b.style.width = cellWidth(Math.min(0, x), state.has.end) + 'px';
     state.layer.dataset.side = x > 0 ? 'start' : x < 0 ? 'end' : '';
   }
   function drop(state) {

@@ -61,4 +61,3 @@ export function lostMarks(beforeBlocks, afterBlocks, marks) {
   return (Array.isArray(marks) ? marks : []).filter(h => h && locate(before, h) && !locate(after, h));
 }
 export const lostNote = n => `밑줄 ${n}개도 함께 삭제돼요`;
-export const textRows = text => Math.max(2, Math.min(12, Math.ceil([...String(text ?? '')].length / 34)));

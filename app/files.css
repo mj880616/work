@@ -46,7 +46,7 @@
 .fx-list > .fx-head, .fx-list > .fx-rows:not(.fx-grid) { min-width:min-content; }
 /* UI-간격기준 E(S70-25): 목록 칸의 빈 상태·실패 안내는 목록 줄 글자와 같은 왼쪽 선(머리 줄·줄의 좌우 8px). */
 .fx-list > :is(.wait-empty, .wait-fail) { padding-inline:8px; }
-.fx-head { height:26px; padding:0 8px; font-size:11.5px; color:var(--kptu-muted); border-bottom:.5px solid var(--kptu-border); }
+.fx-head { --col-gap:8px; height:26px; padding:0 8px; font-size:11.5px; color:var(--kptu-muted); border-bottom:.5px solid var(--kptu-border); }
 .fx-head span { position:relative; min-width:0; white-space:nowrap; }
 /* 첫 칸(아이콘 자리)은 비우고 이름 머리는 이름 칸 위에(S51-33: 이름 칸 금이 이름 칸 너비만 바꾸게). */
 .fx-head span:nth-last-child(2) { text-align:right; }
